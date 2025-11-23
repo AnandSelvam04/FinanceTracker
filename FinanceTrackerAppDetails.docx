@@ -1,0 +1,53 @@
+# FinanceTracker Application Structure and Features
+
+This document summarizes the application structure and features as described in the README file for the FinanceTracker Flutter app.
+
+## Overview
+FinanceTracker is an Android-first Flutter app to track personal expenses, investments, and provide dashboards, charts, and backup options. It supports manual entry and automatic SMS parsing for bank/card messages (Android only).
+
+### Key Features
+- Manual expense & investment entry
+- SMS parsing to auto-add transactions (Android)
+- Local offline storage using SQLite (`finance.db`)
+- Local JSON backups (auto daily + manual)
+- Manual Google Drive backup & restore
+- Export to CSV (optional)
+- PIN/biometric lock (optional)
+
+## Project Structure
+```
+lib/
+  main.dart
+  models/
+    expense.dart
+    investment.dart
+  services/
+    db_service.dart
+    sms_service.dart
+    backup_service.dart
+  providers/
+    expense_provider.dart
+    investment_provider.dart
+  screens/
+    home_screen.dart
+    add_expense_screen.dart
+    add_investment_screen.dart
+    backups_screen.dart
+```
+
+## Folder and File Descriptions
+- **models/**: Data models for expenses and investments
+- **services/**: Business logic for database, SMS parsing, and backup/restore
+- **providers/**: State management for expenses and investments
+- **screens/**: UI screens for home, adding expenses/investments, and backups
+- **main.dart**: App entry point, theming, routing, and provider setup
+
+## Implementation Notes
+- Uses `provider` for state management
+- SQLite for local storage (to be implemented)
+- SMS parsing for Android (to be implemented)
+- Backup/restore logic (to be implemented)
+- UI navigation between main features (to be implemented)
+
+---
+This document serves as a reference for the initial setup and feature plan for the FinanceTracker app.
