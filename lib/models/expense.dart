@@ -1,6 +1,8 @@
+import '../utils/db_constants.dart';
+
 class Expense {
   final int? id;
-  final String title;
+  final String description;
   final double amount;
   final DateTime date;
   final String category;
@@ -8,7 +10,7 @@ class Expense {
 
   Expense({
     this.id,
-    required this.title,
+    required this.description,
     required this.amount,
     required this.date,
     required this.category,
@@ -16,20 +18,20 @@ class Expense {
   });
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'title': title,
-        'amount': amount,
-        'date': date.toIso8601String(),
-        'category': category,
-        'paymentMode': paymentMode,
+        DbConstants.colId: id,
+        DbConstants.colDescription: description,
+        DbConstants.colAmount: amount,
+        DbConstants.colDate: date.toIso8601String(),
+        DbConstants.colCategory: category,
+        DbConstants.colPaymentMode: paymentMode,
       };
 
   factory Expense.fromMap(Map<String, dynamic> map) => Expense(
-        id: map['id'],
-        title: map['title'],
-        amount: map['amount'],
-        date: DateTime.parse(map['date']),
-        category: map['category'],
-        paymentMode: map['paymentMode'],
+        id: map[DbConstants.colId],
+        description: map[DbConstants.colDescription],
+        amount: (map[DbConstants.colAmount] as num).toDouble(),
+        date: DateTime.parse(map[DbConstants.colDate]),
+        category: map[DbConstants.colCategory],
+        paymentMode: map[DbConstants.colPaymentMode],
       );
 }

@@ -1,3 +1,5 @@
+import '../utils/db_constants.dart';
+
 class Investment {
   final int? id;
   final String name;
@@ -14,18 +16,18 @@ class Investment {
   });
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'name': name,
-        'amount': amount,
-        'date': date.toIso8601String(),
-        'type': type,
+        DbConstants.colId: id,
+        DbConstants.colName: name,
+        DbConstants.colAmount: amount,
+        DbConstants.colDate: date.toIso8601String(),
+        DbConstants.colType: type,
       };
 
   factory Investment.fromMap(Map<String, dynamic> map) => Investment(
-        id: map['id'],
-        name: map['name'],
-        amount: map['amount'],
-        date: DateTime.parse(map['date']),
-        type: map['type'],
+        id: map[DbConstants.colId],
+        name: map[DbConstants.colName],
+        amount: (map[DbConstants.colAmount] as num).toDouble(),
+        date: DateTime.parse(map[DbConstants.colDate]),
+        type: map[DbConstants.colType],
       );
 }

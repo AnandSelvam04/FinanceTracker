@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// import 'package:finance_tracker/services/app_service.dart';
-import 'package:finance_tracker/providers/expense_provider.dart';
-import 'package:finance_tracker/providers/investment_provider.dart';
-
-import 'package:finance_tracker/screens/home_screen.dart';
-import 'package:finance_tracker/screens/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:finance_tracker/providers/budget_provider.dart';
+import 'package:finance_tracker/providers/expense_provider.dart';
+import 'package:finance_tracker/providers/investment_provider.dart';
+import 'package:finance_tracker/screens/home_screen.dart';
+import 'package:finance_tracker/screens/onboarding_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +40,7 @@ class FinanceTrackerApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ExpenseProvider()),
         ChangeNotifierProvider(create: (_) => InvestmentProvider()),
+        ChangeNotifierProvider(create: (_) => BudgetProvider()),
       ],
       child: MaterialApp(
         title: 'Finance Tracker',

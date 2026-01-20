@@ -1,22 +1,26 @@
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:csv/csv.dart';
+import 'package:google_sign_in/google_sign_in.dart' as gsi;
+import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/expense.dart';
 import '../models/investment.dart';
 import 'db_service.dart';
-// Google Drive and Google Sign-In imports removed
-// import 'package:http/http.dart' as http; // Removed, no longer needed
-import 'package:csv/csv.dart';
 
 // Export expenses to CSV
 
 Future<File> exportExpensesToCsv() async {
   final expenses = await DBService().getExpenses();
   final List<List<dynamic>> rows = [
-    ['ID', 'Title', 'Amount', 'Date', 'Category', 'PaymentMode'],
+    ['ID', 'Description', 'Amount', 'Date', 'Category', 'PaymentMode'],
     ...expenses.map((e) => [
           e.id ?? '',
-          e.title,
+          e.description,
           e.amount,
           e.date.toIso8601String(),
           e.category,
@@ -54,7 +58,12 @@ Future<File> exportInvestmentsToCsv() async {
 }
 
 class BackupService {
-  // Google Drive and Google Sign-In features removed
+  final gsi.GoogleSignIn _googleSignIn = gsi.GoogleSignIn(
+    scopes: [
+      drive.DriveApi.driveFileScope,
+      drive.DriveApi.driveAppdataScope,
+    ],
+  );
 
   Future<String> get _localPath async {
     final directory = await getApplicationDocumentsDirectory();
@@ -77,12 +86,15 @@ class BackupService {
     await file.writeAsString(jsonEncode(data));
   }
 
-  Future<void> restoreFromJson() async {
+  Future<void> restoreFromJson({bool clearBeforeRestore = true}) async {
     final file = await _backupFile;
     if (!await file.exists()) return;
     final content = await file.readAsString();
     final data = jsonDecode(content);
     final db = DBService();
+    if (clearBeforeRestore) {
+      await db.clearAll();
+    }
     for (var e in data['expenses']) {
       await db.insertExpense(Expense.fromMap(Map<String, dynamic>.from(e)));
     }
@@ -91,6 +103,120 @@ class BackupService {
           .insertInvestment(Investment.fromMap(Map<String, dynamic>.from(i)));
     }
   }
+
+  Future<drive.DriveApi> _getDriveApi() async {
+    final account =
+        await _googleSignIn.signInSilently() ?? await _googleSignIn.signIn();
+    if (account == null) {
+      throw Exception('Google sign-in was cancelled');
+    }
+    final authHeaders = await account.authHeaders;
+    final client = _GoogleAuthClient(authHeaders);
+    return drive.DriveApi(client);
+  }
+
+  Future<void> backupToDrive() async {
+    final driveApi = await _getDriveApi();
+    await backupToJson();
+    final file = await _backupFile;
+    final length = await file.length();
+
+    final driveFile = drive.File()
+      ..name = 'finance_backup.json'
+      ..parents = ['appDataFolder'];
+
+    await driveApi.files.create(
+      driveFile,
+      uploadMedia: drive.Media(file.openRead(), length),
+    );
+
+    // Update last sync time
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_backup_time', DateTime.now().toIso8601String());
+  }
+
+  /// Checks if the remote backup is newer than the last local backup.
+  /// Returns true if remote is newer, false otherwise.
+  Future<bool> isRemoteBackupNewer() async {
+    try {
+      final driveApi = await _getDriveApi();
+      final fileList = await driveApi.files.list(
+        spaces: 'appDataFolder',
+        q: "name = 'finance_backup.json' and trashed = false",
+        orderBy: 'modifiedTime desc',
+        pageSize: 1,
+        $fields: 'files(id, modifiedTime)',
+      );
+
+      if (fileList.files == null || fileList.files!.isEmpty) {
+        return false; // No remote backup exists
+      }
+
+      final remoteFile = fileList.files!.first;
+      if (remoteFile.modifiedTime == null) return false;
+
+      final prefs = await SharedPreferences.getInstance();
+      final lastBackupStr = prefs.getString('last_backup_time');
+
+      if (lastBackupStr == null) {
+        // We have never backed up from this device, but a remote file exists.
+        // Remote is definitely "newer" (or at least unknown).
+        return true;
+      }
+
+      final lastLocalBackupTime = DateTime.parse(lastBackupStr);
+      // Drive returns UTC time
+      return remoteFile.modifiedTime!.isAfter(lastLocalBackupTime);
+    } catch (e) {
+      // If we can't check, assume false to avoid blocking the user, 
+      // but log the error.
+      // ignore: avoid_print
+      print('Error checking remote backup: $e');
+      return false;
+    }
+  }
+
+  Future<void> restoreFromDrive() async {
+    final driveApi = await _getDriveApi();
+    final fileList = await driveApi.files.list(
+      spaces: 'appDataFolder',
+      q: "name = 'finance_backup.json' and trashed = false",
+      orderBy: 'modifiedTime desc',
+      pageSize: 1,
+    );
+
+    if (fileList.files == null || fileList.files!.isEmpty) {
+      throw Exception('No Drive backup found');
+    }
+
+    final fileId = fileList.files!.first.id;
+    if (fileId == null) {
+      throw Exception('Invalid backup file id');
+    }
+
+    final media = await driveApi.files.get(
+      fileId,
+      downloadOptions: drive.DownloadOptions.fullMedia,
+    ) as drive.Media;
+
+    final file = await _backupFile;
+    final sink = file.openWrite();
+    await media.stream.pipe(sink);
+    await sink.flush();
+    await sink.close();
+
+    await restoreFromJson(clearBeforeRestore: true);
+  }
 }
 
-// Google Drive authentication helper removed
+class _GoogleAuthClient extends http.BaseClient {
+  final Map<String, String> _headers;
+  final http.Client _client = http.Client();
+
+  _GoogleAuthClient(this._headers);
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    return _client.send(request..headers.addAll(_headers));
+  }
+}

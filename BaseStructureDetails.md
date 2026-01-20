@@ -1,56 +1,26 @@
-# FinanceTracker Base Structure Creation Guide
+# FinanceTracker Structure Snapshot
 
-This document outlines the steps taken to create the base structure for the FinanceTracker Flutter application, along with details of the created files and folders.
-
-## Steps to Create the Base Structure
-
-1. **Create Main Folders**
-   - `lib/`: Main source code directory.
-   - `assets/`: For images and other assets.
-   - `test/`: For unit and widget tests.
-   - `.github/`: For project-specific GitHub and Copilot instructions.
-
-2. **Create Subfolders in `lib/`**
-   - `models/`: Data models (e.g., transactions).
-   - `views/`: UI screens (e.g., home view).
-   - `services/`: State management and business logic.
-
-3. **Create Key Files**
-   - `lib/main.dart`: Entry point of the application, sets up theming, state management, and routing.
-   - `pubspec.yaml`: Project configuration, dependencies, and asset registration.
-   - `lib/models/transaction.dart`: Defines the `Transaction` data model.
-   - `lib/views/home_view.dart`: Basic home screen UI.
-   - `lib/services/app_service.dart`: Placeholder for state management logic.
-   - `test/widget_test.dart`: Basic widget test for app startup.
-   - `README.md`: Project overview, structure, and getting started instructions.
-   - `.github/copilot-instructions.md`: Workspace-specific Copilot instructions.
-
-## Created Files and Folders
+Current folder layout reflects the working app (expenses, investments, charts, onboarding, backups). Key locations:
 
 ```
-FinanceTracker/
-├── assets/
-├── lib/
-│   ├── main.dart
-│   ├── models/
-│   │   └── transaction.dart
-│   ├── services/
-│   │   └── app_service.dart
-│   └── views/
-│       └── home_view.dart
-├── test/
-│   └── widget_test.dart
-├── pubspec.yaml
-├── README.md
-└── .github/
-    └── copilot-instructions.md
+lib/
+  main.dart                 # App entry, providers, theme, onboarding wrapper
+  models/                   # Data models (expense, investment, etc.)
+  providers/                # ChangeNotifiers (ExpenseProvider, InvestmentProvider)
+  services/                 # Data access (DB, storage helpers)
+  screens/                  # UI screens (home, add expense/investment, backups, onboarding, expense list)
+  widgets/                  # Charts (expense chart, trends) and shared UI components
+test/                       # Widget tests
+assets/                     # Declared assets
+test/                       # Widget tests
+.github/                    # Copilot instructions and GitHub configs
+pubspec.yaml                # Dependencies and asset registration
+android/                    # Platform target (Android only)
 ```
 
-## Notes
-- The project uses the `provider` package for state management.
-- Theming supports both light and dark modes.
-- Routing is set up for future expansion.
-- All files are placeholders and should be expanded as the app grows.
+Packages in use: Flutter 3, Provider, sqflite, path/path_provider, fl_chart, shared_preferences, local_auth, file_picker, csv, google_sign_in, googleapis/googleapis_auth (Drive backup/restore).
 
----
-This document serves as a reference for the initial project setup and structure.
+Notes:
+- Telephony/SMS parsing is intentionally excluded to avoid Play Store permission issues.
+- Biometric gate is optional and controlled via SharedPreferences flag (`biometricEnabled`).
+- Google Drive backup is implemented; sign-in required, uses appData folder for backup/restore.
