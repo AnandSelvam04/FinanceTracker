@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/account.dart';
 import '../models/budget.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
@@ -19,7 +20,17 @@ import 'db_service.dart';
 Future<File> exportExpensesToCsv() async {
   final expenses = await DBService().getExpenses();
   final List<List<dynamic>> rows = [
-    ['ID', 'Description', 'Amount', 'Date', 'Category', 'PaymentMode'],
+    [
+      'ID',
+      'Description',
+      'Amount',
+      'Date',
+      'Category',
+      'PaymentMode',
+      'Type',
+      'AccountId',
+      'ToAccountId'
+    ],
     ...expenses.map((e) => [
           e.id ?? '',
           e.description,
@@ -27,6 +38,9 @@ Future<File> exportExpensesToCsv() async {
           e.date.toIso8601String(),
           e.category,
           e.paymentMode,
+          e.type,
+          e.accountId ?? '',
+          e.toAccountId ?? '',
         ]),
   ];
   String csvData = const ListToCsvConverter().convert(rows);
@@ -81,10 +95,13 @@ class BackupService {
     final expenses = await DBService().getExpenses();
     final investments = await DBService().getInvestments();
     final budgets = await DBService().getBudgets();
+    final accounts = await DBService().getAccounts();
     final data = {
+      'version': 2,
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'investments': investments.map((i) => i.toMap()).toList(),
       'budgets': budgets.map((b) => b.toMap()).toList(),
+      'accounts': accounts.map((a) => a.toMap()).toList(),
     };
     final file = await _backupFile;
     await file.writeAsString(jsonEncode(data));
@@ -98,6 +115,12 @@ class BackupService {
     final db = DBService();
     if (clearBeforeRestore) {
       await db.clearAll();
+    }
+    // Restore accounts before expenses so account links resolve
+    // (ids are preserved because toMap includes them). Older backups
+    // have no 'accounts' key; skip gracefully.
+    for (var a in data['accounts'] ?? []) {
+      await db.insertAccount(Account.fromMap(Map<String, dynamic>.from(a)));
     }
     for (var e in data['expenses'] ?? []) {
       await db.insertExpense(Expense.fromMap(Map<String, dynamic>.from(e)));

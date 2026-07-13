@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'accounts_screen.dart';
 import 'backups_screen.dart';
 import 'budgets_screen.dart';
+import 'cashflow_screen.dart';
 import 'investments_screen.dart';
 
 class MoreScreen extends StatefulWidget {
@@ -40,6 +42,28 @@ class _MoreScreenState extends State<MoreScreen> {
     return Scaffold(
       body: ListView(
         children: [
+          ListTile(
+            leading: const Icon(Icons.account_balance),
+            title: const Text('Accounts'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const AccountsScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.stacked_bar_chart),
+            title: const Text('Cash Flow'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const CashflowScreen()),
+              );
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.trending_up),
             title: const Text('Investments'),

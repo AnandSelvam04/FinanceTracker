@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
 import '../widgets/expense_chart.dart';
@@ -33,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
       provider.ensureYearLoaded(_selectedYear);
       provider.ensureYearLoaded(_selectedYear - 1);
       context.read<InvestmentProvider>().fetchInvestments();
+      context.read<AccountProvider>().fetchAccounts();
     });
   }
 
@@ -148,8 +150,14 @@ class _DashboardView extends StatelessWidget {
     return Consumer<ExpenseProvider>(
       builder: (context, provider, _) {
         final monthlyExpenses =
-            provider.expensesForMonth(selectedYear, selectedMonth);
-        final yearlyExpenses = provider.expensesForYear(selectedYear);
+            provider.spendingForMonth(selectedYear, selectedMonth);
+        final yearlyExpenses = provider
+            .expensesForYear(selectedYear)
+            .where((e) => e.isExpense)
+            .toList();
+        final monthlyIncome =
+            provider.incomeForMonth(selectedYear, selectedMonth);
+        final yearlyIncome = provider.incomeForYear(selectedYear);
 
         return SingleChildScrollView(
           child: Padding(
@@ -192,6 +200,12 @@ class _DashboardView extends StatelessWidget {
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
+                    if (yearlyIncome > 0)
+                      Text(
+                        'Income: ₹${yearlyIncome.toStringAsFixed(2)}',
+                        style: TextStyle(
+                            fontSize: 14, color: Colors.green.shade700),
+                      ),
                     const SizedBox(height: 16),
                     const Text('Category Breakdown (Year)',
                         style: TextStyle(fontSize: 16)),
@@ -225,6 +239,12 @@ class _DashboardView extends StatelessWidget {
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
+                    if (monthlyIncome > 0)
+                      Text(
+                        'Income: ₹${monthlyIncome.toStringAsFixed(2)}',
+                        style: TextStyle(
+                            fontSize: 14, color: Colors.green.shade700),
+                      ),
                     const SizedBox(height: 16),
                     const Text('Trends (Last 12 Months)',
                         style: TextStyle(fontSize: 16)),

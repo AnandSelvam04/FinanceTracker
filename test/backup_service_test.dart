@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:finance_tracker/models/account.dart';
 import 'package:finance_tracker/models/budget.dart';
 import 'package:finance_tracker/models/expense.dart';
 import 'package:finance_tracker/services/backup_service.dart';
@@ -55,22 +56,29 @@ void main() {
         year: 2026,
         month: 5,
       ));
+      await db.insertAccount(
+          Account(name: 'Wallet', type: 'cash', openingBalance: 250));
 
       final service = BackupService();
       await service.backupToJson();
       await db.clearAll();
       expect(await db.getExpenses(), isEmpty);
       expect(await db.getBudgets(), isEmpty);
+      expect(await db.getAccounts(), isEmpty);
 
       await service.restoreFromJson();
 
       final expenses = await db.getExpenses();
       final budgets = await db.getBudgets();
+      final accounts = await db.getAccounts();
       expect(expenses.length, 1);
       expect(expenses.first.description, 'Lunch');
       expect(budgets.length, 1);
       expect(budgets.first.category, 'Food');
       expect(budgets.first.amount, 3000.0);
+      expect(accounts.length, 1);
+      expect(accounts.first.name, 'Wallet');
+      expect(accounts.first.openingBalance, 250.0);
     });
 
     test('restore of legacy backup without budgets key succeeds', () async {

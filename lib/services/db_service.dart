@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import '../models/account.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
 import '../models/budget.dart';
@@ -11,6 +12,9 @@ class DBService {
   factory DBService() => _instance;
   DBService._internal();
 
+  /// Test-only hook so tests can point the singleton at an isolated file.
+  static String? dbNameOverride;
+
   Database? _db;
 
   Future<Database> get database async {
@@ -21,7 +25,7 @@ class DBService {
 
   Future<Database> _initDB() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, DbConstants.dbName);
+    final path = join(dbPath, dbNameOverride ?? DbConstants.dbName);
     return await openDatabase(
       path,
       version: DbConstants.dbVersion,
@@ -33,7 +37,10 @@ class DBService {
             ${DbConstants.colAmount} REAL,
             ${DbConstants.colDate} TEXT,
             ${DbConstants.colCategory} TEXT,
-            ${DbConstants.colPaymentMode} TEXT
+            ${DbConstants.colPaymentMode} TEXT,
+            ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}',
+            ${DbConstants.colAccountId} INTEGER,
+            ${DbConstants.colToAccountId} INTEGER
           )
         ''');
         await db.execute('''
@@ -54,9 +61,10 @@ class DBService {
             ${DbConstants.colMonth} INTEGER
           )
         ''');
+        await _createAccountsTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion == 1 && newVersion == 2) {
+        if (oldVersion < 2) {
           // Rename 'title' to 'description' in expenses table
           await db.execute('ALTER TABLE ${DbConstants.tableExpenses} RENAME TO expenses_old;');
           await db.execute('''
@@ -87,8 +95,29 @@ class DBService {
             )
           ''');
         }
+        if (oldVersion < 4) {
+          await _createAccountsTable(db);
+          await db.execute(
+              "ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}'");
+          await db.execute(
+              'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colAccountId} INTEGER');
+          await db.execute(
+              'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colToAccountId} INTEGER');
+        }
       },
     );
+  }
+
+  static Future<void> _createAccountsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE ${DbConstants.tableAccounts}(
+        ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.colName} TEXT NOT NULL,
+        ${DbConstants.colType} TEXT NOT NULL,
+        ${DbConstants.colOpeningBalance} REAL NOT NULL DEFAULT 0,
+        ${DbConstants.colColor} INTEGER
+      )
+    ''');
   }
 
   // Expense CRUD
@@ -211,6 +240,7 @@ class DBService {
     await clearExpenses();
     await clearInvestments();
     await clearBudgets();
+    await clearAccounts();
   }
 
   // Budget CRUD
@@ -239,5 +269,69 @@ class DBService {
   Future<void> clearBudgets() async {
     final db = await database;
     await db.delete(DbConstants.tableBudgets);
+  }
+
+  // Account CRUD
+  Future<int> insertAccount(Account account) async {
+    final db = await database;
+    return await db.insert(DbConstants.tableAccounts, account.toMap());
+  }
+
+  Future<List<Account>> getAccounts() async {
+    final db = await database;
+    final maps =
+        await db.query(DbConstants.tableAccounts, orderBy: DbConstants.colName);
+    return maps.map((map) => Account.fromMap(map)).toList();
+  }
+
+  Future<int> updateAccount(Account account) async {
+    final db = await database;
+    return await db.update(DbConstants.tableAccounts, account.toMap(),
+        where: '${DbConstants.colId} = ?', whereArgs: [account.id]);
+  }
+
+  Future<int> deleteAccount(int id) async {
+    final db = await database;
+    return await db.delete(DbConstants.tableAccounts,
+        where: '${DbConstants.colId} = ?', whereArgs: [id]);
+  }
+
+  Future<void> clearAccounts() async {
+    final db = await database;
+    await db.delete(DbConstants.tableAccounts);
+  }
+
+  /// Balance = opening + income − expenses − outgoing transfers
+  /// + incoming transfers. Computed in SQL so it covers all years,
+  /// not just those loaded into ExpenseProvider.
+  Future<double> getAccountBalance(Account account) async {
+    final db = await database;
+
+    Future<double> sumWhere(String where, List<Object?> args) async {
+      final result = await db.rawQuery(
+        'SELECT SUM(${DbConstants.colAmount}) AS total FROM ${DbConstants.tableExpenses} WHERE $where',
+        args,
+      );
+      return ((result.first['total'] ?? 0) as num).toDouble();
+    }
+
+    final income = await sumWhere(
+        '${DbConstants.colType} = ? AND ${DbConstants.colAccountId} = ?',
+        [DbConstants.txIncome, account.id]);
+    final spent = await sumWhere(
+        '${DbConstants.colType} = ? AND ${DbConstants.colAccountId} = ?',
+        [DbConstants.txExpense, account.id]);
+    final transferredOut = await sumWhere(
+        '${DbConstants.colType} = ? AND ${DbConstants.colAccountId} = ?',
+        [DbConstants.txTransfer, account.id]);
+    final transferredIn = await sumWhere(
+        '${DbConstants.colType} = ? AND ${DbConstants.colToAccountId} = ?',
+        [DbConstants.txTransfer, account.id]);
+
+    return account.openingBalance +
+        income -
+        spent -
+        transferredOut +
+        transferredIn;
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/account_provider.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
@@ -23,6 +24,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
     final expenseProvider = context.read<ExpenseProvider>();
     final investmentProvider = context.read<InvestmentProvider>();
     final budgetProvider = context.read<BudgetProvider>();
+    final accountProvider = context.read<AccountProvider>();
     setState(() => _isWorking = true);
     try {
       await task();
@@ -31,6 +33,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
       await expenseProvider.reloadLoadedYears();
       await investmentProvider.fetchInvestments();
       await budgetProvider.fetchBudgets();
+      await accountProvider.fetchAccounts();
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {

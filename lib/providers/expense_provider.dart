@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../models/expense.dart';
 import '../services/db_service.dart';
+import '../utils/db_constants.dart';
 
 class ExpenseProvider extends ChangeNotifier {
   final List<Expense> _expenses = [];
   final Set<int> _loadedYears = {};
 
+  /// All loaded transaction rows (expenses, income, and transfers).
   List<Expense> get expenses => _expenses;
 
   /// Ensures expenses for the given year are loaded.
@@ -23,10 +25,10 @@ class ExpenseProvider extends ChangeNotifier {
   /// Reloads expenses for a specific year (e.g., after an update)
   Future<void> _reloadYear(int year) async {
     if (!_loadedYears.contains(year)) return;
-    
+
     // Remove existing expenses for that year
     _expenses.removeWhere((e) => e.date.year == year);
-    
+
     // Fetch fresh data
     final newExpenses = await DBService().getExpensesByYear(year);
     _expenses.addAll(newExpenses);
@@ -44,23 +46,31 @@ class ExpenseProvider extends ChangeNotifier {
     }
   }
 
-  /// Returns the total amount spent in a given year
-  double totalForYear(int year) {
-    return _expenses
-        .where((e) => e.date.year == year)
-        .fold(0.0, (sum, e) => sum + e.amount);
-  }
+  Iterable<Expense> _byYear(int year, String type) => _expenses
+      .where((e) => e.date.year == year && e.type == type);
 
-  /// Returns category totals for a given year
+  Iterable<Expense> _byMonth(int year, int month, String type) =>
+      _expenses.where((e) =>
+          e.date.year == year && e.date.month == month && e.type == type);
+
+  /// Returns the total amount spent in a given year (expenses only).
+  double totalForYear(int year) =>
+      _byYear(year, DbConstants.txExpense).fold(0.0, (sum, e) => sum + e.amount);
+
+  /// Returns the total income received in a given year.
+  double incomeForYear(int year) =>
+      _byYear(year, DbConstants.txIncome).fold(0.0, (sum, e) => sum + e.amount);
+
+  /// Returns category totals for a given year (expenses only).
   Map<String, double> categoryTotalsForYear(int year) {
     final map = <String, double>{};
-    for (final e in _expenses.where((e) => e.date.year == year)) {
+    for (final e in _byYear(year, DbConstants.txExpense)) {
       map[e.category] = (map[e.category] ?? 0) + e.amount;
     }
     return map;
   }
 
-  /// Returns all expenses for a given year
+  /// Returns all transaction rows for a given year.
   List<Expense> expensesForYear(int year) =>
       _expenses.where((e) => e.date.year == year).toList();
 
@@ -81,7 +91,7 @@ class ExpenseProvider extends ChangeNotifier {
   }
 
   Future<void> deleteExpense(int id) async {
-    // We need to find the expense first to know its year, 
+    // We need to find the expense first to know its year,
     // but since we only delete what we see, it must be in _expenses.
     final index = _expenses.indexWhere((e) => e.id == id);
     if (index != -1) {
@@ -91,22 +101,32 @@ class ExpenseProvider extends ChangeNotifier {
     }
   }
 
-  /// Returns expenses for a given month and year
+  /// Returns all transaction rows for a given month and year.
   List<Expense> expensesForMonth(int year, int month) {
     return _expenses
         .where((e) => e.date.year == year && e.date.month == month)
         .toList();
   }
 
-  /// Returns the total amount spent in a given month and year
-  double totalForMonth(int year, int month) {
-    return expensesForMonth(year, month).fold(0.0, (sum, e) => sum + e.amount);
-  }
+  /// Returns only expense rows for a given month and year.
+  List<Expense> spendingForMonth(int year, int month) =>
+      _byMonth(year, month, DbConstants.txExpense).toList();
+
+  /// Returns the total amount spent in a given month and year (expenses only).
+  double totalForMonth(int year, int month) =>
+      _byMonth(year, month, DbConstants.txExpense)
+          .fold(0.0, (sum, e) => sum + e.amount);
+
+  /// Returns the total income received in a given month and year.
+  double incomeForMonth(int year, int month) =>
+      _byMonth(year, month, DbConstants.txIncome)
+          .fold(0.0, (sum, e) => sum + e.amount);
 
   /// Returns a map of category to total for a given month and year
+  /// (expenses only).
   Map<String, double> categoryTotalsForMonth(int year, int month) {
     final map = <String, double>{};
-    for (final e in expensesForMonth(year, month)) {
+    for (final e in _byMonth(year, month, DbConstants.txExpense)) {
       map[e.category] = (map[e.category] ?? 0) + e.amount;
     }
     return map;

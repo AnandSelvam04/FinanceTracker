@@ -175,7 +175,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
 
           double spentForBudget(Budget b) {
             return expenseProvider
-                .expensesForMonth(b.year, b.month)
+                .spendingForMonth(b.year, b.month)
                 .where((e) => e.category == b.category)
                 .fold(0.0, (sum, e) => sum + e.amount);
           }
