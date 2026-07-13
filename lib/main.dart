@@ -5,6 +5,8 @@ import 'package:finance_tracker/providers/account_provider.dart';
 import 'package:finance_tracker/providers/budget_provider.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
 import 'package:finance_tracker/providers/investment_provider.dart';
+import 'package:finance_tracker/providers/recurring_provider.dart';
+import 'package:finance_tracker/providers/template_provider.dart';
 import 'package:finance_tracker/screens/home_screen.dart';
 import 'package:finance_tracker/screens/onboarding_screen.dart';
 import 'package:finance_tracker/services/auth_service.dart';
@@ -39,6 +41,8 @@ class FinanceTrackerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => InvestmentProvider()),
         ChangeNotifierProvider(create: (_) => BudgetProvider()),
         ChangeNotifierProvider(create: (_) => AccountProvider()),
+        ChangeNotifierProvider(create: (_) => RecurringProvider()),
+        ChangeNotifierProvider(create: (_) => TemplateProvider()),
       ],
       child: MaterialApp(
         title: 'Finance Tracker',

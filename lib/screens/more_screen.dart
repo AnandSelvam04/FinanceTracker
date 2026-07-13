@@ -5,6 +5,7 @@ import 'backups_screen.dart';
 import 'budgets_screen.dart';
 import 'cashflow_screen.dart';
 import 'investments_screen.dart';
+import 'recurring_screen.dart';
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -72,6 +73,17 @@ class _MoreScreenState extends State<MoreScreen> {
                 context,
                 MaterialPageRoute(
                     builder: (context) => const InvestmentsScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.repeat),
+            title: const Text('Recurring'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const RecurringScreen()),
               );
             },
           ),

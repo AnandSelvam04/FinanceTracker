@@ -12,6 +12,8 @@ import '../models/account.dart';
 import '../models/budget.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
+import '../models/recurring_rule.dart';
+import '../models/tx_template.dart';
 import '../utils/app_logger.dart';
 import 'db_service.dart';
 
@@ -96,12 +98,16 @@ class BackupService {
     final investments = await DBService().getInvestments();
     final budgets = await DBService().getBudgets();
     final accounts = await DBService().getAccounts();
+    final recurringRules = await DBService().getRecurringRules();
+    final templates = await DBService().getTemplates();
     final data = {
-      'version': 2,
+      'version': 3,
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'investments': investments.map((i) => i.toMap()).toList(),
       'budgets': budgets.map((b) => b.toMap()).toList(),
       'accounts': accounts.map((a) => a.toMap()).toList(),
+      'recurring_rules': recurringRules.map((r) => r.toMap()).toList(),
+      'templates': templates.map((t) => t.toMap()).toList(),
     };
     final file = await _backupFile;
     await file.writeAsString(jsonEncode(data));
@@ -132,6 +138,13 @@ class BackupService {
     // Older backups have no 'budgets' key; skip gracefully.
     for (var b in data['budgets'] ?? []) {
       await db.insertBudget(Budget.fromMap(Map<String, dynamic>.from(b)));
+    }
+    for (var r in data['recurring_rules'] ?? []) {
+      await db.insertRecurringRule(
+          RecurringRule.fromMap(Map<String, dynamic>.from(r)));
+    }
+    for (var t in data['templates'] ?? []) {
+      await db.insertTemplate(TxTemplate.fromMap(Map<String, dynamic>.from(t)));
     }
   }
 

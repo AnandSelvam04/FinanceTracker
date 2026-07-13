@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
+import '../providers/template_provider.dart';
 import '../models/expense.dart';
+import '../models/tx_template.dart';
+import '../services/db_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/db_constants.dart';
 
@@ -23,6 +26,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String _txType = DbConstants.txExpense;
   int? _accountId;
   bool _isSaving = false;
+  bool _saveAsTemplate = false;
+  List<String> _frequentExpenseCategories = const [];
+  List<String> _frequentIncomeCategories = const [];
 
   final List<String> _expenseCategories = const [
     'Food',
@@ -56,21 +62,38 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<AccountProvider>();
       if (provider.accounts.isEmpty) {
         provider.fetchAccounts();
+      }
+      final expenseFreq =
+          await DBService().frequentCategories(DbConstants.txExpense);
+      final incomeFreq =
+          await DBService().frequentCategories(DbConstants.txIncome);
+      if (mounted) {
+        setState(() {
+          _frequentExpenseCategories = expenseFreq;
+          _frequentIncomeCategories = incomeFreq;
+        });
       }
     });
   }
 
   bool get _isIncome => _txType == DbConstants.txIncome;
 
+  /// Recent categories first, then built-in defaults, de-duplicated.
+  List<String> get _suggestions {
+    final frequent =
+        _isIncome ? _frequentIncomeCategories : _frequentExpenseCategories;
+    final defaults = _isIncome ? _incomeCategories : _expenseCategories;
+    return <String>{...frequent, ...defaults}.toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final accounts = context.watch<AccountProvider>().accounts;
-    final categorySuggestions =
-        _isIncome ? _incomeCategories : _expenseCategories;
+    final categorySuggestions = _suggestions;
 
     return Scaffold(
       appBar: AppBar(title: Text(_isIncome ? 'Add Income' : 'Add Expense')),
@@ -198,6 +221,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   onChanged: (value) =>
                       setState(() => _selectedPaymentMode = value!),
                 ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('Save as quick-add template'),
+                value: _saveAsTemplate,
+                onChanged: (v) =>
+                    setState(() => _saveAsTemplate = v ?? false),
+              ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _isSaving
@@ -218,9 +249,21 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           final provider = context.read<ExpenseProvider>();
                           final accountProvider =
                               context.read<AccountProvider>();
+                          final templateProvider =
+                              context.read<TemplateProvider>();
                           try {
                             await provider.addExpense(expense);
                             await accountProvider.refreshBalances();
+                            if (_saveAsTemplate) {
+                              await templateProvider.addTemplate(TxTemplate(
+                                name: _descriptionController.text,
+                                description: _descriptionController.text,
+                                amount: double.parse(_amountController.text),
+                                category: _categoryController.text,
+                                type: _txType,
+                                accountId: _accountId,
+                              ));
+                            }
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

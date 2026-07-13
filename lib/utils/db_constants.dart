@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 4;
+  static const int dbVersion = 5;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -35,4 +35,20 @@ class DbConstants {
   static const String txExpense = 'expense';
   static const String txIncome = 'income';
   static const String txTransfer = 'transfer';
+
+  // Recurring Rules Table
+  static const String tableRecurringRules = 'recurring_rules';
+  static const String colFrequency = 'frequency';
+  static const String colNextDue = 'nextDue';
+  static const String colAnchorDay = 'anchorDay';
+  static const String colEnabled = 'enabled';
+
+  // Templates Table
+  static const String tableTemplates = 'templates';
+
+  // Frequency values stored in recurring_rules.frequency
+  static const String freqDaily = 'daily';
+  static const String freqWeekly = 'weekly';
+  static const String freqMonthly = 'monthly';
+  static const String freqYearly = 'yearly';
 }
