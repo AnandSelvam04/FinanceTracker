@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/expense_provider.dart';
 import '../models/expense.dart';
+import '../utils/app_logger.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
@@ -158,10 +159,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                 content: Text('Failed to save expense: $e'),
                               ));
                             }
-                            // ignore: avoid_print
-                            print('Error saving expense: $e');
-                            // ignore: avoid_print
-                            print(st);
+                            AppLogger.error('Error saving expense', e, st);
                           } finally {
                             if (mounted) setState(() => _isSaving = false);
                           }

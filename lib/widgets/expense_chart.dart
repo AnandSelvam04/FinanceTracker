@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../models/expense.dart';
+import '../utils/category_colors.dart';
 
 class ExpenseChart extends StatelessWidget {
   final List<Expense> expenses;
@@ -13,7 +14,7 @@ class ExpenseChart extends StatelessWidget {
         .map((e) => PieChartSectionData(
               value: e.value,
               title: e.key,
-              color: _getColorForCategory(e.key),
+              color: CategoryColors.forCategory(e.key),
               radius: 60,
               titleStyle: const TextStyle(fontSize: 12, color: Colors.white),
             ))
@@ -33,17 +34,5 @@ class ExpenseChart extends StatelessWidget {
       map[e.category] = (map[e.category] ?? 0) + e.amount;
     }
     return map;
-  }
-
-  Color _getColorForCategory(String category) {
-    final colors = [
-      Colors.blue,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-      Colors.red,
-      Colors.teal
-    ];
-    return colors[category.hashCode % colors.length];
   }
 }

@@ -18,6 +18,21 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   int _year = DateTime.now().year;
   int _month = DateTime.now().month;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final budgetProvider = context.read<BudgetProvider>();
+      final expenseProvider = context.read<ExpenseProvider>();
+      await budgetProvider.fetchBudgets();
+      // Load every year a budget references so "Spent" is accurate.
+      final years = budgetProvider.budgets.map((b) => b.year).toSet();
+      for (final year in years) {
+        await expenseProvider.ensureYearLoaded(year);
+      }
+    });
+  }
+
   Future<void> _showBudgetDialog({Budget? budget}) async {
     if (budget != null) {
       _category = budget.category;

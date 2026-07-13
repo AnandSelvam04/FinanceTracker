@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/expense_provider.dart';
+import '../providers/investment_provider.dart';
 import '../widgets/expense_chart.dart';
 import '../widgets/expense_trends_chart.dart';
 import 'add_expense_screen.dart';
@@ -31,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Load current year and previous year (for trends)
       provider.ensureYearLoaded(_selectedYear);
       provider.ensureYearLoaded(_selectedYear - 1);
+      context.read<InvestmentProvider>().fetchInvestments();
     });
   }
 

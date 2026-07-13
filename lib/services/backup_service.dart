@@ -8,8 +8,10 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/budget.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
+import '../utils/app_logger.dart';
 import 'db_service.dart';
 
 // Export expenses to CSV
@@ -78,9 +80,11 @@ class BackupService {
   Future<void> backupToJson() async {
     final expenses = await DBService().getExpenses();
     final investments = await DBService().getInvestments();
+    final budgets = await DBService().getBudgets();
     final data = {
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'investments': investments.map((i) => i.toMap()).toList(),
+      'budgets': budgets.map((b) => b.toMap()).toList(),
     };
     final file = await _backupFile;
     await file.writeAsString(jsonEncode(data));
@@ -95,12 +99,16 @@ class BackupService {
     if (clearBeforeRestore) {
       await db.clearAll();
     }
-    for (var e in data['expenses']) {
+    for (var e in data['expenses'] ?? []) {
       await db.insertExpense(Expense.fromMap(Map<String, dynamic>.from(e)));
     }
-    for (var i in data['investments']) {
+    for (var i in data['investments'] ?? []) {
       await db
           .insertInvestment(Investment.fromMap(Map<String, dynamic>.from(i)));
+    }
+    // Older backups have no 'budgets' key; skip gracefully.
+    for (var b in data['budgets'] ?? []) {
+      await db.insertBudget(Budget.fromMap(Map<String, dynamic>.from(b)));
     }
   }
 
@@ -168,10 +176,9 @@ class BackupService {
       // Drive returns UTC time
       return remoteFile.modifiedTime!.isAfter(lastLocalBackupTime);
     } catch (e) {
-      // If we can't check, assume false to avoid blocking the user, 
+      // If we can't check, assume false to avoid blocking the user,
       // but log the error.
-      // ignore: avoid_print
-      print('Error checking remote backup: $e');
+      AppLogger.error('Error checking remote backup', e);
       return false;
     }
   }

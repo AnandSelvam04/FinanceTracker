@@ -37,9 +37,9 @@ class TutorialScreen extends StatelessWidget {
         icon: Icons.account_balance_wallet,
       ),
       const _TutorialStep(
-        title: 'Optional biometric lock',
+        title: 'Optional app lock',
         body:
-            'Enable biometrics in onboarding/preferences; you will be prompted on launch if available.',
+            'Enable "App lock" in the More tab to require biometrics or your device PIN on launch.',
         icon: Icons.fingerprint,
       ),
     ];

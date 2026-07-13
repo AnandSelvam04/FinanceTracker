@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
 import '../models/budget.dart';
+import '../utils/app_logger.dart';
 import '../utils/db_constants.dart';
 
 class DBService {
@@ -111,10 +112,7 @@ class DBService {
           expenses.add(Expense.fromMap(map));
         } catch (e, st) {
           // If parsing a row fails, log it and continue
-          // ignore: avoid_print
-          print('Failed to parse expense row: $e');
-          // ignore: avoid_print
-          print(st);
+          AppLogger.error('Failed to parse expense row', e, st);
         }
       }
       return expenses;
@@ -139,8 +137,7 @@ class DBService {
         try {
           expenses.add(Expense.fromMap(map));
         } catch (e) {
-          // ignore: avoid_print
-          print('Failed to parse expense row: $e');
+          AppLogger.error('Failed to parse expense row', e);
         }
       }
       return expenses;
@@ -188,10 +185,7 @@ class DBService {
       try {
         investments.add(Investment.fromMap(map));
       } catch (e, st) {
-        // ignore: avoid_print
-        print('Failed to parse investment row: $e');
-        // ignore: avoid_print
-        print(st);
+        AppLogger.error('Failed to parse investment row', e, st);
       }
     }
     return investments;
@@ -216,6 +210,7 @@ class DBService {
   Future<void> clearAll() async {
     await clearExpenses();
     await clearInvestments();
+    await clearBudgets();
   }
 
   // Budget CRUD
