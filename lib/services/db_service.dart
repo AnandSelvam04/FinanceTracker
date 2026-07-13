@@ -1,14 +1,21 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import '../models/account.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
 import '../models/budget.dart';
+import '../models/recurring_rule.dart';
+import '../models/tx_template.dart';
+import '../utils/app_logger.dart';
 import '../utils/db_constants.dart';
 
 class DBService {
   static final DBService _instance = DBService._internal();
   factory DBService() => _instance;
   DBService._internal();
+
+  /// Test-only hook so tests can point the singleton at an isolated file.
+  static String? dbNameOverride;
 
   Database? _db;
 
@@ -20,7 +27,7 @@ class DBService {
 
   Future<Database> _initDB() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, DbConstants.dbName);
+    final path = join(dbPath, dbNameOverride ?? DbConstants.dbName);
     return await openDatabase(
       path,
       version: DbConstants.dbVersion,
@@ -32,7 +39,10 @@ class DBService {
             ${DbConstants.colAmount} REAL,
             ${DbConstants.colDate} TEXT,
             ${DbConstants.colCategory} TEXT,
-            ${DbConstants.colPaymentMode} TEXT
+            ${DbConstants.colPaymentMode} TEXT,
+            ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}',
+            ${DbConstants.colAccountId} INTEGER,
+            ${DbConstants.colToAccountId} INTEGER
           )
         ''');
         await db.execute('''
@@ -53,9 +63,11 @@ class DBService {
             ${DbConstants.colMonth} INTEGER
           )
         ''');
+        await _createAccountsTable(db);
+        await _createRecurringTables(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion == 1 && newVersion == 2) {
+        if (oldVersion < 2) {
           // Rename 'title' to 'description' in expenses table
           await db.execute('ALTER TABLE ${DbConstants.tableExpenses} RENAME TO expenses_old;');
           await db.execute('''
@@ -86,8 +98,60 @@ class DBService {
             )
           ''');
         }
+        if (oldVersion < 4) {
+          await _createAccountsTable(db);
+          await db.execute(
+              "ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}'");
+          await db.execute(
+              'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colAccountId} INTEGER');
+          await db.execute(
+              'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colToAccountId} INTEGER');
+        }
+        if (oldVersion < 5) {
+          await _createRecurringTables(db);
+        }
       },
     );
+  }
+
+  static Future<void> _createAccountsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE ${DbConstants.tableAccounts}(
+        ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.colName} TEXT NOT NULL,
+        ${DbConstants.colType} TEXT NOT NULL,
+        ${DbConstants.colOpeningBalance} REAL NOT NULL DEFAULT 0,
+        ${DbConstants.colColor} INTEGER
+      )
+    ''');
+  }
+
+  static Future<void> _createRecurringTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE ${DbConstants.tableRecurringRules}(
+        ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.colDescription} TEXT,
+        ${DbConstants.colAmount} REAL,
+        ${DbConstants.colCategory} TEXT,
+        ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}',
+        ${DbConstants.colAccountId} INTEGER,
+        ${DbConstants.colFrequency} TEXT NOT NULL,
+        ${DbConstants.colNextDue} TEXT NOT NULL,
+        ${DbConstants.colAnchorDay} INTEGER NOT NULL DEFAULT 1,
+        ${DbConstants.colEnabled} INTEGER NOT NULL DEFAULT 1
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE ${DbConstants.tableTemplates}(
+        ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.colName} TEXT NOT NULL,
+        ${DbConstants.colDescription} TEXT,
+        ${DbConstants.colAmount} REAL,
+        ${DbConstants.colCategory} TEXT,
+        ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}',
+        ${DbConstants.colAccountId} INTEGER
+      )
+    ''');
   }
 
   // Expense CRUD
@@ -111,10 +175,7 @@ class DBService {
           expenses.add(Expense.fromMap(map));
         } catch (e, st) {
           // If parsing a row fails, log it and continue
-          // ignore: avoid_print
-          print('Failed to parse expense row: $e');
-          // ignore: avoid_print
-          print(st);
+          AppLogger.error('Failed to parse expense row', e, st);
         }
       }
       return expenses;
@@ -139,8 +200,7 @@ class DBService {
         try {
           expenses.add(Expense.fromMap(map));
         } catch (e) {
-          // ignore: avoid_print
-          print('Failed to parse expense row: $e');
+          AppLogger.error('Failed to parse expense row', e);
         }
       }
       return expenses;
@@ -188,10 +248,7 @@ class DBService {
       try {
         investments.add(Investment.fromMap(map));
       } catch (e, st) {
-        // ignore: avoid_print
-        print('Failed to parse investment row: $e');
-        // ignore: avoid_print
-        print(st);
+        AppLogger.error('Failed to parse investment row', e, st);
       }
     }
     return investments;
@@ -216,6 +273,31 @@ class DBService {
   Future<void> clearAll() async {
     await clearExpenses();
     await clearInvestments();
+    await clearBudgets();
+    await clearAccounts();
+    await clearRecurringRules();
+    await clearTemplates();
+  }
+
+  /// Returns categories used most often in the last [days] days for the
+  /// given transaction [type], most-frequent first.
+  Future<List<String>> frequentCategories(String type,
+      {int days = 90, int limit = 6}) async {
+    final db = await database;
+    final cutoff = DateTime.now()
+        .subtract(Duration(days: days))
+        .toIso8601String();
+    final maps = await db.rawQuery(
+      'SELECT ${DbConstants.colCategory} AS category, COUNT(*) AS n '
+      'FROM ${DbConstants.tableExpenses} '
+      'WHERE ${DbConstants.colType} = ? AND ${DbConstants.colDate} >= ? '
+      'AND ${DbConstants.colCategory} IS NOT NULL '
+      'AND ${DbConstants.colCategory} != "" '
+      'GROUP BY ${DbConstants.colCategory} '
+      'ORDER BY n DESC LIMIT ?',
+      [type, cutoff, limit],
+    );
+    return maps.map((m) => m['category'] as String).toList();
   }
 
   // Budget CRUD
@@ -244,5 +326,123 @@ class DBService {
   Future<void> clearBudgets() async {
     final db = await database;
     await db.delete(DbConstants.tableBudgets);
+  }
+
+  // Account CRUD
+  Future<int> insertAccount(Account account) async {
+    final db = await database;
+    return await db.insert(DbConstants.tableAccounts, account.toMap());
+  }
+
+  Future<List<Account>> getAccounts() async {
+    final db = await database;
+    final maps =
+        await db.query(DbConstants.tableAccounts, orderBy: DbConstants.colName);
+    return maps.map((map) => Account.fromMap(map)).toList();
+  }
+
+  Future<int> updateAccount(Account account) async {
+    final db = await database;
+    return await db.update(DbConstants.tableAccounts, account.toMap(),
+        where: '${DbConstants.colId} = ?', whereArgs: [account.id]);
+  }
+
+  Future<int> deleteAccount(int id) async {
+    final db = await database;
+    return await db.delete(DbConstants.tableAccounts,
+        where: '${DbConstants.colId} = ?', whereArgs: [id]);
+  }
+
+  Future<void> clearAccounts() async {
+    final db = await database;
+    await db.delete(DbConstants.tableAccounts);
+  }
+
+  // Recurring rule CRUD
+  Future<int> insertRecurringRule(RecurringRule rule) async {
+    final db = await database;
+    return await db.insert(DbConstants.tableRecurringRules, rule.toMap());
+  }
+
+  Future<List<RecurringRule>> getRecurringRules() async {
+    final db = await database;
+    final maps = await db.query(DbConstants.tableRecurringRules,
+        orderBy: DbConstants.colNextDue);
+    return maps.map((map) => RecurringRule.fromMap(map)).toList();
+  }
+
+  Future<int> updateRecurringRule(RecurringRule rule) async {
+    final db = await database;
+    return await db.update(DbConstants.tableRecurringRules, rule.toMap(),
+        where: '${DbConstants.colId} = ?', whereArgs: [rule.id]);
+  }
+
+  Future<int> deleteRecurringRule(int id) async {
+    final db = await database;
+    return await db.delete(DbConstants.tableRecurringRules,
+        where: '${DbConstants.colId} = ?', whereArgs: [id]);
+  }
+
+  Future<void> clearRecurringRules() async {
+    final db = await database;
+    await db.delete(DbConstants.tableRecurringRules);
+  }
+
+  // Template CRUD
+  Future<int> insertTemplate(TxTemplate template) async {
+    final db = await database;
+    return await db.insert(DbConstants.tableTemplates, template.toMap());
+  }
+
+  Future<List<TxTemplate>> getTemplates() async {
+    final db = await database;
+    final maps = await db.query(DbConstants.tableTemplates,
+        orderBy: DbConstants.colName);
+    return maps.map((map) => TxTemplate.fromMap(map)).toList();
+  }
+
+  Future<int> deleteTemplate(int id) async {
+    final db = await database;
+    return await db.delete(DbConstants.tableTemplates,
+        where: '${DbConstants.colId} = ?', whereArgs: [id]);
+  }
+
+  Future<void> clearTemplates() async {
+    final db = await database;
+    await db.delete(DbConstants.tableTemplates);
+  }
+
+  /// Balance = opening + income − expenses − outgoing transfers
+  /// + incoming transfers. Computed in SQL so it covers all years,
+  /// not just those loaded into ExpenseProvider.
+  Future<double> getAccountBalance(Account account) async {
+    final db = await database;
+
+    Future<double> sumWhere(String where, List<Object?> args) async {
+      final result = await db.rawQuery(
+        'SELECT SUM(${DbConstants.colAmount}) AS total FROM ${DbConstants.tableExpenses} WHERE $where',
+        args,
+      );
+      return ((result.first['total'] ?? 0) as num).toDouble();
+    }
+
+    final income = await sumWhere(
+        '${DbConstants.colType} = ? AND ${DbConstants.colAccountId} = ?',
+        [DbConstants.txIncome, account.id]);
+    final spent = await sumWhere(
+        '${DbConstants.colType} = ? AND ${DbConstants.colAccountId} = ?',
+        [DbConstants.txExpense, account.id]);
+    final transferredOut = await sumWhere(
+        '${DbConstants.colType} = ? AND ${DbConstants.colAccountId} = ?',
+        [DbConstants.txTransfer, account.id]);
+    final transferredIn = await sumWhere(
+        '${DbConstants.colType} = ? AND ${DbConstants.colToAccountId} = ?',
+        [DbConstants.txTransfer, account.id]);
+
+    return account.openingBalance +
+        income -
+        spent -
+        transferredOut +
+        transferredIn;
   }
 }

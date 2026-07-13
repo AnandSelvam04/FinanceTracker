@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/expense.dart';
+import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
+import '../utils/db_constants.dart';
 
 class ExpenseListScreen extends StatefulWidget {
   const ExpenseListScreen({super.key});
@@ -14,6 +16,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   String _searchQuery = '';
   int _selectedYear = DateTime.now().year;
   int? _selectedMonth = DateTime.now().month;
+  String? _typeFilter;
 
   String _formatDate(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -38,6 +41,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     if (confirmed == true) {
       // ignore: use_build_context_synchronously
       await context.read<ExpenseProvider>().deleteExpense(expense.id!);
+      if (mounted) {
+        await context.read<AccountProvider>().refreshBalances();
+      }
       return true;
     }
     return false;
@@ -136,9 +142,14 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                         date: selectedDate,
                         category: categoryController.text.trim(),
                         paymentMode: paymentMode,
+                        type: expense.type,
+                        accountId: expense.accountId,
+                        toAccountId: expense.toAccountId,
                       );
                       final provider = context.read<ExpenseProvider>();
+                      final accountProvider = context.read<AccountProvider>();
                       await provider.updateExpense(updated);
+                      await accountProvider.refreshBalances();
                       if (!context.mounted) return;
                       Navigator.pop(context);
                     },
@@ -158,7 +169,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     final years = List.generate(10, (i) => DateTime.now().year - i);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Expenses')),
+      appBar: AppBar(title: const Text('Transactions')),
       body: Column(
         children: [
           Padding(
@@ -211,6 +222,30 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               ),
             ],
           ),
+          SizedBox(
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              children: [
+                for (final entry in const [
+                  (null, 'All'),
+                  (DbConstants.txExpense, 'Expenses'),
+                  (DbConstants.txIncome, 'Income'),
+                  (DbConstants.txTransfer, 'Transfers'),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(entry.$2),
+                      selected: _typeFilter == entry.$1,
+                      onSelected: (_) =>
+                          setState(() => _typeFilter = entry.$1),
+                    ),
+                  ),
+              ],
+            ),
+          ),
           Expanded(
             child: Consumer<ExpenseProvider>(
               builder: (context, provider, _) {
@@ -221,7 +256,12 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                   final matchesYear = e.date.year == _selectedYear;
                   final matchesMonth =
                       _selectedMonth == null || e.date.month == _selectedMonth;
-                  return matchesSearch && matchesYear && matchesMonth;
+                  final matchesType =
+                      _typeFilter == null || e.type == _typeFilter;
+                  return matchesSearch &&
+                      matchesYear &&
+                      matchesMonth &&
+                      matchesType;
                 }).toList();
                 if (expenses.isEmpty) {
                   return Center(
@@ -256,10 +296,17 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                         elevation: 2,
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: Colors.green.shade100,
-                            child: Text(expense.category.isNotEmpty
-                                ? expense.category[0].toUpperCase()
-                                : '?'),
+                            backgroundColor: expense.isIncome
+                                ? Colors.green.shade100
+                                : expense.isTransfer
+                                    ? Colors.blueGrey.shade100
+                                    : Colors.red.shade50,
+                            child: expense.isTransfer
+                                ? const Icon(Icons.swap_horiz,
+                                    color: Colors.blueGrey)
+                                : Text(expense.category.isNotEmpty
+                                    ? expense.category[0].toUpperCase()
+                                    : '?'),
                           ),
                           title: Text(expense.description,
                               style:
@@ -269,11 +316,26 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                           trailing: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text('₹${expense.amount.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold)),
+                              Text(
+                                  expense.isIncome
+                                      ? '+₹${expense.amount.toStringAsFixed(2)}'
+                                      : expense.isTransfer
+                                          ? '₹${expense.amount.toStringAsFixed(2)}'
+                                          : '-₹${expense.amount.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: expense.isIncome
+                                          ? Colors.green.shade700
+                                          : expense.isTransfer
+                                              ? Colors.blueGrey
+                                              : Colors.red.shade700)),
                               const SizedBox(height: 4),
-                              Text(expense.paymentMode,
+                              Text(
+                                  expense.isExpense
+                                      ? expense.paymentMode
+                                      : expense.isIncome
+                                          ? 'Income'
+                                          : 'Transfer',
                                   style: TextStyle(
                                       color: Colors.grey.shade600,
                                       fontSize: 12)),

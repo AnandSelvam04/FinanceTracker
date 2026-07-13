@@ -29,7 +29,7 @@ class Budget {
     return Budget(
       id: map[DbConstants.colId],
       category: map[DbConstants.colCategory],
-      amount: map[DbConstants.colAmount],
+      amount: (map[DbConstants.colAmount] as num).toDouble(),
       year: map[DbConstants.colYear],
       month: map[DbConstants.colMonth],
     );

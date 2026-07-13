@@ -8,8 +8,13 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/account.dart';
+import '../models/budget.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
+import '../models/recurring_rule.dart';
+import '../models/tx_template.dart';
+import '../utils/app_logger.dart';
 import 'db_service.dart';
 
 // Export expenses to CSV
@@ -17,7 +22,17 @@ import 'db_service.dart';
 Future<File> exportExpensesToCsv() async {
   final expenses = await DBService().getExpenses();
   final List<List<dynamic>> rows = [
-    ['ID', 'Description', 'Amount', 'Date', 'Category', 'PaymentMode'],
+    [
+      'ID',
+      'Description',
+      'Amount',
+      'Date',
+      'Category',
+      'PaymentMode',
+      'Type',
+      'AccountId',
+      'ToAccountId'
+    ],
     ...expenses.map((e) => [
           e.id ?? '',
           e.description,
@@ -25,6 +40,9 @@ Future<File> exportExpensesToCsv() async {
           e.date.toIso8601String(),
           e.category,
           e.paymentMode,
+          e.type,
+          e.accountId ?? '',
+          e.toAccountId ?? '',
         ]),
   ];
   String csvData = const ListToCsvConverter().convert(rows);
@@ -78,9 +96,18 @@ class BackupService {
   Future<void> backupToJson() async {
     final expenses = await DBService().getExpenses();
     final investments = await DBService().getInvestments();
+    final budgets = await DBService().getBudgets();
+    final accounts = await DBService().getAccounts();
+    final recurringRules = await DBService().getRecurringRules();
+    final templates = await DBService().getTemplates();
     final data = {
+      'version': 3,
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'investments': investments.map((i) => i.toMap()).toList(),
+      'budgets': budgets.map((b) => b.toMap()).toList(),
+      'accounts': accounts.map((a) => a.toMap()).toList(),
+      'recurring_rules': recurringRules.map((r) => r.toMap()).toList(),
+      'templates': templates.map((t) => t.toMap()).toList(),
     };
     final file = await _backupFile;
     await file.writeAsString(jsonEncode(data));
@@ -95,12 +122,29 @@ class BackupService {
     if (clearBeforeRestore) {
       await db.clearAll();
     }
-    for (var e in data['expenses']) {
+    // Restore accounts before expenses so account links resolve
+    // (ids are preserved because toMap includes them). Older backups
+    // have no 'accounts' key; skip gracefully.
+    for (var a in data['accounts'] ?? []) {
+      await db.insertAccount(Account.fromMap(Map<String, dynamic>.from(a)));
+    }
+    for (var e in data['expenses'] ?? []) {
       await db.insertExpense(Expense.fromMap(Map<String, dynamic>.from(e)));
     }
-    for (var i in data['investments']) {
+    for (var i in data['investments'] ?? []) {
       await db
           .insertInvestment(Investment.fromMap(Map<String, dynamic>.from(i)));
+    }
+    // Older backups have no 'budgets' key; skip gracefully.
+    for (var b in data['budgets'] ?? []) {
+      await db.insertBudget(Budget.fromMap(Map<String, dynamic>.from(b)));
+    }
+    for (var r in data['recurring_rules'] ?? []) {
+      await db.insertRecurringRule(
+          RecurringRule.fromMap(Map<String, dynamic>.from(r)));
+    }
+    for (var t in data['templates'] ?? []) {
+      await db.insertTemplate(TxTemplate.fromMap(Map<String, dynamic>.from(t)));
     }
   }
 
@@ -168,10 +212,9 @@ class BackupService {
       // Drive returns UTC time
       return remoteFile.modifiedTime!.isAfter(lastLocalBackupTime);
     } catch (e) {
-      // If we can't check, assume false to avoid blocking the user, 
+      // If we can't check, assume false to avoid blocking the user,
       // but log the error.
-      // ignore: avoid_print
-      print('Error checking remote backup: $e');
+      AppLogger.error('Error checking remote backup', e);
       return false;
     }
   }

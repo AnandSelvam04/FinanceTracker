@@ -3,23 +3,22 @@ import 'package:local_auth/local_auth.dart';
 class AuthService {
   final LocalAuthentication _auth = LocalAuthentication();
 
-  Future<bool> canCheckBiometrics() async {
-    return await _auth.canCheckBiometrics;
-  }
-
-  Future<bool> authenticateWithBiometrics() async {
+  Future<bool> canAuthenticate() async {
     try {
-      return await _auth.authenticate(
-        localizedReason: 'Please authenticate to access FinanceTracker',
-        biometricOnly: true,
-      );
-    } catch (e) {
+      return await _auth.canCheckBiometrics || await _auth.isDeviceSupported();
+    } catch (_) {
       return false;
     }
   }
 
-  Future<bool> authenticateWithPin(String pin, String correctPin) async {
-    // In production, store the correctPin securely (not hardcoded)
-    return pin == correctPin;
+  /// Biometrics with device credential (PIN/pattern) fallback.
+  Future<bool> authenticate() async {
+    try {
+      return await _auth.authenticate(
+        localizedReason: 'Please authenticate to access FinanceTracker',
+      );
+    } catch (e) {
+      return false;
+    }
   }
 }

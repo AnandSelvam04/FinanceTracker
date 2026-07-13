@@ -24,8 +24,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  path_provider_platform_interface: ^2.1.2
+  plugin_platform_interface: ^2.1.8
   sqflite_common_ffi: ^2.3.3
 flutter:
   uses-material-design: true
-  assets:
-    - assets/

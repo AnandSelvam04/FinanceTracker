@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/account_provider.dart';
+import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
+import '../providers/recurring_provider.dart';
+import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 
 class BackupsScreen extends StatefulWidget {
@@ -21,6 +25,10 @@ class _BackupsScreenState extends State<BackupsScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final expenseProvider = context.read<ExpenseProvider>();
     final investmentProvider = context.read<InvestmentProvider>();
+    final budgetProvider = context.read<BudgetProvider>();
+    final accountProvider = context.read<AccountProvider>();
+    final recurringProvider = context.read<RecurringProvider>();
+    final templateProvider = context.read<TemplateProvider>();
     setState(() => _isWorking = true);
     try {
       await task();
@@ -28,6 +36,10 @@ class _BackupsScreenState extends State<BackupsScreen> {
       // Refresh data after restore/backup operations
       await expenseProvider.reloadLoadedYears();
       await investmentProvider.fetchInvestments();
+      await budgetProvider.fetchBudgets();
+      await accountProvider.fetchAccounts();
+      await recurringProvider.fetchRules();
+      await templateProvider.fetchTemplates();
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {

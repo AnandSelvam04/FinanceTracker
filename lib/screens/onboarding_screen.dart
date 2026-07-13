@@ -14,7 +14,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _OnboardPage(
       title: 'Welcome to FinanceTracker',
       description:
-          'Track expenses, investments, and more!\n\nAutomatic SMS parsing and manual entry supported.',
+          'Track expenses, investments, and budgets — all in one place.\n\nQuick manual entry with smart category suggestions.',
       icon: Icons.account_balance_wallet,
     ),
     _OnboardPage(
