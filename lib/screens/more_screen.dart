@@ -4,7 +4,9 @@ import 'accounts_screen.dart';
 import 'backups_screen.dart';
 import 'budgets_screen.dart';
 import 'cashflow_screen.dart';
+import 'category_trends_screen.dart';
 import 'investments_screen.dart';
+import 'monthly_summary_screen.dart';
 import 'recurring_screen.dart';
 
 class MoreScreen extends StatefulWidget {
@@ -55,6 +57,17 @@ class _MoreScreenState extends State<MoreScreen> {
             },
           ),
           ListTile(
+            leading: const Icon(Icons.summarize),
+            title: const Text('Monthly Summary'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const MonthlySummaryScreen()),
+              );
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.stacked_bar_chart),
             title: const Text('Cash Flow'),
             onTap: () {
@@ -62,6 +75,17 @@ class _MoreScreenState extends State<MoreScreen> {
                 context,
                 MaterialPageRoute(
                     builder: (context) => const CashflowScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.show_chart),
+            title: const Text('Category Trends'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const CategoryTrendsScreen()),
               );
             },
           ),

@@ -11,6 +11,7 @@ import '../providers/template_provider.dart';
 import '../services/recurring_service.dart';
 import '../widgets/expense_chart.dart';
 import '../widgets/expense_trends_chart.dart';
+import '../widgets/month_selector.dart';
 import 'add_expense_screen.dart';
 import 'add_investment_screen.dart';
 import 'expense_list_screen.dart';
@@ -384,68 +385,6 @@ class _QuickAddRow extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class MonthSelector extends StatefulWidget {
-  final void Function(int year, int month) onChanged;
-  final int initialYear;
-  final int initialMonth;
-  const MonthSelector({
-    super.key,
-    required this.onChanged,
-    required this.initialYear,
-    required this.initialMonth,
-  });
-
-  @override
-  State<MonthSelector> createState() => _MonthSelectorState();
-}
-
-class _MonthSelectorState extends State<MonthSelector> {
-  late int year;
-  late int month;
-
-  @override
-  void initState() {
-    super.initState();
-    year = widget.initialYear;
-    month = widget.initialMonth;
-  }
-
-  void _changeMonth(int delta) {
-    setState(() {
-      month += delta;
-      if (month > 12) {
-        month = 1;
-        year++;
-      } else if (month < 1) {
-        month = 12;
-        year--;
-      }
-      widget.onChanged(year, month);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.chevron_left),
-          onPressed: () => _changeMonth(-1),
-        ),
-        Text(
-          '$year-${month.toString().padLeft(2, '0')}',
-          style: const TextStyle(fontSize: 16),
-        ),
-        IconButton(
-          icon: const Icon(Icons.chevron_right),
-          onPressed: () => _changeMonth(1),
-        ),
-      ],
     );
   }
 }
