@@ -7,6 +7,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
+  DBService.testFactory = databaseFactoryFfi;
 
   test('v3 database migrates to v4 with typed legacy rows', () async {
     DBService.dbNameOverride = 'migration_test.db';

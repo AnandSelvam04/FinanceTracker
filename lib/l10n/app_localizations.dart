@@ -70,6 +70,13 @@ class AppLocalizations {
           'Reminders before bills are due and budget-limit alerts',
       'autoLock': 'Auto-lock',
       'autoLockSubtitle': 'When app lock is on, re-lock after being away',
+      'encryptDatabase': 'Encrypt database',
+      'encryptDatabaseSubtitle':
+          'Protect on-device data with a device-secured key',
+      'encrypting': 'Encrypting database…',
+      'decrypting': 'Removing encryption…',
+      'encryptionEnabled': 'Database encrypted',
+      'encryptionDisabled': 'Database encryption removed',
       // Accounts
       'addAccount': 'Add Account',
       'editAccount': 'Edit Account',
@@ -163,6 +170,13 @@ class AppLocalizations {
       'autoLock': 'தானியங்கி பூட்டு',
       'autoLockSubtitle':
           'ஆப் பூட்டு இயக்கத்தில் இருக்கும்போது, விலகியிருந்த பிறகு மீண்டும் பூட்டு',
+      'encryptDatabase': 'தரவுத்தளத்தை குறியாக்கு',
+      'encryptDatabaseSubtitle':
+          'சாதனத்தால் பாதுகாக்கப்பட்ட விசையுடன் சாதனத் தரவைப் பாதுகாக்கவும்',
+      'encrypting': 'தரவுத்தளம் குறியாக்கப்படுகிறது…',
+      'decrypting': 'குறியாக்கம் அகற்றப்படுகிறது…',
+      'encryptionEnabled': 'தரவுத்தளம் குறியாக்கப்பட்டது',
+      'encryptionDisabled': 'தரவுத்தள குறியாக்கம் அகற்றப்பட்டது',
       'addAccount': 'கணக்கு சேர்',
       'editAccount': 'கணக்கைத் திருத்து',
       'accountName': 'பெயர்',
@@ -255,6 +269,12 @@ class AppLocalizations {
   String get pushNotificationsSubtitle => _t('pushNotificationsSubtitle');
   String get autoLock => _t('autoLock');
   String get autoLockSubtitle => _t('autoLockSubtitle');
+  String get encryptDatabase => _t('encryptDatabase');
+  String get encryptDatabaseSubtitle => _t('encryptDatabaseSubtitle');
+  String get encrypting => _t('encrypting');
+  String get decrypting => _t('decrypting');
+  String get encryptionEnabled => _t('encryptionEnabled');
+  String get encryptionDisabled => _t('encryptionDisabled');
   // Accounts
   String get addAccount => _t('addAccount');
   String get editAccount => _t('editAccount');

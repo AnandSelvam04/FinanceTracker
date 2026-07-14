@@ -8,6 +8,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
+  DBService.testFactory = databaseFactoryFfi;
 
   // Pure logic first (no DBService access, so the singleton stays uninitialized
   // until the migration test opens the pre-seeded database).
