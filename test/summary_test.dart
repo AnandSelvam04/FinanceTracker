@@ -30,9 +30,9 @@ void main() {
         type: type,
       );
 
-  test('formatInr matches the app-wide convention', () {
-    expect(formatInr(1234.5), '₹1234.50');
-    expect(formatInr(0), '₹0.00');
+  test('formatMoney matches the app-wide convention', () {
+    expect(formatMoney(1234.5), '₹1234.50');
+    expect(formatMoney(0), '₹0.00');
   });
 
   test('savings rate and net across income/expense', () async {

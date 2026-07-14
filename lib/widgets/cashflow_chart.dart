@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../providers/expense_provider.dart';
+import '../utils/currency_format.dart';
 
 /// Grouped bars of income vs expense per month for the trailing 12 months.
 class CashflowChart extends StatelessWidget {
@@ -88,7 +89,7 @@ class CashflowChart extends StatelessWidget {
                 final date = months[group.x];
                 final label = rodIndex == 0 ? 'Income' : 'Expense';
                 return BarTooltipItem(
-                  '${date.year}-${date.month.toString().padLeft(2, '0')}\n$label: ₹${rod.toY.toStringAsFixed(0)}',
+                  '${date.year}-${date.month.toString().padLeft(2, '0')}\n$label: ${formatMoney(rod.toY, decimals: 0)}',
                   const TextStyle(color: Colors.white, fontSize: 12),
                 );
               },

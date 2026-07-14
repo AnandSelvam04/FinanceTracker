@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/recurring_rule.dart';
 import '../providers/account_provider.dart';
 import '../providers/recurring_provider.dart';
+import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 
 class RecurringScreen extends StatefulWidget {
@@ -239,7 +240,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('₹${rule.amount.toStringAsFixed(0)}',
+                      Text(formatMoney(rule.amount, decimals: 0),
                           style:
                               const TextStyle(fontWeight: FontWeight.bold)),
                       Switch(

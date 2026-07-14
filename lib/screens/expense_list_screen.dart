@@ -5,6 +5,7 @@ import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../services/backup_service.dart';
+import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 
 class ExpenseListScreen extends StatefulWidget {
@@ -29,7 +30,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Delete expense?'),
         content: Text(
-            'Remove "${expense.description}" for ₹${expense.amount.toStringAsFixed(2)}?'),
+            'Remove "${expense.description}" for ${formatMoney(expense.amount)}?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -362,10 +363,10 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                             children: [
                               Text(
                                   expense.isIncome
-                                      ? '+₹${expense.amount.toStringAsFixed(2)}'
+                                      ? '+${formatMoney(expense.amount)}'
                                       : expense.isTransfer
-                                          ? '₹${expense.amount.toStringAsFixed(2)}'
-                                          : '-₹${expense.amount.toStringAsFixed(2)}',
+                                          ? formatMoney(expense.amount)
+                                          : '-${formatMoney(expense.amount)}',
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: expense.isIncome

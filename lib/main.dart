@@ -6,6 +6,7 @@ import 'package:finance_tracker/providers/budget_provider.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
 import 'package:finance_tracker/providers/investment_provider.dart';
 import 'package:finance_tracker/providers/recurring_provider.dart';
+import 'package:finance_tracker/providers/settings_provider.dart';
 import 'package:finance_tracker/providers/template_provider.dart';
 import 'package:finance_tracker/screens/home_screen.dart';
 import 'package:finance_tracker/screens/onboarding_screen.dart';
@@ -16,17 +17,22 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final seenOnboarding = prefs.getBool('seenOnboarding') ?? false;
   final biometricEnabled = prefs.getBool('biometricEnabled') ?? false;
+  final settings = SettingsProvider();
+  await settings.load();
   runApp(FinanceTrackerApp(
+    settings: settings,
     seenOnboarding: seenOnboarding,
     requireAuth: seenOnboarding && biometricEnabled,
   ));
 }
 
 class FinanceTrackerApp extends StatelessWidget {
+  final SettingsProvider settings;
   final bool seenOnboarding;
   final bool requireAuth;
   const FinanceTrackerApp({
     super.key,
+    required this.settings,
     required this.seenOnboarding,
     this.requireAuth = false,
   });
@@ -43,18 +49,23 @@ class FinanceTrackerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AccountProvider()),
         ChangeNotifierProvider(create: (_) => RecurringProvider()),
         ChangeNotifierProvider(create: (_) => TemplateProvider()),
+        ChangeNotifierProvider.value(value: settings),
       ],
-      child: MaterialApp(
-        title: 'Finance Tracker',
-        theme: ThemeData(
-          primarySwatch: Colors.green,
-          brightness: Brightness.light,
+      child: Consumer<SettingsProvider>(
+        builder: (context, settings, _) => MaterialApp(
+          title: 'Finance Tracker',
+          theme: ThemeData(
+            primarySwatch: Colors.green,
+            brightness: Brightness.light,
+          ),
+          darkTheme: ThemeData(
+            brightness: Brightness.dark,
+          ),
+          themeMode: settings.themeMode,
+          home: requireAuth
+              ? AuthGate(lockAfter: settings.lockTimeout, child: home)
+              : home,
         ),
-        darkTheme: ThemeData(
-          brightness: Brightness.dark,
-        ),
-        themeMode: ThemeMode.system,
-        home: requireAuth ? AuthGate(child: home) : home,
       ),
     );
   }
@@ -64,7 +75,12 @@ class FinanceTrackerApp extends StatelessWidget {
 /// silently refusing to launch when authentication fails.
 class AuthGate extends StatefulWidget {
   final Widget child;
-  const AuthGate({super.key, required this.child});
+  final Duration lockAfter;
+  const AuthGate({
+    super.key,
+    required this.child,
+    this.lockAfter = AuthService.lockAfter,
+  });
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -97,6 +113,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           AuthService.shouldRelock(
             backgroundedAt: _backgroundedAt,
             now: DateTime.now(),
+            lockAfter: widget.lockAfter,
           )) {
         setState(() => _unlocked = false);
         _tryUnlock();

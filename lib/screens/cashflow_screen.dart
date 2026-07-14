@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/expense_provider.dart';
+import '../utils/currency_format.dart';
 import '../widgets/cashflow_chart.dart';
 
 class CashflowScreen extends StatefulWidget {
@@ -129,7 +130,7 @@ class _SummaryRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label),
-        Text('₹${value.toStringAsFixed(2)}',
+        Text(formatMoney(value),
             style: TextStyle(fontWeight: FontWeight.bold, color: color)),
       ],
     );

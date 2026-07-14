@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
+import '../providers/settings_provider.dart';
 import '../providers/template_provider.dart';
 import '../models/expense.dart';
 import '../models/tx_template.dart';
@@ -66,6 +67,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       final provider = context.read<AccountProvider>();
       if (provider.accounts.isEmpty) {
         provider.fetchAccounts();
+      }
+      // Preselect the user's default account, if set and still present.
+      final defaultId = context.read<SettingsProvider>().defaultAccountId;
+      if (defaultId != null &&
+          context.read<AccountProvider>().accountById(defaultId) != null) {
+        setState(() => _accountId = defaultId);
       }
       final expenseFreq =
           await DBService().frequentCategories(DbConstants.txExpense);

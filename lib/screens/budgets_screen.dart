@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/budget.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
+import '../utils/currency_format.dart';
 
 class BudgetsScreen extends StatefulWidget {
   const BudgetsScreen({super.key});
@@ -196,8 +197,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Budget: ₹${budget.amount.toStringAsFixed(0)}'),
-                      Text('Spent: ₹${spent.toStringAsFixed(2)}'),
+                      Text('Budget: ${formatMoney(budget.amount, decimals: 0)}'),
+                      Text('Spent: ${formatMoney(spent)}'),
                       const SizedBox(height: 4),
                       LinearProgressIndicator(
                         value: progress.clamp(0.0, 1.0).toDouble(),

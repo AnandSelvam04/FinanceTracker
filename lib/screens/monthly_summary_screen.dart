@@ -80,13 +80,13 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-                        _row('Income', formatInr(income),
+                        _row('Income', formatMoney(income),
                             color: Colors.green.shade700),
                         const SizedBox(height: 8),
-                        _row('Expense', formatInr(expense),
+                        _row('Expense', formatMoney(expense),
                             color: Colors.red.shade700),
                         const Divider(),
-                        _row('Net', formatInr(net),
+                        _row('Net', formatMoney(net),
                             color: net >= 0
                                 ? Colors.green.shade700
                                 : Colors.red.shade700,
@@ -138,7 +138,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                         title: Text(entry.key),
                         subtitle: _DeltaLabel(
                             current: entry.value, previous: prevValue),
-                        trailing: Text(formatInr(entry.value),
+                        trailing: Text(formatMoney(entry.value),
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold)),
                       ),
@@ -199,7 +199,7 @@ class _DeltaLabel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 14, color: color),
-        Text('${formatInr(delta.abs())}$pct',
+        Text('${formatMoney(delta.abs())}$pct',
             style: TextStyle(fontSize: 12, color: color)),
       ],
     );

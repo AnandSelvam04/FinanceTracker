@@ -9,6 +9,7 @@ import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/recurring_service.dart';
+import '../utils/currency_format.dart';
 import '../widgets/expense_chart.dart';
 import '../widgets/expense_trends_chart.dart';
 import '../widgets/month_selector.dart';
@@ -282,13 +283,13 @@ class _DashboardView extends StatelessWidget {
                       child: ExpenseChart(expenses: yearlyExpenses),
                     ),
                     Text(
-                      'Year Total: ₹${provider.totalForYear(selectedYear).toStringAsFixed(2)}',
+                      'Year Total: ${formatMoney(provider.totalForYear(selectedYear))}',
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     if (yearlyIncome > 0)
                       Text(
-                        'Income: ₹${yearlyIncome.toStringAsFixed(2)}',
+                        'Income: ${formatMoney(yearlyIncome)}',
                         style: TextStyle(
                             fontSize: 14, color: Colors.green.shade700),
                       ),
@@ -306,7 +307,7 @@ class _DashboardView extends StatelessWidget {
                                   dense: true,
                                   title: Text(e.key),
                                   trailing:
-                                      Text('₹${e.value.toStringAsFixed(2)}'),
+                                      Text(formatMoney(e.value)),
                                 ))
                             .toList(),
                       ),
@@ -321,13 +322,13 @@ class _DashboardView extends StatelessWidget {
                       child: ExpenseChart(expenses: monthlyExpenses),
                     ),
                     Text(
-                      'Total: ₹${provider.totalForMonth(selectedYear, selectedMonth).toStringAsFixed(2)}',
+                      'Total: ${formatMoney(provider.totalForMonth(selectedYear, selectedMonth))}',
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     if (monthlyIncome > 0)
                       Text(
-                        'Income: ₹${monthlyIncome.toStringAsFixed(2)}',
+                        'Income: ${formatMoney(monthlyIncome)}',
                         style: TextStyle(
                             fontSize: 14, color: Colors.green.shade700),
                       ),
@@ -375,7 +376,7 @@ class _QuickAddRow extends StatelessWidget {
                     return ActionChip(
                       avatar: const Icon(Icons.bolt, size: 18),
                       label: Text(
-                          '${template.name} · ₹${template.amount.toStringAsFixed(0)}'),
+                          '${template.name} · ${formatMoney(template.amount, decimals: 0)}'),
                       onPressed: () => onQuickAdd(template),
                     );
                   },

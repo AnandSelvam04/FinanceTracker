@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/account.dart';
 import '../providers/account_provider.dart';
+import '../utils/currency_format.dart';
 import 'add_transfer_screen.dart';
 
 class AccountsScreen extends StatefulWidget {
@@ -200,7 +201,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         const Text('Total Balance',
                             style: TextStyle(fontSize: 16)),
                         Text(
-                          '₹${totalBalance.toStringAsFixed(2)}',
+                          formatMoney(totalBalance),
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold),
                         ),
@@ -235,7 +236,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                             Text(
                               balance == null
                                   ? '…'
-                                  : '₹${balance.toStringAsFixed(2)}',
+                                  : formatMoney(balance),
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 14),
                             ),
