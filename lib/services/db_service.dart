@@ -4,6 +4,7 @@ import '../models/account.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
 import '../models/budget.dart';
+import '../models/net_worth_point.dart';
 import '../models/recurring_rule.dart';
 import '../models/tx_template.dart';
 import '../utils/app_logger.dart';
@@ -225,6 +226,33 @@ class DBService {
     }
   }
 
+  /// Returns transaction rows whose date falls in the half-open interval
+  /// [start, end). Filtering happens in SQL so callers can page through data
+  /// without loading every row into memory.
+  Future<List<Expense>> getExpensesByDateRange(
+      DateTime start, DateTime end) async {
+    final db = await database;
+    try {
+      final maps = await db.query(
+        DbConstants.tableExpenses,
+        where: '${DbConstants.colDate} >= ? AND ${DbConstants.colDate} < ?',
+        whereArgs: [start.toIso8601String(), end.toIso8601String()],
+        orderBy: '${DbConstants.colDate} DESC',
+      );
+      final expenses = <Expense>[];
+      for (final map in maps) {
+        try {
+          expenses.add(Expense.fromMap(map));
+        } catch (e) {
+          AppLogger.error('Failed to parse expense row', e);
+        }
+      }
+      return expenses;
+    } catch (e) {
+      throw Exception('Failed to fetch expenses for range: $e');
+    }
+  }
+
   Future<int> updateExpense(Expense expense) async {
     final db = await database;
     try {
@@ -440,6 +468,52 @@ class DBService {
   Future<void> clearTemplates() async {
     final db = await database;
     await db.delete(DbConstants.tableTemplates);
+  }
+
+  /// Net worth (minor units) at the end of each of the last [months] months,
+  /// oldest first. Net worth = account opening balances + cumulative
+  /// (income − expense) + cumulative investments, as of each month end.
+  /// Transfers are account-to-account and cancel out, so they are ignored.
+  Future<List<NetWorthPoint>> netWorthSeries(int months,
+      {DateTime? now}) async {
+    final db = await database;
+    final today = now ?? DateTime.now();
+
+    final openingRow = await db.rawQuery(
+        'SELECT SUM(${DbConstants.colOpeningBalance}) AS total '
+        'FROM ${DbConstants.tableAccounts}');
+    final opening = ((openingRow.first['total'] ?? 0) as num).round();
+
+    Future<int> sumBefore(String table, DateTime cutoff, {String? type}) async {
+      final where = StringBuffer('${DbConstants.colDate} < ?');
+      final args = <Object?>[cutoff.toIso8601String()];
+      if (type != null) {
+        where.write(' AND ${DbConstants.colType} = ?');
+        args.add(type);
+      }
+      final row = await db.rawQuery(
+        'SELECT SUM(${DbConstants.colAmount}) AS total FROM $table WHERE $where',
+        args,
+      );
+      return ((row.first['total'] ?? 0) as num).round();
+    }
+
+    final series = <NetWorthPoint>[];
+    for (int i = months - 1; i >= 0; i--) {
+      final monthStart = DateTime(today.year, today.month - i, 1);
+      // First day of the following month = exclusive cutoff (month end).
+      final cutoff = DateTime(today.year, today.month - i + 1, 1);
+      final income = await sumBefore(DbConstants.tableExpenses, cutoff,
+          type: DbConstants.txIncome);
+      final expense = await sumBefore(DbConstants.tableExpenses, cutoff,
+          type: DbConstants.txExpense);
+      final investments = await sumBefore(DbConstants.tableInvestments, cutoff);
+      series.add(NetWorthPoint(
+        month: monthStart,
+        value: opening + income - expense + investments,
+      ));
+    }
+    return series;
   }
 
   /// Balance = opening + income − expenses − outgoing transfers
