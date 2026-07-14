@@ -23,9 +23,18 @@ int? parseMinor(String input) {
 String formatMoney(int minor) =>
     '${CurrencyFormat.symbol}${(minor / 100).toStringAsFixed(2)}';
 
+/// Like [formatMoney] but with an explicit [symbol], for accounts held in a
+/// currency other than the app's base currency.
+String formatMoneyIn(String symbol, int minor) =>
+    '$symbol${(minor / 100).toStringAsFixed(2)}';
+
 /// Formats minor units rounded to whole major units (no decimals).
 String formatMoneyRounded(int minor) =>
     '${CurrencyFormat.symbol}${(minor / 100).round()}';
+
+/// Converts an [amount] in an account currency (minor units) to base-currency
+/// minor units using [rate] (base units per 1 account-currency unit).
+int toBaseMinor(int amount, double rate) => (amount * rate).round();
 
 /// A major-unit string (e.g. "12.50") for pre-filling edit fields.
 String minorToEditString(int minor) => (minor / 100).toStringAsFixed(2);

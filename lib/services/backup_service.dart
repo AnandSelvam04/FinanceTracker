@@ -17,6 +17,7 @@ import '../models/tx_template.dart';
 import '../utils/app_logger.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import 'backup_crypto.dart';
 import 'db_service.dart';
 
 // Export expenses to CSV
@@ -107,6 +108,11 @@ class BackupService {
     return File('$path/finance_backup.json');
   }
 
+  Future<File> get _encryptedBackupFile async {
+    final path = await _localPath;
+    return File('$path/finance_backup_encrypted.json');
+  }
+
   /// When the most recent backup (local, auto, or Drive) was taken.
   Future<DateTime?> lastBackupTime() async {
     final prefs = await SharedPreferences.getInstance();
@@ -142,14 +148,15 @@ class BackupService {
     return _backupFile;
   }
 
-  Future<void> backupToJson() async {
+  /// Assembles the full-data backup map shared by plain and encrypted backups.
+  Future<Map<String, dynamic>> _collectBackupData() async {
     final expenses = await DBService().getExpenses();
     final investments = await DBService().getInvestments();
     final budgets = await DBService().getBudgets();
     final accounts = await DBService().getAccounts();
     final recurringRules = await DBService().getRecurringRules();
     final templates = await DBService().getTemplates();
-    final data = {
+    return {
       // v4: amounts are integer minor units (paise/cents).
       'version': 4,
       'expenses': expenses.map((e) => e.toMap()).toList(),
@@ -159,16 +166,51 @@ class BackupService {
       'recurring_rules': recurringRules.map((r) => r.toMap()).toList(),
       'templates': templates.map((t) => t.toMap()).toList(),
     };
+  }
+
+  Future<void> backupToJson() async {
+    final data = await _collectBackupData();
     final file = await _backupFile;
     await file.writeAsString(jsonEncode(data));
     await _markBackedUp();
+  }
+
+  /// Writes a passphrase-encrypted full-data backup and returns the file so it
+  /// can be shared. The passphrase is not stored anywhere.
+  Future<File> writeEncryptedBackup(String passphrase) async {
+    final data = await _collectBackupData();
+    final envelope =
+        await BackupCrypto.encryptString(jsonEncode(data), passphrase);
+    final file = await _encryptedBackupFile;
+    await file.writeAsString(envelope);
+    await _markBackedUp();
+    return file;
+  }
+
+  /// Restores from the local encrypted backup. Throws on a wrong passphrase or
+  /// corrupt/missing file.
+  Future<void> restoreFromEncryptedFile(String passphrase,
+      {bool clearBeforeRestore = true}) async {
+    final file = await _encryptedBackupFile;
+    if (!await file.exists()) {
+      throw Exception('No encrypted backup found on this device');
+    }
+    final envelope = await file.readAsString();
+    final plain = await BackupCrypto.decryptString(envelope, passphrase);
+    await _applyRestore(jsonDecode(plain),
+        clearBeforeRestore: clearBeforeRestore);
   }
 
   Future<void> restoreFromJson({bool clearBeforeRestore = true}) async {
     final file = await _backupFile;
     if (!await file.exists()) return;
     final content = await file.readAsString();
-    final data = jsonDecode(content);
+    await _applyRestore(jsonDecode(content),
+        clearBeforeRestore: clearBeforeRestore);
+  }
+
+  Future<void> _applyRestore(dynamic data,
+      {bool clearBeforeRestore = true}) async {
     final db = DBService();
     if (clearBeforeRestore) {
       await db.clearAll();

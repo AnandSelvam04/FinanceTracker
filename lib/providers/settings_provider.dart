@@ -10,12 +10,14 @@ class SettingsProvider extends ChangeNotifier {
   static const _kLockTimeout = 'lockTimeoutSeconds';
   static const _kDefaultAccount = 'defaultAccountId';
   static const _kAlertsEnabled = 'alertsEnabled';
+  static const _kNotificationsEnabled = 'notificationsEnabled';
 
   String _currencySymbol = '₹';
   ThemeMode _themeMode = ThemeMode.system;
   int _lockTimeoutSeconds = 15;
   int? _defaultAccountId;
   bool _alertsEnabled = true;
+  bool _notificationsEnabled = true;
 
   String get currencySymbol => _currencySymbol;
   ThemeMode get themeMode => _themeMode;
@@ -26,6 +28,9 @@ class SettingsProvider extends ChangeNotifier {
   /// Whether the dashboard shows proactive budget/bill alerts.
   bool get alertsEnabled => _alertsEnabled;
 
+  /// Whether OS notifications for bills/budgets are enabled.
+  bool get notificationsEnabled => _notificationsEnabled;
+
   static const currencyOptions = ['₹', '\$', '€', '£', '¥', '₨', 'A\$', 'C\$'];
 
   Future<void> load() async {
@@ -35,6 +40,7 @@ class SettingsProvider extends ChangeNotifier {
     _lockTimeoutSeconds = prefs.getInt(_kLockTimeout) ?? 15;
     _defaultAccountId = prefs.getInt(_kDefaultAccount);
     _alertsEnabled = prefs.getBool(_kAlertsEnabled) ?? true;
+    _notificationsEnabled = prefs.getBool(_kNotificationsEnabled) ?? true;
     CurrencyFormat.symbol = _currencySymbol;
     notifyListeners();
   }
@@ -43,6 +49,13 @@ class SettingsProvider extends ChangeNotifier {
     _alertsEnabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kAlertsEnabled, value);
+    notifyListeners();
+  }
+
+  Future<void> setNotificationsEnabled(bool value) async {
+    _notificationsEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kNotificationsEnabled, value);
     notifyListeners();
   }
 

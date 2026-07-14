@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/expense.dart';
 import '../models/tx_template.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
+import '../providers/budget_provider.dart';
 import '../providers/recurring_provider.dart';
+import '../providers/settings_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
+import '../services/notification_service.dart';
 import '../services/recurring_service.dart';
+import '../utils/alerts.dart';
 import '../utils/currency_format.dart';
 import '../widgets/alerts_banner.dart';
 import '../widgets/expense_chart.dart';
@@ -47,11 +52,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       context.read<InvestmentProvider>().fetchInvestments();
       context.read<AccountProvider>().fetchAccounts();
       context.read<TemplateProvider>().fetchTemplates();
-      context.read<RecurringProvider>().fetchRules();
+      // Capture providers before awaiting so we don't read context across
+      // async gaps.
+      final recurringProvider = context.read<RecurringProvider>();
+      final budgetProvider = context.read<BudgetProvider>();
+      await recurringProvider.fetchRules();
+      // Budgets power both the in-app alerts banner and budget notifications.
+      await budgetProvider.fetchBudgets();
       await _postRecurring();
       // Safety net: keep a fresh local backup even if the user never
       // taps "Backup" (data otherwise lives only on this device).
       await BackupService().autoBackupIfDue();
+      if (mounted) await _syncNotifications();
     });
   }
 
@@ -86,6 +98,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ));
       }
     }
+  }
+
+  /// Re-arms bill reminders and fires any new budget notifications, honoring
+  /// the user's notifications setting.
+  Future<void> _syncNotifications() async {
+    final settings = context.read<SettingsProvider>();
+    final recurring = context.read<RecurringProvider>();
+    final budgets = context.read<BudgetProvider>();
+    final expenses = context.read<ExpenseProvider>();
+    final service = NotificationService.instance;
+    if (!settings.notificationsEnabled) {
+      await service.cancelAll();
+      return;
+    }
+    await service.requestPermission();
+    await service.scheduleBillReminders(recurring.rules);
+    final now = DateTime.now();
+    final totals = expenses.categoryTotalsForMonth(now.year, now.month);
+    final alerts = budgetAlerts(
+      budgets: budgets.budgets,
+      year: now.year,
+      month: now.month,
+      spentForCategory: (c) => totals[c] ?? 0,
+    );
+    await service.notifyBudgetAlerts(alerts, year: now.year, month: now.month);
   }
 
   Future<void> _quickAddTemplate(TxTemplate template) async {
@@ -152,6 +189,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ];
 
   void _showAddOptions(BuildContext context) {
+    final l = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       builder: (context) => Column(
@@ -159,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         children: [
           ListTile(
             leading: const Icon(Icons.money_off),
-            title: const Text('Add Expense'),
+            title: Text(l.addExpense),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -170,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
           ListTile(
             leading: const Icon(Icons.trending_up),
-            title: const Text('Add Investment'),
+            title: Text(l.addInvestment),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -187,13 +225,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Finance Tracker'),
+        title: Text(l.appTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
-            tooltip: 'How to use',
+            tooltip: l.howToUse,
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TutorialScreen()),
@@ -205,17 +244,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       body: _screens[_selectedIndex],
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddOptions(context),
-        tooltip: 'Add transaction',
+        tooltip: l.addTransaction,
         child: const Icon(Icons.add),
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: (i) => setState(() => _selectedIndex = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Expenses'),
-          BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'More'),
+        items: [
+          BottomNavigationBarItem(
+              icon: const Icon(Icons.home), label: l.navHome),
+          BottomNavigationBarItem(
+              icon: const Icon(Icons.list), label: l.navExpenses),
+          BottomNavigationBarItem(
+              icon: const Icon(Icons.more_horiz), label: l.navMore),
         ],
       ),
     );
@@ -259,8 +301,8 @@ class _DashboardView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Text('Dashboard & Charts',
-                    style: TextStyle(fontSize: 20)),
+                Text(AppLocalizations.of(context).dashboardCharts,
+                    style: const TextStyle(fontSize: 20)),
                 const SizedBox(height: 12),
                 const AlertsBanner(),
                 const NetWorthCard(),

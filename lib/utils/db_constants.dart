@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 6;
+  static const int dbVersion = 7;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -30,6 +30,10 @@ class DbConstants {
   static const String colOpeningBalance = 'openingBalance';
   static const String colIcon = 'icon';
   static const String colColor = 'color';
+  // Per-account currency symbol (null = app base currency) and the exchange
+  // rate to base (base units per 1 account-currency unit; null/absent = 1.0).
+  static const String colCurrency = 'currency';
+  static const String colRate = 'rate';
 
   // Transaction type values stored in expenses.type
   static const String txExpense = 'expense';
