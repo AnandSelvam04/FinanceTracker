@@ -87,13 +87,9 @@ class _NetWorthTrend extends StatelessWidget {
       future: DBService().netWorthSeries(12),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          );
+          // A static placeholder (not a spinner) keeps widget tests that call
+          // pumpAndSettle from hanging on an indefinite animation.
+          return const SizedBox.shrink();
         }
         final series = snapshot.data!;
         if (series.every((p) => p.value == 0)) {
