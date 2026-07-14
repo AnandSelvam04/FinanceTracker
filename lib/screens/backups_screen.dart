@@ -120,6 +120,71 @@ class _BackupsScreenState extends State<BackupsScreen> {
   String _mimeFor(String path) =>
       path.endsWith('.json') ? 'application/json' : 'text/csv';
 
+  /// Prompts for a passphrase. When [confirm] is set, requires it to be typed
+  /// twice and warns that a lost passphrase is unrecoverable. Returns null if
+  /// the user cancels.
+  Future<String?> _promptPassphrase(
+      {required String title,
+      required String action,
+      bool confirm = false}) async {
+    final controller = TextEditingController();
+    final confirmController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: controller,
+                obscureText: true,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Passphrase'),
+                validator: (v) => (v == null || v.length < 4)
+                    ? 'Use at least 4 characters'
+                    : null,
+              ),
+              if (confirm)
+                TextFormField(
+                  controller: confirmController,
+                  obscureText: true,
+                  decoration:
+                      const InputDecoration(labelText: 'Confirm passphrase'),
+                  validator: (v) =>
+                      v != controller.text ? 'Passphrases do not match' : null,
+                ),
+              if (confirm)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'If you forget this passphrase, the backup cannot be '
+                    'recovered.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(ctx, controller.text);
+              }
+            },
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -212,6 +277,66 @@ class _BackupsScreenState extends State<BackupsScreen> {
                   ? null
                   : () => _restore(() => _backupService.restoreFromJson(),
                       'Restored from local JSON'),
+            ),
+            const Divider(height: 32),
+            const Text(
+              'Encrypted backup',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Protect an exported backup with a passphrase (AES-256). Keep the '
+              'passphrase safe — it is required to restore and cannot be reset.',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.lock),
+              label: const Text('Encrypted backup (JSON)'),
+              onPressed: _isWorking
+                  ? null
+                  : () async {
+                      final pass = await _promptPassphrase(
+                          title: 'Encrypt backup',
+                          action: 'Encrypt',
+                          confirm: true);
+                      if (pass == null) return;
+                      await _runTask(
+                          () => _backupService.writeEncryptedBackup(pass),
+                          'Encrypted backup created');
+                    },
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.lock_open),
+              label: const Text('Restore encrypted backup'),
+              onPressed: _isWorking
+                  ? null
+                  : () async {
+                      if (!await _confirmRestore()) return;
+                      final pass = await _promptPassphrase(
+                          title: 'Restore encrypted backup',
+                          action: 'Restore');
+                      if (pass == null) return;
+                      await _runTask(
+                          () => _backupService.restoreFromEncryptedFile(pass),
+                          'Restored from encrypted backup');
+                    },
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.ios_share),
+              label: const Text('Download encrypted backup'),
+              onPressed: _isWorking
+                  ? null
+                  : () async {
+                      final pass = await _promptPassphrase(
+                          title: 'Encrypt backup',
+                          action: 'Encrypt',
+                          confirm: true);
+                      if (pass == null) return;
+                      await _exportAndShare(
+                          () => _backupService.writeEncryptedBackup(pass),
+                          'Finance Tracker — Encrypted Backup');
+                    },
             ),
             const Divider(height: 32),
             const Text(

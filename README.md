@@ -13,7 +13,7 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 - Investments: add/list/edit investments with per-type totals.
 - Budgets: set monthly budgets per category and see spent vs. budget with progress bars (income and transfers excluded from spend).
 - Filter & download: filter the Transactions list by search, year/month, type, category, account, amount range, or a custom date range — then download exactly that set as CSV.
-- Backup / Export / Import: Drive backup/restore, versioned local JSON backup/restore, CSV/JSON download via the share sheet, a PDF monthly statement, and CSV import with column mapping and a preview.
+- Backup / Export / Import: Drive backup/restore, versioned local JSON backup/restore, optional passphrase-encrypted backups (AES-256-GCM, PBKDF2), CSV/JSON download via the share sheet, a PDF monthly statement, and CSV import with column mapping and a preview.
 - Settings: currency symbol, theme (light/dark/system), budget/bill alerts toggle, auto-lock timeout, and a default account for new transactions.
 - Security & onboarding: optional app lock (biometrics or device PIN) that re-locks on resume after a configurable grace period, plus a first-run tutorial/onboarding flow.
 
