@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/account_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/notification_service.dart';
@@ -28,29 +29,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  String _themeLabel(ThemeMode mode) {
+  String _themeLabel(ThemeMode mode, AppLocalizations l) {
     switch (mode) {
       case ThemeMode.light:
-        return 'Light';
+        return l.themeLight;
       case ThemeMode.dark:
-        return 'Dark';
+        return l.themeDark;
       case ThemeMode.system:
-        return 'System default';
+        return l.themeSystem;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(l.settings)),
       body: Consumer2<SettingsProvider, AccountProvider>(
         builder: (context, settings, accounts, _) {
           return ListView(
             children: [
-              const _SectionHeader('General'),
+              _SectionHeader(l.sectionGeneral),
               ListTile(
                 leading: const Icon(Icons.currency_exchange),
-                title: const Text('Currency symbol'),
+                title: Text(l.currencySymbol),
                 trailing: DropdownButton<String>(
                   value: SettingsProvider.currencyOptions
                           .contains(settings.currencySymbol)
@@ -68,12 +70,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.brightness_6),
-                title: const Text('Theme'),
+                title: Text(l.theme),
                 trailing: DropdownButton<ThemeMode>(
                   value: settings.themeMode,
                   items: ThemeMode.values
                       .map((m) => DropdownMenuItem(
-                          value: m, child: Text(_themeLabel(m))))
+                          value: m, child: Text(_themeLabel(m, l))))
                       .toList(),
                   onChanged: (m) {
                     if (m != null) settings.setThemeMode(m);
@@ -82,16 +84,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.account_balance_wallet),
-                title: const Text('Default account'),
-                subtitle: const Text('Preselected for new transactions'),
+                title: Text(l.defaultAccount),
+                subtitle: Text(l.defaultAccountSubtitle),
                 trailing: DropdownButton<int?>(
                   value: accounts.accountById(settings.defaultAccountId) != null
                       ? settings.defaultAccountId
                       : null,
-                  hint: const Text('None'),
+                  hint: Text(l.none),
                   items: [
-                    const DropdownMenuItem<int?>(
-                        value: null, child: Text('None')),
+                    DropdownMenuItem<int?>(
+                        value: null, child: Text(l.none)),
                     ...accounts.accounts.map((a) =>
                         DropdownMenuItem<int?>(
                             value: a.id, child: Text(a.name))),
@@ -101,17 +103,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               SwitchListTile(
                 secondary: const Icon(Icons.notifications_active),
-                title: const Text('Budget & bill alerts'),
-                subtitle: const Text(
-                    'Show dashboard warnings for budgets and due bills'),
+                title: Text(l.budgetBillAlerts),
+                subtitle: Text(l.budgetBillAlertsSubtitle),
                 value: settings.alertsEnabled,
                 onChanged: settings.setAlertsEnabled,
               ),
               SwitchListTile(
                 secondary: const Icon(Icons.notifications),
-                title: const Text('Push notifications'),
-                subtitle: const Text(
-                    'Reminders before bills are due and budget-limit alerts'),
+                title: Text(l.pushNotifications),
+                subtitle: Text(l.pushNotificationsSubtitle),
                 value: settings.notificationsEnabled,
                 onChanged: (v) async {
                   await settings.setNotificationsEnabled(v);
@@ -123,12 +123,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
               const Divider(),
-              const _SectionHeader('Security'),
+              _SectionHeader(l.sectionSecurity),
               ListTile(
                 leading: const Icon(Icons.timer_outlined),
-                title: const Text('Auto-lock'),
-                subtitle: const Text(
-                    'When app lock is on, re-lock after being away'),
+                title: Text(l.autoLock),
+                subtitle: Text(l.autoLockSubtitle),
                 trailing: DropdownButton<int>(
                   value: _lockOptions.containsKey(settings.lockTimeoutSeconds)
                       ? settings.lockTimeoutSeconds
