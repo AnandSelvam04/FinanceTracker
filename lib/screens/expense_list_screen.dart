@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
+import '../services/backup_service.dart';
 import '../utils/db_constants.dart';
 
 class ExpenseListScreen extends StatefulWidget {
@@ -164,12 +166,67 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     );
   }
 
+  /// The current search/year/month/type filter applied to a list.
+  List<Expense> _applyFilters(List<Expense> all) {
+    return all.where((e) {
+      final matchesSearch =
+          e.description.toLowerCase().contains(_searchQuery) ||
+              e.category.toLowerCase().contains(_searchQuery);
+      final matchesYear = e.date.year == _selectedYear;
+      final matchesMonth =
+          _selectedMonth == null || e.date.month == _selectedMonth;
+      final matchesType = _typeFilter == null || e.type == _typeFilter;
+      return matchesSearch && matchesYear && matchesMonth && matchesType;
+    }).toList();
+  }
+
+  String get _filterLabel {
+    final period = _selectedMonth == null
+        ? '$_selectedYear'
+        : '$_selectedYear-${_selectedMonth.toString().padLeft(2, '0')}';
+    return period;
+  }
+
+  /// Downloads exactly what the current filters show, via the share sheet.
+  Future<void> _downloadFiltered() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final provider = context.read<ExpenseProvider>();
+    final filtered = _applyFilters(provider.expenses);
+    if (filtered.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Nothing to download for this filter.')),
+      );
+      return;
+    }
+    try {
+      final file = await writeExpensesCsvFile(
+        filtered,
+        filename: 'expenses_$_filterLabel.csv',
+      );
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'text/csv')],
+        subject: 'Finance Tracker — Transactions ($_filterLabel)',
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final years = List.generate(10, (i) => DateTime.now().year - i);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Transactions')),
+      appBar: AppBar(
+        title: const Text('Transactions'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: 'Download filtered (CSV)',
+            onPressed: _downloadFiltered,
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -249,20 +306,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
           Expanded(
             child: Consumer<ExpenseProvider>(
               builder: (context, provider, _) {
-                final expenses = provider.expenses.where((e) {
-                  final matchesSearch =
-                      e.description.toLowerCase().contains(_searchQuery) ||
-                          e.category.toLowerCase().contains(_searchQuery);
-                  final matchesYear = e.date.year == _selectedYear;
-                  final matchesMonth =
-                      _selectedMonth == null || e.date.month == _selectedMonth;
-                  final matchesType =
-                      _typeFilter == null || e.type == _typeFilter;
-                  return matchesSearch &&
-                      matchesYear &&
-                      matchesMonth &&
-                      matchesType;
-                }).toList();
+                final expenses = _applyFilters(provider.expenses);
                 if (expenses.isEmpty) {
                   return Center(
                     child: Column(

@@ -19,38 +19,46 @@ import 'db_service.dart';
 
 // Export expenses to CSV
 
-Future<File> exportExpensesToCsv() async {
-  final expenses = await DBService().getExpenses();
-  final List<List<dynamic>> rows = [
-    [
-      'ID',
-      'Description',
-      'Amount',
-      'Date',
-      'Category',
-      'PaymentMode',
-      'Type',
-      'AccountId',
-      'ToAccountId'
-    ],
-    ...expenses.map((e) => [
-          e.id ?? '',
-          e.description,
-          e.amount,
-          e.date.toIso8601String(),
-          e.category,
-          e.paymentMode,
-          e.type,
-          e.accountId ?? '',
-          e.toAccountId ?? '',
-        ]),
-  ];
-  String csvData = const ListToCsvConverter().convert(rows);
-  final backupService = BackupService();
-  final path = await backupService._localPath;
-  final file = File('$path/expenses_export.csv');
+List<List<dynamic>> _expenseCsvRows(List<Expense> expenses) => [
+      [
+        'ID',
+        'Description',
+        'Amount',
+        'Date',
+        'Category',
+        'PaymentMode',
+        'Type',
+        'AccountId',
+        'ToAccountId'
+      ],
+      ...expenses.map((e) => [
+            e.id ?? '',
+            e.description,
+            e.amount,
+            e.date.toIso8601String(),
+            e.category,
+            e.paymentMode,
+            e.type,
+            e.accountId ?? '',
+            e.toAccountId ?? '',
+          ]),
+    ];
+
+/// Writes the given expenses to a CSV file and returns it. Callers pass an
+/// already-filtered list (e.g. the current month) so users can download
+/// exactly what they see.
+Future<File> writeExpensesCsvFile(List<Expense> expenses,
+    {String filename = 'expenses_export.csv'}) async {
+  final csvData = const ListToCsvConverter().convert(_expenseCsvRows(expenses));
+  final path = await BackupService()._localPath;
+  final file = File('$path/$filename');
   await file.writeAsString(csvData);
   return file;
+}
+
+Future<File> exportExpensesToCsv() async {
+  final expenses = await DBService().getExpenses();
+  return writeExpensesCsvFile(expenses);
 }
 
 // Export investments to CSV

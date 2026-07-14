@@ -113,5 +113,28 @@ void main() {
       await db.clearAll();
       expect(await db.getBudgets(), isEmpty);
     });
+
+    test('writeExpensesCsvFile writes only the rows it is given', () async {
+      // Simulates the "download filtered" flow: caller passes a subset.
+      final marchOnly = [
+        Expense(
+          description: 'March lunch',
+          amount: 120,
+          date: DateTime(2026, 3, 10),
+          category: 'Food',
+          paymentMode: 'UPI',
+        ),
+      ];
+      final file = await writeExpensesCsvFile(marchOnly,
+          filename: 'expenses_2026-03.csv');
+      final contents = await file.readAsString();
+      final lines = contents.trim().split('\n');
+
+      expect(file.path, endsWith('expenses_2026-03.csv'));
+      expect(lines.first, contains('Description'));
+      expect(lines.first, contains('Type'));
+      expect(lines.length, 2); // header + one filtered row
+      expect(contents, contains('March lunch'));
+    });
   });
 }
