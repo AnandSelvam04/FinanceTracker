@@ -7,6 +7,7 @@ import '../providers/expense_provider.dart';
 import '../services/backup_service.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import '../utils/transaction_filter.dart';
 
 class ExpenseListScreen extends StatefulWidget {
   const ExpenseListScreen({super.key});
@@ -20,6 +21,20 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   int _selectedYear = DateTime.now().year;
   int? _selectedMonth = DateTime.now().month;
   String? _typeFilter;
+
+  // Advanced filters (set via the filter sheet).
+  String? _categoryFilter;
+  int? _accountFilter;
+  double? _minAmount;
+  double? _maxAmount;
+  DateTimeRange? _dateRange;
+
+  bool get _hasAdvancedFilters =>
+      _categoryFilter != null ||
+      _accountFilter != null ||
+      _minAmount != null ||
+      _maxAmount != null ||
+      _dateRange != null;
 
   String _formatDate(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -167,19 +182,179 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     );
   }
 
-  /// The current search/year/month/type filter applied to a list.
+  /// The current search/period/type plus advanced (category, account,
+  /// amount range, custom date range) filters applied to a list.
   List<Expense> _applyFilters(List<Expense> all) {
-    return all.where((e) {
-      final matchesSearch =
-          e.description.toLowerCase().contains(_searchQuery) ||
-              e.category.toLowerCase().contains(_searchQuery);
-      final matchesYear = e.date.year == _selectedYear;
-      final matchesMonth =
-          _selectedMonth == null || e.date.month == _selectedMonth;
-      final matchesType = _typeFilter == null || e.type == _typeFilter;
-      return matchesSearch && matchesYear && matchesMonth && matchesType;
-    }).toList();
+    return TransactionFilter(
+      searchQuery: _searchQuery,
+      year: _selectedYear,
+      month: _selectedMonth,
+      type: _typeFilter,
+      category: _categoryFilter,
+      accountId: _accountFilter,
+      minAmount: _minAmount,
+      maxAmount: _maxAmount,
+      startDate: _dateRange?.start,
+      endDate: _dateRange?.end,
+    ).apply(all);
   }
+
+  Future<void> _openFilterSheet() async {
+    final provider = context.read<ExpenseProvider>();
+    final accounts = context.read<AccountProvider>().accounts;
+    final categories = provider.expenses
+        .map((e) => e.category)
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+
+    // Working copies so the sheet only applies on confirm.
+    String? category = _categoryFilter;
+    int? accountId = _accountFilter;
+    final minController = TextEditingController(
+        text: _minAmount == null ? '' : _minAmount!.toStringAsFixed(0));
+    final maxController = TextEditingController(
+        text: _maxAmount == null ? '' : _maxAmount!.toStringAsFixed(0));
+    DateTimeRange? range = _dateRange;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) => Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Filters',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String?>(
+                initialValue: categories.contains(category) ? category : null,
+                decoration: const InputDecoration(labelText: 'Category'),
+                items: [
+                  const DropdownMenuItem<String?>(
+                      value: null, child: Text('Any')),
+                  ...categories.map((c) =>
+                      DropdownMenuItem<String?>(value: c, child: Text(c))),
+                ],
+                onChanged: (v) => setSheet(() => category = v),
+              ),
+              if (accounts.isNotEmpty)
+                DropdownButtonFormField<int?>(
+                  initialValue: accounts.any((a) => a.id == accountId)
+                      ? accountId
+                      : null,
+                  decoration: const InputDecoration(labelText: 'Account'),
+                  items: [
+                    const DropdownMenuItem<int?>(
+                        value: null, child: Text('Any')),
+                    ...accounts.map((a) => DropdownMenuItem<int?>(
+                        value: a.id, child: Text(a.name))),
+                  ],
+                  onChanged: (v) => setSheet(() => accountId = v),
+                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: minController,
+                      keyboardType: TextInputType.number,
+                      decoration:
+                          const InputDecoration(labelText: 'Min amount'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: maxController,
+                      keyboardType: TextInputType.number,
+                      decoration:
+                          const InputDecoration(labelText: 'Max amount'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(range == null
+                        ? 'Date range: uses Year/Month above'
+                        : 'Date range: ${_fmtRange(range!)}'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      final picked = await showDateRangePicker(
+                        context: context,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime.now(),
+                        initialDateRange: range,
+                      );
+                      if (picked != null) setSheet(() => range = picked);
+                    },
+                    child: const Text('Pick'),
+                  ),
+                  if (range != null)
+                    TextButton(
+                      onPressed: () => setSheet(() => range = null),
+                      child: const Text('Clear'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _categoryFilter = null;
+                        _accountFilter = null;
+                        _minAmount = null;
+                        _maxAmount = null;
+                        _dateRange = null;
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Reset all'),
+                  ),
+                  const Spacer(),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _categoryFilter = category;
+                        _accountFilter = accountId;
+                        _minAmount =
+                            double.tryParse(minController.text.trim());
+                        _maxAmount =
+                            double.tryParse(maxController.text.trim());
+                        _dateRange = range;
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Apply'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _fmtRange(DateTimeRange r) =>
+      '${_formatDate(r.start)} → ${_formatDate(r.end)}';
 
   String get _filterLabel {
     final period = _selectedMonth == null
@@ -221,6 +396,13 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       appBar: AppBar(
         title: const Text('Transactions'),
         actions: [
+          IconButton(
+            icon: Icon(_hasAdvancedFilters
+                ? Icons.filter_alt
+                : Icons.filter_alt_outlined),
+            tooltip: 'Filters',
+            onPressed: _openFilterSheet,
+          ),
           IconButton(
             icon: const Icon(Icons.download),
             tooltip: 'Download filtered (CSV)',
