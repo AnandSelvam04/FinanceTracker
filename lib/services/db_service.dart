@@ -1,4 +1,9 @@
-import 'package:sqflite/sqflite.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+
+import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart';
 import '../models/account.dart';
 import '../models/expense.dart';
@@ -18,6 +23,10 @@ class DBService {
   /// Test-only hook so tests can point the singleton at an isolated file.
   static String? dbNameOverride;
 
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static const _kEncEnabledFlag = 'db_encryption_enabled';
+  static const _kEncKey = 'db_encryption_key';
+
   Database? _db;
 
   Future<Database> get database async {
@@ -26,11 +35,55 @@ class DBService {
     return _db!;
   }
 
+  /// Closes the database so the next access re-opens it (used by the
+  /// encryption migration to switch the file's cipher state).
+  Future<void> close() async {
+    await _db?.close();
+    _db = null;
+  }
+
+  /// Whether the on-device database is currently encrypted. Always false in
+  /// test mode. Never throws (returns false if secure storage is unavailable).
+  Future<bool> isEncryptionEnabled() async {
+    if (dbNameOverride != null) return false;
+    try {
+      return (await _secureStorage.read(key: _kEncEnabledFlag)) == 'true';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Password to open the database: the stored key when encryption is on,
+  /// otherwise null (plaintext). Guarded so the plain path never fails on a
+  /// host without secure storage (unit tests, desktop).
+  Future<String?> _password() async {
+    if (dbNameOverride != null) return null;
+    try {
+      if ((await _secureStorage.read(key: _kEncEnabledFlag)) != 'true') {
+        return null;
+      }
+      return await _getOrCreateKey();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String> _getOrCreateKey() async {
+    var key = await _secureStorage.read(key: _kEncKey);
+    if (key == null || key.isEmpty) {
+      final rnd = Random.secure();
+      key = base64Url.encode(List<int>.generate(32, (_) => rnd.nextInt(256)));
+      await _secureStorage.write(key: _kEncKey, value: key);
+    }
+    return key;
+  }
+
   Future<Database> _initDB() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, dbNameOverride ?? DbConstants.dbName);
     return await openDatabase(
       path,
+      password: await _password(),
       version: DbConstants.dbVersion,
       onCreate: (db, version) async {
         await db.execute('''
@@ -332,6 +385,119 @@ class DBService {
     await clearAccounts();
     await clearRecurringRules();
     await clearTemplates();
+  }
+
+  // --- At-rest encryption (opt-in) -----------------------------------------
+
+  static const List<String> _allTables = [
+    DbConstants.tableAccounts,
+    DbConstants.tableExpenses,
+    DbConstants.tableInvestments,
+    DbConstants.tableBudgets,
+    DbConstants.tableRecurringRules,
+    DbConstants.tableTemplates,
+  ];
+
+  Future<Map<String, List<Map<String, Object?>>>> _dumpAllTables(
+      Database db) async {
+    final out = <String, List<Map<String, Object?>>>{};
+    for (final t in _allTables) {
+      out[t] = await db.query(t);
+    }
+    return out;
+  }
+
+  Future<void> _restoreAllTables(
+      Database db, Map<String, List<Map<String, Object?>>> data) async {
+    final batch = db.batch();
+    for (final t in _allTables) {
+      for (final row in data[t] ?? const []) {
+        batch.insert(t, row);
+      }
+    }
+    await batch.commit(noResult: true);
+  }
+
+  bool _sameCounts(Map<String, List<Object?>> a, Map<String, List<Object?>> b) {
+    for (final t in _allTables) {
+      if ((a[t]?.length ?? 0) != (b[t]?.length ?? 0)) return false;
+    }
+    return true;
+  }
+
+  Future<void> _writeSafetySnapshot(
+      Map<String, List<Map<String, Object?>>> data) async {
+    final path = join(await getDatabasesPath(), 'finance_pre_migration.json');
+    await File(path).writeAsString(jsonEncode(data));
+  }
+
+  /// Test hook exercising the table dump→restore copy used by the migration,
+  /// so the copy logic is covered without real encryption/secure storage.
+  Future<void> debugRoundTripTables() async {
+    final db = await database;
+    final snapshot = await _dumpAllTables(db);
+    await clearAll();
+    await _restoreAllTables(db, snapshot);
+  }
+
+  /// Encrypts the on-device database in place. Safe by construction: writes a
+  /// JSON safety snapshot, copies all rows into a fresh encrypted database,
+  /// verifies row counts, and rolls back to plaintext on any failure so data
+  /// is never lost.
+  Future<void> enableEncryption() async {
+    if (dbNameOverride != null) {
+      throw Exception('Encryption is not available in test mode');
+    }
+    if (await isEncryptionEnabled()) return;
+    final snapshot = await _dumpAllTables(await database);
+    await _writeSafetySnapshot(snapshot);
+    final path = join(await getDatabasesPath(), DbConstants.dbName);
+    await close();
+    await deleteDatabase(path);
+    await _getOrCreateKey();
+    await _secureStorage.write(key: _kEncEnabledFlag, value: 'true');
+    try {
+      final enc = await database; // reopens encrypted via _password()
+      await _restoreAllTables(enc, snapshot);
+      if (!_sameCounts(snapshot, await _dumpAllTables(enc))) {
+        throw Exception('Row-count verification failed after encryption');
+      }
+    } catch (e) {
+      // Roll back to plaintext — no data loss.
+      await _secureStorage.write(key: _kEncEnabledFlag, value: 'false');
+      await close();
+      await deleteDatabase(path);
+      await _restoreAllTables(await database, snapshot);
+      rethrow;
+    }
+  }
+
+  /// Reverses [enableEncryption], returning the database to plaintext with the
+  /// same verify-and-rollback safety.
+  Future<void> disableEncryption() async {
+    if (dbNameOverride != null) {
+      throw Exception('Encryption is not available in test mode');
+    }
+    if (!await isEncryptionEnabled()) return;
+    final snapshot = await _dumpAllTables(await database);
+    await _writeSafetySnapshot(snapshot);
+    final path = join(await getDatabasesPath(), DbConstants.dbName);
+    await close();
+    await deleteDatabase(path);
+    await _secureStorage.write(key: _kEncEnabledFlag, value: 'false');
+    try {
+      final plain = await database; // reopens plaintext
+      await _restoreAllTables(plain, snapshot);
+      if (!_sameCounts(snapshot, await _dumpAllTables(plain))) {
+        throw Exception('Row-count verification failed after decryption');
+      }
+    } catch (e) {
+      await _secureStorage.write(key: _kEncEnabledFlag, value: 'true');
+      await close();
+      await deleteDatabase(path);
+      await _restoreAllTables(await database, snapshot);
+      rethrow;
+    }
   }
 
   /// Returns categories used most often in the last [days] days for the

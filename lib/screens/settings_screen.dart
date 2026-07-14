@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/account_provider.dart';
+import '../providers/expense_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/db_service.dart';
 import '../services/notification_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -21,12 +23,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
     300: 'After 5 minutes',
   };
 
+  bool _encryptionEnabled = false;
+  bool _encryptionBusy = false;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<AccountProvider>().fetchAccounts();
+      final enabled = await DBService().isEncryptionEnabled();
+      if (mounted) setState(() => _encryptionEnabled = enabled);
     });
+  }
+
+  /// Toggles at-rest DB encryption. The migration is verify-and-rollback, so
+  /// data is preserved even if it fails; on error we surface it and leave the
+  /// switch in its real state.
+  Future<void> _toggleEncryption(bool enable, AppLocalizations l) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final expenses = context.read<ExpenseProvider>();
+    final accounts = context.read<AccountProvider>();
+    setState(() => _encryptionBusy = true);
+    try {
+      if (enable) {
+        await DBService().enableEncryption();
+      } else {
+        await DBService().disableEncryption();
+      }
+      // The database file was recreated; refresh in-memory views.
+      await expenses.reloadLoadedYears();
+      await accounts.fetchAccounts();
+      final now = await DBService().isEncryptionEnabled();
+      if (!mounted) return;
+      setState(() => _encryptionEnabled = now);
+      messenger.showSnackBar(SnackBar(
+          content: Text(now ? l.encryptionEnabled : l.encryptionDisabled)));
+    } catch (e) {
+      final now = await DBService().isEncryptionEnabled();
+      if (!mounted) return;
+      setState(() => _encryptionEnabled = now);
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _encryptionBusy = false);
+    }
   }
 
   String _themeLabel(ThemeMode mode, AppLocalizations l) {
@@ -141,6 +180,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     if (v != null) settings.setLockTimeoutSeconds(v);
                   },
                 ),
+              ),
+              SwitchListTile(
+                secondary: _encryptionBusy
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.enhanced_encryption),
+                title: Text(l.encryptDatabase),
+                subtitle: Text(_encryptionBusy
+                    ? (_encryptionEnabled ? l.decrypting : l.encrypting)
+                    : l.encryptDatabaseSubtitle),
+                value: _encryptionEnabled,
+                onChanged: _encryptionBusy
+                    ? null
+                    : (v) => _toggleEncryption(v, l),
               ),
             ],
           );
