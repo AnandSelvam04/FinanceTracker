@@ -48,6 +48,7 @@ class _MonthSelectorState extends State<MonthSelector> {
       children: [
         IconButton(
           icon: const Icon(Icons.chevron_left),
+          tooltip: 'Previous month',
           onPressed: () => _changeMonth(-1),
         ),
         Text(
@@ -56,6 +57,7 @@ class _MonthSelectorState extends State<MonthSelector> {
         ),
         IconButton(
           icon: const Icon(Icons.chevron_right),
+          tooltip: 'Next month',
           onPressed: () => _changeMonth(1),
         ),
       ],

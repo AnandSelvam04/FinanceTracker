@@ -250,6 +250,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete),
+                        tooltip: 'Delete rule',
                         onPressed: () => provider.deleteRule(rule.id!),
                       ),
                     ],
@@ -262,8 +263,9 @@ class _RecurringScreenState extends State<RecurringScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
+        tooltip: 'Add recurring rule',
         onPressed: () => _showRuleDialog(),
+        child: const Icon(Icons.add),
       ),
     );
   }

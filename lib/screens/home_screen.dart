@@ -11,9 +11,11 @@ import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 import '../services/recurring_service.dart';
 import '../utils/currency_format.dart';
+import '../widgets/alerts_banner.dart';
 import '../widgets/expense_chart.dart';
 import '../widgets/expense_trends_chart.dart';
 import '../widgets/month_selector.dart';
+import '../widgets/net_worth_card.dart';
 import 'add_expense_screen.dart';
 import 'add_investment_screen.dart';
 import 'expense_list_screen.dart';
@@ -191,6 +193,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
+            tooltip: 'How to use',
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TutorialScreen()),
@@ -202,6 +205,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       body: _screens[_selectedIndex],
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddOptions(context),
+        tooltip: 'Add transaction',
         child: const Icon(Icons.add),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -258,6 +262,8 @@ class _DashboardView extends StatelessWidget {
                 const Text('Dashboard & Charts',
                     style: TextStyle(fontSize: 20)),
                 const SizedBox(height: 12),
+                const AlertsBanner(),
+                const NetWorthCard(),
                 _QuickAddRow(onQuickAdd: onQuickAdd),
                 MonthSelector(
                   initialYear: selectedYear,

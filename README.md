@@ -5,14 +5,15 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 ## Features
 - Transactions: record expenses and income with category/date/amount; transfers between accounts; search, type filters, and month/year rollups in the list view.
 - Accounts: cash, bank, UPI, and credit-card accounts with opening balances and live computed balances; transfers between them.
-- Dashboard: toggle month/year views, category breakdowns, income totals, and a 12-month trend chart; one-tap quick-add template chips.
+- Dashboard: net-worth card (accounts + investments) with a 12-month trend line, proactive budget/bill alerts banner, toggle month/year views, category breakdowns, income totals, and a 12-month trend chart; one-tap quick-add template chips.
+- Alerts: dashboard warnings when a budget category reaches 90%/over its cap or a recurring bill is due within three days (toggle in Settings).
 - Recurring: set daily/weekly/monthly/yearly rules that auto-post due transactions on launch (with catch-up); pause or edit any rule.
 - Insights: monthly summary (income, expense, net, savings rate, top categories with month-over-month deltas), cash-flow chart, and category trend comparisons.
 - Investments: add/list/edit investments with per-type totals.
 - Budgets: set monthly budgets per category and see spent vs. budget with progress bars (income and transfers excluded from spend).
 - Filter & download: filter the Transactions list by search, year/month, type, category, account, amount range, or a custom date range — then download exactly that set as CSV.
 - Backup / Export / Import: Drive backup/restore, versioned local JSON backup/restore, CSV/JSON download via the share sheet, a PDF monthly statement, and CSV import with column mapping and a preview.
-- Settings: currency symbol, theme (light/dark/system), auto-lock timeout, and a default account for new transactions.
+- Settings: currency symbol, theme (light/dark/system), budget/bill alerts toggle, auto-lock timeout, and a default account for new transactions.
 - Security & onboarding: optional app lock (biometrics or device PIN) that re-locks on resume after a configurable grace period, plus a first-run tutorial/onboarding flow.
 
 ## Tech stack

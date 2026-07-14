@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/backup_service.dart';
 import 'accounts_screen.dart';
 import 'backups_screen.dart';
 import 'budgets_screen.dart';
@@ -19,11 +20,13 @@ class MoreScreen extends StatefulWidget {
 
 class _MoreScreenState extends State<MoreScreen> {
   bool _biometricEnabled = false;
+  DateTime? _lastBackup;
 
   @override
   void initState() {
     super.initState();
     _loadPrefs();
+    _loadLastBackup();
   }
 
   Future<void> _loadPrefs() async {
@@ -32,6 +35,25 @@ class _MoreScreenState extends State<MoreScreen> {
     setState(() {
       _biometricEnabled = prefs.getBool('biometricEnabled') ?? false;
     });
+  }
+
+  Future<void> _loadLastBackup() async {
+    final t = await BackupService().lastBackupTime();
+    if (mounted) setState(() => _lastBackup = t);
+  }
+
+  /// Short human-friendly backup age shown under the Backup tile, so the
+  /// nudge is visible without opening the backup screen.
+  String get _backupSubtitle {
+    final t = _lastBackup;
+    if (t == null) return 'No backup yet — tap to protect your data';
+    final d = DateTime.now().difference(t);
+    final ago = d.inDays >= 1
+        ? '${d.inDays} day${d.inDays == 1 ? '' : 's'} ago'
+        : d.inHours >= 1
+            ? '${d.inHours} hour${d.inHours == 1 ? '' : 's'} ago'
+            : 'just now';
+    return 'Last backup: $ago';
   }
 
   Future<void> _setBiometricEnabled(bool value) async {
@@ -122,17 +144,28 @@ class _MoreScreenState extends State<MoreScreen> {
               );
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.cloud),
-            title: const Text('Backup & Export'),
-            subtitle: const Text('Download CSV/JSON, Drive backup, restore'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const BackupsScreen()),
-              );
-            },
-          ),
+          Builder(builder: (context) {
+            final stale = _lastBackup == null ||
+                DateTime.now().difference(_lastBackup!) >
+                    const Duration(days: 7);
+            return ListTile(
+              leading: Icon(Icons.cloud,
+                  color: stale ? Colors.orange : null),
+              title: const Text('Backup & Export'),
+              subtitle: Text(_backupSubtitle,
+                  style: stale
+                      ? const TextStyle(color: Colors.orange)
+                      : null),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const BackupsScreen()),
+                );
+                _loadLastBackup();
+              },
+            );
+          }),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.settings),

@@ -242,6 +242,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete),
+                              tooltip: 'Delete account',
                               onPressed: () => _confirmDelete(account),
                             ),
                           ],
@@ -257,8 +258,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
+        tooltip: 'Add account',
         onPressed: () => _showAccountDialog(),
+        child: const Icon(Icons.add),
       ),
     );
   }
