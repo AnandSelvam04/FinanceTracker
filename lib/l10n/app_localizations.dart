@@ -104,6 +104,16 @@ class AppLocalizations {
       'saveAsTemplate': 'Save as quick-add template',
       'incomeAdded': 'Income added',
       'expenseAdded': 'Expense added',
+      // Add investment
+      'investmentAdded': 'Investment added',
+      // Transfer
+      'needTwoAccounts':
+          'You need at least two accounts to record a transfer.',
+      'fromAccount': 'From account',
+      'toAccount': 'To account',
+      'noteOptional': 'Note (optional)',
+      'recordTransfer': 'Record Transfer',
+      'transferRecorded': 'Transfer recorded',
     },
     'ta': {
       'appTitle': 'Finance Tracker',
@@ -184,6 +194,14 @@ class AppLocalizations {
       'saveAsTemplate': 'விரைவு-சேர் டெம்ப்ளேட்டாக சேமி',
       'incomeAdded': 'வருமானம் சேர்க்கப்பட்டது',
       'expenseAdded': 'செலவு சேர்க்கப்பட்டது',
+      'investmentAdded': 'முதலீடு சேர்க்கப்பட்டது',
+      'needTwoAccounts':
+          'பரிமாற்றத்தைப் பதிவு செய்ய குறைந்தது இரண்டு கணக்குகள் தேவை.',
+      'fromAccount': 'அனுப்பும் கணக்கு',
+      'toAccount': 'பெறும் கணக்கு',
+      'noteOptional': 'குறிப்பு (விருப்பம்)',
+      'recordTransfer': 'பரிமாற்றத்தைப் பதிவு செய்',
+      'transferRecorded': 'பரிமாற்றம் பதிவு செய்யப்பட்டது',
     },
   };
 
@@ -270,6 +288,15 @@ class AppLocalizations {
   String get saveAsTemplate => _t('saveAsTemplate');
   String get incomeAdded => _t('incomeAdded');
   String get expenseAdded => _t('expenseAdded');
+  // Add investment
+  String get investmentAdded => _t('investmentAdded');
+  // Transfer
+  String get needTwoAccounts => _t('needTwoAccounts');
+  String get fromAccount => _t('fromAccount');
+  String get toAccount => _t('toAccount');
+  String get noteOptional => _t('noteOptional');
+  String get recordTransfer => _t('recordTransfer');
+  String get transferRecorded => _t('transferRecorded');
 }
 
 class _AppLocalizationsDelegate

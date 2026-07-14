@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
@@ -24,16 +25,16 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final accounts = context.watch<AccountProvider>().accounts;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Transfer Between Accounts')),
+      appBar: AppBar(title: Text(l.transferBetweenAccounts)),
       body: accounts.length < 2
-          ? const Center(
+          ? Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                    'You need at least two accounts to record a transfer.'),
+                padding: const EdgeInsets.all(24),
+                child: Text(l.needTwoAccounts),
               ),
             )
           : SingleChildScrollView(
@@ -46,7 +47,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                     DropdownButtonFormField<int>(
                       initialValue: _fromAccountId,
                       decoration:
-                          const InputDecoration(labelText: 'From account'),
+                          InputDecoration(labelText: l.fromAccount),
                       items: accounts
                           .map((a) => DropdownMenuItem(
                               value: a.id, child: Text(a.name)))
@@ -57,7 +58,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                     DropdownButtonFormField<int>(
                       initialValue: _toAccountId,
                       decoration:
-                          const InputDecoration(labelText: 'To account'),
+                          InputDecoration(labelText: l.toAccount),
                       items: accounts
                           .map((a) => DropdownMenuItem(
                               value: a.id, child: Text(a.name)))
@@ -73,7 +74,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                     ),
                     TextFormField(
                       controller: _amountController,
-                      decoration: const InputDecoration(labelText: 'Amount'),
+                      decoration: InputDecoration(labelText: l.amount),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       validator: (value) {
@@ -90,14 +91,14 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                     TextFormField(
                       controller: _noteController,
                       decoration:
-                          const InputDecoration(labelText: 'Note (optional)'),
+                          InputDecoration(labelText: l.noteOptional),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: Text(
-                              'Date: ${_selectedDate.toString().split(' ')[0]}'),
+                              '${l.date}: ${_selectedDate.toString().split(' ')[0]}'),
                         ),
                         TextButton(
                           onPressed: () async {
@@ -111,7 +112,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                               setState(() => _selectedDate = picked);
                             }
                           },
-                          child: const Text('Select Date'),
+                          child: Text(l.selectDate),
                         ),
                       ],
                     ),
@@ -123,7 +124,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                         child: _isSaving
                             ? const CircularProgressIndicator(
                                 color: Colors.white)
-                            : const Text('Record Transfer'),
+                            : Text(l.recordTransfer),
                       ),
                     ),
                   ],
@@ -135,6 +136,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
 
   Future<void> _save(BuildContext context) async {
     if (!_formKey.currentState!.validate()) return;
+    final l = AppLocalizations.of(context);
     setState(() => _isSaving = true);
     final note = _noteController.text.trim();
     final transfer = Expense(
@@ -154,7 +156,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
       await accountProvider.refreshBalances();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transfer recorded')),
+          SnackBar(content: Text(l.transferRecorded)),
         );
         Navigator.pop(context);
       }
