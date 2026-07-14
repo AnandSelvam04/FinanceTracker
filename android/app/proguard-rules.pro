@@ -14,6 +14,10 @@
 # Sqflite
 -keep class com.tekartik.sqflite.** { *; }
 
+# flutter_local_notifications (Gson-serialized scheduled notifications)
+-keep class com.dexterous.** { *; }
+-keep class com.google.gson.** { *; }
+
 # General
 -dontwarn io.flutter.embedding.**
 -ignorewarnings

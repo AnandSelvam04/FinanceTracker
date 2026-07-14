@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/notification_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -105,6 +106,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'Show dashboard warnings for budgets and due bills'),
                 value: settings.alertsEnabled,
                 onChanged: settings.setAlertsEnabled,
+              ),
+              SwitchListTile(
+                secondary: const Icon(Icons.notifications),
+                title: const Text('Push notifications'),
+                subtitle: const Text(
+                    'Reminders before bills are due and budget-limit alerts'),
+                value: settings.notificationsEnabled,
+                onChanged: (v) async {
+                  await settings.setNotificationsEnabled(v);
+                  if (v) {
+                    await NotificationService.instance.requestPermission();
+                  } else {
+                    await NotificationService.instance.cancelAll();
+                  }
+                },
               ),
               const Divider(),
               const _SectionHeader('Security'),

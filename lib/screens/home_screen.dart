@@ -6,10 +6,14 @@ import '../models/tx_template.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
+import '../providers/budget_provider.dart';
 import '../providers/recurring_provider.dart';
+import '../providers/settings_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
+import '../services/notification_service.dart';
 import '../services/recurring_service.dart';
+import '../utils/alerts.dart';
 import '../utils/currency_format.dart';
 import '../widgets/alerts_banner.dart';
 import '../widgets/expense_chart.dart';
@@ -47,11 +51,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       context.read<InvestmentProvider>().fetchInvestments();
       context.read<AccountProvider>().fetchAccounts();
       context.read<TemplateProvider>().fetchTemplates();
-      context.read<RecurringProvider>().fetchRules();
+      await context.read<RecurringProvider>().fetchRules();
+      // Budgets power both the in-app alerts banner and budget notifications.
+      await context.read<BudgetProvider>().fetchBudgets();
       await _postRecurring();
       // Safety net: keep a fresh local backup even if the user never
       // taps "Backup" (data otherwise lives only on this device).
       await BackupService().autoBackupIfDue();
+      if (mounted) await _syncNotifications();
     });
   }
 
@@ -86,6 +93,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ));
       }
     }
+  }
+
+  /// Re-arms bill reminders and fires any new budget notifications, honoring
+  /// the user's notifications setting.
+  Future<void> _syncNotifications() async {
+    final settings = context.read<SettingsProvider>();
+    final recurring = context.read<RecurringProvider>();
+    final budgets = context.read<BudgetProvider>();
+    final expenses = context.read<ExpenseProvider>();
+    final service = NotificationService.instance;
+    if (!settings.notificationsEnabled) {
+      await service.cancelAll();
+      return;
+    }
+    await service.requestPermission();
+    await service.scheduleBillReminders(recurring.rules);
+    final now = DateTime.now();
+    final totals = expenses.categoryTotalsForMonth(now.year, now.month);
+    final alerts = budgetAlerts(
+      budgets: budgets.budgets,
+      year: now.year,
+      month: now.month,
+      spentForCategory: (c) => totals[c] ?? 0,
+    );
+    await service.notifyBudgetAlerts(alerts, year: now.year, month: now.month);
   }
 
   Future<void> _quickAddTemplate(TxTemplate template) async {
