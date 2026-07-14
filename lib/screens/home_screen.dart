@@ -193,6 +193,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
+            tooltip: 'How to use',
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TutorialScreen()),
@@ -204,6 +205,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       body: _screens[_selectedIndex],
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddOptions(context),
+        tooltip: 'Add transaction',
         child: const Icon(Icons.add),
       ),
       bottomNavigationBar: BottomNavigationBar(

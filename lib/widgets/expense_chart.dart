@@ -19,11 +19,15 @@ class ExpenseChart extends StatelessWidget {
               titleStyle: const TextStyle(fontSize: 12, color: Colors.white),
             ))
         .toList();
-    return PieChart(
-      PieChartData(
-        sections: sections,
-        centerSpaceRadius: 40,
-        sectionsSpace: 2,
+    return Semantics(
+      label: 'Expense breakdown by category: '
+          '${data.keys.join(', ')}',
+      child: PieChart(
+        PieChartData(
+          sections: sections,
+          centerSpaceRadius: 40,
+          sectionsSpace: 2,
+        ),
       ),
     );
   }

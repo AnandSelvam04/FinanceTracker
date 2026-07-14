@@ -211,10 +211,12 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.edit),
+                        tooltip: 'Edit budget',
                         onPressed: () => _showBudgetDialog(budget: budget),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete),
+                        tooltip: 'Delete budget',
                         onPressed: () =>
                             budgetProvider.deleteBudget(budget.id!),
                       ),
@@ -227,8 +229,9 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
+        tooltip: 'Add budget',
         onPressed: () => _showBudgetDialog(),
+        child: const Icon(Icons.add),
       ),
     );
   }

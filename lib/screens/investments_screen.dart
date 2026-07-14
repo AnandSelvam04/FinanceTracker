@@ -283,13 +283,14 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
+        tooltip: 'Add investment',
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const AddInvestmentScreen()),
           );
         },
+        child: const Icon(Icons.add),
       ),
     );
   }
