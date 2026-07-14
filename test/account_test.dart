@@ -20,7 +20,7 @@ void main() {
   });
 
   Expense tx({
-    required double amount,
+    required int amount,
     required String type,
     int? accountId,
     int? toAccountId,
@@ -63,6 +63,29 @@ void main() {
 
       expect(await db.getAccountBalance(cash), 1000 - 200 + 500); // 1300
       expect(await db.getAccountBalance(bank), 5000 + 3000 - 500); // 7500
+    });
+
+    test('deleting an account detaches it from transactions', () async {
+      final db = DBService();
+      final cashId =
+          await db.insertAccount(Account(name: 'Cash', type: 'cash'));
+      final bankId =
+          await db.insertAccount(Account(name: 'Bank', type: 'bank'));
+      await db.insertExpense(tx(
+          amount: 100, type: DbConstants.txExpense, accountId: cashId));
+      await db.insertExpense(tx(
+          amount: 200,
+          type: DbConstants.txTransfer,
+          accountId: bankId,
+          toAccountId: cashId));
+
+      await db.deleteAccount(cashId);
+
+      final expenses = await db.getExpenses();
+      expect(expenses.any((e) => e.accountId == cashId), isFalse);
+      expect(expenses.any((e) => e.toAccountId == cashId), isFalse);
+      // The other account's link is untouched.
+      expect(expenses.any((e) => e.accountId == bankId), isTrue);
     });
   });
 

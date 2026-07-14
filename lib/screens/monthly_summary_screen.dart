@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../providers/expense_provider.dart';
+import '../services/statement_pdf.dart';
 import '../utils/category_colors.dart';
 import '../utils/currency_format.dart';
 import '../widgets/month_selector.dart';
@@ -34,10 +36,46 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     return (year: _year, month: _month - 1);
   }
 
+  String get _periodLabel => '$_year-${_month.toString().padLeft(2, '0')}';
+
+  Future<void> _sharePdf() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final provider = context.read<ExpenseProvider>();
+    final transactions = provider.expensesForMonth(_year, _month);
+    if (transactions.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No transactions to include.')),
+      );
+      return;
+    }
+    try {
+      final file = await StatementPdf.build(
+        title: 'Finance Tracker Statement',
+        periodLabel: _periodLabel,
+        transactions: transactions,
+      );
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/pdf')],
+        subject: 'Statement $_periodLabel',
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Monthly Summary')),
+      appBar: AppBar(
+        title: const Text('Monthly Summary'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: 'Share PDF statement',
+            onPressed: _sharePdf,
+          ),
+        ],
+      ),
       body: Consumer<ExpenseProvider>(
         builder: (context, provider, _) {
           final income = provider.incomeForMonth(_year, _month);
@@ -80,13 +118,13 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-                        _row('Income', formatInr(income),
+                        _row('Income', formatMoney(income),
                             color: Colors.green.shade700),
                         const SizedBox(height: 8),
-                        _row('Expense', formatInr(expense),
+                        _row('Expense', formatMoney(expense),
                             color: Colors.red.shade700),
                         const Divider(),
-                        _row('Net', formatInr(net),
+                        _row('Net', formatMoney(net),
                             color: net >= 0
                                 ? Colors.green.shade700
                                 : Colors.red.shade700,
@@ -138,7 +176,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                         title: Text(entry.key),
                         subtitle: _DeltaLabel(
                             current: entry.value, previous: prevValue),
-                        trailing: Text(formatInr(entry.value),
+                        trailing: Text(formatMoney(entry.value),
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold)),
                       ),
@@ -170,8 +208,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
 
 /// Shows the month-over-month change with a direction arrow.
 class _DeltaLabel extends StatelessWidget {
-  final double current;
-  final double previous;
+  final int current;
+  final int previous;
   const _DeltaLabel({required this.current, required this.previous});
 
   @override
@@ -199,7 +237,7 @@ class _DeltaLabel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 14, color: color),
-        Text('${formatInr(delta.abs())}$pct',
+        Text('${formatMoney(delta.abs())}$pct',
             style: TextStyle(fontSize: 12, color: color)),
       ],
     );

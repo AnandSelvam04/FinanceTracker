@@ -27,7 +27,7 @@ class BudgetProvider extends ChangeNotifier {
     await fetchBudgets();
   }
 
-  double getBudgetForCategory(int year, int month, String category) {
+  int getBudgetForCategory(int year, int month, String category) {
     final budget = _budgets.firstWhere(
       (b) => b.year == year && b.month == month && b.category == category,
       orElse: () =>

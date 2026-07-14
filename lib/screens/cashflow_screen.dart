@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/expense_provider.dart';
+import '../utils/currency_format.dart';
 import '../widgets/cashflow_chart.dart';
 
 class CashflowScreen extends StatefulWidget {
@@ -30,8 +31,8 @@ class _CashflowScreenState extends State<CashflowScreen> {
       body: Consumer<ExpenseProvider>(
         builder: (context, provider, _) {
           final now = DateTime.now();
-          var totalIncome = 0.0;
-          var totalExpense = 0.0;
+          var totalIncome = 0;
+          var totalExpense = 0;
           for (int i = 11; i >= 0; i--) {
             final date = DateTime(now.year, now.month - i, 1);
             totalIncome += provider.incomeForMonth(date.year, date.month);
@@ -118,7 +119,7 @@ class _LegendDot extends StatelessWidget {
 
 class _SummaryRow extends StatelessWidget {
   final String label;
-  final double value;
+  final int value;
   final Color color;
   const _SummaryRow(
       {required this.label, required this.value, required this.color});
@@ -129,7 +130,7 @@ class _SummaryRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label),
-        Text('₹${value.toStringAsFixed(2)}',
+        Text(formatMoney(value),
             style: TextStyle(fontWeight: FontWeight.bold, color: color)),
       ],
     );

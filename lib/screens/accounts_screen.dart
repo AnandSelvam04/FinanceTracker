@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/account.dart';
 import '../providers/account_provider.dart';
+import '../utils/currency_format.dart';
 import 'add_transfer_screen.dart';
 
 class AccountsScreen extends StatefulWidget {
@@ -15,7 +16,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
   final _formKey = GlobalKey<FormState>();
   String _name = '';
   String _type = 'cash';
-  double _openingBalance = 0;
+  int _openingBalance = 0; // minor units
 
   @override
   void initState() {
@@ -73,7 +74,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               TextFormField(
                 initialValue: _openingBalance == 0
                     ? ''
-                    : _openingBalance.toStringAsFixed(2),
+                    : minorToEditString(_openingBalance),
                 decoration:
                     const InputDecoration(labelText: 'Opening Balance'),
                 keyboardType:
@@ -85,7 +86,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                       : null;
                 },
                 onSaved: (value) =>
-                    _openingBalance = double.tryParse(value ?? '') ?? 0,
+                    _openingBalance = parseMinor(value ?? '') ?? 0,
               ),
             ],
           ),
@@ -183,8 +184,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
             );
           }
 
-          final totalBalance = accounts.fold(
-              0.0, (sum, a) => sum + (provider.balanceOf(a) ?? 0));
+          final totalBalance = accounts.fold<int>(
+              0, (sum, a) => sum + (provider.balanceOf(a) ?? 0));
 
           return Column(
             children: [
@@ -200,7 +201,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         const Text('Total Balance',
                             style: TextStyle(fontSize: 16)),
                         Text(
-                          '₹${totalBalance.toStringAsFixed(2)}',
+                          formatMoney(totalBalance),
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold),
                         ),
@@ -235,7 +236,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                             Text(
                               balance == null
                                   ? '…'
-                                  : '₹${balance.toStringAsFixed(2)}',
+                                  : formatMoney(balance),
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 14),
                             ),

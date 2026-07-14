@@ -9,6 +9,7 @@ import 'package:finance_tracker/services/backup_service.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class _FakePathProvider extends Fake
@@ -32,6 +33,7 @@ void main() {
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('backup_test');
     PathProviderPlatform.instance = _FakePathProvider(tempDir.path);
+    SharedPreferences.setMockInitialValues({});
     await DBService().clearAll();
   });
 
@@ -45,14 +47,14 @@ void main() {
       final db = DBService();
       await db.insertExpense(Expense(
         description: 'Lunch',
-        amount: 120.0,
+        amount: 12000, // 120.00
         date: DateTime(2026, 5, 10),
         category: 'Food',
         paymentMode: 'UPI',
       ));
       await db.insertBudget(Budget(
         category: 'Food',
-        amount: 3000.0,
+        amount: 300000, // 3000.00
         year: 2026,
         month: 5,
       ));
@@ -75,10 +77,10 @@ void main() {
       expect(expenses.first.description, 'Lunch');
       expect(budgets.length, 1);
       expect(budgets.first.category, 'Food');
-      expect(budgets.first.amount, 3000.0);
+      expect(budgets.first.amount, 300000);
       expect(accounts.length, 1);
       expect(accounts.first.name, 'Wallet');
-      expect(accounts.first.openingBalance, 250.0);
+      expect(accounts.first.openingBalance, 250);
     });
 
     test('restore of legacy backup without budgets key succeeds', () async {
@@ -112,6 +114,48 @@ void main() {
           Budget(category: 'Bills', amount: 100, year: 2026, month: 1));
       await db.clearAll();
       expect(await db.getBudgets(), isEmpty);
+    });
+
+    test('autoBackupIfDue writes once, then throttles, and stamps time',
+        () async {
+      final service = BackupService();
+      expect(await service.lastBackupTime(), isNull);
+
+      final first = await service.autoBackupIfDue();
+      expect(first, isTrue);
+      expect(await service.lastBackupTime(), isNotNull);
+
+      // A second immediate call is throttled.
+      final second = await service.autoBackupIfDue();
+      expect(second, isFalse);
+
+      // A zero interval forces another backup.
+      final forced =
+          await service.autoBackupIfDue(minInterval: Duration.zero);
+      expect(forced, isTrue);
+    });
+
+    test('writeExpensesCsvFile writes only the rows it is given', () async {
+      // Simulates the "download filtered" flow: caller passes a subset.
+      final marchOnly = [
+        Expense(
+          description: 'March lunch',
+          amount: 120,
+          date: DateTime(2026, 3, 10),
+          category: 'Food',
+          paymentMode: 'UPI',
+        ),
+      ];
+      final file = await writeExpensesCsvFile(marchOnly,
+          filename: 'expenses_2026-03.csv');
+      final contents = await file.readAsString();
+      final lines = contents.trim().split('\n');
+
+      expect(file.path, endsWith('expenses_2026-03.csv'));
+      expect(lines.first, contains('Description'));
+      expect(lines.first, contains('Type'));
+      expect(lines.length, 2); // header + one filtered row
+      expect(contents, contains('March lunch'));
     });
   });
 }

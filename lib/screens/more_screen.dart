@@ -8,6 +8,7 @@ import 'category_trends_screen.dart';
 import 'investments_screen.dart';
 import 'monthly_summary_screen.dart';
 import 'recurring_screen.dart';
+import 'settings_screen.dart';
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -123,7 +124,8 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.cloud),
-            title: const Text('Backups'),
+            title: const Text('Backup & Export'),
+            subtitle: const Text('Download CSV/JSON, Drive backup, restore'),
             onTap: () {
               Navigator.push(
                 context,
@@ -132,6 +134,16 @@ class _MoreScreenState extends State<MoreScreen> {
             },
           ),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Settings'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
           SwitchListTile(
             secondary: const Icon(Icons.fingerprint),
             title: const Text('App lock'),

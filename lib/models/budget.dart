@@ -3,7 +3,9 @@ import '../utils/db_constants.dart';
 class Budget {
   int? id;
   String category;
-  double amount;
+
+  /// Amount in minor units (paise/cents).
+  int amount;
   int year;
   int month;
 
@@ -29,7 +31,7 @@ class Budget {
     return Budget(
       id: map[DbConstants.colId],
       category: map[DbConstants.colCategory],
-      amount: (map[DbConstants.colAmount] as num).toDouble(),
+      amount: (map[DbConstants.colAmount] as num).round(),
       year: map[DbConstants.colYear],
       month: map[DbConstants.colMonth],
     );

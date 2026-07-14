@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/investment.dart';
 import '../providers/investment_provider.dart';
+import '../utils/currency_format.dart';
 import 'add_investment_screen.dart';
 
 class InvestmentsScreen extends StatefulWidget {
@@ -34,7 +35,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Delete investment?'),
         content: Text(
-            'Remove "${investment.name}" for ₹${investment.amount.toStringAsFixed(2)}?'),
+            'Remove "${investment.name}" for ${formatMoney(investment.amount)}?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -56,7 +57,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
   Future<void> _editInvestment(Investment investment) async {
     final nameController = TextEditingController(text: investment.name);
     final amountController =
-        TextEditingController(text: investment.amount.toStringAsFixed(2));
+        TextEditingController(text: minorToEditString(investment.amount));
     String type = investment.type;
     DateTime selectedDate = investment.date;
 
@@ -128,7 +129,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       final amount =
-                          double.tryParse(amountController.text.trim());
+                          parseMinor(amountController.text.trim());
                       if (amount == null) return;
                       final updated = Investment(
                         id: investment.id,
@@ -165,7 +166,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
               ? all
               : all.where((i) => i.type == _typeFilter).toList();
           final total =
-              investments.fold(0.0, (sum, i) => sum + i.amount);
+              investments.fold<int>(0, (sum, i) => sum + i.amount);
 
           if (all.isEmpty) {
             return Center(
@@ -198,7 +199,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                           style: const TextStyle(fontSize: 16),
                         ),
                         Text(
-                          '₹${total.toStringAsFixed(2)}',
+                          formatMoney(total),
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold),
                         ),
@@ -267,7 +268,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                           subtitle: Text(
                               '${investment.type} · ${_formatDate(investment.date)}'),
                           trailing: Text(
-                              '₹${investment.amount.toStringAsFixed(2)}',
+                              formatMoney(investment.amount),
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold)),
                           onTap: () => _editInvestment(investment),

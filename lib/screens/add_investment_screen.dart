@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/investment_provider.dart';
 import '../models/investment.dart';
+import '../utils/currency_format.dart';
 
 class AddInvestmentScreen extends StatefulWidget {
   const AddInvestmentScreen({super.key});
@@ -92,7 +93,8 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                           setState(() => _isSaving = true);
                           final investment = Investment(
                             name: _nameController.text,
-                            amount: double.parse(_amountController.text),
+                            amount: rupeesToMinor(
+                                double.parse(_amountController.text)),
                             date: _selectedDate,
                             type: _selectedType,
                           );

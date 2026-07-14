@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
+import '../providers/settings_provider.dart';
 import '../providers/template_provider.dart';
 import '../models/expense.dart';
 import '../models/tx_template.dart';
 import '../services/db_service.dart';
 import '../utils/app_logger.dart';
+import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 
 class AddExpenseScreen extends StatefulWidget {
@@ -66,6 +68,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       final provider = context.read<AccountProvider>();
       if (provider.accounts.isEmpty) {
         provider.fetchAccounts();
+      }
+      // Preselect the user's default account, if set and still present.
+      final defaultId = context.read<SettingsProvider>().defaultAccountId;
+      if (defaultId != null &&
+          context.read<AccountProvider>().accountById(defaultId) != null) {
+        setState(() => _accountId = defaultId);
       }
       final expenseFreq =
           await DBService().frequentCategories(DbConstants.txExpense);
@@ -238,7 +246,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           setState(() => _isSaving = true);
                           final expense = Expense(
                             description: _descriptionController.text,
-                            amount: double.parse(_amountController.text),
+                            amount: rupeesToMinor(
+                                double.parse(_amountController.text)),
                             date: _selectedDate,
                             category: _categoryController.text,
                             paymentMode:
@@ -258,7 +267,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                               await templateProvider.addTemplate(TxTemplate(
                                 name: _descriptionController.text,
                                 description: _descriptionController.text,
-                                amount: double.parse(_amountController.text),
+                                amount: rupeesToMinor(
+                                    double.parse(_amountController.text)),
                                 category: _categoryController.text,
                                 type: _txType,
                                 accountId: _accountId,

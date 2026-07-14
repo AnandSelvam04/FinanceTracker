@@ -3,7 +3,9 @@ import '../utils/db_constants.dart';
 class RecurringRule {
   final int? id;
   final String description;
-  final double amount;
+
+  /// Amount in minor units (paise/cents).
+  final int amount;
   final String category;
   final String type; // expense | income
   final int? accountId;
@@ -63,7 +65,7 @@ class RecurringRule {
   factory RecurringRule.fromMap(Map<String, dynamic> map) => RecurringRule(
         id: map[DbConstants.colId],
         description: map[DbConstants.colDescription] ?? '',
-        amount: ((map[DbConstants.colAmount] ?? 0) as num).toDouble(),
+        amount: ((map[DbConstants.colAmount] ?? 0) as num).round(),
         category: map[DbConstants.colCategory] ?? 'Other',
         type: map[DbConstants.colType] ?? DbConstants.txExpense,
         accountId: map[DbConstants.colAccountId],

@@ -15,42 +15,53 @@ import '../models/investment.dart';
 import '../models/recurring_rule.dart';
 import '../models/tx_template.dart';
 import '../utils/app_logger.dart';
+import '../utils/currency_format.dart';
+import '../utils/db_constants.dart';
 import 'db_service.dart';
 
 // Export expenses to CSV
 
-Future<File> exportExpensesToCsv() async {
-  final expenses = await DBService().getExpenses();
-  final List<List<dynamic>> rows = [
-    [
-      'ID',
-      'Description',
-      'Amount',
-      'Date',
-      'Category',
-      'PaymentMode',
-      'Type',
-      'AccountId',
-      'ToAccountId'
-    ],
-    ...expenses.map((e) => [
-          e.id ?? '',
-          e.description,
-          e.amount,
-          e.date.toIso8601String(),
-          e.category,
-          e.paymentMode,
-          e.type,
-          e.accountId ?? '',
-          e.toAccountId ?? '',
-        ]),
-  ];
-  String csvData = const ListToCsvConverter().convert(rows);
-  final backupService = BackupService();
-  final path = await backupService._localPath;
-  final file = File('$path/expenses_export.csv');
+List<List<dynamic>> _expenseCsvRows(List<Expense> expenses) => [
+      [
+        'ID',
+        'Description',
+        'Amount',
+        'Date',
+        'Category',
+        'PaymentMode',
+        'Type',
+        'AccountId',
+        'ToAccountId'
+      ],
+      ...expenses.map((e) => [
+            e.id ?? '',
+            e.description,
+            // Export human-readable major units (e.g. 120.50).
+            minorToMajor(e.amount).toStringAsFixed(2),
+            e.date.toIso8601String(),
+            e.category,
+            e.paymentMode,
+            e.type,
+            e.accountId ?? '',
+            e.toAccountId ?? '',
+          ]),
+    ];
+
+/// Writes the given expenses to a CSV file and returns it. Callers pass an
+/// already-filtered list (e.g. the current month) so users can download
+/// exactly what they see.
+Future<File> writeExpensesCsvFile(List<Expense> expenses,
+    {String filename = 'expenses_export.csv'}) async {
+  final csvData = const ListToCsvConverter().convert(_expenseCsvRows(expenses));
+  final path = await BackupService()._localPath;
+  final file = File('$path/$filename');
   await file.writeAsString(csvData);
   return file;
+}
+
+Future<File> exportExpensesToCsv() async {
+  final expenses = await DBService().getExpenses();
+  return writeExpensesCsvFile(expenses);
 }
 
 // Export investments to CSV
@@ -62,7 +73,7 @@ Future<File> exportInvestmentsToCsv() async {
     ...investments.map((i) => [
           i.id ?? '',
           i.name,
-          i.amount,
+          minorToMajor(i.amount).toStringAsFixed(2),
           i.date.toIso8601String(),
           i.type,
         ]),
@@ -88,9 +99,47 @@ class BackupService {
     return directory.path;
   }
 
+  static const _kLastBackup = 'last_backup_time';
+  static const _kLastAutoBackup = 'last_auto_backup_time';
+
   Future<File> get _backupFile async {
     final path = await _localPath;
     return File('$path/finance_backup.json');
+  }
+
+  /// When the most recent backup (local, auto, or Drive) was taken.
+  Future<DateTime?> lastBackupTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kLastBackup);
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  Future<void> _markBackedUp() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kLastBackup, DateTime.now().toIso8601String());
+  }
+
+  /// Writes a local backup at most once per [minInterval] to protect against
+  /// data loss when users forget to back up manually. Safe to call on launch.
+  Future<bool> autoBackupIfDue(
+      {Duration minInterval = const Duration(days: 1)}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kLastAutoBackup);
+    final last = raw == null ? null : DateTime.tryParse(raw);
+    if (last != null && DateTime.now().difference(last) < minInterval) {
+      return false;
+    }
+    await backupToJson();
+    await prefs.setString(
+        _kLastAutoBackup, DateTime.now().toIso8601String());
+    return true;
+  }
+
+  /// Writes the full-data JSON backup and returns the file so it can be
+  /// shared/downloaded by the user.
+  Future<File> writeJsonBackupFile() async {
+    await backupToJson();
+    return _backupFile;
   }
 
   Future<void> backupToJson() async {
@@ -101,7 +150,8 @@ class BackupService {
     final recurringRules = await DBService().getRecurringRules();
     final templates = await DBService().getTemplates();
     final data = {
-      'version': 3,
+      // v4: amounts are integer minor units (paise/cents).
+      'version': 4,
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'investments': investments.map((i) => i.toMap()).toList(),
       'budgets': budgets.map((b) => b.toMap()).toList(),
@@ -111,6 +161,7 @@ class BackupService {
     };
     final file = await _backupFile;
     await file.writeAsString(jsonEncode(data));
+    await _markBackedUp();
   }
 
   Future<void> restoreFromJson({bool clearBeforeRestore = true}) async {
@@ -122,29 +173,46 @@ class BackupService {
     if (clearBeforeRestore) {
       await db.clearAll();
     }
+    // Backups before v4 stored amounts as major-unit doubles; convert them
+    // to integer minor units so they match the current storage.
+    final legacyAmounts = ((data['version'] ?? 0) as num) < 4;
+    Map<String, dynamic> fix(dynamic raw, List<String> amountKeys) {
+      final map = Map<String, dynamic>.from(raw);
+      if (legacyAmounts) {
+        for (final key in amountKeys) {
+          if (map[key] is num) {
+            map[key] = ((map[key] as num) * 100).round();
+          }
+        }
+      }
+      return map;
+    }
+
     // Restore accounts before expenses so account links resolve
     // (ids are preserved because toMap includes them). Older backups
     // have no 'accounts' key; skip gracefully.
     for (var a in data['accounts'] ?? []) {
-      await db.insertAccount(Account.fromMap(Map<String, dynamic>.from(a)));
+      await db.insertAccount(
+          Account.fromMap(fix(a, [DbConstants.colOpeningBalance])));
     }
     for (var e in data['expenses'] ?? []) {
-      await db.insertExpense(Expense.fromMap(Map<String, dynamic>.from(e)));
+      await db.insertExpense(Expense.fromMap(fix(e, [DbConstants.colAmount])));
     }
     for (var i in data['investments'] ?? []) {
-      await db
-          .insertInvestment(Investment.fromMap(Map<String, dynamic>.from(i)));
+      await db.insertInvestment(
+          Investment.fromMap(fix(i, [DbConstants.colAmount])));
     }
     // Older backups have no 'budgets' key; skip gracefully.
     for (var b in data['budgets'] ?? []) {
-      await db.insertBudget(Budget.fromMap(Map<String, dynamic>.from(b)));
+      await db.insertBudget(Budget.fromMap(fix(b, [DbConstants.colAmount])));
     }
     for (var r in data['recurring_rules'] ?? []) {
       await db.insertRecurringRule(
-          RecurringRule.fromMap(Map<String, dynamic>.from(r)));
+          RecurringRule.fromMap(fix(r, [DbConstants.colAmount])));
     }
     for (var t in data['templates'] ?? []) {
-      await db.insertTemplate(TxTemplate.fromMap(Map<String, dynamic>.from(t)));
+      await db
+          .insertTemplate(TxTemplate.fromMap(fix(t, [DbConstants.colAmount])));
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
+import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 
 class AddTransferScreen extends StatefulWidget {
@@ -138,7 +139,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
     final note = _noteController.text.trim();
     final transfer = Expense(
       description: note.isEmpty ? 'Transfer' : note,
-      amount: double.parse(_amountController.text),
+      amount: rupeesToMinor(double.parse(_amountController.text)),
       date: _selectedDate,
       category: 'Transfer',
       paymentMode: 'Other',
