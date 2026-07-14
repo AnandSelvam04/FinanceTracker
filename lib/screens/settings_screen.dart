@@ -98,6 +98,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (id) => settings.setDefaultAccountId(id),
                 ),
               ),
+              SwitchListTile(
+                secondary: const Icon(Icons.notifications_active),
+                title: const Text('Budget & bill alerts'),
+                subtitle: const Text(
+                    'Show dashboard warnings for budgets and due bills'),
+                value: settings.alertsEnabled,
+                onChanged: settings.setAlertsEnabled,
+              ),
               const Divider(),
               const _SectionHeader('Security'),
               ListTile(

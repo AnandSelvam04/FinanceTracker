@@ -11,6 +11,7 @@ import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 import '../services/recurring_service.dart';
 import '../utils/currency_format.dart';
+import '../widgets/alerts_banner.dart';
 import '../widgets/expense_chart.dart';
 import '../widgets/expense_trends_chart.dart';
 import '../widgets/month_selector.dart';
@@ -259,6 +260,7 @@ class _DashboardView extends StatelessWidget {
                 const Text('Dashboard & Charts',
                     style: TextStyle(fontSize: 20)),
                 const SizedBox(height: 12),
+                const AlertsBanner(),
                 const NetWorthCard(),
                 _QuickAddRow(onQuickAdd: onQuickAdd),
                 MonthSelector(
