@@ -93,6 +93,13 @@ class BackupService {
     return File('$path/finance_backup.json');
   }
 
+  /// Writes the full-data JSON backup and returns the file so it can be
+  /// shared/downloaded by the user.
+  Future<File> writeJsonBackupFile() async {
+    await backupToJson();
+    return _backupFile;
+  }
+
   Future<void> backupToJson() async {
     final expenses = await DBService().getExpenses();
     final investments = await DBService().getInvestments();

@@ -123,7 +123,8 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.cloud),
-            title: const Text('Backups'),
+            title: const Text('Backup & Export'),
+            subtitle: const Text('Download CSV/JSON, Drive backup, restore'),
             onTap: () {
               Navigator.push(
                 context,

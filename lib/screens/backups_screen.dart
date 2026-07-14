@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../providers/account_provider.dart';
 import '../providers/budget_provider.dart';
@@ -47,10 +50,36 @@ class _BackupsScreenState extends State<BackupsScreen> {
     }
   }
 
+  /// Generates a file and opens the system share sheet so the user can
+  /// save it to Files/Downloads, email it, or send it elsewhere.
+  Future<void> _exportAndShare(
+      Future<File> Function() build, String subject) async {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isWorking = true);
+    try {
+      final file = await build();
+      final result = await Share.shareXFiles(
+        [XFile(file.path, mimeType: _mimeFor(file.path))],
+        subject: subject,
+      );
+      if (mounted && result.status == ShareResultStatus.success) {
+        messenger.showSnackBar(const SnackBar(content: Text('Exported')));
+      }
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _isWorking = false);
+    }
+  }
+
+  String _mimeFor(String path) =>
+      path.endsWith('.json') ? 'application/json' : 'text/csv';
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Backups')),
+      appBar: AppBar(title: const Text('Backup & Export')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -133,21 +162,40 @@ class _BackupsScreenState extends State<BackupsScreen> {
                       'Restored from local JSON'),
             ),
             const Divider(height: 32),
+            const Text(
+              'Download & Share',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Save your data to Files/Downloads, email it, or send it to '
+              'another app.',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
             ElevatedButton.icon(
-              icon: const Icon(Icons.file_download),
-              label: const Text('Export expenses CSV'),
+              icon: const Icon(Icons.download),
+              label: const Text('Download expenses (CSV)'),
               onPressed: _isWorking
                   ? null
-                  : () => _runTask(exportExpensesToCsv,
-                      'Expenses CSV exported to app storage'),
+                  : () => _exportAndShare(
+                      exportExpensesToCsv, 'Finance Tracker — Expenses'),
             ),
             ElevatedButton.icon(
-              icon: const Icon(Icons.file_download),
-              label: const Text('Export investments CSV'),
+              icon: const Icon(Icons.download),
+              label: const Text('Download investments (CSV)'),
               onPressed: _isWorking
                   ? null
-                  : () => _runTask(exportInvestmentsToCsv,
-                      'Investments CSV exported to app storage'),
+                  : () => _exportAndShare(exportInvestmentsToCsv,
+                      'Finance Tracker — Investments'),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.download),
+              label: const Text('Download full data (JSON)'),
+              onPressed: _isWorking
+                  ? null
+                  : () => _exportAndShare(_backupService.writeJsonBackupFile,
+                      'Finance Tracker — Full Backup'),
             ),
             const SizedBox(height: 12),
             if (_isWorking) const Center(child: CircularProgressIndicator()),
