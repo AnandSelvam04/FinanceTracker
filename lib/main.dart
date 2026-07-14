@@ -70,15 +70,43 @@ class AuthGate extends StatefulWidget {
   State<AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends State<AuthGate> {
+class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   final AuthService _authService = AuthService();
   bool _unlocked = false;
   bool _checking = true;
+  DateTime? _backgroundedAt;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tryUnlock();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Re-lock if the app was in the background longer than the grace period.
+      if (_unlocked &&
+          AuthService.shouldRelock(
+            backgroundedAt: _backgroundedAt,
+            now: DateTime.now(),
+          )) {
+        setState(() => _unlocked = false);
+        _tryUnlock();
+      }
+      _backgroundedAt = null;
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      // Only start the clock while unlocked; if already locked, keep it locked.
+      _backgroundedAt ??= DateTime.now();
+    }
   }
 
   Future<void> _tryUnlock() async {
