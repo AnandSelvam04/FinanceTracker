@@ -91,6 +91,19 @@ class AppLocalizations {
       'editBudgetTooltip': 'Edit budget',
       'deleteBudgetTooltip': 'Delete budget',
       'noBudgets': 'No budgets yet. Add one to start tracking.',
+      // Add expense / income
+      'addIncome': 'Add Income',
+      'income': 'Income',
+      'expense': 'Expense',
+      'description': 'Description',
+      'date': 'Date',
+      'selectDate': 'Select Date',
+      'source': 'Source',
+      'account': 'Account',
+      'paymentMode': 'Payment Mode',
+      'saveAsTemplate': 'Save as quick-add template',
+      'incomeAdded': 'Income added',
+      'expenseAdded': 'Expense added',
     },
     'ta': {
       'appTitle': 'Finance Tracker',
@@ -159,6 +172,18 @@ class AppLocalizations {
       'editBudgetTooltip': 'பட்ஜெட்டைத் திருத்து',
       'deleteBudgetTooltip': 'பட்ஜெட்டை நீக்கு',
       'noBudgets': 'இன்னும் பட்ஜெட்டுகள் இல்லை. கண்காணிக்கத் தொடங்க ஒன்றைச் சேர்க்கவும்.',
+      'addIncome': 'வருமானம் சேர்',
+      'income': 'வருமானம்',
+      'expense': 'செலவு',
+      'description': 'விவரம்',
+      'date': 'தேதி',
+      'selectDate': 'தேதி தேர்ந்தெடு',
+      'source': 'மூலம்',
+      'account': 'கணக்கு',
+      'paymentMode': 'பணம் செலுத்தும் முறை',
+      'saveAsTemplate': 'விரைவு-சேர் டெம்ப்ளேட்டாக சேமி',
+      'incomeAdded': 'வருமானம் சேர்க்கப்பட்டது',
+      'expenseAdded': 'செலவு சேர்க்கப்பட்டது',
     },
   };
 
@@ -232,6 +257,19 @@ class AppLocalizations {
   String get editBudgetTooltip => _t('editBudgetTooltip');
   String get deleteBudgetTooltip => _t('deleteBudgetTooltip');
   String get noBudgets => _t('noBudgets');
+  // Add expense / income
+  String get addIncome => _t('addIncome');
+  String get income => _t('income');
+  String get expense => _t('expense');
+  String get description => _t('description');
+  String get date => _t('date');
+  String get selectDate => _t('selectDate');
+  String get source => _t('source');
+  String get account => _t('account');
+  String get paymentMode => _t('paymentMode');
+  String get saveAsTemplate => _t('saveAsTemplate');
+  String get incomeAdded => _t('incomeAdded');
+  String get expenseAdded => _t('expenseAdded');
 }
 
 class _AppLocalizationsDelegate

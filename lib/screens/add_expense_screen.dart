@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/settings_provider.dart';
@@ -100,11 +101,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final accounts = context.watch<AccountProvider>().accounts;
     final categorySuggestions = _suggestions;
 
     return Scaffold(
-      appBar: AppBar(title: Text(_isIncome ? 'Add Income' : 'Add Expense')),
+      appBar: AppBar(title: Text(_isIncome ? l.addIncome : l.addExpense)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -114,16 +116,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             children: [
               Center(
                 child: SegmentedButton<String>(
-                  segments: const [
+                  segments: [
                     ButtonSegment(
                       value: DbConstants.txExpense,
-                      label: Text('Expense'),
-                      icon: Icon(Icons.remove_circle_outline),
+                      label: Text(l.expense),
+                      icon: const Icon(Icons.remove_circle_outline),
                     ),
                     ButtonSegment(
                       value: DbConstants.txIncome,
-                      label: Text('Income'),
-                      icon: Icon(Icons.add_circle_outline),
+                      label: Text(l.income),
+                      icon: const Icon(Icons.add_circle_outline),
                     ),
                   ],
                   selected: {_txType},
@@ -138,14 +140,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: InputDecoration(labelText: l.description),
                 textInputAction: TextInputAction.next,
                 validator: (value) =>
                     value!.isEmpty ? 'Enter a description' : null,
               ),
               TextFormField(
                 controller: _amountController,
-                decoration: const InputDecoration(labelText: 'Amount'),
+                decoration: InputDecoration(labelText: l.amount),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.next,
@@ -161,8 +163,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               Row(
                 children: [
                   Expanded(
-                    child:
-                        Text('Date: ${_selectedDate.toString().split(' ')[0]}'),
+                    child: Text(
+                        '${l.date}: ${_selectedDate.toString().split(' ')[0]}'),
                   ),
                   TextButton(
                     onPressed: () async {
@@ -178,14 +180,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         });
                       }
                     },
-                    child: const Text('Select Date'),
+                    child: Text(l.selectDate),
                   ),
                 ],
               ),
               TextFormField(
                 controller: _categoryController,
                 decoration: InputDecoration(
-                    labelText: _isIncome ? 'Source' : 'Category'),
+                    labelText: _isIncome ? l.source : l.category),
                 textInputAction: TextInputAction.next,
                 validator: (value) => value!.isEmpty
                     ? (_isIncome ? 'Enter a source' : 'Enter a category')
@@ -210,10 +212,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               if (accounts.isNotEmpty)
                 DropdownButtonFormField<int?>(
                   initialValue: _accountId,
-                  decoration: const InputDecoration(labelText: 'Account'),
+                  decoration: InputDecoration(labelText: l.account),
                   items: [
-                    const DropdownMenuItem<int?>(
-                        value: null, child: Text('None')),
+                    DropdownMenuItem<int?>(
+                        value: null, child: Text(l.none)),
                     ...accounts.map((a) =>
                         DropdownMenuItem<int?>(value: a.id, child: Text(a.name))),
                   ],
@@ -222,7 +224,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               if (!_isIncome)
                 DropdownButtonFormField<String>(
                   initialValue: _selectedPaymentMode,
-                  decoration: const InputDecoration(labelText: 'Payment Mode'),
+                  decoration: InputDecoration(labelText: l.paymentMode),
                   items: _paymentModes
                       .map((p) => DropdownMenuItem(value: p, child: Text(p)))
                       .toList(),
@@ -232,7 +234,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('Save as quick-add template'),
+                title: Text(l.saveAsTemplate),
                 value: _saveAsTemplate,
                 onChanged: (v) =>
                     setState(() => _saveAsTemplate = v ?? false),
@@ -278,8 +280,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                     content: Text(_isIncome
-                                        ? 'Income added'
-                                        : 'Expense added')),
+                                        ? l.incomeAdded
+                                        : l.expenseAdded)),
                               );
                               Navigator.pop(context);
                             }
@@ -301,7 +303,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ? const CircularProgressIndicator(
                         color: Colors.white,
                       )
-                    : Text(_isIncome ? 'Add Income' : 'Add Expense'),
+                    : Text(_isIncome ? l.addIncome : l.addExpense),
               ),
             ],
           ),
