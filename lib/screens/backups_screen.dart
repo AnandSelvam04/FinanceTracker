@@ -23,6 +23,48 @@ class BackupsScreen extends StatefulWidget {
 class _BackupsScreenState extends State<BackupsScreen> {
   final _backupService = BackupService();
   bool _isWorking = false;
+  DateTime? _lastBackup;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLastBackup();
+  }
+
+  Future<void> _loadLastBackup() async {
+    final t = await _backupService.lastBackupTime();
+    if (mounted) setState(() => _lastBackup = t);
+  }
+
+  /// Restore replaces all current data, so make the user confirm.
+  Future<bool> _confirmRestore() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Replace all data?'),
+        content: const Text(
+            'Restoring will delete everything currently in the app and '
+            'replace it with the backup. This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Replace', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
+  Future<void> _restore(Future<void> Function() task, String success) async {
+    if (await _confirmRestore()) {
+      await _runTask(task, success);
+      await _loadLastBackup();
+    }
+  }
 
   Future<void> _runTask(Future<void> Function() task, String success) async {
     if (!mounted) return;
@@ -44,6 +86,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
       await accountProvider.fetchAccounts();
       await recurringProvider.fetchRules();
       await templateProvider.fetchTemplates();
+      await _loadLastBackup();
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
@@ -86,6 +129,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _LastBackupBanner(time: _lastBackup),
+            const SizedBox(height: 12),
             const Text(
               'Backup & Restore',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -142,8 +187,14 @@ class _BackupsScreenState extends State<BackupsScreen> {
               label: const Text('Restore from Google Drive'),
               onPressed: _isWorking
                   ? null
-                  : () => _runTask(
+                  : () => _restore(
                       _backupService.restoreFromDrive, 'Restored from Drive'),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Google Drive requires a one-time sign-in setup in the build. '
+              'If it fails, your data is still safe in local backups below.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const Divider(height: 32),
             ElevatedButton.icon(
@@ -159,7 +210,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
               label: const Text('Restore from local JSON'),
               onPressed: _isWorking
                   ? null
-                  : () => _runTask(() => _backupService.restoreFromJson(),
+                  : () => _restore(() => _backupService.restoreFromJson(),
                       'Restored from local JSON'),
             ),
             const Divider(height: 32),
@@ -214,6 +265,50 @@ class _BackupsScreenState extends State<BackupsScreen> {
             if (_isWorking) const Center(child: CircularProgressIndicator()),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shows when the app was last backed up, warning if it's stale (>7 days)
+/// or has never happened — a safety nudge for on-device-only data.
+class _LastBackupBanner extends StatelessWidget {
+  final DateTime? time;
+  const _LastBackupBanner({required this.time});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final stale = time == null || now.difference(time!) > const Duration(days: 7);
+    final color = stale ? Colors.orange : Colors.green;
+
+    String label;
+    if (time == null) {
+      label = 'No backup yet — back up to avoid losing your data.';
+    } else {
+      final d = now.difference(time!);
+      final ago = d.inDays >= 1
+          ? '${d.inDays} day${d.inDays == 1 ? '' : 's'} ago'
+          : d.inHours >= 1
+              ? '${d.inHours} hour${d.inHours == 1 ? '' : 's'} ago'
+              : 'just now';
+      label = 'Last backup: $ago';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(stale ? Icons.warning_amber : Icons.check_circle,
+              color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label)),
+        ],
       ),
     );
   }

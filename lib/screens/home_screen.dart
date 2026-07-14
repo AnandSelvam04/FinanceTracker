@@ -8,6 +8,7 @@ import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/template_provider.dart';
+import '../services/backup_service.dart';
 import '../services/recurring_service.dart';
 import '../utils/currency_format.dart';
 import '../widgets/expense_chart.dart';
@@ -46,6 +47,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       context.read<TemplateProvider>().fetchTemplates();
       context.read<RecurringProvider>().fetchRules();
       await _postRecurring();
+      // Safety net: keep a fresh local backup even if the user never
+      // taps "Backup" (data otherwise lives only on this device).
+      await BackupService().autoBackupIfDue();
     });
   }
 

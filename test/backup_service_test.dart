@@ -9,6 +9,7 @@ import 'package:finance_tracker/services/backup_service.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class _FakePathProvider extends Fake
@@ -32,6 +33,7 @@ void main() {
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('backup_test');
     PathProviderPlatform.instance = _FakePathProvider(tempDir.path);
+    SharedPreferences.setMockInitialValues({});
     await DBService().clearAll();
   });
 
@@ -112,6 +114,25 @@ void main() {
           Budget(category: 'Bills', amount: 100, year: 2026, month: 1));
       await db.clearAll();
       expect(await db.getBudgets(), isEmpty);
+    });
+
+    test('autoBackupIfDue writes once, then throttles, and stamps time',
+        () async {
+      final service = BackupService();
+      expect(await service.lastBackupTime(), isNull);
+
+      final first = await service.autoBackupIfDue();
+      expect(first, isTrue);
+      expect(await service.lastBackupTime(), isNotNull);
+
+      // A second immediate call is throttled.
+      final second = await service.autoBackupIfDue();
+      expect(second, isFalse);
+
+      // A zero interval forces another backup.
+      final forced =
+          await service.autoBackupIfDue(minInterval: Duration.zero);
+      expect(forced, isTrue);
     });
 
     test('writeExpensesCsvFile writes only the rows it is given', () async {

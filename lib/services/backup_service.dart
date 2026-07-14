@@ -96,9 +96,40 @@ class BackupService {
     return directory.path;
   }
 
+  static const _kLastBackup = 'last_backup_time';
+  static const _kLastAutoBackup = 'last_auto_backup_time';
+
   Future<File> get _backupFile async {
     final path = await _localPath;
     return File('$path/finance_backup.json');
+  }
+
+  /// When the most recent backup (local, auto, or Drive) was taken.
+  Future<DateTime?> lastBackupTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kLastBackup);
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  Future<void> _markBackedUp() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kLastBackup, DateTime.now().toIso8601String());
+  }
+
+  /// Writes a local backup at most once per [minInterval] to protect against
+  /// data loss when users forget to back up manually. Safe to call on launch.
+  Future<bool> autoBackupIfDue(
+      {Duration minInterval = const Duration(days: 1)}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kLastAutoBackup);
+    final last = raw == null ? null : DateTime.tryParse(raw);
+    if (last != null && DateTime.now().difference(last) < minInterval) {
+      return false;
+    }
+    await backupToJson();
+    await prefs.setString(
+        _kLastAutoBackup, DateTime.now().toIso8601String());
+    return true;
   }
 
   /// Writes the full-data JSON backup and returns the file so it can be
@@ -126,6 +157,7 @@ class BackupService {
     };
     final file = await _backupFile;
     await file.writeAsString(jsonEncode(data));
+    await _markBackedUp();
   }
 
   Future<void> restoreFromJson({bool clearBeforeRestore = true}) async {
