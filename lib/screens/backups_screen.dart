@@ -11,6 +11,7 @@ import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
+import 'import_screen.dart';
 
 class BackupsScreen extends StatefulWidget {
   const BackupsScreen({super.key});
@@ -196,6 +197,18 @@ class _BackupsScreenState extends State<BackupsScreen> {
                   ? null
                   : () => _exportAndShare(_backupService.writeJsonBackupFile,
                       'Finance Tracker — Full Backup'),
+            ),
+            const Divider(height: 32),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Import from CSV'),
+              onPressed: _isWorking
+                  ? null
+                  : () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ImportScreen()),
+                      ),
             ),
             const SizedBox(height: 12),
             if (_isWorking) const Center(child: CircularProgressIndicator()),
