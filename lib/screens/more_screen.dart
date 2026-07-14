@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n/app_localizations.dart';
 import '../services/backup_service.dart';
 import 'accounts_screen.dart';
 import 'backups_screen.dart';
@@ -65,12 +66,13 @@ class _MoreScreenState extends State<MoreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       body: ListView(
         children: [
           ListTile(
             leading: const Icon(Icons.account_balance),
-            title: const Text('Accounts'),
+            title: Text(l.accounts),
             onTap: () {
               Navigator.push(
                 context,
@@ -81,7 +83,7 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.summarize),
-            title: const Text('Monthly Summary'),
+            title: Text(l.monthlySummary),
             onTap: () {
               Navigator.push(
                 context,
@@ -92,7 +94,7 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.stacked_bar_chart),
-            title: const Text('Cash Flow'),
+            title: Text(l.cashFlow),
             onTap: () {
               Navigator.push(
                 context,
@@ -103,7 +105,7 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.show_chart),
-            title: const Text('Category Trends'),
+            title: Text(l.categoryTrends),
             onTap: () {
               Navigator.push(
                 context,
@@ -114,7 +116,7 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.trending_up),
-            title: const Text('Investments'),
+            title: Text(l.investments),
             onTap: () {
               Navigator.push(
                 context,
@@ -125,7 +127,7 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.repeat),
-            title: const Text('Recurring'),
+            title: Text(l.recurring),
             onTap: () {
               Navigator.push(
                 context,
@@ -136,7 +138,7 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.account_balance_wallet),
-            title: const Text('Budgets'),
+            title: Text(l.budgets),
             onTap: () {
               Navigator.push(
                 context,
@@ -151,7 +153,7 @@ class _MoreScreenState extends State<MoreScreen> {
             return ListTile(
               leading: Icon(Icons.cloud,
                   color: stale ? Colors.orange : null),
-              title: const Text('Backup & Export'),
+              title: Text(l.backupExport),
               subtitle: Text(_backupSubtitle,
                   style: stale
                       ? const TextStyle(color: Colors.orange)
@@ -169,7 +171,7 @@ class _MoreScreenState extends State<MoreScreen> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.settings),
-            title: const Text('Settings'),
+            title: Text(l.settings),
             onTap: () {
               Navigator.push(
                 context,
@@ -179,9 +181,8 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           SwitchListTile(
             secondary: const Icon(Icons.fingerprint),
-            title: const Text('App lock'),
-            subtitle:
-                const Text('Require biometrics or device PIN on launch'),
+            title: Text(l.appLock),
+            subtitle: Text(l.appLockSubtitle),
             value: _biometricEnabled,
             onChanged: _setBiometricEnabled,
           ),

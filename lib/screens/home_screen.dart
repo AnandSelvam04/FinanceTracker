@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/expense.dart';
 import '../models/tx_template.dart';
 import '../providers/account_provider.dart';
@@ -184,6 +185,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ];
 
   void _showAddOptions(BuildContext context) {
+    final l = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       builder: (context) => Column(
@@ -191,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         children: [
           ListTile(
             leading: const Icon(Icons.money_off),
-            title: const Text('Add Expense'),
+            title: Text(l.addExpense),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -202,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
           ListTile(
             leading: const Icon(Icons.trending_up),
-            title: const Text('Add Investment'),
+            title: Text(l.addInvestment),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -219,13 +221,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Finance Tracker'),
+        title: Text(l.appTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
-            tooltip: 'How to use',
+            tooltip: l.howToUse,
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TutorialScreen()),
@@ -237,17 +240,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       body: _screens[_selectedIndex],
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddOptions(context),
-        tooltip: 'Add transaction',
+        tooltip: l.addTransaction,
         child: const Icon(Icons.add),
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: (i) => setState(() => _selectedIndex = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Expenses'),
-          BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'More'),
+        items: [
+          BottomNavigationBarItem(
+              icon: const Icon(Icons.home), label: l.navHome),
+          BottomNavigationBarItem(
+              icon: const Icon(Icons.list), label: l.navExpenses),
+          BottomNavigationBarItem(
+              icon: const Icon(Icons.more_horiz), label: l.navMore),
         ],
       ),
     );
@@ -291,8 +297,8 @@ class _DashboardView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Text('Dashboard & Charts',
-                    style: TextStyle(fontSize: 20)),
+                Text(AppLocalizations.of(context).dashboardCharts,
+                    style: const TextStyle(fontSize: 20)),
                 const SizedBox(height: 12),
                 const AlertsBanner(),
                 const NetWorthCard(),

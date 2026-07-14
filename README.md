@@ -16,6 +16,7 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 - Backup / Export / Import: Drive backup/restore, versioned local JSON backup/restore, optional passphrase-encrypted backups (AES-256-GCM, PBKDF2), CSV/JSON download via the share sheet, a PDF monthly statement, and CSV import with column mapping and a preview.
 - Settings: currency symbol, theme (light/dark/system), budget/bill alerts toggle, auto-lock timeout, and a default account for new transactions.
 - Security & onboarding: optional app lock (biometrics or device PIN) that re-locks on resume after a configurable grace period, plus a first-run tutorial/onboarding flow.
+- Localization-ready: `flutter_localizations` wired with a hand-written `AppLocalizations` (English today); the navigation surface is localized and new languages can be added by dropping in a locale map.
 
 ## Tech stack
 - Flutter 3, Provider, sqflite, path/path_provider

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:finance_tracker/l10n/app_localizations.dart';
 import 'package:finance_tracker/providers/account_provider.dart';
 import 'package:finance_tracker/providers/budget_provider.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
@@ -56,6 +58,13 @@ class FinanceTrackerApp extends StatelessWidget {
       child: Consumer<SettingsProvider>(
         builder: (context, settings, _) => MaterialApp(
           title: 'Finance Tracker',
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
           theme: ThemeData(
             primarySwatch: Colors.green,
             brightness: Brightness.light,
