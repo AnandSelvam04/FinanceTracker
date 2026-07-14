@@ -17,6 +17,7 @@ dependencies:
   local_auth: ^3.0.0
   path: ^1.9.1
   path_provider: ^2.1.5
+  pdf: ^3.11.0
   provider: ^6.0.0
   share_plus: ^10.0.0
   shared_preferences: ^2.5.3
@@ -31,6 +32,9 @@ dev_dependencies:
   sqflite_common_ffi: ^2.3.3
 flutter:
   uses-material-design: true
+  assets:
+    - assets/fonts/FreeSans.ttf
+    - assets/fonts/FreeSansBold.ttf
 
 flutter_launcher_icons:
   android: true
