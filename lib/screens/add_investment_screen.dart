@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/investment_provider.dart';
 import '../models/investment.dart';
 import '../utils/currency_format.dart';
@@ -30,8 +31,9 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Investment')),
+      appBar: AppBar(title: Text(l.addInvestment)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -41,13 +43,13 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(labelText: l.accountName),
                 validator: (value) =>
                     value!.isEmpty ? 'Enter investment name' : null,
               ),
               TextFormField(
                 controller: _amountController,
-                decoration: const InputDecoration(labelText: 'Amount'),
+                decoration: InputDecoration(labelText: l.amount),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 validator: (value) => value!.isEmpty ? 'Enter amount' : null,
@@ -56,7 +58,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
               Row(
                 children: [
                   Text(
-                      'Date: ${_selectedDate.toLocal().toIso8601String().substring(0, 10)}'),
+                      '${l.date}: ${_selectedDate.toLocal().toIso8601String().substring(0, 10)}'),
                   const Spacer(),
                   TextButton(
                     onPressed: () async {
@@ -72,13 +74,13 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                         });
                       }
                     },
-                    child: const Text('Select Date'),
+                    child: Text(l.selectDate),
                   ),
                 ],
               ),
               DropdownButtonFormField<String>(
                 initialValue: _selectedType,
-                decoration: const InputDecoration(labelText: 'Type'),
+                decoration: InputDecoration(labelText: l.accountType),
                 items: _types
                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                     .toList(),
@@ -103,8 +105,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                             await provider.addInvestment(investment);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Investment added')),
+                                SnackBar(content: Text(l.investmentAdded)),
                               );
                               Navigator.pop(context);
                             }
@@ -120,7 +121,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                       },
                 child: _isSaving
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Add Investment'),
+                    : Text(l.addInvestment),
               ),
             ],
           ),

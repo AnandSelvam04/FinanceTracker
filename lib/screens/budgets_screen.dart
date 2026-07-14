@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../models/budget.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
@@ -47,10 +48,11 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       _month = DateTime.now().month;
     }
 
+    final l = AppLocalizations.of(context);
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(budget == null ? 'Add Budget' : 'Edit Budget'),
+        title: Text(budget == null ? l.addBudget : l.editBudget),
         content: Form(
           key: _formKey,
           child: Column(
@@ -58,14 +60,14 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             children: [
               TextFormField(
                 initialValue: _category,
-                decoration: const InputDecoration(labelText: 'Category'),
+                decoration: InputDecoration(labelText: l.category),
                 validator: (value) =>
                     (value == null || value.isEmpty) ? 'Required' : null,
                 onSaved: (value) => _category = value ?? '',
               ),
               TextFormField(
                 initialValue: _amount == 0 ? '' : minorToEditString(_amount),
-                decoration: const InputDecoration(labelText: 'Amount'),
+                decoration: InputDecoration(labelText: l.amount),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   final parsed = double.tryParse(value ?? '');
@@ -77,7 +79,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 children: [
                   Expanded(
                     child: TextFormField(
-                      decoration: const InputDecoration(labelText: 'Year'),
+                      decoration: InputDecoration(labelText: l.year),
                       keyboardType: TextInputType.number,
                       initialValue: _year.toString(),
                       validator: (value) {
@@ -92,7 +94,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextFormField(
-                      decoration: const InputDecoration(labelText: 'Month'),
+                      decoration: InputDecoration(labelText: l.month),
                       keyboardType: TextInputType.number,
                       initialValue: _month.toString(),
                       validator: (value) {
@@ -115,7 +117,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(l.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -136,7 +138,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 if (context.mounted) Navigator.of(context).pop();
               }
             },
-            child: Text(budget == null ? 'Add' : 'Save'),
+            child: Text(budget == null ? l.add : l.save),
           ),
         ],
       ),
@@ -145,22 +147,23 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Budgets')),
+      appBar: AppBar(title: Text(l.budgets)),
       body: Consumer2<BudgetProvider, ExpenseProvider>(
         builder: (context, budgetProvider, expenseProvider, _) {
           final budgets = budgetProvider.budgets;
           if (budgets.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24.0),
+                padding: const EdgeInsets.all(24.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.account_balance_wallet_outlined,
+                    const Icon(Icons.account_balance_wallet_outlined,
                         size: 48, color: Colors.grey),
-                    SizedBox(height: 8),
-                    Text('No budgets yet. Add one to start tracking.'),
+                    const SizedBox(height: 8),
+                    Text(l.noBudgets),
                   ],
                 ),
               ),
@@ -196,8 +199,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Budget: ${formatMoneyRounded(budget.amount)}'),
-                      Text('Spent: ${formatMoney(spent)}'),
+                      Text('${l.budgetLabel}: ${formatMoneyRounded(budget.amount)}'),
+                      Text('${l.spentLabel}: ${formatMoney(spent)}'),
                       const SizedBox(height: 4),
                       LinearProgressIndicator(
                         value: progress.clamp(0.0, 1.0).toDouble(),
@@ -211,12 +214,12 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.edit),
-                        tooltip: 'Edit budget',
+                        tooltip: l.editBudgetTooltip,
                         onPressed: () => _showBudgetDialog(budget: budget),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete),
-                        tooltip: 'Delete budget',
+                        tooltip: l.deleteBudgetTooltip,
                         onPressed: () =>
                             budgetProvider.deleteBudget(budget.id!),
                       ),
@@ -229,7 +232,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'Add budget',
+        tooltip: l.addBudget,
         onPressed: () => _showBudgetDialog(),
         child: const Icon(Icons.add),
       ),
