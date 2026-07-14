@@ -10,8 +10,8 @@ class TransactionFilter {
   final String? type;
   final String? category;
   final int? accountId;
-  final double? minAmount;
-  final double? maxAmount;
+  final int? minAmount; // minor units
+  final int? maxAmount; // minor units
   final DateTime? startDate;
   final DateTime? endDate;
 

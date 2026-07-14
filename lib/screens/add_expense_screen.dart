@@ -8,6 +8,7 @@ import '../models/expense.dart';
 import '../models/tx_template.dart';
 import '../services/db_service.dart';
 import '../utils/app_logger.dart';
+import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 
 class AddExpenseScreen extends StatefulWidget {
@@ -245,7 +246,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           setState(() => _isSaving = true);
                           final expense = Expense(
                             description: _descriptionController.text,
-                            amount: double.parse(_amountController.text),
+                            amount: rupeesToMinor(
+                                double.parse(_amountController.text)),
                             date: _selectedDate,
                             category: _categoryController.text,
                             paymentMode:
@@ -265,7 +267,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                               await templateProvider.addTemplate(TxTemplate(
                                 name: _descriptionController.text,
                                 description: _descriptionController.text,
-                                amount: double.parse(_amountController.text),
+                                amount: rupeesToMinor(
+                                    double.parse(_amountController.text)),
                                 category: _categoryController.text,
                                 type: _txType,
                                 accountId: _accountId,

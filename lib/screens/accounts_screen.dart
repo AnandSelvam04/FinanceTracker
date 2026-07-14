@@ -16,7 +16,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
   final _formKey = GlobalKey<FormState>();
   String _name = '';
   String _type = 'cash';
-  double _openingBalance = 0;
+  int _openingBalance = 0; // minor units
 
   @override
   void initState() {
@@ -74,7 +74,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               TextFormField(
                 initialValue: _openingBalance == 0
                     ? ''
-                    : _openingBalance.toStringAsFixed(2),
+                    : minorToEditString(_openingBalance),
                 decoration:
                     const InputDecoration(labelText: 'Opening Balance'),
                 keyboardType:
@@ -86,7 +86,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                       : null;
                 },
                 onSaved: (value) =>
-                    _openingBalance = double.tryParse(value ?? '') ?? 0,
+                    _openingBalance = parseMinor(value ?? '') ?? 0,
               ),
             ],
           ),
@@ -184,8 +184,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
             );
           }
 
-          final totalBalance = accounts.fold(
-              0.0, (sum, a) => sum + (provider.balanceOf(a) ?? 0));
+          final totalBalance = accounts.fold<int>(
+              0, (sum, a) => sum + (provider.balanceOf(a) ?? 0));
 
           return Column(
             children: [

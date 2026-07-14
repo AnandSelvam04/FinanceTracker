@@ -29,7 +29,7 @@ void main() {
       final now = DateTime.now();
       final expense = Expense(
         description: 'Test Expense',
-        amount: 100.0,
+        amount: 10000, // minor units = 100.00
         date: now,
         category: 'Food',
         paymentMode: 'Cash',
@@ -47,14 +47,14 @@ void main() {
       final now = DateTime.now();
       final expense1 = Expense(
         description: 'Exp1',
-        amount: 50.0,
+        amount: 5000,
         date: now,
         category: 'Food',
         paymentMode: 'Cash',
       );
       final expense2 = Expense(
         description: 'Exp2',
-        amount: 30.0,
+        amount: 3000,
         date: now,
         category: 'Transport',
         paymentMode: 'Card',
@@ -66,25 +66,25 @@ void main() {
       await provider.ensureYearLoaded(now.year);
 
       final total = provider.totalForMonth(now.year, now.month);
-      expect(total, 80.0);
+      expect(total, 8000);
     });
 
     test('Category totals for year', () async {
       final now = DateTime.now();
       final expense = Expense(
         description: 'Exp',
-        amount: 100.0,
+        amount: 10000,
         date: now,
         category: 'Food',
         paymentMode: 'Cash',
       );
 
       await DBService().insertExpense(expense);
-      
+
       await provider.ensureYearLoaded(now.year);
 
       final totals = provider.categoryTotalsForYear(now.year);
-      expect(totals['Food'], 100.0);
+      expect(totals['Food'], 10000);
     });
   });
 }

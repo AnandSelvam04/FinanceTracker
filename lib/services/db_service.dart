@@ -110,6 +110,22 @@ class DBService {
         if (oldVersion < 5) {
           await _createRecurringTables(db);
         }
+        if (oldVersion < 6) {
+          // Convert all amounts from major-unit reals to integer minor units
+          // (paise/cents) to eliminate floating-point rounding.
+          await db.execute(
+              'UPDATE ${DbConstants.tableExpenses} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
+          await db.execute(
+              'UPDATE ${DbConstants.tableInvestments} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
+          await db.execute(
+              'UPDATE ${DbConstants.tableBudgets} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
+          await db.execute(
+              'UPDATE ${DbConstants.tableAccounts} SET ${DbConstants.colOpeningBalance} = CAST(ROUND(${DbConstants.colOpeningBalance} * 100) AS INTEGER)');
+          await db.execute(
+              'UPDATE ${DbConstants.tableRecurringRules} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
+          await db.execute(
+              'UPDATE ${DbConstants.tableTemplates} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
+        }
       },
     );
   }
@@ -429,15 +445,15 @@ class DBService {
   /// Balance = opening + income − expenses − outgoing transfers
   /// + incoming transfers. Computed in SQL so it covers all years,
   /// not just those loaded into ExpenseProvider.
-  Future<double> getAccountBalance(Account account) async {
+  Future<int> getAccountBalance(Account account) async {
     final db = await database;
 
-    Future<double> sumWhere(String where, List<Object?> args) async {
+    Future<int> sumWhere(String where, List<Object?> args) async {
       final result = await db.rawQuery(
         'SELECT SUM(${DbConstants.colAmount}) AS total FROM ${DbConstants.tableExpenses} WHERE $where',
         args,
       );
-      return ((result.first['total'] ?? 0) as num).toDouble();
+      return ((result.first['total'] ?? 0) as num).round();
     }
 
     final income = await sumWhere(

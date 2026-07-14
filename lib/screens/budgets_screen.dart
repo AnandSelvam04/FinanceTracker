@@ -15,7 +15,7 @@ class BudgetsScreen extends StatefulWidget {
 class _BudgetsScreenState extends State<BudgetsScreen> {
   final _formKey = GlobalKey<FormState>();
   String _category = '';
-  double _amount = 0.0;
+  int _amount = 0; // minor units
   int _year = DateTime.now().year;
   int _month = DateTime.now().month;
 
@@ -64,15 +64,14 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 onSaved: (value) => _category = value ?? '',
               ),
               TextFormField(
-                initialValue: _amount == 0 ? '' : _amount.toStringAsFixed(0),
+                initialValue: _amount == 0 ? '' : minorToEditString(_amount),
                 decoration: const InputDecoration(labelText: 'Amount'),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   final parsed = double.tryParse(value ?? '');
                   return parsed == null ? 'Invalid number' : null;
                 },
-                onSaved: (value) =>
-                    _amount = double.tryParse(value ?? '0') ?? 0,
+                onSaved: (value) => _amount = parseMinor(value ?? '0') ?? 0,
               ),
               Row(
                 children: [
@@ -174,11 +173,11 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             return Colors.green;
           }
 
-          double spentForBudget(Budget b) {
+          int spentForBudget(Budget b) {
             return expenseProvider
                 .spendingForMonth(b.year, b.month)
                 .where((e) => e.category == b.category)
-                .fold(0.0, (sum, e) => sum + e.amount);
+                .fold(0, (sum, e) => sum + e.amount);
           }
 
           return ListView.separated(
@@ -197,7 +196,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Budget: ${formatMoney(budget.amount, decimals: 0)}'),
+                      Text('Budget: ${formatMoneyRounded(budget.amount)}'),
                       Text('Spent: ${formatMoney(spent)}'),
                       const SizedBox(height: 4),
                       LinearProgressIndicator(

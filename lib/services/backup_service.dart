@@ -15,6 +15,8 @@ import '../models/investment.dart';
 import '../models/recurring_rule.dart';
 import '../models/tx_template.dart';
 import '../utils/app_logger.dart';
+import '../utils/currency_format.dart';
+import '../utils/db_constants.dart';
 import 'db_service.dart';
 
 // Export expenses to CSV
@@ -34,7 +36,8 @@ List<List<dynamic>> _expenseCsvRows(List<Expense> expenses) => [
       ...expenses.map((e) => [
             e.id ?? '',
             e.description,
-            e.amount,
+            // Export human-readable major units (e.g. 120.50).
+            minorToMajor(e.amount).toStringAsFixed(2),
             e.date.toIso8601String(),
             e.category,
             e.paymentMode,
@@ -70,7 +73,7 @@ Future<File> exportInvestmentsToCsv() async {
     ...investments.map((i) => [
           i.id ?? '',
           i.name,
-          i.amount,
+          minorToMajor(i.amount).toStringAsFixed(2),
           i.date.toIso8601String(),
           i.type,
         ]),
@@ -147,7 +150,8 @@ class BackupService {
     final recurringRules = await DBService().getRecurringRules();
     final templates = await DBService().getTemplates();
     final data = {
-      'version': 3,
+      // v4: amounts are integer minor units (paise/cents).
+      'version': 4,
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'investments': investments.map((i) => i.toMap()).toList(),
       'budgets': budgets.map((b) => b.toMap()).toList(),
@@ -169,29 +173,46 @@ class BackupService {
     if (clearBeforeRestore) {
       await db.clearAll();
     }
+    // Backups before v4 stored amounts as major-unit doubles; convert them
+    // to integer minor units so they match the current storage.
+    final legacyAmounts = ((data['version'] ?? 0) as num) < 4;
+    Map<String, dynamic> fix(dynamic raw, List<String> amountKeys) {
+      final map = Map<String, dynamic>.from(raw);
+      if (legacyAmounts) {
+        for (final key in amountKeys) {
+          if (map[key] is num) {
+            map[key] = ((map[key] as num) * 100).round();
+          }
+        }
+      }
+      return map;
+    }
+
     // Restore accounts before expenses so account links resolve
     // (ids are preserved because toMap includes them). Older backups
     // have no 'accounts' key; skip gracefully.
     for (var a in data['accounts'] ?? []) {
-      await db.insertAccount(Account.fromMap(Map<String, dynamic>.from(a)));
+      await db.insertAccount(
+          Account.fromMap(fix(a, [DbConstants.colOpeningBalance])));
     }
     for (var e in data['expenses'] ?? []) {
-      await db.insertExpense(Expense.fromMap(Map<String, dynamic>.from(e)));
+      await db.insertExpense(Expense.fromMap(fix(e, [DbConstants.colAmount])));
     }
     for (var i in data['investments'] ?? []) {
-      await db
-          .insertInvestment(Investment.fromMap(Map<String, dynamic>.from(i)));
+      await db.insertInvestment(
+          Investment.fromMap(fix(i, [DbConstants.colAmount])));
     }
     // Older backups have no 'budgets' key; skip gracefully.
     for (var b in data['budgets'] ?? []) {
-      await db.insertBudget(Budget.fromMap(Map<String, dynamic>.from(b)));
+      await db.insertBudget(Budget.fromMap(fix(b, [DbConstants.colAmount])));
     }
     for (var r in data['recurring_rules'] ?? []) {
       await db.insertRecurringRule(
-          RecurringRule.fromMap(Map<String, dynamic>.from(r)));
+          RecurringRule.fromMap(fix(r, [DbConstants.colAmount])));
     }
     for (var t in data['templates'] ?? []) {
-      await db.insertTemplate(TxTemplate.fromMap(Map<String, dynamic>.from(t)));
+      await db
+          .insertTemplate(TxTemplate.fromMap(fix(t, [DbConstants.colAmount])));
     }
   }
 

@@ -47,14 +47,14 @@ void main() {
       final db = DBService();
       await db.insertExpense(Expense(
         description: 'Lunch',
-        amount: 120.0,
+        amount: 12000, // 120.00
         date: DateTime(2026, 5, 10),
         category: 'Food',
         paymentMode: 'UPI',
       ));
       await db.insertBudget(Budget(
         category: 'Food',
-        amount: 3000.0,
+        amount: 300000, // 3000.00
         year: 2026,
         month: 5,
       ));
@@ -77,10 +77,10 @@ void main() {
       expect(expenses.first.description, 'Lunch');
       expect(budgets.length, 1);
       expect(budgets.first.category, 'Food');
-      expect(budgets.first.amount, 3000.0);
+      expect(budgets.first.amount, 300000);
       expect(accounts.length, 1);
       expect(accounts.first.name, 'Wallet');
-      expect(accounts.first.openingBalance, 250.0);
+      expect(accounts.first.openingBalance, 250);
     });
 
     test('restore of legacy backup without budgets key succeeds', () async {

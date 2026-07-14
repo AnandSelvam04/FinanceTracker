@@ -35,7 +35,7 @@ class CategoryTrendChart extends StatelessWidget {
         final total =
             provider.categoryTotalsForMonth(month.year, month.month)[category] ??
                 0;
-        spots.add(FlSpot(i.toDouble(), total));
+        spots.add(FlSpot(i.toDouble(), total / 100));
       }
       bars.add(LineChartBarData(
         spots: spots,

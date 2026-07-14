@@ -55,12 +55,13 @@ void main() {
 
       final salary = result.expenses[0];
       expect(salary.type, DbConstants.txIncome);
-      expect(salary.amount, 40000);
+      // Amounts are parsed into minor units (40000 * 100).
+      expect(salary.amount, 4000000);
       expect(salary.date, DateTime(2026, 6, 1));
 
       final groceries = result.expenses[1];
       expect(groceries.type, DbConstants.txExpense);
-      expect(groceries.amount, 1200);
+      expect(groceries.amount, 120000); // ₹1,200.00
 
       // Empty category falls back to the default.
       expect(result.expenses[2].category, 'Other');

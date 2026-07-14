@@ -208,8 +208,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
 
 /// Shows the month-over-month change with a direction arrow.
 class _DeltaLabel extends StatelessWidget {
-  final double current;
-  final double previous;
+  final int current;
+  final int previous;
   const _DeltaLabel({required this.current, required this.previous});
 
   @override

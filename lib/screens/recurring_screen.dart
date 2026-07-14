@@ -16,7 +16,7 @@ class RecurringScreen extends StatefulWidget {
 class _RecurringScreenState extends State<RecurringScreen> {
   final _formKey = GlobalKey<FormState>();
   String _description = '';
-  double _amount = 0;
+  int _amount = 0; // minor units
   String _category = '';
   String _type = DbConstants.txExpense;
   String _frequency = DbConstants.freqMonthly;
@@ -81,13 +81,14 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     onSaved: (v) => _description = v ?? '',
                   ),
                   TextFormField(
-                    initialValue: _amount == 0 ? '' : _amount.toStringAsFixed(2),
+                    initialValue:
+                        _amount == 0 ? '' : minorToEditString(_amount),
                     decoration: const InputDecoration(labelText: 'Amount'),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     validator: (v) =>
                         double.tryParse(v ?? '') == null ? 'Invalid' : null,
-                    onSaved: (v) => _amount = double.tryParse(v ?? '0') ?? 0,
+                    onSaved: (v) => _amount = parseMinor(v ?? '0') ?? 0,
                   ),
                   TextFormField(
                     initialValue: _category,
@@ -240,7 +241,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(formatMoney(rule.amount, decimals: 0),
+                      Text(formatMoneyRounded(rule.amount),
                           style:
                               const TextStyle(fontWeight: FontWeight.bold)),
                       Switch(

@@ -53,17 +53,18 @@ class ExpenseProvider extends ChangeNotifier {
       _expenses.where((e) =>
           e.date.year == year && e.date.month == month && e.type == type);
 
-  /// Returns the total amount spent in a given year (expenses only).
-  double totalForYear(int year) =>
-      _byYear(year, DbConstants.txExpense).fold(0.0, (sum, e) => sum + e.amount);
+  /// Returns the total amount spent in a given year (expenses only), in
+  /// minor units.
+  int totalForYear(int year) =>
+      _byYear(year, DbConstants.txExpense).fold(0, (sum, e) => sum + e.amount);
 
-  /// Returns the total income received in a given year.
-  double incomeForYear(int year) =>
-      _byYear(year, DbConstants.txIncome).fold(0.0, (sum, e) => sum + e.amount);
+  /// Returns the total income received in a given year, in minor units.
+  int incomeForYear(int year) =>
+      _byYear(year, DbConstants.txIncome).fold(0, (sum, e) => sum + e.amount);
 
-  /// Returns category totals for a given year (expenses only).
-  Map<String, double> categoryTotalsForYear(int year) {
-    final map = <String, double>{};
+  /// Returns category totals (minor units) for a given year (expenses only).
+  Map<String, int> categoryTotalsForYear(int year) {
+    final map = <String, int>{};
     for (final e in _byYear(year, DbConstants.txExpense)) {
       map[e.category] = (map[e.category] ?? 0) + e.amount;
     }
@@ -112,20 +113,22 @@ class ExpenseProvider extends ChangeNotifier {
   List<Expense> spendingForMonth(int year, int month) =>
       _byMonth(year, month, DbConstants.txExpense).toList();
 
-  /// Returns the total amount spent in a given month and year (expenses only).
-  double totalForMonth(int year, int month) =>
+  /// Returns the total amount spent in a given month and year (expenses
+  /// only), in minor units.
+  int totalForMonth(int year, int month) =>
       _byMonth(year, month, DbConstants.txExpense)
-          .fold(0.0, (sum, e) => sum + e.amount);
+          .fold(0, (sum, e) => sum + e.amount);
 
-  /// Returns the total income received in a given month and year.
-  double incomeForMonth(int year, int month) =>
+  /// Returns the total income received in a given month and year, in minor
+  /// units.
+  int incomeForMonth(int year, int month) =>
       _byMonth(year, month, DbConstants.txIncome)
-          .fold(0.0, (sum, e) => sum + e.amount);
+          .fold(0, (sum, e) => sum + e.amount);
 
-  /// Returns a map of category to total for a given month and year
-  /// (expenses only).
-  Map<String, double> categoryTotalsForMonth(int year, int month) {
-    final map = <String, double>{};
+  /// Returns a map of category to total (minor units) for a given month and
+  /// year (expenses only).
+  Map<String, int> categoryTotalsForMonth(int year, int month) {
+    final map = <String, int>{};
     for (final e in _byMonth(year, month, DbConstants.txExpense)) {
       map[e.category] = (map[e.category] ?? 0) + e.amount;
     }

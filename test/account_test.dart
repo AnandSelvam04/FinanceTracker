@@ -20,7 +20,7 @@ void main() {
   });
 
   Expense tx({
-    required double amount,
+    required int amount,
     required String type,
     int? accountId,
     int? toAccountId,

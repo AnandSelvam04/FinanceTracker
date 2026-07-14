@@ -3,7 +3,9 @@ import '../utils/db_constants.dart';
 class Investment {
   final int? id;
   final String name;
-  final double amount;
+
+  /// Amount in minor units (paise/cents).
+  final int amount;
   final DateTime date;
   final String type;
 
@@ -26,7 +28,7 @@ class Investment {
   factory Investment.fromMap(Map<String, dynamic> map) => Investment(
         id: map[DbConstants.colId],
         name: map[DbConstants.colName],
-        amount: (map[DbConstants.colAmount] as num).toDouble(),
+        amount: (map[DbConstants.colAmount] as num).round(),
         date: DateTime.parse(map[DbConstants.colDate]),
         type: map[DbConstants.colType],
       );

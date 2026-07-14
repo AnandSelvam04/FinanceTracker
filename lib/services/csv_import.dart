@@ -1,4 +1,5 @@
 import '../models/expense.dart';
+import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 
 /// Which CSV column index maps to each transaction field. Date, description,
@@ -57,7 +58,7 @@ CsvImportResult parseCsvExpenses(
     final type = _normalizeType(cell(row, mapping.typeCol), mapping.defaultType);
     expenses.add(Expense(
       description: cell(row, mapping.descriptionCol),
-      amount: amount,
+      amount: rupeesToMinor(amount),
       date: date,
       category: category.isEmpty ? mapping.defaultCategory : category,
       paymentMode: 'Other',

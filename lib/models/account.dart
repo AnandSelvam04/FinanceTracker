@@ -4,7 +4,9 @@ class Account {
   final int? id;
   final String name;
   final String type; // cash | bank | upi | credit_card
-  final double openingBalance;
+
+  /// Opening balance in minor units (paise/cents).
+  final int openingBalance;
   final int? color;
 
   Account({
@@ -45,7 +47,7 @@ class Account {
         name: map[DbConstants.colName],
         type: map[DbConstants.colType] ?? 'cash',
         openingBalance:
-            ((map[DbConstants.colOpeningBalance] ?? 0) as num).toDouble(),
+            ((map[DbConstants.colOpeningBalance] ?? 0) as num).round(),
         color: map[DbConstants.colColor],
       );
 }

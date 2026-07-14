@@ -23,20 +23,20 @@ void main() {
     test('Add and fetch investments', () async {
       await provider.addInvestment(Investment(
         name: 'Index Fund',
-        amount: 5000.0,
+        amount: 500000, // 5000.00
         date: DateTime(2026, 1, 15),
         type: 'Mutual Funds',
       ));
 
       expect(provider.investments.length, 1);
       expect(provider.investments.first.name, 'Index Fund');
-      expect(provider.investments.first.amount, 5000.0);
+      expect(provider.investments.first.amount, 500000);
     });
 
     test('Update investment', () async {
       await provider.addInvestment(Investment(
         name: 'FD',
-        amount: 1000.0,
+        amount: 100000,
         date: DateTime(2026, 2, 1),
         type: 'FD',
       ));
@@ -45,20 +45,20 @@ void main() {
       await provider.updateInvestment(Investment(
         id: saved.id,
         name: 'FD Renewed',
-        amount: 1500.0,
+        amount: 150000,
         date: saved.date,
         type: saved.type,
       ));
 
       expect(provider.investments.length, 1);
       expect(provider.investments.first.name, 'FD Renewed');
-      expect(provider.investments.first.amount, 1500.0);
+      expect(provider.investments.first.amount, 150000);
     });
 
     test('Delete investment', () async {
       await provider.addInvestment(Investment(
         name: 'Stock',
-        amount: 200.0,
+        amount: 20000,
         date: DateTime(2026, 3, 1),
         type: 'Stocks',
       ));

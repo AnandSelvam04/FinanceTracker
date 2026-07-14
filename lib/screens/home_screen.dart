@@ -380,7 +380,7 @@ class _QuickAddRow extends StatelessWidget {
                     return ActionChip(
                       avatar: const Icon(Icons.bolt, size: 18),
                       label: Text(
-                          '${template.name} · ${formatMoney(template.amount, decimals: 0)}'),
+                          '${template.name} · ${formatMoneyRounded(template.amount)}'),
                       onPressed: () => onQuickAdd(template),
                     );
                   },

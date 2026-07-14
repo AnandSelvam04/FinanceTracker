@@ -5,7 +5,7 @@ import 'package:finance_tracker/utils/transaction_filter.dart';
 
 void main() {
   Expense e({
-    double amount = 100,
+    int amount = 100,
     String category = 'Food',
     String type = DbConstants.txExpense,
     int? accountId,

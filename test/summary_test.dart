@@ -19,7 +19,8 @@ void main() {
     await DBService().clearAll();
   });
 
-  Expense e(double amount, String category, DateTime date,
+  // Amounts are in minor units (paise).
+  Expense e(int amount, String category, DateTime date,
           {String type = DbConstants.txExpense}) =>
       Expense(
         description: 'x',
@@ -31,7 +32,7 @@ void main() {
       );
 
   test('formatMoney matches the app-wide convention', () {
-    expect(formatMoney(1234.5), '₹1234.50');
+    expect(formatMoney(123450), '₹1234.50');
     expect(formatMoney(0), '₹0.00');
   });
 

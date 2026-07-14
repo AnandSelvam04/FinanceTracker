@@ -4,7 +4,7 @@ import '../services/db_service.dart';
 
 class AccountProvider extends ChangeNotifier {
   List<Account> _accounts = [];
-  final Map<int, double> _balances = {};
+  final Map<int, int> _balances = {};
 
   List<Account> get accounts => _accounts;
 
@@ -16,7 +16,7 @@ class AccountProvider extends ChangeNotifier {
     return null;
   }
 
-  double? balanceOf(Account account) => _balances[account.id];
+  int? balanceOf(Account account) => _balances[account.id];
 
   Future<void> fetchAccounts() async {
     _accounts = await DBService().getAccounts();

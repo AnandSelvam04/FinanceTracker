@@ -26,7 +26,7 @@ class StatementPdf {
         pw.Font.ttf(await rootBundle.load('assets/fonts/FreeSansBold.ttf'));
     final theme = pw.ThemeData.withFont(base: regular, bold: bold);
 
-    double income = 0, expense = 0;
+    var income = 0, expense = 0;
     for (final t in transactions) {
       if (t.type == DbConstants.txIncome) {
         income += t.amount;

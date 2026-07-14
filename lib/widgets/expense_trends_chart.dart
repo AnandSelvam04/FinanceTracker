@@ -13,7 +13,7 @@ class ExpenseTrendsChart extends StatelessWidget {
     for (int i = 11; i >= 0; i--) {
       final date = DateTime(now.year, now.month - i, 1);
       final total = provider.totalForMonth(date.year, date.month);
-      data.add(FlSpot((11 - i).toDouble(), total));
+      data.add(FlSpot((11 - i).toDouble(), total / 100));
     }
     return SizedBox(
       height: 200,

@@ -59,12 +59,14 @@ void main() {
     });
     await v3db.close();
 
-    // Opening through DBService runs the v4 migration.
+    // Opening through DBService runs the v4..v6 migrations.
     final expenses = await DBService().getExpenses();
     expect(expenses.length, 1);
     expect(expenses.first.description, 'Legacy row');
     expect(expenses.first.type, DbConstants.txExpense);
     expect(expenses.first.accountId, isNull);
+    // v6 converted the 75.00 rupee amount to integer minor units.
+    expect(expenses.first.amount, 7500);
 
     // Accounts table exists and is empty.
     expect(await DBService().getAccounts(), isEmpty);

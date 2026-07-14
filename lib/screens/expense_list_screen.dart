@@ -25,8 +25,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   // Advanced filters (set via the filter sheet).
   String? _categoryFilter;
   int? _accountFilter;
-  double? _minAmount;
-  double? _maxAmount;
+  int? _minAmount; // minor units
+  int? _maxAmount; // minor units
   DateTimeRange? _dateRange;
 
   bool get _hasAdvancedFilters =>
@@ -70,7 +70,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   Future<void> _editExpense(Expense expense) async {
     final descController = TextEditingController(text: expense.description);
     final amountController =
-        TextEditingController(text: expense.amount.toStringAsFixed(2));
+        TextEditingController(text: minorToEditString(expense.amount));
     final categoryController = TextEditingController(text: expense.category);
     String paymentMode = expense.paymentMode;
     DateTime selectedDate = expense.date;
@@ -151,7 +151,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       final amount =
-                          double.tryParse(amountController.text.trim());
+                          parseMinor(amountController.text.trim());
                       if (amount == null) return;
                       final updated = Expense(
                         id: expense.id,
@@ -185,7 +185,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   Future<void> _editTransfer(Expense transfer) async {
     final accounts = context.read<AccountProvider>().accounts;
     final amountController =
-        TextEditingController(text: transfer.amount.toStringAsFixed(2));
+        TextEditingController(text: minorToEditString(transfer.amount));
     final noteController = TextEditingController(text: transfer.description);
     int? fromId = transfer.accountId;
     int? toId = transfer.toAccountId;
@@ -261,7 +261,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () async {
-                    final amount = double.tryParse(amountController.text.trim());
+                    final amount = parseMinor(amountController.text.trim());
                     if (amount == null || fromId == null || toId == null ||
                         fromId == toId) {
                       return;
@@ -327,9 +327,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     String? category = _categoryFilter;
     int? accountId = _accountFilter;
     final minController = TextEditingController(
-        text: _minAmount == null ? '' : _minAmount!.toStringAsFixed(0));
+        text: _minAmount == null ? '' : minorToEditString(_minAmount!));
     final maxController = TextEditingController(
-        text: _maxAmount == null ? '' : _maxAmount!.toStringAsFixed(0));
+        text: _maxAmount == null ? '' : minorToEditString(_maxAmount!));
     DateTimeRange? range = _dateRange;
 
     await showModalBottomSheet(
@@ -448,10 +448,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       setState(() {
                         _categoryFilter = category;
                         _accountFilter = accountId;
-                        _minAmount =
-                            double.tryParse(minController.text.trim());
-                        _maxAmount =
-                            double.tryParse(maxController.text.trim());
+                        _minAmount = parseMinor(minController.text.trim());
+                        _maxAmount = parseMinor(maxController.text.trim());
                         _dateRange = range;
                       });
                       Navigator.pop(context);

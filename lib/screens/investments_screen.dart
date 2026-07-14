@@ -57,7 +57,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
   Future<void> _editInvestment(Investment investment) async {
     final nameController = TextEditingController(text: investment.name);
     final amountController =
-        TextEditingController(text: investment.amount.toStringAsFixed(2));
+        TextEditingController(text: minorToEditString(investment.amount));
     String type = investment.type;
     DateTime selectedDate = investment.date;
 
@@ -129,7 +129,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       final amount =
-                          double.tryParse(amountController.text.trim());
+                          parseMinor(amountController.text.trim());
                       if (amount == null) return;
                       final updated = Investment(
                         id: investment.id,
@@ -166,7 +166,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
               ? all
               : all.where((i) => i.type == _typeFilter).toList();
           final total =
-              investments.fold(0.0, (sum, i) => sum + i.amount);
+              investments.fold<int>(0, (sum, i) => sum + i.amount);
 
           if (all.isEmpty) {
             return Center(
