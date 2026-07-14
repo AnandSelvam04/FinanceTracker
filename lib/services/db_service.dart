@@ -349,6 +349,20 @@ class DBService {
 
   Future<int> deleteAccount(int id) async {
     final db = await database;
+    // Detach the account from any transactions so they don't keep a
+    // dangling reference to a deleted account.
+    await db.update(
+      DbConstants.tableExpenses,
+      {DbConstants.colAccountId: null},
+      where: '${DbConstants.colAccountId} = ?',
+      whereArgs: [id],
+    );
+    await db.update(
+      DbConstants.tableExpenses,
+      {DbConstants.colToAccountId: null},
+      where: '${DbConstants.colToAccountId} = ?',
+      whereArgs: [id],
+    );
     return await db.delete(DbConstants.tableAccounts,
         where: '${DbConstants.colId} = ?', whereArgs: [id]);
   }

@@ -182,6 +182,120 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     );
   }
 
+  Future<void> _editTransfer(Expense transfer) async {
+    final accounts = context.read<AccountProvider>().accounts;
+    final amountController =
+        TextEditingController(text: transfer.amount.toStringAsFixed(2));
+    final noteController = TextEditingController(text: transfer.description);
+    int? fromId = transfer.accountId;
+    int? toId = transfer.toAccountId;
+    DateTime date = transfer.date;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) => Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Edit Transfer',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int?>(
+                initialValue: accounts.any((a) => a.id == fromId) ? fromId : null,
+                decoration: const InputDecoration(labelText: 'From account'),
+                items: accounts
+                    .map((a) =>
+                        DropdownMenuItem<int?>(value: a.id, child: Text(a.name)))
+                    .toList(),
+                onChanged: (v) => setSheet(() => fromId = v),
+              ),
+              DropdownButtonFormField<int?>(
+                initialValue: accounts.any((a) => a.id == toId) ? toId : null,
+                decoration: const InputDecoration(labelText: 'To account'),
+                items: accounts
+                    .map((a) =>
+                        DropdownMenuItem<int?>(value: a.id, child: Text(a.name)))
+                    .toList(),
+                onChanged: (v) => setSheet(() => toId = v),
+              ),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Amount'),
+              ),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(labelText: 'Note'),
+              ),
+              Row(
+                children: [
+                  Text('Date: ${_formatDate(date)}'),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: date,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) setSheet(() => date = picked);
+                    },
+                    child: const Text('Change'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final amount = double.tryParse(amountController.text.trim());
+                    if (amount == null || fromId == null || toId == null ||
+                        fromId == toId) {
+                      return;
+                    }
+                    final updated = Expense(
+                      id: transfer.id,
+                      description: noteController.text.trim().isEmpty
+                          ? 'Transfer'
+                          : noteController.text.trim(),
+                      amount: amount,
+                      date: date,
+                      category: 'Transfer',
+                      paymentMode: 'Other',
+                      type: DbConstants.txTransfer,
+                      accountId: fromId,
+                      toAccountId: toId,
+                    );
+                    final expenseProvider = context.read<ExpenseProvider>();
+                    final accountProvider = context.read<AccountProvider>();
+                    await expenseProvider.updateExpense(updated);
+                    await accountProvider.refreshBalances();
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Save'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// The current search/period/type plus advanced (category, account,
   /// amount range, custom date range) filters applied to a list.
   List<Expense> _applyFilters(List<Expense> all) {
@@ -568,7 +682,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                                       fontSize: 12)),
                             ],
                           ),
-                          onTap: () => _editExpense(expense),
+                          onTap: () => expense.isTransfer
+                              ? _editTransfer(expense)
+                              : _editExpense(expense),
                         ),
                       ),
                     );
