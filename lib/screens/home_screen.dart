@@ -52,9 +52,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       context.read<InvestmentProvider>().fetchInvestments();
       context.read<AccountProvider>().fetchAccounts();
       context.read<TemplateProvider>().fetchTemplates();
-      await context.read<RecurringProvider>().fetchRules();
+      // Capture providers before awaiting so we don't read context across
+      // async gaps.
+      final recurringProvider = context.read<RecurringProvider>();
+      final budgetProvider = context.read<BudgetProvider>();
+      await recurringProvider.fetchRules();
       // Budgets power both the in-app alerts banner and budget notifications.
-      await context.read<BudgetProvider>().fetchBudgets();
+      await budgetProvider.fetchBudgets();
       await _postRecurring();
       // Safety net: keep a fresh local backup even if the user never
       // taps "Backup" (data otherwise lives only on this device).
