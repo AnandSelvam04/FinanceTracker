@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/main.dart';
 import 'package:finance_tracker/providers/settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,7 @@ void main() {
     // Initialize sqflite for widget tests
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+  DBService.testFactory = databaseFactoryFfi;
   });
 
   testWidgets('App loads and shows Finance Tracker',

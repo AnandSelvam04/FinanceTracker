@@ -8,6 +8,7 @@ void main() {
   // Initialize sqflite for testing
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
+  DBService.testFactory = databaseFactoryFfi;
 
   group('ExpenseProvider Tests', () {
     late ExpenseProvider provider;

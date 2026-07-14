@@ -18,6 +18,7 @@ Expense _expense(String category, String type, DateTime date) => Expense(
 void main() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
+  DBService.testFactory = databaseFactoryFfi;
 
   setUp(() async {
     DBService.dbNameOverride = 'recurring_test.db';

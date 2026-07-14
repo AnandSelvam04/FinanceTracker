@@ -27,6 +27,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
+  DBService.testFactory = databaseFactoryFfi;
 
   late Directory tempDir;
 

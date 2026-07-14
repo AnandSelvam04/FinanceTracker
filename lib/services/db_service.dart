@@ -45,7 +45,7 @@ class DBService {
   /// Whether the on-device database is currently encrypted. Always false in
   /// test mode. Never throws (returns false if secure storage is unavailable).
   Future<bool> isEncryptionEnabled() async {
-    if (dbNameOverride != null) return false;
+    if (testFactory != null || dbNameOverride != null) return false;
     try {
       return (await _secureStorage.read(key: _kEncEnabledFlag)) == 'true';
     } catch (_) {
@@ -78,15 +78,41 @@ class DBService {
     return key;
   }
 
+  /// A [DatabaseFactory] injected by tests so the suite runs on
+  /// sqflite_common_ffi. Production leaves this null and uses the SQLCipher
+  /// factory (with the encryption password) directly. Necessary because
+  /// sqflite_sqlcipher's top-level functions hit the native method channel and
+  /// ignore the ffi factory tests install globally.
+  static DatabaseFactory? testFactory;
+
   Future<Database> _initDB() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, dbNameOverride ?? DbConstants.dbName);
-    return await openDatabase(
+    final factory = testFactory;
+    if (factory != null) {
+      // Test path: plaintext, driven by the injected ffi factory.
+      final path = join(await factory.getDatabasesPath(),
+          dbNameOverride ?? DbConstants.dbName);
+      return factory.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: DbConstants.dbVersion,
+          onCreate: _onCreate,
+          onUpgrade: _onUpgrade,
+        ),
+      );
+    }
+    // Production path: SQLCipher; encrypted when the user has opted in.
+    final path = join(await getDatabasesPath(), DbConstants.dbName);
+    return openDatabase(
       path,
       password: await _password(),
       version: DbConstants.dbVersion,
-      onCreate: (db, version) async {
-        await db.execute('''
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
+  }
+
+  Future<void> _onCreate(Database db, int version) async {
+    await db.execute('''
           CREATE TABLE ${DbConstants.tableExpenses}(
             ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
             ${DbConstants.colDescription} TEXT,
@@ -99,7 +125,7 @@ class DBService {
             ${DbConstants.colToAccountId} INTEGER
           )
         ''');
-        await db.execute('''
+    await db.execute('''
           CREATE TABLE ${DbConstants.tableInvestments}(
             ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
             ${DbConstants.colName} TEXT,
@@ -108,7 +134,7 @@ class DBService {
             ${DbConstants.colType} TEXT
           )
         ''');
-        await db.execute('''
+    await db.execute('''
           CREATE TABLE ${DbConstants.tableBudgets}(
             ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
             ${DbConstants.colCategory} TEXT,
@@ -117,11 +143,12 @@ class DBService {
             ${DbConstants.colMonth} INTEGER
           )
         ''');
-        await _createAccountsTable(db);
-        await _createRecurringTables(db);
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
+    await _createAccountsTable(db);
+    await _createRecurringTables(db);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
           // Rename 'title' to 'description' in expenses table
           await db.execute('ALTER TABLE ${DbConstants.tableExpenses} RENAME TO expenses_old;');
           await db.execute('''
@@ -189,8 +216,6 @@ class DBService {
           await db.execute(
               'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN ${DbConstants.colRate} REAL NOT NULL DEFAULT 1');
         }
-      },
-    );
   }
 
   static Future<void> _createAccountsTable(Database db) async {
@@ -445,7 +470,7 @@ class DBService {
   /// verifies row counts, and rolls back to plaintext on any failure so data
   /// is never lost.
   Future<void> enableEncryption() async {
-    if (dbNameOverride != null) {
+    if (testFactory != null || dbNameOverride != null) {
       throw Exception('Encryption is not available in test mode');
     }
     if (await isEncryptionEnabled()) return;
@@ -475,7 +500,7 @@ class DBService {
   /// Reverses [enableEncryption], returning the database to plaintext with the
   /// same verify-and-rollback safety.
   Future<void> disableEncryption() async {
-    if (dbNameOverride != null) {
+    if (testFactory != null || dbNameOverride != null) {
       throw Exception('Encryption is not available in test mode');
     }
     if (!await isEncryptionEnabled()) return;
