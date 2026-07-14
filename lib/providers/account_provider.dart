@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/account.dart';
 import '../services/db_service.dart';
+import '../utils/currency_format.dart';
 
 class AccountProvider extends ChangeNotifier {
   List<Account> _accounts = [];
@@ -16,7 +17,18 @@ class AccountProvider extends ChangeNotifier {
     return null;
   }
 
+  /// Balance in the account's own currency (minor units).
   int? balanceOf(Account account) => _balances[account.id];
+
+  /// Balance converted to the app's base currency (minor units).
+  int? baseBalanceOf(Account account) {
+    final b = _balances[account.id];
+    return b == null ? null : toBaseMinor(b, account.rate);
+  }
+
+  /// Sum of every account's balance, each converted to the base currency.
+  int totalBaseBalance() => _accounts.fold<int>(
+      0, (sum, a) => sum + (baseBalanceOf(a) ?? 0));
 
   Future<void> fetchAccounts() async {
     _accounts = await DBService().getAccounts();

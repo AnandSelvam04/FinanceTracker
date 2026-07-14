@@ -127,6 +127,15 @@ class DBService {
           await db.execute(
               'UPDATE ${DbConstants.tableTemplates} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
         }
+        if (oldVersion >= 4 && oldVersion < 7) {
+          // Per-account currency + exchange rate. Only devices whose accounts
+          // table predates this (oldVersion >= 4) need the columns added;
+          // upgrades from < 4 already get them from _createAccountsTable.
+          await db.execute(
+              'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN ${DbConstants.colCurrency} TEXT');
+          await db.execute(
+              'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN ${DbConstants.colRate} REAL NOT NULL DEFAULT 1');
+        }
       },
     );
   }
@@ -138,7 +147,9 @@ class DBService {
         ${DbConstants.colName} TEXT NOT NULL,
         ${DbConstants.colType} TEXT NOT NULL,
         ${DbConstants.colOpeningBalance} REAL NOT NULL DEFAULT 0,
-        ${DbConstants.colColor} INTEGER
+        ${DbConstants.colColor} INTEGER,
+        ${DbConstants.colCurrency} TEXT,
+        ${DbConstants.colRate} REAL NOT NULL DEFAULT 1
       )
     ''');
   }

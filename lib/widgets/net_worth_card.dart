@@ -20,10 +20,9 @@ class NetWorthCard extends StatelessWidget {
     // headline figure and trend stay in sync with the rest of the dashboard.
     return Consumer3<AccountProvider, InvestmentProvider, ExpenseProvider>(
       builder: (context, accounts, investments, expenses, _) {
-        final liquid = accounts.accounts.fold<int>(
-          0,
-          (sum, a) => sum + (accounts.balanceOf(a) ?? 0),
-        );
+        // Convert each account to the base currency so mixed-currency
+        // holdings roll up to a single, meaningful net-worth figure.
+        final liquid = accounts.totalBaseBalance();
         final invested =
             investments.investments.fold<int>(0, (sum, i) => sum + i.amount);
         final netWorth = liquid + invested;
