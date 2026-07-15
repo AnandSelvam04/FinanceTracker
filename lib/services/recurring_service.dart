@@ -52,9 +52,10 @@ class RecurringService {
       for (final rule in rules) {
         if (!rule.enabled) continue;
         var due = rule.nextDue;
-        // Catch-up: post one transaction per elapsed period.
+        // Catch-up: materialize one transaction per elapsed period.
+        final occurrences = <Expense>[];
         while (!due.isAfter(endOfToday)) {
-          await db.insertExpense(Expense(
+          occurrences.add(Expense(
             description: rule.description,
             amount: rule.amount,
             date: due,
@@ -63,12 +64,14 @@ class RecurringService {
             type: rule.type,
             accountId: rule.accountId,
           ));
-          posted++;
           due = nextDate(due, rule.frequency, rule.anchorDay);
         }
-        if (due != rule.nextDue) {
-          await db.updateRecurringRule(rule.copyWith(nextDue: due));
-        }
+        if (occurrences.isEmpty) continue;
+        // Insert the occurrences and advance nextDue in one transaction so a
+        // crash in between can't double-post them on the next launch.
+        await db.postRecurringOccurrences(
+            occurrences, rule.copyWith(nextDue: due));
+        posted += occurrences.length;
       }
       return posted;
     } finally {

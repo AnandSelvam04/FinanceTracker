@@ -70,6 +70,58 @@ void main() {
     expect(series.last.value, 50000); // unchanged by the transfer
   });
 
+  test('netWorthSeries converts foreign-currency accounts at their rate '
+      '(matches the headline figure)', () async {
+    final db = DBService();
+    // ₹1,000.00 base account and a $100.00 account at 83 ₹/$.
+    await db.insertAccount(
+        Account(name: 'INR', type: 'bank', openingBalance: 100000));
+    final usdId = await db.insertAccount(Account(
+        name: 'USD',
+        type: 'bank',
+        openingBalance: 10000,
+        currency: '\$',
+        rate: 83));
+    // $10.00 spent from the USD account: worth ₹830.00.
+    await db.insertExpense(Expense(
+      description: 'usd spend',
+      amount: 1000,
+      date: DateTime(2026, 2, 10),
+      category: 'Travel',
+      paymentMode: 'Card',
+      accountId: usdId,
+    ));
+
+    final series = await db.netWorthSeries(2, now: DateTime(2026, 2, 15));
+    // Jan end: 100000 + 10000×83 = 930000. Feb end: − 1000×83.
+    expect(series[0].value, 100000 + 830000);
+    expect(series[1].value, 100000 + 830000 - 83000);
+  });
+
+  test('cross-currency transfer moves converted value in netWorthSeries',
+      () async {
+    final db = DBService();
+    final inrId = await db.insertAccount(
+        Account(name: 'INR', type: 'bank', openingBalance: 1000000));
+    final usdId = await db.insertAccount(Account(
+        name: 'USD', type: 'bank', openingBalance: 0, currency: '\$', rate: 83));
+    // ₹8,300 out, $100 in: net-worth change = −830000 + 10000×83 = 0.
+    await db.insertExpense(Expense(
+      description: 'fx move',
+      amount: 830000,
+      date: DateTime(2026, 2, 1),
+      category: 'Transfer',
+      paymentMode: 'Other',
+      type: DbConstants.txTransfer,
+      accountId: inrId,
+      toAccountId: usdId,
+      toAmount: 10000,
+    ));
+
+    final series = await db.netWorthSeries(2, now: DateTime(2026, 2, 10));
+    expect(series.last.value, 1000000);
+  });
+
   test('getExpensesByDateRange returns only rows in the half-open interval',
       () async {
     final db = DBService();

@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/expense_provider.dart';
 import '../services/statement_pdf.dart';
 import '../utils/category_colors.dart';
+import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../widgets/month_selector.dart';
 
@@ -119,15 +120,15 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     child: Column(
                       children: [
                         _row('Income', formatMoney(income),
-                            color: Colors.green.shade700),
+                            color: incomeColor(context)),
                         const SizedBox(height: 8),
                         _row('Expense', formatMoney(expense),
-                            color: Colors.red.shade700),
+                            color: expenseColor(context)),
                         const Divider(),
                         _row('Net', formatMoney(net),
                             color: net >= 0
-                                ? Colors.green.shade700
-                                : Colors.red.shade700,
+                                ? incomeColor(context)
+                                : expenseColor(context),
                             bold: true),
                         const SizedBox(height: 8),
                         _row(
@@ -136,8 +137,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                               ? '—'
                               : '${savingsRate.toStringAsFixed(1)}%',
                           color: (savingsRate ?? 0) >= 0
-                              ? Colors.green.shade700
-                              : Colors.red.shade700,
+                              ? incomeColor(context)
+                              : expenseColor(context),
                         ),
                         const SizedBox(height: 8),
                         _row('Transactions', '$txCount'),
@@ -223,8 +224,8 @@ class _DeltaLabel extends StatelessWidget {
     final color = flat
         ? Colors.grey
         : up
-            ? Colors.red.shade600
-            : Colors.green.shade600;
+            ? expenseColor(context)
+            : incomeColor(context);
     final icon = flat
         ? Icons.remove
         : up

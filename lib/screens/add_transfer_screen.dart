@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
+import '../models/account.dart';
 import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
@@ -17,6 +18,7 @@ class AddTransferScreen extends StatefulWidget {
 class _AddTransferScreenState extends State<AddTransferScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
+  final _toAmountController = TextEditingController();
   final _noteController = TextEditingController();
   int? _fromAccountId;
   int? _toAccountId;
@@ -24,9 +26,35 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
   bool _isSaving = false;
 
   @override
+  void dispose() {
+    _amountController.dispose();
+    _toAmountController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  /// Pre-fills the destination amount from the accounts' exchange rates so
+  /// the user only has to adjust it when the actual rate differed.
+  void _suggestToAmount(Account? from, Account? to) {
+    if (from == null || to == null || to.rate == 0) return;
+    final amount = double.tryParse(_amountController.text);
+    if (amount == null) return;
+    final received = amount * from.rate / to.rate;
+    _toAmountController.text = received.toStringAsFixed(2);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final accounts = context.watch<AccountProvider>().accounts;
+    final accountProvider = context.watch<AccountProvider>();
+    final accounts = accountProvider.accounts;
+    final fromAccount = accountProvider.accountById(_fromAccountId);
+    final toAccount = accountProvider.accountById(_toAccountId);
+    // A second, destination-currency amount is only needed when the two
+    // accounts are held in different currencies.
+    final crossCurrency = fromAccount != null &&
+        toAccount != null &&
+        fromAccount.symbol != toAccount.symbol;
 
     return Scaffold(
       appBar: AppBar(title: Text(l.transferBetweenAccounts)),
@@ -52,8 +80,12 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                           .map((a) => DropdownMenuItem(
                               value: a.id, child: Text(a.name)))
                           .toList(),
-                      validator: (v) => v == null ? 'Select an account' : null,
-                      onChanged: (v) => setState(() => _fromAccountId = v),
+                      validator: (v) => v == null ? l.selectAccount : null,
+                      onChanged: (v) {
+                        setState(() => _fromAccountId = v);
+                        _suggestToAmount(
+                            accountProvider.accountById(v), toAccount);
+                      },
                     ),
                     DropdownButtonFormField<int>(
                       initialValue: _toAccountId,
@@ -64,30 +96,65 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                               value: a.id, child: Text(a.name)))
                           .toList(),
                       validator: (v) {
-                        if (v == null) return 'Select an account';
+                        if (v == null) return l.selectAccount;
                         if (v == _fromAccountId) {
-                          return 'Must differ from source account';
+                          return l.mustDifferFromSource;
                         }
                         return null;
                       },
-                      onChanged: (v) => setState(() => _toAccountId = v),
+                      onChanged: (v) {
+                        setState(() => _toAccountId = v);
+                        _suggestToAmount(
+                            fromAccount, accountProvider.accountById(v));
+                      },
                     ),
                     TextFormField(
                       controller: _amountController,
-                      decoration: InputDecoration(labelText: l.amount),
+                      decoration: InputDecoration(
+                        labelText: crossCurrency
+                            ? '${l.amount} (${fromAccount.symbol})'
+                            : l.amount,
+                      ),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) {
+                        if (crossCurrency) {
+                          _suggestToAmount(fromAccount, toAccount);
+                        }
+                      },
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Enter an amount';
+                          return l.enterAmount;
                         }
                         final amount = double.tryParse(value);
                         if (amount == null || amount <= 0) {
-                          return 'Enter a valid amount';
+                          return l.enterValidAmount;
                         }
                         return null;
                       },
                     ),
+                    if (crossCurrency)
+                      TextFormField(
+                        controller: _toAmountController,
+                        decoration: InputDecoration(
+                          labelText:
+                              '${l.amountReceived} (${toAccount.symbol})',
+                          helperText:
+                              '${fromAccount.symbol} → ${toAccount.symbol}',
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return l.enterAmount;
+                          }
+                          final amount = double.tryParse(value);
+                          if (amount == null || amount <= 0) {
+                            return l.enterValidAmount;
+                          }
+                          return null;
+                        },
+                      ),
                     TextFormField(
                       controller: _noteController,
                       decoration:
@@ -139,6 +206,11 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
     final l = AppLocalizations.of(context);
     setState(() => _isSaving = true);
     final note = _noteController.text.trim();
+    final accountProvider0 = context.read<AccountProvider>();
+    final from = accountProvider0.accountById(_fromAccountId);
+    final to = accountProvider0.accountById(_toAccountId);
+    final crossCurrency =
+        from != null && to != null && from.symbol != to.symbol;
     final transfer = Expense(
       description: note.isEmpty ? 'Transfer' : note,
       amount: rupeesToMinor(double.parse(_amountController.text)),
@@ -148,6 +220,10 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
       type: DbConstants.txTransfer,
       accountId: _fromAccountId,
       toAccountId: _toAccountId,
+      // Destination-currency amount, only for cross-currency transfers.
+      toAmount: crossCurrency
+          ? rupeesToMinor(double.parse(_toAmountController.text))
+          : null,
     );
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();

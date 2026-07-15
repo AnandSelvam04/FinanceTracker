@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/expense_provider.dart';
+import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../widgets/cashflow_chart.dart';
 
@@ -69,19 +70,19 @@ class _CashflowScreenState extends State<CashflowScreen> {
                         _SummaryRow(
                             label: 'Total Income',
                             value: totalIncome,
-                            color: Colors.green.shade700),
+                            color: incomeColor(context)),
                         const SizedBox(height: 8),
                         _SummaryRow(
                             label: 'Total Expense',
                             value: totalExpense,
-                            color: Colors.red.shade700),
+                            color: expenseColor(context)),
                         const Divider(),
                         _SummaryRow(
                             label: 'Net',
                             value: net,
                             color: net >= 0
-                                ? Colors.green.shade700
-                                : Colors.red.shade700),
+                                ? incomeColor(context)
+                                : expenseColor(context)),
                       ],
                     ),
                   ),

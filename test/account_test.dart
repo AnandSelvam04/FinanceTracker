@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_tracker/models/account.dart';
 import 'package:finance_tracker/models/expense.dart';
+import 'package:finance_tracker/models/recurring_rule.dart';
+import 'package:finance_tracker/models/tx_template.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
@@ -87,6 +89,37 @@ void main() {
       expect(expenses.any((e) => e.toAccountId == cashId), isFalse);
       // The other account's link is untouched.
       expect(expenses.any((e) => e.accountId == bankId), isTrue);
+    });
+
+    test('deleting an account detaches recurring rules and templates',
+        () async {
+      final db = DBService();
+      final cashId =
+          await db.insertAccount(Account(name: 'Cash', type: 'cash'));
+      await db.insertRecurringRule(RecurringRule(
+        description: 'Rent',
+        amount: 1000,
+        category: 'Housing',
+        type: DbConstants.txExpense,
+        accountId: cashId,
+        frequency: DbConstants.freqMonthly,
+        nextDue: DateTime(2026, 7, 1),
+        anchorDay: 1,
+      ));
+      await db.insertTemplate(TxTemplate(
+        name: 'Chai',
+        description: 'Chai',
+        amount: 20,
+        category: 'Food',
+        type: DbConstants.txExpense,
+        accountId: cashId,
+      ));
+
+      await db.deleteAccount(cashId);
+
+      // Rules/templates survive but no longer point at the dead account.
+      expect((await db.getRecurringRules()).single.accountId, isNull);
+      expect((await db.getTemplates()).single.accountId, isNull);
     });
   });
 

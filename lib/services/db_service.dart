@@ -13,6 +13,7 @@ import '../models/net_worth_point.dart';
 import '../models/recurring_rule.dart';
 import '../models/tx_template.dart';
 import '../utils/app_logger.dart';
+import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 
 class DBService {
@@ -62,6 +63,18 @@ class DBService {
       if ((await _secureStorage.read(key: _kEncEnabledFlag)) != 'true') {
         return null;
       }
+      return await _getOrCreateKey();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The device-held database key when at-rest encryption is on, otherwise
+  /// null. Used to protect the automatic local backup with the same key, so
+  /// enabling DB encryption doesn't leave a readable JSON copy on disk.
+  Future<String?> deviceKeyIfEncrypted() async {
+    if (!await isEncryptionEnabled()) return null;
+    try {
       return await _getOrCreateKey();
     } catch (_) {
       return null;
@@ -122,9 +135,11 @@ class DBService {
             ${DbConstants.colPaymentMode} TEXT,
             ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}',
             ${DbConstants.colAccountId} INTEGER,
-            ${DbConstants.colToAccountId} INTEGER
+            ${DbConstants.colToAccountId} INTEGER,
+            ${DbConstants.colToAmount} INTEGER
           )
         ''');
+    await _createExpenseIndexes(db);
     await db.execute('''
           CREATE TABLE ${DbConstants.tableInvestments}(
             ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -216,6 +231,26 @@ class DBService {
           await db.execute(
               'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN ${DbConstants.colRate} REAL NOT NULL DEFAULT 1');
         }
+        if (oldVersion < 8) {
+          // Destination-side amount for cross-currency transfers (null means
+          // both sides move by `amount`), plus indexes for the date-range,
+          // balance, and net-worth queries.
+          await db.execute(
+              'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colToAmount} INTEGER');
+          await _createExpenseIndexes(db);
+        }
+  }
+
+  static Future<void> _createExpenseIndexes(Database db) async {
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS ${DbConstants.idxExpensesDate} '
+        'ON ${DbConstants.tableExpenses}(${DbConstants.colDate})');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS ${DbConstants.idxExpensesTypeAccount} '
+        'ON ${DbConstants.tableExpenses}(${DbConstants.colType}, ${DbConstants.colAccountId})');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS ${DbConstants.idxExpensesToAccount} '
+        'ON ${DbConstants.tableExpenses}(${DbConstants.colToAccountId})');
   }
 
   static Future<void> _createAccountsTable(Database db) async {
@@ -412,6 +447,46 @@ class DBService {
     await clearTemplates();
   }
 
+  /// Atomically replaces (or, when [clearFirst] is false, appends to) the
+  /// database contents with [rowsByTable]. Runs inside one transaction so an
+  /// interrupted or failing restore rolls back to the pre-restore state
+  /// instead of leaving a wiped, half-filled database.
+  Future<void> replaceAllData(
+    Map<String, List<Map<String, Object?>>> rowsByTable, {
+    bool clearFirst = true,
+  }) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      if (clearFirst) {
+        for (final table in _allTables) {
+          await txn.delete(table);
+        }
+      }
+      final batch = txn.batch();
+      for (final table in _allTables) {
+        for (final row in rowsByTable[table] ?? const []) {
+          batch.insert(table, row);
+        }
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  /// Atomically posts materialized recurring [occurrences] and advances the
+  /// rule's nextDue, so a crash can't insert the transactions without moving
+  /// the due date (which would double-post them on the next launch).
+  Future<void> postRecurringOccurrences(
+      List<Expense> occurrences, RecurringRule advancedRule) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      for (final e in occurrences) {
+        await txn.insert(DbConstants.tableExpenses, e.toMap());
+      }
+      await txn.update(DbConstants.tableRecurringRules, advancedRule.toMap(),
+          where: '${DbConstants.colId} = ?', whereArgs: [advancedRule.id]);
+    });
+  }
+
   // --- At-rest encryption (opt-in) -----------------------------------------
 
   static const List<String> _allTables = [
@@ -450,10 +525,23 @@ class DBService {
     return true;
   }
 
+  Future<String> get _snapshotPath async =>
+      join(await getDatabasesPath(), 'finance_pre_migration.json');
+
   Future<void> _writeSafetySnapshot(
       Map<String, List<Map<String, Object?>>> data) async {
-    final path = join(await getDatabasesPath(), 'finance_pre_migration.json');
-    await File(path).writeAsString(jsonEncode(data));
+    await File(await _snapshotPath).writeAsString(jsonEncode(data));
+  }
+
+  /// Removes the plaintext pre-migration snapshot once a cipher migration has
+  /// been verified, so no readable copy of the data is left on disk.
+  Future<void> _deleteSafetySnapshot() async {
+    try {
+      final file = File(await _snapshotPath);
+      if (await file.exists()) await file.delete();
+    } catch (e) {
+      AppLogger.error('Failed to delete pre-migration snapshot', e);
+    }
   }
 
   /// Test hook exercising the table dump→restore copy used by the migration,
@@ -495,6 +583,9 @@ class DBService {
       await _restoreAllTables(await database, snapshot);
       rethrow;
     }
+    // Success: don't leave a plaintext copy of the data next to the
+    // freshly encrypted database.
+    await _deleteSafetySnapshot();
   }
 
   /// Reverses [enableEncryption], returning the database to plaintext with the
@@ -523,6 +614,22 @@ class DBService {
       await _restoreAllTables(await database, snapshot);
       rethrow;
     }
+    await _deleteSafetySnapshot();
+  }
+
+  /// Years of the earliest and latest transactions, or null when there are
+  /// none. Drives the year filter so old data stays reachable.
+  Future<(int, int)?> transactionYearBounds() async {
+    final db = await database;
+    final row = (await db.rawQuery(
+            'SELECT MIN(${DbConstants.colDate}) AS lo, '
+            'MAX(${DbConstants.colDate}) AS hi '
+            'FROM ${DbConstants.tableExpenses}'))
+        .first;
+    final lo = row['lo'] as String?;
+    final hi = row['hi'] as String?;
+    if (lo == null || hi == null) return null;
+    return (DateTime.parse(lo).year, DateTime.parse(hi).year);
   }
 
   /// Returns categories used most often in the last [days] days for the
@@ -595,22 +702,37 @@ class DBService {
 
   Future<int> deleteAccount(int id) async {
     final db = await database;
-    // Detach the account from any transactions so they don't keep a
-    // dangling reference to a deleted account.
-    await db.update(
-      DbConstants.tableExpenses,
-      {DbConstants.colAccountId: null},
-      where: '${DbConstants.colAccountId} = ?',
-      whereArgs: [id],
-    );
-    await db.update(
-      DbConstants.tableExpenses,
-      {DbConstants.colToAccountId: null},
-      where: '${DbConstants.colToAccountId} = ?',
-      whereArgs: [id],
-    );
-    return await db.delete(DbConstants.tableAccounts,
-        where: '${DbConstants.colId} = ?', whereArgs: [id]);
+    // Detach the account from transactions, recurring rules, and templates
+    // in one transaction so nothing keeps a dangling reference to (or keeps
+    // posting into) a deleted account.
+    return await db.transaction((txn) async {
+      await txn.update(
+        DbConstants.tableExpenses,
+        {DbConstants.colAccountId: null},
+        where: '${DbConstants.colAccountId} = ?',
+        whereArgs: [id],
+      );
+      await txn.update(
+        DbConstants.tableExpenses,
+        {DbConstants.colToAccountId: null},
+        where: '${DbConstants.colToAccountId} = ?',
+        whereArgs: [id],
+      );
+      await txn.update(
+        DbConstants.tableRecurringRules,
+        {DbConstants.colAccountId: null},
+        where: '${DbConstants.colAccountId} = ?',
+        whereArgs: [id],
+      );
+      await txn.update(
+        DbConstants.tableTemplates,
+        {DbConstants.colAccountId: null},
+        where: '${DbConstants.colAccountId} = ?',
+        whereArgs: [id],
+      );
+      return await txn.delete(DbConstants.tableAccounts,
+          where: '${DbConstants.colId} = ?', whereArgs: [id]);
+    });
   }
 
   Future<void> clearAccounts() async {
@@ -672,83 +794,133 @@ class DBService {
     await db.delete(DbConstants.tableTemplates);
   }
 
-  /// Net worth (minor units) at the end of each of the last [months] months,
-  /// oldest first. Net worth = account opening balances + cumulative
-  /// (income − expense) + cumulative investments, as of each month end.
-  /// Transfers are account-to-account and cancel out, so they are ignored.
+  /// Net worth (base-currency minor units) at the end of each of the last
+  /// [months] months, oldest first. Net worth = account opening balances +
+  /// cumulative (income − expense) + cumulative investments, as of each month
+  /// end, with every account's flows converted at its exchange rate so the
+  /// trend agrees with the headline figure. Same-currency transfers cancel;
+  /// cross-currency transfers move value at the rates captured on the row.
+  ///
+  /// Three grouped queries + accumulation in Dart, instead of one query per
+  /// month per flow type.
   Future<List<NetWorthPoint>> netWorthSeries(int months,
       {DateTime? now}) async {
     final db = await database;
     final today = now ?? DateTime.now();
 
-    final openingRow = await db.rawQuery(
-        'SELECT SUM(${DbConstants.colOpeningBalance}) AS total '
-        'FROM ${DbConstants.tableAccounts}');
-    final opening = ((openingRow.first['total'] ?? 0) as num).round();
+    final accounts = await getAccounts();
+    final rateById = {for (final a in accounts) a.id!: a.rate};
+    double rateOf(Object? accountId) =>
+        accountId == null ? 1.0 : (rateById[accountId] ?? 1.0);
+    final opening = accounts.fold<int>(
+        0, (sum, a) => sum + toBaseMinor(a.openingBalance, a.rate));
 
-    Future<int> sumBefore(String table, DateTime cutoff, {String? type}) async {
-      final where = StringBuffer('${DbConstants.colDate} < ?');
-      final args = <Object?>[cutoff.toIso8601String()];
-      if (type != null) {
-        where.write(' AND ${DbConstants.colType} = ?');
-        args.add(type);
-      }
-      final row = await db.rawQuery(
-        'SELECT SUM(${DbConstants.colAmount}) AS total FROM $table WHERE $where',
-        args,
-      );
-      return ((row.first['total'] ?? 0) as num).round();
+    // ISO-8601 dates sort lexicographically, so substr(date, 1, 7) is the
+    // row's YYYY-MM month key.
+    final txRows = await db.rawQuery(
+        'SELECT substr(${DbConstants.colDate}, 1, 7) AS ym, '
+        '${DbConstants.colType} AS type, '
+        '${DbConstants.colAccountId} AS accountId, '
+        '${DbConstants.colToAccountId} AS toAccountId, '
+        'SUM(${DbConstants.colAmount}) AS amt, '
+        'SUM(COALESCE(${DbConstants.colToAmount}, ${DbConstants.colAmount})) AS toAmt '
+        'FROM ${DbConstants.tableExpenses} '
+        'GROUP BY ym, type, accountId, toAccountId');
+    final invRows = await db.rawQuery(
+        'SELECT substr(${DbConstants.colDate}, 1, 7) AS ym, '
+        'SUM(${DbConstants.colAmount}) AS amt '
+        'FROM ${DbConstants.tableInvestments} GROUP BY ym');
+
+    // Net base-currency change per month.
+    final deltaByMonth = <String, double>{};
+    void addDelta(Object? ym, double value) {
+      if (ym is! String) return;
+      deltaByMonth[ym] = (deltaByMonth[ym] ?? 0) + value;
     }
 
+    for (final row in txRows) {
+      final amt = ((row['amt'] ?? 0) as num).toDouble();
+      final toAmt = ((row['toAmt'] ?? 0) as num).toDouble();
+      switch (row['type']) {
+        case DbConstants.txIncome:
+          addDelta(row['ym'], amt * rateOf(row['accountId']));
+        case DbConstants.txExpense:
+          addDelta(row['ym'], -amt * rateOf(row['accountId']));
+        case DbConstants.txTransfer:
+          addDelta(row['ym'],
+              -amt * rateOf(row['accountId']) +
+                  toAmt * rateOf(row['toAccountId']));
+      }
+    }
+    for (final row in invRows) {
+      addDelta(row['ym'], ((row['amt'] ?? 0) as num).toDouble());
+    }
+
+    String ymKey(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}';
+
+    // Accumulate every month's delta oldest-first; emit the running value at
+    // each of the requested month ends.
+    final sortedMonths = deltaByMonth.keys.toList()..sort();
     final series = <NetWorthPoint>[];
+    var running = opening.toDouble();
+    var next = 0;
     for (int i = months - 1; i >= 0; i--) {
       final monthStart = DateTime(today.year, today.month - i, 1);
-      // First day of the following month = exclusive cutoff (month end).
-      final cutoff = DateTime(today.year, today.month - i + 1, 1);
-      final income = await sumBefore(DbConstants.tableExpenses, cutoff,
-          type: DbConstants.txIncome);
-      final expense = await sumBefore(DbConstants.tableExpenses, cutoff,
-          type: DbConstants.txExpense);
-      final investments = await sumBefore(DbConstants.tableInvestments, cutoff);
-      series.add(NetWorthPoint(
-        month: monthStart,
-        value: opening + income - expense + investments,
-      ));
+      final key = ymKey(monthStart);
+      while (next < sortedMonths.length &&
+          sortedMonths[next].compareTo(key) <= 0) {
+        running += deltaByMonth[sortedMonths[next]]!;
+        next++;
+      }
+      series.add(NetWorthPoint(month: monthStart, value: running.round()));
     }
     return series;
   }
 
-  /// Balance = opening + income − expenses − outgoing transfers
-  /// + incoming transfers. Computed in SQL so it covers all years,
-  /// not just those loaded into ExpenseProvider.
-  Future<int> getAccountBalance(Account account) async {
+  /// Net transaction flow per account (minor units, in each account's own
+  /// currency): income − expenses − outgoing transfers + incoming transfers.
+  /// One pass over the table instead of four queries per account. Incoming
+  /// cross-currency transfers credit the destination-side amount.
+  Future<Map<int, int>> getAccountFlows() async {
     final db = await database;
+    final flows = <int, double>{};
 
-    Future<int> sumWhere(String where, List<Object?> args) async {
-      final result = await db.rawQuery(
-        'SELECT SUM(${DbConstants.colAmount}) AS total FROM ${DbConstants.tableExpenses} WHERE $where',
-        args,
-      );
-      return ((result.first['total'] ?? 0) as num).round();
+    final outRows = await db.rawQuery(
+        'SELECT ${DbConstants.colAccountId} AS accountId, '
+        '${DbConstants.colType} AS type, '
+        'SUM(${DbConstants.colAmount}) AS amt '
+        'FROM ${DbConstants.tableExpenses} '
+        'WHERE ${DbConstants.colAccountId} IS NOT NULL '
+        'GROUP BY accountId, type');
+    for (final row in outRows) {
+      final id = row['accountId'] as int;
+      final amt = ((row['amt'] ?? 0) as num).toDouble();
+      final sign = row['type'] == DbConstants.txIncome ? 1 : -1;
+      flows[id] = (flows[id] ?? 0) + sign * amt;
     }
 
-    final income = await sumWhere(
-        '${DbConstants.colType} = ? AND ${DbConstants.colAccountId} = ?',
-        [DbConstants.txIncome, account.id]);
-    final spent = await sumWhere(
-        '${DbConstants.colType} = ? AND ${DbConstants.colAccountId} = ?',
-        [DbConstants.txExpense, account.id]);
-    final transferredOut = await sumWhere(
-        '${DbConstants.colType} = ? AND ${DbConstants.colAccountId} = ?',
-        [DbConstants.txTransfer, account.id]);
-    final transferredIn = await sumWhere(
-        '${DbConstants.colType} = ? AND ${DbConstants.colToAccountId} = ?',
-        [DbConstants.txTransfer, account.id]);
+    final inRows = await db.rawQuery(
+        'SELECT ${DbConstants.colToAccountId} AS accountId, '
+        'SUM(COALESCE(${DbConstants.colToAmount}, ${DbConstants.colAmount})) AS amt '
+        'FROM ${DbConstants.tableExpenses} '
+        'WHERE ${DbConstants.colType} = ? '
+        'AND ${DbConstants.colToAccountId} IS NOT NULL '
+        'GROUP BY accountId',
+        [DbConstants.txTransfer]);
+    for (final row in inRows) {
+      final id = row['accountId'] as int;
+      flows[id] = (flows[id] ?? 0) + ((row['amt'] ?? 0) as num).toDouble();
+    }
 
-    return account.openingBalance +
-        income -
-        spent -
-        transferredOut +
-        transferredIn;
+    return flows.map((id, v) => MapEntry(id, v.round()));
+  }
+
+  /// Balance = opening + net flows, in the account's own currency.
+  /// Computed in SQL so it covers all years, not just those loaded into
+  /// ExpenseProvider. Prefer [getAccountFlows] when refreshing every account.
+  Future<int> getAccountBalance(Account account) async {
+    final flows = await getAccountFlows();
+    return account.openingBalance + (flows[account.id] ?? 0);
   }
 }

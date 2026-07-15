@@ -65,12 +65,18 @@ class FinanceTrackerApp extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
+          // Material 3 with the same green seed in both modes, so dark mode
+          // keeps the brand color instead of falling back to grey.
           theme: ThemeData(
-            primarySwatch: Colors.green,
-            brightness: Brightness.light,
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
           ),
           darkTheme: ThemeData(
-            brightness: Brightness.dark,
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.green,
+              brightness: Brightness.dark,
+            ),
           ),
           themeMode: settings.themeMode,
           home: requireAuth
@@ -155,6 +161,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     if (_unlocked) return widget.child;
+    final l = AppLocalizations.of(context);
     return Scaffold(
       body: Center(
         child: Column(
@@ -162,15 +169,14 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           children: [
             const Icon(Icons.lock_outline, size: 64, color: Colors.green),
             const SizedBox(height: 16),
-            const Text('Finance Tracker is locked',
-                style: TextStyle(fontSize: 18)),
+            Text(l.appLocked, style: const TextStyle(fontSize: 18)),
             const SizedBox(height: 24),
             if (_checking)
               const CircularProgressIndicator()
             else
               ElevatedButton.icon(
                 icon: const Icon(Icons.fingerprint),
-                label: const Text('Unlock'),
+                label: Text(l.unlock),
                 onPressed: _tryUnlock,
               ),
           ],

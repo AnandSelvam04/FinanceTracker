@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../l10n/app_localizations.dart';
 import '../models/recurring_rule.dart';
 import '../utils/alerts.dart';
 import '../utils/app_logger.dart';
@@ -100,6 +103,7 @@ class NotificationService {
       for (final p in await _plugin.pendingNotificationRequests()) {
         if (p.id >= _billIdBase) await _plugin.cancel(p.id);
       }
+      final l = AppLocalizations.resolve();
       final now = tz.TZDateTime.now(tz.local);
       for (final rule in rules) {
         if (!rule.enabled || rule.id == null) continue;
@@ -111,9 +115,9 @@ class NotificationService {
         if (!when.isAfter(now)) continue;
         await _plugin.zonedSchedule(
           _billIdBase + rule.id!,
-          'Bill due soon',
-          '${rule.description} ${formatMoney(rule.amount)} is due '
-              '${_dueLabel(daysBefore)}',
+          l.billDueSoon,
+          l.billDueBody(rule.description, formatMoney(rule.amount),
+              _dueLabel(l, daysBefore)),
           when,
           _details(),
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -126,11 +130,28 @@ class NotificationService {
     }
   }
 
-  String _dueLabel(int daysBefore) => daysBefore <= 0
-      ? 'today'
+  String _dueLabel(AppLocalizations l, int daysBefore) => daysBefore <= 0
+      ? l.dueToday
       : daysBefore == 1
-          ? 'tomorrow'
-          : 'in $daysBefore days';
+          ? l.dueTomorrow
+          : l.dueInDays(daysBefore);
+
+  /// Stable per-category notification id from a persistent map, so two
+  /// categories can never collide and overwrite each other's notification
+  /// (the previous `hashCode % 1000` scheme could).
+  Future<int> _budgetNotificationId(
+      SharedPreferences prefs, String category) async {
+    const mapKey = 'budget_notif_ids';
+    final ids = Map<String, dynamic>.from(
+        jsonDecode(prefs.getString(mapKey) ?? '{}') as Map);
+    var id = ids[category] as int?;
+    if (id == null) {
+      id = ids.length;
+      ids[category] = id;
+      await prefs.setString(mapKey, jsonEncode(ids));
+    }
+    return _budgetIdBase + id;
+  }
 
   /// Fires a notification for each budget alert not already announced this
   /// month, so the user isn't re-notified on every launch.
@@ -138,6 +159,7 @@ class NotificationService {
       {required int year, required int month}) async {
     if (!_initialized || alerts.isEmpty) return;
     try {
+      final l = AppLocalizations.resolve();
       final prefs = await SharedPreferences.getInstance();
       final key = 'notified_budget_${year}_$month';
       final already = prefs.getStringList(key)?.toSet() ?? <String>{};
@@ -146,11 +168,11 @@ class NotificationService {
         if (already.contains(tag)) continue;
         already.add(tag);
         await _show(
-          _budgetIdBase + (a.category.hashCode % 1000).abs(),
-          a.isOver ? 'Over budget' : 'Budget warning',
+          await _budgetNotificationId(prefs, a.category),
+          a.isOver ? l.overBudget : l.budgetWarning,
           a.isOver
-              ? '${a.category}: over budget by ${formatMoney(a.spent - a.budget)}'
-              : '${a.category}: ${(a.ratio * 100).round()}% of budget used',
+              ? l.overBudgetBody(a.category, formatMoney(a.spent - a.budget))
+              : l.budgetUsedBody(a.category, (a.ratio * 100).round()),
         );
       }
       await prefs.setStringList(key, already.toList());

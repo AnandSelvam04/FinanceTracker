@@ -8,6 +8,9 @@ void main() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
   DBService.testFactory = databaseFactoryFfi;
+  // Isolate this file's database so concurrently running test files
+  // can't clear each other's data (they all share one ffi process).
+  DBService.dbNameOverride = 'investment_provider_test.db';
 
   group('InvestmentProvider Tests', () {
     late InvestmentProvider provider;

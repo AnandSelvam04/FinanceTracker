@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 /// Lightweight, hand-written localization (no codegen). The app is
@@ -12,6 +14,15 @@ class AppLocalizations {
 
   static AppLocalizations of(BuildContext context) =>
       Localizations.of<AppLocalizations>(context, AppLocalizations)!;
+
+  /// Resolves localizations without a [BuildContext], e.g. for notification
+  /// text produced by background services. Uses the device locale, falling
+  /// back to English when it isn't supported.
+  static AppLocalizations resolve([Locale? locale]) {
+    final l = locale ?? ui.PlatformDispatcher.instance.locale;
+    return AppLocalizations(
+        _values.containsKey(l.languageCode) ? Locale(l.languageCode) : const Locale('en'));
+  }
 
   static const LocalizationsDelegate<AppLocalizations> delegate =
       _AppLocalizationsDelegate();
@@ -121,6 +132,67 @@ class AppLocalizations {
       'noteOptional': 'Note (optional)',
       'recordTransfer': 'Record Transfer',
       'transferRecorded': 'Transfer recorded',
+      'amountReceived': 'Amount received',
+      'selectAccount': 'Select an account',
+      'mustDifferFromSource': 'Must differ from source account',
+      'enterAmount': 'Enter an amount',
+      'enterValidAmount': 'Enter a valid amount',
+      // Dashboard
+      'viewLabel': 'View',
+      'noExpensesMonth': 'No expenses this month.',
+      'noExpensesYear': 'No expenses this year.',
+      'total': 'Total',
+      'yearTotal': 'Year Total',
+      'categoryBreakdownYear': 'Category Breakdown (Year)',
+      'trendsLast12Months': 'Trends (Last 12 Months)',
+      'quickAdd': 'Quick add',
+      'postedRecurringOne': '1 recurring transaction posted',
+      'postedRecurringMany': '{n} recurring transactions posted',
+      'addedTemplate': 'Added {name}',
+      'undo': 'Undo',
+      // Net worth card
+      'netWorth': 'Net Worth',
+      'noHistoryYet': 'No history yet',
+      'netWorthTrendSemantics': 'Net worth trend over the last 12 months',
+      // Transactions list
+      'transactions': 'Transactions',
+      'filters': 'Filters',
+      'downloadFilteredCsv': 'Download filtered (CSV)',
+      'searchExpenses': 'Search Expenses',
+      'all': 'All',
+      'transfers': 'Transfers',
+      'transfer': 'Transfer',
+      'deleteExpenseTitle': 'Delete expense?',
+      'deleteExpenseBody': 'Remove "{desc}" for {amount}?',
+      'editExpense': 'Edit Expense',
+      'editTransfer': 'Edit Transfer',
+      'change': 'Change',
+      'note': 'Note',
+      'any': 'Any',
+      'minAmount': 'Min amount',
+      'maxAmount': 'Max amount',
+      'dateRangeUsesYearMonth': 'Date range: uses Year/Month above',
+      'dateRangeIs': 'Date range: {range}',
+      'pick': 'Pick',
+      'clear': 'Clear',
+      'resetAll': 'Reset all',
+      'apply': 'Apply',
+      'nothingToDownload': 'Nothing to download for this filter.',
+      'errorWithDetails': 'Error: {error}',
+      'noExpensesFound': 'No expenses found.',
+      // Lock screen
+      'appLocked': 'Finance Tracker is locked',
+      'unlock': 'Unlock',
+      // Notifications
+      'billDueSoon': 'Bill due soon',
+      'billDueBody': '{desc} {amount} is due {when}',
+      'dueToday': 'today',
+      'dueTomorrow': 'tomorrow',
+      'dueInDays': 'in {n} days',
+      'overBudget': 'Over budget',
+      'budgetWarning': 'Budget warning',
+      'overBudgetBody': '{category}: over budget by {amount}',
+      'budgetUsedBody': '{category}: {percent}% of budget used',
     },
     'ta': {
       'appTitle': 'Finance Tracker',
@@ -216,11 +288,76 @@ class AppLocalizations {
       'noteOptional': 'குறிப்பு (விருப்பம்)',
       'recordTransfer': 'பரிமாற்றத்தைப் பதிவு செய்',
       'transferRecorded': 'பரிமாற்றம் பதிவு செய்யப்பட்டது',
+      'amountReceived': 'பெறப்பட்ட தொகை',
+      'selectAccount': 'ஒரு கணக்கைத் தேர்ந்தெடுக்கவும்',
+      'mustDifferFromSource': 'அனுப்பும் கணக்கிலிருந்து வேறுபட வேண்டும்',
+      'enterAmount': 'தொகையை உள்ளிடவும்',
+      'enterValidAmount': 'சரியான தொகையை உள்ளிடவும்',
+      'viewLabel': 'காட்சி',
+      'noExpensesMonth': 'இந்த மாதம் செலவுகள் இல்லை.',
+      'noExpensesYear': 'இந்த ஆண்டு செலவுகள் இல்லை.',
+      'total': 'மொத்தம்',
+      'yearTotal': 'ஆண்டு மொத்தம்',
+      'categoryBreakdownYear': 'வகை விவரம் (ஆண்டு)',
+      'trendsLast12Months': 'போக்குகள் (கடந்த 12 மாதங்கள்)',
+      'quickAdd': 'விரைவு சேர்',
+      'postedRecurringOne': '1 தொடர் பரிவர்த்தனை பதிவு செய்யப்பட்டது',
+      'postedRecurringMany': '{n} தொடர் பரிவர்த்தனைகள் பதிவு செய்யப்பட்டன',
+      'addedTemplate': '{name} சேர்க்கப்பட்டது',
+      'undo': 'செயல்தவிர்',
+      'netWorth': 'நிகர மதிப்பு',
+      'noHistoryYet': 'இன்னும் வரலாறு இல்லை',
+      'netWorthTrendSemantics': 'கடந்த 12 மாதங்களின் நிகர மதிப்பு போக்கு',
+      'transactions': 'பரிவர்த்தனைகள்',
+      'filters': 'வடிப்பான்கள்',
+      'downloadFilteredCsv': 'வடிகட்டியதைப் பதிவிறக்கு (CSV)',
+      'searchExpenses': 'செலவுகளைத் தேடு',
+      'all': 'அனைத்தும்',
+      'transfers': 'பரிமாற்றங்கள்',
+      'transfer': 'பரிமாற்றம்',
+      'deleteExpenseTitle': 'செலவை நீக்கவா?',
+      'deleteExpenseBody': '"{desc}" ({amount}) நீக்கவா?',
+      'editExpense': 'செலவைத் திருத்து',
+      'editTransfer': 'பரிமாற்றத்தைத் திருத்து',
+      'change': 'மாற்று',
+      'note': 'குறிப்பு',
+      'any': 'ஏதேனும்',
+      'minAmount': 'குறைந்தபட்ச தொகை',
+      'maxAmount': 'அதிகபட்ச தொகை',
+      'dateRangeUsesYearMonth': 'தேதி வரம்பு: மேலே உள்ள ஆண்டு/மாதம் பயன்படும்',
+      'dateRangeIs': 'தேதி வரம்பு: {range}',
+      'pick': 'தேர்வு',
+      'clear': 'அழி',
+      'resetAll': 'அனைத்தையும் மீட்டமை',
+      'apply': 'பயன்படுத்து',
+      'nothingToDownload': 'இந்த வடிப்பானுக்கு பதிவிறக்க எதுவும் இல்லை.',
+      'errorWithDetails': 'பிழை: {error}',
+      'noExpensesFound': 'செலவுகள் எதுவும் கிடைக்கவில்லை.',
+      'appLocked': 'Finance Tracker பூட்டப்பட்டுள்ளது',
+      'unlock': 'திற',
+      'billDueSoon': 'பில் விரைவில் செலுத்த வேண்டும்',
+      'billDueBody': '{desc} {amount} {when} செலுத்த வேண்டும்',
+      'dueToday': 'இன்று',
+      'dueTomorrow': 'நாளை',
+      'dueInDays': '{n} நாட்களில்',
+      'overBudget': 'பட்ஜெட்டை மீறியது',
+      'budgetWarning': 'பட்ஜெட் எச்சரிக்கை',
+      'overBudgetBody': '{category}: பட்ஜெட்டை விட {amount} அதிகம்',
+      'budgetUsedBody': '{category}: பட்ஜெட்டில் {percent}% பயன்படுத்தப்பட்டது',
     },
   };
 
   String _t(String key) =>
       _values[locale.languageCode]?[key] ?? _values['en']![key] ?? key;
+
+  /// Looks up [key] and substitutes `{name}` placeholders from [args].
+  String _tArgs(String key, Map<String, String> args) {
+    var out = _t(key);
+    args.forEach((name, value) {
+      out = out.replaceAll('{$name}', value);
+    });
+    return out;
+  }
 
   // Navigation & chrome
   String get appTitle => _t('appTitle');
@@ -317,6 +454,73 @@ class AppLocalizations {
   String get noteOptional => _t('noteOptional');
   String get recordTransfer => _t('recordTransfer');
   String get transferRecorded => _t('transferRecorded');
+  String get amountReceived => _t('amountReceived');
+  String get selectAccount => _t('selectAccount');
+  String get mustDifferFromSource => _t('mustDifferFromSource');
+  String get enterAmount => _t('enterAmount');
+  String get enterValidAmount => _t('enterValidAmount');
+  // Dashboard
+  String get viewLabel => _t('viewLabel');
+  String get noExpensesMonth => _t('noExpensesMonth');
+  String get noExpensesYear => _t('noExpensesYear');
+  String get total => _t('total');
+  String get yearTotal => _t('yearTotal');
+  String get categoryBreakdownYear => _t('categoryBreakdownYear');
+  String get trendsLast12Months => _t('trendsLast12Months');
+  String get quickAdd => _t('quickAdd');
+  String postedRecurring(int n) => n == 1
+      ? _t('postedRecurringOne')
+      : _tArgs('postedRecurringMany', {'n': '$n'});
+  String addedTemplate(String name) => _tArgs('addedTemplate', {'name': name});
+  String get undo => _t('undo');
+  // Net worth card
+  String get netWorth => _t('netWorth');
+  String get noHistoryYet => _t('noHistoryYet');
+  String get netWorthTrendSemantics => _t('netWorthTrendSemantics');
+  // Transactions list
+  String get transactions => _t('transactions');
+  String get filters => _t('filters');
+  String get downloadFilteredCsv => _t('downloadFilteredCsv');
+  String get searchExpenses => _t('searchExpenses');
+  String get all => _t('all');
+  String get transfers => _t('transfers');
+  String get transfer => _t('transfer');
+  String get deleteExpenseTitle => _t('deleteExpenseTitle');
+  String deleteExpenseBody(String desc, String amount) =>
+      _tArgs('deleteExpenseBody', {'desc': desc, 'amount': amount});
+  String get editExpense => _t('editExpense');
+  String get editTransfer => _t('editTransfer');
+  String get change => _t('change');
+  String get note => _t('note');
+  String get any => _t('any');
+  String get minAmount => _t('minAmount');
+  String get maxAmount => _t('maxAmount');
+  String get dateRangeUsesYearMonth => _t('dateRangeUsesYearMonth');
+  String dateRangeIs(String range) => _tArgs('dateRangeIs', {'range': range});
+  String get pick => _t('pick');
+  String get clear => _t('clear');
+  String get resetAll => _t('resetAll');
+  String get apply => _t('apply');
+  String get nothingToDownload => _t('nothingToDownload');
+  String errorWithDetails(String error) =>
+      _tArgs('errorWithDetails', {'error': error});
+  String get noExpensesFound => _t('noExpensesFound');
+  // Lock screen
+  String get appLocked => _t('appLocked');
+  String get unlock => _t('unlock');
+  // Notifications
+  String get billDueSoon => _t('billDueSoon');
+  String billDueBody(String desc, String amount, String when) =>
+      _tArgs('billDueBody', {'desc': desc, 'amount': amount, 'when': when});
+  String get dueToday => _t('dueToday');
+  String get dueTomorrow => _t('dueTomorrow');
+  String dueInDays(int n) => _tArgs('dueInDays', {'n': '$n'});
+  String get overBudget => _t('overBudget');
+  String get budgetWarning => _t('budgetWarning');
+  String overBudgetBody(String category, String amount) =>
+      _tArgs('overBudgetBody', {'category': category, 'amount': amount});
+  String budgetUsedBody(String category, int percent) =>
+      _tArgs('budgetUsedBody', {'category': category, 'percent': '$percent'});
 }
 
 class _AppLocalizationsDelegate

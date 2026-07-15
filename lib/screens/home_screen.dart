@@ -15,6 +15,7 @@ import '../services/backup_service.dart';
 import '../services/notification_service.dart';
 import '../services/recurring_service.dart';
 import '../utils/alerts.dart';
+import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../widgets/alerts_banner.dart';
 import '../widgets/expense_chart.dart';
@@ -86,6 +87,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final accountProvider = context.read<AccountProvider>();
     final recurringProvider = context.read<RecurringProvider>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context);
     final posted = await RecurringService.instance.postDueTransactions();
     if (posted > 0) {
       await expenseProvider.reloadLoadedYears();
@@ -93,8 +95,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await recurringProvider.fetchRules();
       if (mounted) {
         messenger.showSnackBar(SnackBar(
-          content: Text(
-              'Posted $posted recurring transaction${posted == 1 ? '' : 's'}'),
+          content: Text(l.postedRecurring(posted)),
         ));
       }
     }
@@ -129,6 +130,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context);
     final expense = Expense(
       description: template.description,
       amount: template.amount,
@@ -138,29 +140,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       type: template.type,
       accountId: template.accountId,
     );
-    await expenseProvider.addExpense(expense);
+    final addedId = await expenseProvider.addExpense(expense);
     await accountProvider.refreshBalances();
-    final added = expenseProvider.expenses.firstWhere(
-      (e) =>
-          e.description == expense.description &&
-          e.amount == expense.amount &&
-          e.date.year == expense.date.year &&
-          e.date.month == expense.date.month &&
-          e.date.day == expense.date.day,
-      orElse: () => expense,
-    );
     if (!mounted) return;
     messenger.showSnackBar(SnackBar(
-      content: Text('Added ${template.name}'),
-      action: added.id == null
-          ? null
-          : SnackBarAction(
-              label: 'Undo',
-              onPressed: () async {
-                await expenseProvider.deleteExpense(added.id!);
-                await accountProvider.refreshBalances();
-              },
-            ),
+      content: Text(l.addedTemplate(template.name)),
+      action: SnackBarAction(
+        label: l.undo,
+        onPressed: () async {
+          await expenseProvider.deleteExpense(addedId);
+          await accountProvider.refreshBalances();
+        },
+      ),
     ));
   }
 
@@ -241,7 +232,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-      body: _screens[_selectedIndex],
+      // IndexedStack keeps every tab mounted, so the Transactions screen's
+      // search, filters, and scroll position survive tab switches.
+      body: IndexedStack(index: _selectedIndex, children: _screens),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddOptions(context),
         tooltip: l.addTransaction,
@@ -283,6 +276,7 @@ class _DashboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Consumer<ExpenseProvider>(
       builder: (context, provider, _) {
         final monthlyExpenses =
@@ -316,38 +310,38 @@ class _DashboardView extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('View:'),
+                    Text('${l.viewLabel}:'),
                     const SizedBox(width: 8),
                     ToggleButtons(
                       isSelected: [!yearView, yearView],
                       onPressed: (i) => onViewToggle(i == 1),
-                      children: const [Text('Month'), Text('Year')],
+                      children: [Text(l.month), Text(l.year)],
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 if (yearView) ...[
                   if (yearlyExpenses.isEmpty)
-                    const Text('No expenses this year.')
+                    Text(l.noExpensesYear)
                   else ...[
                     SizedBox(
                       height: 250,
                       child: ExpenseChart(expenses: yearlyExpenses),
                     ),
                     Text(
-                      'Year Total: ${formatMoney(provider.totalForYear(selectedYear))}',
+                      '${l.yearTotal}: ${formatMoney(provider.totalForYear(selectedYear))}',
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     if (yearlyIncome > 0)
                       Text(
-                        'Income: ${formatMoney(yearlyIncome)}',
+                        '${l.income}: ${formatMoney(yearlyIncome)}',
                         style: TextStyle(
-                            fontSize: 14, color: Colors.green.shade700),
+                            fontSize: 14, color: incomeColor(context)),
                       ),
                     const SizedBox(height: 16),
-                    const Text('Category Breakdown (Year)',
-                        style: TextStyle(fontSize: 16)),
+                    Text(l.categoryBreakdownYear,
+                        style: const TextStyle(fontSize: 16)),
                     SizedBox(
                       height: 180,
                       child: ListView(
@@ -367,26 +361,26 @@ class _DashboardView extends StatelessWidget {
                   ],
                 ] else ...[
                   if (monthlyExpenses.isEmpty)
-                    const Text('No expenses this month.')
+                    Text(l.noExpensesMonth)
                   else ...[
                     SizedBox(
                       height: 250,
                       child: ExpenseChart(expenses: monthlyExpenses),
                     ),
                     Text(
-                      'Total: ${formatMoney(provider.totalForMonth(selectedYear, selectedMonth))}',
+                      '${l.total}: ${formatMoney(provider.totalForMonth(selectedYear, selectedMonth))}',
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     if (monthlyIncome > 0)
                       Text(
-                        'Income: ${formatMoney(monthlyIncome)}',
+                        '${l.income}: ${formatMoney(monthlyIncome)}',
                         style: TextStyle(
-                            fontSize: 14, color: Colors.green.shade700),
+                            fontSize: 14, color: incomeColor(context)),
                       ),
                     const SizedBox(height: 16),
-                    const Text('Trends (Last 12 Months)',
-                        style: TextStyle(fontSize: 16)),
+                    Text(l.trendsLast12Months,
+                        style: const TextStyle(fontSize: 16)),
                     ExpenseTrendsChart(provider: provider),
                   ],
                 ],
@@ -415,7 +409,8 @@ class _QuickAddRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Quick add', style: TextStyle(fontSize: 13)),
+              Text(AppLocalizations.of(context).quickAdd,
+                  style: const TextStyle(fontSize: 13)),
               const SizedBox(height: 4),
               SizedBox(
                 height: 40,

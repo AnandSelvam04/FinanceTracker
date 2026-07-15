@@ -2,6 +2,34 @@
 
 _Updated: July 2026 (branch `claude/app-improvement-analysis-2q29is`)._
 
+> **Implementation status:** every item below has been implemented on this
+> branch (`flutter analyze` clean, 84 tests passing).
+>
+> - 1.1 ✅ pre-migration snapshot deleted after a verified cipher migration;
+>   auto-backups are encrypted with the device key while DB encryption is on
+> - 1.2 ✅ transfers carry a destination-currency `toAmount` (schema v8); the
+>   add/edit transfer UIs show a received-amount field when currencies differ
+> - 1.3 ✅ `netWorthSeries` converts every account at its exchange rate and
+>   now runs on 3 grouped queries instead of 36
+> - 1.4 ✅ restore runs in one DB transaction (corrupt backup = no data loss)
+> - 1.5 ✅ Drive backup updates the existing file and prunes stale duplicates
+> - 1.6 ✅ recurring catch-up posts occurrences + advances `nextDue` atomically
+> - 1.7 ✅ deleting an account also detaches recurring rules and templates
+> - 2.1 ✅ tabs render in an `IndexedStack`; also fixed: selecting an older
+>   year (or a custom date range) now loads that data on demand
+> - 2.2 ✅ dashboard, transactions screen, edit sheets, snackbars, lock
+>   screen, and notifications localized (en + ta); remaining English-only
+>   screens: investments, recurring, backups, import, summary, cashflow
+> - 2.3 ✅ Material 3 `ColorScheme.fromSeed` in both modes; shared
+>   theme-aware semantic colors replace fixed light-mode shades
+> - 2.4 ✅ indexes on `expenses(date)`, `(type, accountId)`, `(toAccountId)`;
+>   all account balances computed in one grouped pass
+> - 2.5 ✅ quick-add undo uses the inserted row id; decimal-aware keyboards
+>   in edit/filter sheets; year filter derives from actual data; budget
+>   notification ids come from a persistent map (no hash collisions)
+> - 3 ✅ `flutter_lints` moved to dev_dependencies; release signing reads
+>   `android/key.properties` with a debug-key fallback
+
 ## Overview
 
 The app is in good shape. Every action item from the previous review has been

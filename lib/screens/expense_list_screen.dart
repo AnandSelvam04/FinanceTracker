@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../l10n/app_localizations.dart';
 import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../services/backup_service.dart';
+import '../services/db_service.dart';
+import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/transaction_filter.dart';
@@ -21,6 +24,28 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   int _selectedYear = DateTime.now().year;
   int? _selectedMonth = DateTime.now().month;
   String? _typeFilter;
+
+  /// Year of the earliest recorded transaction, so the year filter reaches
+  /// all data instead of a hardcoded last-10-years window.
+  int _earliestYear = DateTime.now().year;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final bounds = await DBService().transactionYearBounds();
+      if (bounds != null && mounted) {
+        setState(() => _earliestYear = bounds.$1);
+      }
+    });
+  }
+
+  /// Loads the data needed to show [year] (the provider only holds the years
+  /// it has been asked for).
+  Future<void> _selectYear(int year) async {
+    setState(() => _selectedYear = year);
+    await context.read<ExpenseProvider>().ensureYearLoaded(year);
+  }
 
   // Advanced filters (set via the filter sheet).
   String? _categoryFilter;
@@ -40,19 +65,20 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   Future<bool> _confirmDelete(Expense expense) async {
+    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete expense?'),
-        content: Text(
-            'Remove "${expense.description}" for ${formatMoney(expense.amount)}?'),
+        title: Text(l.deleteExpenseTitle),
+        content: Text(l.deleteExpenseBody(
+            expense.description, formatMoney(expense.amount))),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+              child: Text(l.cancel)),
           ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
+              child: Text(l.delete)),
         ],
       ),
     );
@@ -68,6 +94,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 
   Future<void> _editExpense(Expense expense) async {
+    final l = AppLocalizations.of(context);
     final descController = TextEditingController(text: expense.description);
     final amountController =
         TextEditingController(text: minorToEditString(expense.amount));
@@ -93,26 +120,27 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Edit Expense',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(l.editExpense,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 TextField(
                   controller: descController,
-                  decoration: const InputDecoration(labelText: 'Description'),
+                  decoration: InputDecoration(labelText: l.description),
                 ),
                 TextField(
                   controller: amountController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Amount'),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(labelText: l.amount),
                 ),
                 TextField(
                   controller: categoryController,
-                  decoration: const InputDecoration(labelText: 'Category'),
+                  decoration: InputDecoration(labelText: l.category),
                 ),
                 DropdownButtonFormField<String>(
                   initialValue: paymentMode,
-                  decoration: const InputDecoration(labelText: 'Payment Mode'),
+                  decoration: InputDecoration(labelText: l.paymentMode),
                   items: const [
                     DropdownMenuItem(value: 'Cash', child: Text('Cash')),
                     DropdownMenuItem(
@@ -127,7 +155,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 ),
                 Row(
                   children: [
-                    Text('Date: ${_formatDate(selectedDate)}'),
+                    Text('${l.date}: ${_formatDate(selectedDate)}'),
                     const Spacer(),
                     TextButton(
                       onPressed: () async {
@@ -141,7 +169,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                           setModalState(() => selectedDate = picked);
                         }
                       },
-                      child: const Text('Change'),
+                      child: Text(l.change),
                     ),
                   ],
                 ),
@@ -171,7 +199,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       if (!context.mounted) return;
                       Navigator.pop(context);
                     },
-                    child: const Text('Save'),
+                    child: Text(l.save),
                   ),
                 ),
               ],
@@ -183,13 +211,23 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 
   Future<void> _editTransfer(Expense transfer) async {
-    final accounts = context.read<AccountProvider>().accounts;
+    final l = AppLocalizations.of(context);
+    final accountProvider0 = context.read<AccountProvider>();
+    final accounts = accountProvider0.accounts;
     final amountController =
         TextEditingController(text: minorToEditString(transfer.amount));
+    final toAmountController = TextEditingController(
+        text: minorToEditString(transfer.receivedAmount));
     final noteController = TextEditingController(text: transfer.description);
     int? fromId = transfer.accountId;
     int? toId = transfer.toAccountId;
     DateTime date = transfer.date;
+
+    bool crossCurrency() {
+      final from = accountProvider0.accountById(fromId);
+      final to = accountProvider0.accountById(toId);
+      return from != null && to != null && from.symbol != to.symbol;
+    }
 
     await showModalBottomSheet(
       context: context,
@@ -208,12 +246,13 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Edit Transfer',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(l.editTransfer,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               DropdownButtonFormField<int?>(
                 initialValue: accounts.any((a) => a.id == fromId) ? fromId : null,
-                decoration: const InputDecoration(labelText: 'From account'),
+                decoration: InputDecoration(labelText: l.fromAccount),
                 items: accounts
                     .map((a) =>
                         DropdownMenuItem<int?>(value: a.id, child: Text(a.name)))
@@ -222,7 +261,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               ),
               DropdownButtonFormField<int?>(
                 initialValue: accounts.any((a) => a.id == toId) ? toId : null,
-                decoration: const InputDecoration(labelText: 'To account'),
+                decoration: InputDecoration(labelText: l.toAccount),
                 items: accounts
                     .map((a) =>
                         DropdownMenuItem<int?>(value: a.id, child: Text(a.name)))
@@ -231,16 +270,27 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               ),
               TextField(
                 controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Amount'),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(labelText: l.amount),
               ),
+              if (crossCurrency())
+                TextField(
+                  controller: toAmountController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText:
+                        '${l.amountReceived} (${accountProvider0.accountById(toId)!.symbol})',
+                  ),
+                ),
               TextField(
                 controller: noteController,
-                decoration: const InputDecoration(labelText: 'Note'),
+                decoration: InputDecoration(labelText: l.note),
               ),
               Row(
                 children: [
-                  Text('Date: ${_formatDate(date)}'),
+                  Text('${l.date}: ${_formatDate(date)}'),
                   const Spacer(),
                   TextButton(
                     onPressed: () async {
@@ -252,7 +302,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       );
                       if (picked != null) setSheet(() => date = picked);
                     },
-                    child: const Text('Change'),
+                    child: Text(l.change),
                   ),
                 ],
               ),
@@ -266,6 +316,11 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                         fromId == toId) {
                       return;
                     }
+                    int? toAmount;
+                    if (crossCurrency()) {
+                      toAmount = parseMinor(toAmountController.text.trim());
+                      if (toAmount == null) return;
+                    }
                     final updated = Expense(
                       id: transfer.id,
                       description: noteController.text.trim().isEmpty
@@ -278,6 +333,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       type: DbConstants.txTransfer,
                       accountId: fromId,
                       toAccountId: toId,
+                      toAmount: toAmount,
                     );
                     final expenseProvider = context.read<ExpenseProvider>();
                     final accountProvider = context.read<AccountProvider>();
@@ -286,7 +342,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                     if (!context.mounted) return;
                     Navigator.pop(context);
                   },
-                  child: const Text('Save'),
+                  child: Text(l.save),
                 ),
               ),
             ],
@@ -314,6 +370,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 
   Future<void> _openFilterSheet() async {
+    final l = AppLocalizations.of(context);
     final provider = context.read<ExpenseProvider>();
     final accounts = context.read<AccountProvider>().accounts;
     final categories = provider.expenses
@@ -350,15 +407,15 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Filters',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(l.filters,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String?>(
                 initialValue: categories.contains(category) ? category : null,
-                decoration: const InputDecoration(labelText: 'Category'),
+                decoration: InputDecoration(labelText: l.category),
                 items: [
-                  const DropdownMenuItem<String?>(
-                      value: null, child: Text('Any')),
+                  DropdownMenuItem<String?>(value: null, child: Text(l.any)),
                   ...categories.map((c) =>
                       DropdownMenuItem<String?>(value: c, child: Text(c))),
                 ],
@@ -369,10 +426,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                   initialValue: accounts.any((a) => a.id == accountId)
                       ? accountId
                       : null,
-                  decoration: const InputDecoration(labelText: 'Account'),
+                  decoration: InputDecoration(labelText: l.account),
                   items: [
-                    const DropdownMenuItem<int?>(
-                        value: null, child: Text('Any')),
+                    DropdownMenuItem<int?>(value: null, child: Text(l.any)),
                     ...accounts.map((a) => DropdownMenuItem<int?>(
                         value: a.id, child: Text(a.name))),
                   ],
@@ -383,18 +439,18 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                   Expanded(
                     child: TextField(
                       controller: minController,
-                      keyboardType: TextInputType.number,
-                      decoration:
-                          const InputDecoration(labelText: 'Min amount'),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(labelText: l.minAmount),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
                       controller: maxController,
-                      keyboardType: TextInputType.number,
-                      decoration:
-                          const InputDecoration(labelText: 'Max amount'),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(labelText: l.maxAmount),
                     ),
                   ),
                 ],
@@ -404,8 +460,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 children: [
                   Expanded(
                     child: Text(range == null
-                        ? 'Date range: uses Year/Month above'
-                        : 'Date range: ${_fmtRange(range!)}'),
+                        ? l.dateRangeUsesYearMonth
+                        : l.dateRangeIs(_fmtRange(range!))),
                   ),
                   TextButton(
                     onPressed: () async {
@@ -417,12 +473,12 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       );
                       if (picked != null) setSheet(() => range = picked);
                     },
-                    child: const Text('Pick'),
+                    child: Text(l.pick),
                   ),
                   if (range != null)
                     TextButton(
                       onPressed: () => setSheet(() => range = null),
-                      child: const Text('Clear'),
+                      child: Text(l.clear),
                     ),
                 ],
               ),
@@ -440,21 +496,32 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       });
                       Navigator.pop(context);
                     },
-                    child: const Text('Reset all'),
+                    child: Text(l.resetAll),
                   ),
                   const Spacer(),
                   ElevatedButton(
                     onPressed: () {
+                      final appliedRange = range;
                       setState(() {
                         _categoryFilter = category;
                         _accountFilter = accountId;
                         _minAmount = parseMinor(minController.text.trim());
                         _maxAmount = parseMinor(maxController.text.trim());
-                        _dateRange = range;
+                        _dateRange = appliedRange;
                       });
+                      // A custom range can span years the provider hasn't
+                      // loaded yet; load them so the filter shows everything.
+                      if (appliedRange != null) {
+                        context.read<ExpenseProvider>().ensureYearsLoaded([
+                          for (var y = appliedRange.start.year;
+                              y <= appliedRange.end.year;
+                              y++)
+                            y
+                        ]);
+                      }
                       Navigator.pop(context);
                     },
-                    child: const Text('Apply'),
+                    child: Text(l.apply),
                   ),
                 ],
               ),
@@ -477,12 +544,13 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
 
   /// Downloads exactly what the current filters show, via the share sheet.
   Future<void> _downloadFiltered() async {
+    final l = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final provider = context.read<ExpenseProvider>();
     final filtered = _applyFilters(provider.expenses);
     if (filtered.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Nothing to download for this filter.')),
+        SnackBar(content: Text(l.nothingToDownload)),
       );
       return;
     }
@@ -493,31 +561,40 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       );
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'text/csv')],
-        subject: 'Finance Tracker — Transactions ($_filterLabel)',
+        subject: 'Finance Tracker — ${l.transactions} ($_filterLabel)',
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(
+          SnackBar(content: Text(l.errorWithDetails('$e'))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final years = List.generate(10, (i) => DateTime.now().year - i);
+    final l = AppLocalizations.of(context);
+    final currentYear = DateTime.now().year;
+    // Every year from the earliest transaction to now, newest first, so old
+    // data stays reachable (the list used to stop at 10 years back).
+    final firstYear =
+        _earliestYear < currentYear ? _earliestYear : currentYear;
+    final years = [
+      for (var y = currentYear; y >= firstYear; y--) y,
+    ];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Transactions'),
+        title: Text(l.transactions),
         actions: [
           IconButton(
             icon: Icon(_hasAdvancedFilters
                 ? Icons.filter_alt
                 : Icons.filter_alt_outlined),
-            tooltip: 'Filters',
+            tooltip: l.filters,
             onPressed: _openFilterSheet,
           ),
           IconButton(
             icon: const Icon(Icons.download),
-            tooltip: 'Download filtered (CSV)',
+            tooltip: l.downloadFilteredCsv,
             onPressed: _downloadFiltered,
           ),
         ],
@@ -527,9 +604,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'Search Expenses',
-                prefixIcon: Icon(Icons.search),
+              decoration: InputDecoration(
+                labelText: l.searchExpenses,
+                prefixIcon: const Icon(Icons.search),
               ),
               onChanged: (value) {
                 setState(() {
@@ -541,7 +618,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('Year:'),
+              Text('${l.year}:'),
               const SizedBox(width: 8),
               DropdownButton<int>(
                 value: _selectedYear,
@@ -551,17 +628,19 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                           child: Text(y.toString()),
                         ))
                     .toList(),
-                onChanged: (y) => setState(() => _selectedYear = y!),
+                onChanged: (y) {
+                  if (y != null) _selectYear(y);
+                },
               ),
               const SizedBox(width: 16),
-              const Text('Month:'),
+              Text('${l.month}:'),
               const SizedBox(width: 8),
               DropdownButton<int?>(
                 value: _selectedMonth,
                 items: [
                   DropdownMenuItem(
                     value: null,
-                    child: Text('All'),
+                    child: Text(l.all),
                   ),
                   ...List.generate(
                       12,
@@ -580,11 +659,11 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
-                for (final entry in const [
-                  (null, 'All'),
-                  (DbConstants.txExpense, 'Expenses'),
-                  (DbConstants.txIncome, 'Income'),
-                  (DbConstants.txTransfer, 'Transfers'),
+                for (final entry in [
+                  (null, l.all),
+                  (DbConstants.txExpense, l.navExpenses),
+                  (DbConstants.txIncome, l.income),
+                  (DbConstants.txTransfer, l.transfers),
                 ])
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -606,10 +685,10 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.inbox, size: 48, color: Colors.grey),
-                        SizedBox(height: 8),
-                        Text('No expenses found.'),
+                      children: [
+                        const Icon(Icons.inbox, size: 48, color: Colors.grey),
+                        const SizedBox(height: 8),
+                        Text(l.noExpensesFound),
                       ],
                     ),
                   );
@@ -636,13 +715,13 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                         child: ListTile(
                           leading: CircleAvatar(
                             backgroundColor: expense.isIncome
-                                ? Colors.green.shade100
+                                ? incomeAvatarColor(context)
                                 : expense.isTransfer
-                                    ? Colors.blueGrey.shade100
-                                    : Colors.red.shade50,
+                                    ? transferAvatarColor(context)
+                                    : expenseAvatarColor(context),
                             child: expense.isTransfer
-                                ? const Icon(Icons.swap_horiz,
-                                    color: Colors.blueGrey)
+                                ? Icon(Icons.swap_horiz,
+                                    color: transferColor(context))
                                 : Text(expense.category.isNotEmpty
                                     ? expense.category[0].toUpperCase()
                                     : '?'),
@@ -664,19 +743,19 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: expense.isIncome
-                                          ? Colors.green.shade700
+                                          ? incomeColor(context)
                                           : expense.isTransfer
-                                              ? Colors.blueGrey
-                                              : Colors.red.shade700)),
+                                              ? transferColor(context)
+                                              : expenseColor(context))),
                               const SizedBox(height: 4),
                               Text(
                                   expense.isExpense
                                       ? expense.paymentMode
                                       : expense.isIncome
-                                          ? 'Income'
-                                          : 'Transfer',
+                                          ? l.income
+                                          : l.transfer,
                                   style: TextStyle(
-                                      color: Colors.grey.shade600,
+                                      color: mutedTextColor(context),
                                       fontSize: 12)),
                             ],
                           ),

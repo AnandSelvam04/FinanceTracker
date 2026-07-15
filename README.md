@@ -3,7 +3,7 @@
 Android-first Flutter app for tracking expenses, income, accounts, investments, and budgets with a month/year dashboard, charts, insights, and local persistence. Runs with Provider state management and SQLite storage; optional app lock. Drive backup/restore is built-in (Google sign-in required), plus local JSON and CSV export.
 
 ## Features
-- Transactions: record expenses and income with category/date/amount; transfers between accounts; search, type filters, and month/year rollups in the list view.
+- Transactions: record expenses and income with category/date/amount; transfers between accounts (including cross-currency transfers with a destination-side amount); search, type filters, and month/year rollups in the list view.
 - Accounts: cash, bank, UPI, and credit-card accounts with opening balances and live computed balances; transfers between them. Each account can be held in its own currency with an exchange rate to the base currency, so balances show in their own currency and net worth/total roll up correctly in the base currency.
 - Dashboard: net-worth card (accounts + investments) with a 12-month trend line, proactive budget/bill alerts banner, toggle month/year views, category breakdowns, income totals, and a 12-month trend chart; one-tap quick-add template chips.
 - Alerts: dashboard warnings when a budget category reaches 90%/over its cap or a recurring bill is due within three days (toggle in Settings).
@@ -16,7 +16,7 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 - Backup / Export / Import: Drive backup/restore, versioned local JSON backup/restore, optional passphrase-encrypted backups (AES-256-GCM, PBKDF2), CSV/JSON download via the share sheet, a PDF monthly statement, and CSV import with column mapping and a preview.
 - Settings: currency symbol, theme (light/dark/system), budget/bill alerts toggle, auto-lock timeout, and a default account for new transactions.
 - Security & onboarding: optional app lock (biometrics or device PIN) that re-locks on resume after a configurable grace period; optional at-rest database encryption (SQLCipher, key held in the device keystore via `flutter_secure_storage`) toggled in Settings with a verify-and-rollback migration; plus a first-run tutorial/onboarding flow.
-- Localization: English and Tamil via `flutter_localizations` + a hand-written `AppLocalizations`; navigation, Settings, Accounts, and Budgets screens are localized, with graceful fallback to English for any untranslated key. Add a language by dropping in a locale map.
+- Localization: English and Tamil via `flutter_localizations` + a hand-written `AppLocalizations`; navigation, dashboard, Transactions (list/filters/edit sheets), Settings, Accounts, Budgets, the lock screen, and notifications are localized, with graceful fallback to English for any untranslated key. Add a language by dropping in a locale map.
 
 ## Tech stack
 - Flutter 3, Provider, sqflite, path/path_provider

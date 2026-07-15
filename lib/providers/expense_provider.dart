@@ -36,6 +36,13 @@ class ExpenseProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ensures every year in [years] is loaded (e.g. for a custom date range).
+  Future<void> ensureYearsLoaded(Iterable<int> years) async {
+    for (final year in years) {
+      await ensureYearLoaded(year);
+    }
+  }
+
   /// Reloads all currently loaded years. Useful after a bulk update (e.g. restore).
   Future<void> reloadLoadedYears() async {
     final yearsToReload = _loadedYears.toList();
@@ -75,13 +82,15 @@ class ExpenseProvider extends ChangeNotifier {
   List<Expense> expensesForYear(int year) =>
       _expenses.where((e) => e.date.year == year).toList();
 
-  Future<void> addExpense(Expense expense) async {
-    await DBService().insertExpense(expense);
+  /// Inserts the expense and returns its new row id (e.g. for undo).
+  Future<int> addExpense(Expense expense) async {
+    final id = await DBService().insertExpense(expense);
     // If the year is already loaded, reload it to get the new expense
     // (or we could just add it to the list manually, but reloading is safer for consistency)
     if (_loadedYears.contains(expense.date.year)) {
       await _reloadYear(expense.date.year);
     }
+    return id;
   }
 
   Future<void> updateExpense(Expense expense) async {
