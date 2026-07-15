@@ -1,83 +1,170 @@
-# Application Review & Suggestions
+# Application Review & Improvement Analysis
+
+_Updated: July 2026 (branch `claude/app-improvement-analysis-2q29is`)._
 
 ## Overview
-The application is a solid, Android-first Flutter finance tracker. It uses `Provider` for state management, `sqflite` for local storage, and includes advanced features like Google Drive backups and biometric authentication. The code is clean, and `flutter analyze` reports no issues.
 
-However, there are areas where the application can be improved, particularly regarding **scalability**, **navigation UX**, and **maintainability**.
+The app is in good shape. Every action item from the previous review has been
+completed: SQL date-range filtering with per-year lazy loading
+(`getExpensesByYear` / `ensureYearLoaded`), a 3-tab bottom bar plus a FAB for
+adding transactions, DB strings extracted to `DbConstants`, and error handling
+with `AppLogger` instead of `print`. On top of that the app has since gained
+minor-unit (integer) money storage, multi-currency accounts, SQLCipher at-rest
+encryption with verify-and-rollback migration, encrypted backups, recurring
+transactions, notifications, localization (en/ta), and a broad test suite with
+CI that analyzes, tests, and builds APKs.
 
-## 1. Performance & Scalability (Critical)
-**Current State:**
-- `ExpenseProvider.fetchExpenses()` and `DBService.getExpenses()` load **all** expenses from the database into memory at once.
-- Filtering by month/year happens in Dart (in-memory).
+The findings below are what remains. They are ordered by priority.
 
-**Problem:**
-- As the user adds data over months/years, the app will become slower to start and consume more memory.
-- Loading 1000+ transactions every time the app opens is inefficient.
+## 1. Correctness & data safety (high priority)
 
-**Suggestion:**
-- **Implement SQL Filtering:** Modify `DBService` to accept date ranges.
-  ```dart
-  // Example
-  Future<List<Expense>> getExpensesByDateRange(DateTime start, DateTime end) async {
-    final db = await database;
-    // Use WHERE clause to filter by date
-  }
-  ```
-- **Pagination:** For the "All Expenses" list, implement pagination (load 20 at a time).
+### 1.1 Plaintext leftovers undermine the SQLCipher encryption
+- `DBService._writeSafetySnapshot` writes the **entire database as plaintext
+  JSON** to `finance_pre_migration.json` before an encryption migration, and
+  the file is **never deleted after a successful migration**
+  (`lib/services/db_service.dart:453`). A user who enables encryption ends up
+  with an encrypted DB sitting next to a full plaintext copy of it, forever.
+- `BackupService.autoBackupIfDue` writes a **plaintext** `finance_backup.json`
+  every day regardless of whether DB encryption is on
+  (`lib/services/backup_service.dart:130`).
 
-## 2. User Interface & Navigation (UX)
-**Current State:**
-- The `BottomNavigationBar` has **6 items**: Home, Add Expense, Add Investment, Expenses, Backups, Budgets.
+**Fix:** delete the safety snapshot at the end of a successful
+`enableEncryption`/`disableEncryption`, and when DB encryption is enabled,
+route the auto-backup through the encrypted envelope (the device key in
+`flutter_secure_storage` can encrypt it — no passphrase prompt needed).
 
-**Problem:**
-- Material Design guidelines recommend **3-5 items** for bottom navigation. 6 items make touch targets small and the UI cluttered.
-- "Add Expense" and "Add Investment" take up valuable persistent navigation space.
+### 1.2 Cross-currency transfers corrupt account balances
+A transfer stores a single `amount`, and `getAccountBalance` subtracts it from
+the source and adds it to the destination **without any currency conversion**
+(`lib/services/db_service.dart:741-752`). Transferring between accounts held
+in different currencies credits the destination with the wrong number of
+units (e.g. sending ₹8,300 from an INR account to a USD account adds
+"8,300" to the USD balance instead of ~100).
 
-**Suggestion:**
-- **Use a Floating Action Button (FAB):** Remove "Add Expense" and "Add Investment" tabs. Add a central FAB on the Home screen that expands to let the user choose "Add Expense" or "Add Investment".
-- **Consolidate Tabs:**
-  1. **Home** (Dashboard)
-  2. **Transactions** (Expenses List)
-  3. **Investments**
-  4. **More** (Menu for Budgets, Backups, Settings)
+**Fix options:** either store the amount in both currencies on the transfer
+row (add a `toAmount` column) or convert via the two accounts' rates at
+posting time; at minimum, warn/convert in the transfer UI when the accounts'
+currencies differ.
 
-## 3. Code Maintainability
-**Current State:**
-- Database table and column names are hardcoded strings (e.g., `'expenses'`, `'description'`) scattered across `DBService` and Models.
+### 1.3 Net-worth trend ignores exchange rates (inconsistent with the headline)
+The headline net-worth figure converts each account to the base currency
+(`AccountProvider.totalBaseBalance`), but the 12-month trend on the same card
+uses `DBService.netWorthSeries`, which sums opening balances and transaction
+amounts **raw, with no rate applied**
+(`lib/services/db_service.dart:679-719`). With any foreign-currency account,
+the headline and the trend line on the same card disagree. Category totals,
+monthly summaries, and budget "spent" have the same blind spot for
+transactions on foreign-currency accounts.
 
-**Problem:**
-- Typos in string literals can lead to runtime errors that are hard to debug.
-- Renaming a column requires finding/replacing all string occurrences.
+**Fix:** apply account rates in `netWorthSeries` (join expenses to accounts),
+and decide/document one rule for reports: convert at the account rate
+everywhere a base-currency total is shown.
 
-**Suggestion:**
-- **Use Constants:** Create a `DbConstants` class or static consts in models.
-  ```dart
-  class ExpenseFields {
-    static const String tableName = 'expenses';
-    static const String id = 'id';
-    static const String description = 'description';
-    // ...
-  }
-  ```
+### 1.4 Backup restore is not atomic
+`_applyRestore` calls `clearAll()` and then inserts every row one `await` at a
+time with no transaction (`lib/services/backup_service.dart:212`). If the app
+is killed or a malformed row throws mid-restore, the user is left with a
+half-empty database — and the wipe has already happened. It is also slow for
+large backups.
 
-## 4. Error Handling
-**Current State:**
-- `DBService` catches exceptions and uses `print()` to log them.
+**Fix:** wrap the clear + inserts in a single `db.transaction` (or batch), so
+a failed restore rolls back to the pre-restore state.
 
-**Problem:**
-- `print()` is not visible in release builds.
-- The user is not notified if a database operation fails (e.g., "Failed to save expense").
+### 1.5 Drive backups accumulate forever
+`backupToDrive` always calls `driveApi.files.create`, so every backup adds a
+new `finance_backup.json` to the app-data folder and old copies are never
+updated or deleted (`lib/services/backup_service.dart:272`). Restore picks the
+newest so it still works, but the user's Drive quota fills with dead copies.
 
-**Suggestion:**
-- **Rethrow or Return Result:** Let the Provider/UI know if an operation failed so it can show a `SnackBar` ("Error saving data").
-- **Use a Logger:** Use a package like `logger` for better debug output.
+**Fix:** look up the existing file id and `files.update` it, or delete older
+copies after a successful upload.
 
-## 5. Minor Improvements
-- **Chart Colors:** `ExpenseChart` uses `hashCode` for colors, which can be unpredictable. Consider a fixed color palette mapped to specific categories.
-- **State Updates:** `ExpenseProvider` re-fetches the entire list after an add/update. Optimistically updating the local list would feel snappier.
+### 1.6 Recurring catch-up can double-post after a crash
+`postDueTransactions` inserts all due occurrences for a rule and only
+afterwards updates the rule's `nextDue`
+(`lib/services/recurring_service.dart:52-72`). A crash between the inserts
+and the rule update re-posts the same occurrences on the next launch.
 
-## Summary of Recommended Actions
-1.  [ ] Refactor `DBService` to support date-range queries.
-2.  [ ] Redesign `HomeScreen` navigation (Move "Add" to FAB, move extra tabs to Drawer/Menu).
-3.  [ ] Extract DB strings to constants.
-4.  [ ] Improve error handling in `DBService`.
+**Fix:** wrap each rule's inserts + rule update in one transaction.
+
+### 1.7 Deleting an account leaves dangling references in rules/templates
+`deleteAccount` nulls `accountId`/`toAccountId` on transactions but does not
+touch `recurring_rules` or `templates`
+(`lib/services/db_service.dart:596-614`), so rules keep posting transactions
+into a deleted account id.
+
+**Fix:** null out (or block deletion while referenced by) rule/template
+`accountId` in the same operation.
+
+## 2. UX & polish (medium priority)
+
+### 2.1 Tab switches lose the Transactions screen's state
+`HomeScreen` swaps `body: _screens[_selectedIndex]`
+(`lib/screens/home_screen.dart:244`), which unmounts the list screen when the
+user visits another tab — search text, filters, and scroll position reset.
+Use an `IndexedStack` (or `PageStorage`) to preserve state across tabs.
+
+### 2.2 Localization is incomplete
+Tamil users get a mixed-language UI. Still hardcoded English: the dashboard
+("View:", "Month"/"Year", "No expenses this month.", "Quick add",
+"Year Total:", "Income:", "Trends…", "Net Worth", "No history yet"), the
+entire Transactions screen (title, search, filters sheet, edit sheets, delete
+dialog, empty state), snackbars ("Posted N recurring transactions",
+"Added …", "Undo"), and notification texts ("Bill due soon", "Over budget").
+The `AppLocalizations` scaffolding exists — this is mostly key-plumbing work.
+
+### 2.3 Material 3 / dark-theme consistency
+`main.dart` uses M2-style `primarySwatch: Colors.green` for light and a bare
+`ThemeData(brightness: Brightness.dark)` for dark, so dark mode loses the
+brand color entirely (`lib/main.dart:68-74`). Widgets also hardcode
+`Colors.red.shade50`, `Colors.grey.shade600`, etc., which have poor contrast
+on dark backgrounds. Switch both themes to
+`ThemeData(useMaterial3: true, colorScheme: ColorScheme.fromSeed(...))` and
+take colors from `Theme.of(context).colorScheme`.
+
+### 2.4 Performance niceties
+- No indexes exist on `expenses(date)` or `expenses(type, accountId)`; every
+  balance refresh runs four full-table scans **per account**, serially
+  (`getAccountBalance`). One `GROUP BY accountId, type` query could compute
+  all balances in a single pass, and a date index makes the year queries and
+  net-worth series cheap as data grows.
+- `netWorthSeries` runs 3 queries × 12 months = 36 queries per dashboard
+  build; a single grouped-by-month query would do.
+
+### 2.5 Small UX gaps
+- Quick-add "Undo" re-finds the inserted row by matching description, amount
+  and date (`lib/screens/home_screen.dart:143`) — fragile with duplicates.
+  `insertExpense` already returns the new id; plumb it through `addExpense`.
+- The Transactions year dropdown is hardcoded to the last 10 years
+  (`lib/screens/expense_list_screen.dart:505`); older imported data becomes
+  unreachable. Derive the range from the earliest transaction.
+- Amount fields in the edit sheets use `TextInputType.number`, which hides
+  the decimal point on some keyboards; use
+  `TextInputType.numberWithOptions(decimal: true)` (the Add screens already
+  do this).
+- Budget notification ids use `category.hashCode % 1000`
+  (`lib/services/notification_service.dart:149`) — two categories can
+  collide and overwrite each other's notification.
+
+## 3. Hygiene (low priority)
+
+- `flutter_lints` is under `dependencies` in `pubspec.yaml`; it belongs in
+  `dev_dependencies`.
+- Release APKs are signed with the debug key (noted in CI comments) — fine
+  for testing, a blocker for Play distribution; add a proper signing config
+  gated on a secret before shipping.
+- `REVIEW_REPORT.md` (this file) previously described already-completed work;
+  keep it current or fold it into issues so it doesn't mislead contributors.
+
+## Suggested order of attack
+
+1. Delete the plaintext migration snapshot + encrypt auto-backups (1.1) —
+   small change, biggest safety payoff.
+2. Make restore and recurring posting transactional (1.4, 1.6).
+3. Fix cross-currency transfers and the net-worth series conversion
+   (1.2, 1.3) — decide the conversion rule once, apply everywhere.
+4. Drive backup update-instead-of-create (1.5) and account-deletion cleanup
+   (1.7).
+5. IndexedStack tabs, finish localization, Material 3 theme (2.1–2.3).
+6. Indexes + single-pass balance query (2.4), then the small UX items (2.5)
+   and hygiene fixes (3).
