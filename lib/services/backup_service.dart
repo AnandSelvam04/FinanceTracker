@@ -32,7 +32,8 @@ List<List<dynamic>> _expenseCsvRows(List<Expense> expenses) => [
         'PaymentMode',
         'Type',
         'AccountId',
-        'ToAccountId'
+        'ToAccountId',
+        'ToAmount'
       ],
       ...expenses.map((e) => [
             e.id ?? '',
@@ -45,6 +46,10 @@ List<List<dynamic>> _expenseCsvRows(List<Expense> expenses) => [
             e.type,
             e.accountId ?? '',
             e.toAccountId ?? '',
+            // Destination-currency amount of a cross-currency transfer.
+            e.toAmount == null
+                ? ''
+                : minorToMajor(e.toAmount!).toStringAsFixed(2),
           ]),
     ];
 
@@ -127,6 +132,9 @@ class BackupService {
 
   /// Writes a local backup at most once per [minInterval] to protect against
   /// data loss when users forget to back up manually. Safe to call on launch.
+  /// When at-rest database encryption is enabled, the backup is encrypted
+  /// with the same device-held key so it doesn't leave a readable copy of
+  /// the data on disk.
   Future<bool> autoBackupIfDue(
       {Duration minInterval = const Duration(days: 1)}) async {
     final prefs = await SharedPreferences.getInstance();
@@ -135,7 +143,7 @@ class BackupService {
     if (last != null && DateTime.now().difference(last) < minInterval) {
       return false;
     }
-    await backupToJson();
+    await backupToJson(deviceKey: await DBService().deviceKeyIfEncrypted());
     await prefs.setString(
         _kLastAutoBackup, DateTime.now().toIso8601String());
     return true;
@@ -158,7 +166,8 @@ class BackupService {
     final templates = await DBService().getTemplates();
     return {
       // v4: amounts are integer minor units (paise/cents).
-      'version': 4,
+      // v5: transfer rows may carry toAmount (destination-currency amount).
+      'version': 5,
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'investments': investments.map((i) => i.toMap()).toList(),
       'budgets': budgets.map((b) => b.toMap()).toList(),
@@ -168,10 +177,17 @@ class BackupService {
     };
   }
 
-  Future<void> backupToJson() async {
+  /// Writes the full-data backup to the local backup file — plaintext, or as
+  /// an encrypted envelope when [deviceKey] is given (used by the auto-backup
+  /// when at-rest database encryption is on).
+  Future<void> backupToJson({String? deviceKey}) async {
     final data = await _collectBackupData();
+    var content = jsonEncode(data);
+    if (deviceKey != null) {
+      content = await BackupCrypto.encryptString(content, deviceKey);
+    }
     final file = await _backupFile;
-    await file.writeAsString(jsonEncode(data));
+    await file.writeAsString(content);
     await _markBackedUp();
   }
 
@@ -201,20 +217,32 @@ class BackupService {
         clearBeforeRestore: clearBeforeRestore);
   }
 
-  Future<void> restoreFromJson({bool clearBeforeRestore = true}) async {
+  Future<void> restoreFromJson(
+      {bool clearBeforeRestore = true, String? deviceKey}) async {
     final file = await _backupFile;
     if (!await file.exists()) return;
-    final content = await file.readAsString();
+    var content = await file.readAsString();
+    // Auto-backups taken while database encryption is on are stored as an
+    // encrypted envelope; decrypt with the same device-held key.
+    if (BackupCrypto.isEncrypted(content)) {
+      deviceKey ??= await DBService().deviceKeyIfEncrypted();
+      if (deviceKey == null) {
+        throw Exception(
+            'This backup is encrypted with the device key, which is no '
+            'longer available. Enable database encryption or use a '
+            'passphrase-encrypted backup instead.');
+      }
+      content = await BackupCrypto.decryptString(content, deviceKey);
+    }
     await _applyRestore(jsonDecode(content),
         clearBeforeRestore: clearBeforeRestore);
   }
 
+  /// Validates the backup payload, converts it to row maps, and applies it in
+  /// one database transaction: a malformed backup or an interruption rolls
+  /// back, leaving the existing data untouched.
   Future<void> _applyRestore(dynamic data,
       {bool clearBeforeRestore = true}) async {
-    final db = DBService();
-    if (clearBeforeRestore) {
-      await db.clearAll();
-    }
     // Backups before v4 stored amounts as major-unit doubles; convert them
     // to integer minor units so they match the current storage.
     final legacyAmounts = ((data['version'] ?? 0) as num) < 4;
@@ -230,32 +258,39 @@ class BackupService {
       return map;
     }
 
-    // Restore accounts before expenses so account links resolve
-    // (ids are preserved because toMap includes them). Older backups
-    // have no 'accounts' key; skip gracefully.
-    for (var a in data['accounts'] ?? []) {
-      await db.insertAccount(
-          Account.fromMap(fix(a, [DbConstants.colOpeningBalance])));
-    }
-    for (var e in data['expenses'] ?? []) {
-      await db.insertExpense(Expense.fromMap(fix(e, [DbConstants.colAmount])));
-    }
-    for (var i in data['investments'] ?? []) {
-      await db.insertInvestment(
-          Investment.fromMap(fix(i, [DbConstants.colAmount])));
-    }
-    // Older backups have no 'budgets' key; skip gracefully.
-    for (var b in data['budgets'] ?? []) {
-      await db.insertBudget(Budget.fromMap(fix(b, [DbConstants.colAmount])));
-    }
-    for (var r in data['recurring_rules'] ?? []) {
-      await db.insertRecurringRule(
-          RecurringRule.fromMap(fix(r, [DbConstants.colAmount])));
-    }
-    for (var t in data['templates'] ?? []) {
-      await db
-          .insertTemplate(TxTemplate.fromMap(fix(t, [DbConstants.colAmount])));
-    }
+    // Parse every row through its model BEFORE touching the database, so a
+    // corrupt backup fails cleanly. Older backups lack some keys (accounts,
+    // budgets, …); those tables simply restore empty. Ids are preserved
+    // because toMap includes them, keeping account links intact.
+    final rowsByTable = <String, List<Map<String, Object?>>>{
+      DbConstants.tableAccounts: [
+        for (final a in data['accounts'] ?? [])
+          Account.fromMap(fix(a, [DbConstants.colOpeningBalance])).toMap(),
+      ],
+      DbConstants.tableExpenses: [
+        for (final e in data['expenses'] ?? [])
+          Expense.fromMap(fix(e, [DbConstants.colAmount])).toMap(),
+      ],
+      DbConstants.tableInvestments: [
+        for (final i in data['investments'] ?? [])
+          Investment.fromMap(fix(i, [DbConstants.colAmount])).toMap(),
+      ],
+      DbConstants.tableBudgets: [
+        for (final b in data['budgets'] ?? [])
+          Budget.fromMap(fix(b, [DbConstants.colAmount])).toMap(),
+      ],
+      DbConstants.tableRecurringRules: [
+        for (final r in data['recurring_rules'] ?? [])
+          RecurringRule.fromMap(fix(r, [DbConstants.colAmount])).toMap(),
+      ],
+      DbConstants.tableTemplates: [
+        for (final t in data['templates'] ?? [])
+          TxTemplate.fromMap(fix(t, [DbConstants.colAmount])).toMap(),
+      ],
+    };
+
+    await DBService()
+        .replaceAllData(rowsByTable, clearFirst: clearBeforeRestore);
   }
 
   Future<drive.DriveApi> _getDriveApi() async {
@@ -275,14 +310,41 @@ class BackupService {
     final file = await _backupFile;
     final length = await file.length();
 
-    final driveFile = drive.File()
-      ..name = 'finance_backup.json'
-      ..parents = ['appDataFolder'];
-
-    await driveApi.files.create(
-      driveFile,
-      uploadMedia: drive.Media(file.openRead(), length),
+    // Update the existing Drive copy in place (instead of creating a new
+    // file on every backup, which used to pile up copies in the app-data
+    // folder forever). Any stale duplicates from old versions are removed
+    // after a successful upload.
+    final existing = await driveApi.files.list(
+      spaces: 'appDataFolder',
+      q: "name = 'finance_backup.json' and trashed = false",
+      orderBy: 'modifiedTime desc',
+      $fields: 'files(id)',
     );
+    final existingFiles = existing.files ?? const <drive.File>[];
+
+    if (existingFiles.isEmpty) {
+      await driveApi.files.create(
+        drive.File()
+          ..name = 'finance_backup.json'
+          ..parents = ['appDataFolder'],
+        uploadMedia: drive.Media(file.openRead(), length),
+      );
+    } else {
+      await driveApi.files.update(
+        drive.File()..name = 'finance_backup.json',
+        existingFiles.first.id!,
+        uploadMedia: drive.Media(file.openRead(), length),
+      );
+      for (final stale in existingFiles.skip(1)) {
+        final id = stale.id;
+        if (id == null) continue;
+        try {
+          await driveApi.files.delete(id);
+        } catch (e) {
+          AppLogger.error('Failed to delete stale Drive backup', e);
+        }
+      }
+    }
 
     // Update last sync time
     final prefs = await SharedPreferences.getInstance();

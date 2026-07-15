@@ -32,12 +32,19 @@ class AccountProvider extends ChangeNotifier {
 
   Future<void> fetchAccounts() async {
     _accounts = await DBService().getAccounts();
-    for (final account in _accounts) {
-      _balances[account.id!] = await DBService().getAccountBalance(account);
-    }
+    await _recomputeBalances();
     _balances.removeWhere(
         (id, _) => !_accounts.any((account) => account.id == id));
     notifyListeners();
+  }
+
+  /// One grouped query for all accounts instead of four queries per account.
+  Future<void> _recomputeBalances() async {
+    final flows = await DBService().getAccountFlows();
+    for (final account in _accounts) {
+      _balances[account.id!] =
+          account.openingBalance + (flows[account.id] ?? 0);
+    }
   }
 
   Future<void> addAccount(Account account) async {
@@ -57,9 +64,7 @@ class AccountProvider extends ChangeNotifier {
 
   /// Recompute balances after transactions change.
   Future<void> refreshBalances() async {
-    for (final account in _accounts) {
-      _balances[account.id!] = await DBService().getAccountBalance(account);
-    }
+    await _recomputeBalances();
     notifyListeners();
   }
 }

@@ -28,6 +28,9 @@ void main() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
   DBService.testFactory = databaseFactoryFfi;
+  // Isolate this file's database so concurrently running test files
+  // can't clear each other's data (they all share one ffi process).
+  DBService.dbNameOverride = 'backup_service_test.db';
 
   late Directory tempDir;
 
@@ -134,6 +137,98 @@ void main() {
       final forced =
           await service.autoBackupIfDue(minInterval: Duration.zero);
       expect(forced, isTrue);
+    });
+
+    test('a corrupt backup leaves existing data untouched (atomic restore)',
+        () async {
+      final db = DBService();
+      await db.insertExpense(Expense(
+        description: 'Keep me',
+        amount: 500,
+        date: DateTime(2026, 4, 1),
+        category: 'Food',
+        paymentMode: 'Cash',
+      ));
+
+      // Second row is malformed (date is garbage), so the restore must fail
+      // without wiping the existing data.
+      final corrupt = {
+        'version': 5,
+        'expenses': [
+          {
+            'description': 'New row',
+            'amount': 100,
+            'date': DateTime(2026, 4, 2).toIso8601String(),
+            'category': 'Other',
+            'paymentMode': 'Cash',
+          },
+          {
+            'description': 'Bad row',
+            'amount': 100,
+            'date': 'not-a-date',
+            'category': 'Other',
+            'paymentMode': 'Cash',
+          },
+        ],
+      };
+      final file = File('${tempDir.path}/finance_backup.json');
+      await file.writeAsString(jsonEncode(corrupt));
+
+      await expectLater(BackupService().restoreFromJson(), throwsA(anything));
+
+      final expenses = await DBService().getExpenses();
+      expect(expenses.length, 1);
+      expect(expenses.first.description, 'Keep me');
+    });
+
+    test('device-key-encrypted backup round-trips through restoreFromJson',
+        () async {
+      final db = DBService();
+      await db.insertExpense(Expense(
+        description: 'Secret lunch',
+        amount: 4200,
+        date: DateTime(2026, 5, 1),
+        category: 'Food',
+        paymentMode: 'UPI',
+      ));
+
+      final service = BackupService();
+      await service.backupToJson(deviceKey: 'test-device-key');
+
+      // The file on disk is an envelope, not readable JSON data.
+      final raw = await File('${tempDir.path}/finance_backup.json')
+          .readAsString();
+      expect(raw.contains('Secret lunch'), isFalse);
+      expect(jsonDecode(raw), containsPair('magic', 'ft-enc-v1'));
+
+      await db.clearAll();
+      await service.restoreFromJson(deviceKey: 'test-device-key');
+      final expenses = await db.getExpenses();
+      expect(expenses.single.description, 'Secret lunch');
+    });
+
+    test('transfer toAmount survives a backup round-trip', () async {
+      final db = DBService();
+      await db.insertExpense(Expense(
+        description: 'FX transfer',
+        amount: 830000,
+        date: DateTime(2026, 6, 1),
+        category: 'Transfer',
+        paymentMode: 'Other',
+        type: 'transfer',
+        accountId: 1,
+        toAccountId: 2,
+        toAmount: 10000,
+      ));
+
+      final service = BackupService();
+      await service.backupToJson();
+      await db.clearAll();
+      await service.restoreFromJson();
+
+      final restored = (await db.getExpenses()).single;
+      expect(restored.toAmount, 10000);
+      expect(restored.receivedAmount, 10000);
     });
 
     test('writeExpensesCsvFile writes only the rows it is given', () async {

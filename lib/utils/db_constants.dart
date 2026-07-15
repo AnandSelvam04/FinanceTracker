@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 7;
+  static const int dbVersion = 8;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -12,6 +12,15 @@ class DbConstants {
   static const String colPaymentMode = 'paymentMode';
   static const String colAccountId = 'accountId';
   static const String colToAccountId = 'toAccountId';
+  // Amount credited to the destination account of a transfer, in the
+  // destination account's currency (minor units). Null = same as colAmount
+  // (both accounts in the same currency).
+  static const String colToAmount = 'toAmount';
+
+  // Indexes on the expenses table.
+  static const String idxExpensesDate = 'idx_expenses_date';
+  static const String idxExpensesTypeAccount = 'idx_expenses_type_account';
+  static const String idxExpensesToAccount = 'idx_expenses_to_account';
 
   // Investments Table
   static const String tableInvestments = 'investments';
