@@ -61,7 +61,15 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
     String type = investment.type;
     DateTime selectedDate = investment.date;
 
-    const types = ['Stocks', 'Mutual Funds', 'Bonds', 'FD', 'Other'];
+    const types = [
+      'Stocks',
+      'Mutual Funds',
+      'Bonds',
+      'FD',
+      'Gold',
+      'Silver',
+      'Other'
+    ];
     if (!types.contains(type)) type = 'Other';
 
     await showModalBottomSheet(

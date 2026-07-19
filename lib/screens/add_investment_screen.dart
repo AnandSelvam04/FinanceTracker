@@ -26,6 +26,8 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
     'Mutual Funds',
     'Bonds',
     'FD',
+    'Gold',
+    'Silver',
     'Other',
   ];
 

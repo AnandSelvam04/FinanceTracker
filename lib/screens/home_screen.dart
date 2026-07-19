@@ -183,33 +183,38 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final l = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.money_off),
-            title: Text(l.addExpense),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.trending_up),
-            title: Text(l.addInvestment),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const AddInvestmentScreen()),
-              );
-            },
-          ),
-        ],
+      // SafeArea keeps the sheet's items above the system navigation bar in
+      // edge-to-edge mode; without it the last tile is covered and untappable.
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.money_off),
+              title: Text(l.addExpense),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const AddExpenseScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.trending_up),
+              title: Text(l.addInvestment),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const AddInvestmentScreen()),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
