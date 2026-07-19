@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:csv/csv.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
@@ -92,6 +93,16 @@ Future<File> exportInvestmentsToCsv() async {
   return file;
 }
 
+/// Raised when a Google Drive operation can't proceed. Carries a
+/// user-friendly [message]; the underlying Google Sign-In failures surface as
+/// cryptic codes (e.g. `ApiException: 10`) that mean nothing to a user.
+class DriveBackupException implements Exception {
+  final String message;
+  DriveBackupException(this.message);
+  @override
+  String toString() => message;
+}
+
 class BackupService {
   final gsi.GoogleSignIn _googleSignIn = gsi.GoogleSignIn(
     scopes: [
@@ -99,6 +110,34 @@ class BackupService {
       drive.DriveApi.driveAppdataScope,
     ],
   );
+
+  /// Translates a Google Sign-In [PlatformException] into a message the user
+  /// can act on. The most common failure is `ApiException: 10`
+  /// (DEVELOPER_ERROR): the build has no OAuth client registered for this
+  /// package name + signing-certificate SHA-1, so Google rejects the sign-in.
+  /// That's a one-time build/Cloud setup — it can't be fixed on the device —
+  /// so we steer the user to the local backups, which always work.
+  String _driveSignInMessage(PlatformException e) {
+    final detail = (e.message ?? '').toLowerCase();
+    final isDeveloperError = detail.contains('apiexception: 10') ||
+        detail.contains('developer_error');
+    if (e.code == 'sign_in_failed' && isDeveloperError) {
+      return 'Google Drive backup is not set up for this build, so Google '
+          'rejected the sign-in. Your data is safe — use "Backup locally '
+          '(JSON)" or the encrypted backup below instead. (Enabling Drive '
+          'needs a one-time Google Cloud sign-in setup; see '
+          'docs/GOOGLE_DRIVE_SETUP.md.)';
+    }
+    if (e.code == 'network_error') {
+      return 'Could not reach Google to sign in. Check your connection and '
+          'try again, or use a local/encrypted backup below.';
+    }
+    if (e.code == 'sign_in_canceled') {
+      return 'Google sign-in was cancelled.';
+    }
+    return 'Google sign-in failed (${e.code}). Your data is safe — use a '
+        'local or encrypted backup below.';
+  }
 
   Future<String> get _localPath async {
     final directory = await getApplicationDocumentsDirectory();
@@ -294,10 +333,16 @@ class BackupService {
   }
 
   Future<drive.DriveApi> _getDriveApi() async {
-    final account =
-        await _googleSignIn.signInSilently() ?? await _googleSignIn.signIn();
+    gsi.GoogleSignInAccount? account;
+    try {
+      account =
+          await _googleSignIn.signInSilently() ?? await _googleSignIn.signIn();
+    } on PlatformException catch (e) {
+      // Turn the raw ApiException codes into an actionable message.
+      throw DriveBackupException(_driveSignInMessage(e));
+    }
     if (account == null) {
-      throw Exception('Google sign-in was cancelled');
+      throw DriveBackupException('Google sign-in was cancelled.');
     }
     final authHeaders = await account.authHeaders;
     final client = _GoogleAuthClient(authHeaders);

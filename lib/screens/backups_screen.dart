@@ -88,10 +88,23 @@ class _BackupsScreenState extends State<BackupsScreen> {
       await templateProvider.fetchTemplates();
       await _loadLastBackup();
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(_errorSnackBar(e));
     } finally {
       if (mounted) setState(() => _isWorking = false);
     }
+  }
+
+  /// Drive/backup failures carry a user-facing message (e.g. Drive not set up);
+  /// show it plainly and give the reader time to act. Everything else falls
+  /// back to a generic "Error: …".
+  SnackBar _errorSnackBar(Object e) {
+    if (e is DriveBackupException) {
+      return SnackBar(
+        content: Text(e.message),
+        duration: const Duration(seconds: 8),
+      );
+    }
+    return SnackBar(content: Text('Error: $e'));
   }
 
   /// Generates a file and opens the system share sheet so the user can
