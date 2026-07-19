@@ -1,4 +1,28 @@
-# Enabling Google Drive backup
+# Enabling Google Drive backup (personal use, no Play Store)
+
+You do **not** need to publish this app anywhere. Google Drive backup works
+privately: you register your app once in Google Cloud, add your own Gmail as a
+"test user," and only you can sign in. "Testing" mode *is* the personal-use
+mode — nothing is published or reviewed.
+
+## Your app's values (fill these into the console)
+
+This repo is now set up with a **permanent signing key** (committed at
+`android/app/finance-release.jks`), so every build has the **same** fingerprint
+below. Register these once and Drive keeps working across all future builds.
+
+| Field | Value |
+|-------|-------|
+| **Package name** | `com.example.finance_tracker` |
+| **SHA-1 fingerprint** | `7D:54:82:58:A6:0C:8D:AA:14:2C:B4:09:EF:CC:E6:2B:09:50:12:5E` |
+
+Then do sections **2, 3, 4** below (skip section 1 — the SHA-1 is already
+above), install a fresh CI build, and sign in with the Gmail you added as a
+test user.
+
+---
+
+## Background
 
 The **Backup to Google Drive** / **Restore from Google Drive** buttons use
 Google Sign-In. If you see an error like:
