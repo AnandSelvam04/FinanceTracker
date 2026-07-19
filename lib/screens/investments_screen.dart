@@ -58,19 +58,15 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
     final nameController = TextEditingController(text: investment.name);
     final amountController =
         TextEditingController(text: minorToEditString(investment.amount));
-    String type = investment.type;
     DateTime selectedDate = investment.date;
 
-    const types = [
-      'Stocks',
-      'Mutual Funds',
-      'Bonds',
-      'FD',
-      'Gold',
-      'Silver',
-      'Other'
-    ];
-    if (!types.contains(type)) type = 'Other';
+    const types = Investment.builtInTypes;
+    // A custom type (anything not in the built-in list) maps to "Other" with
+    // the original value prefilled in the text box, so editing keeps it.
+    final isBuiltIn = types.contains(investment.type);
+    String type = isBuiltIn ? investment.type : Investment.otherType;
+    final customTypeController =
+        TextEditingController(text: isBuiltIn ? '' : investment.type);
 
     await showModalBottomSheet(
       context: context,
@@ -111,6 +107,13 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                       .toList(),
                   onChanged: (v) => setModalState(() => type = v ?? type),
                 ),
+                if (type == Investment.otherType)
+                  TextField(
+                    controller: customTypeController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                        labelText: 'Enter investment type'),
+                  ),
                 Row(
                   children: [
                     Text('Date: ${_formatDate(selectedDate)}'),
@@ -139,12 +142,17 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                       final amount =
                           parseMinor(amountController.text.trim());
                       if (amount == null) return;
+                      final resolvedType = type == Investment.otherType
+                          ? customTypeController.text.trim()
+                          : type;
+                      // Don't save an empty custom type; keep the sheet open.
+                      if (resolvedType.isEmpty) return;
                       final updated = Investment(
                         id: investment.id,
                         name: nameController.text.trim(),
                         amount: amount,
                         date: selectedDate,
-                        type: type,
+                        type: resolvedType,
                       );
                       final provider = context.read<InvestmentProvider>();
                       await provider.updateInvestment(updated);
