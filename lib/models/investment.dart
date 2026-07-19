@@ -1,6 +1,23 @@
 import '../utils/db_constants.dart';
 
 class Investment {
+  /// The built-in investment types offered in the Type dropdown. 'Other' is
+  /// always last and lets the user type a custom type in a text box, so this
+  /// list doesn't need to grow every time someone tracks a new instrument.
+  static const List<String> builtInTypes = [
+    'Stocks',
+    'Mutual Funds',
+    'Bonds',
+    'FD',
+    'NPS',
+    'Gold',
+    'Silver',
+    'Other',
+  ];
+
+  /// Sentinel value for the dropdown entry that reveals the custom-type field.
+  static const String otherType = 'Other';
+
   final int? id;
   final String name;
 

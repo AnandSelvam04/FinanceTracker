@@ -17,19 +17,20 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
+  final _customTypeController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   String _selectedType = 'Stocks';
   bool _isSaving = false;
 
-  final List<String> _types = [
-    'Stocks',
-    'Mutual Funds',
-    'Bonds',
-    'FD',
-    'Gold',
-    'Silver',
-    'Other',
-  ];
+  final List<String> _types = Investment.builtInTypes;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _amountController.dispose();
+    _customTypeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -88,6 +89,20 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                     .toList(),
                 onChanged: (value) => setState(() => _selectedType = value!),
               ),
+              // When "Other" is picked, let the user name their own type
+              // (e.g. NPS, PPF, REIT, Crypto) instead of hard-coding every one.
+              if (_selectedType == Investment.otherType)
+                TextFormField(
+                  controller: _customTypeController,
+                  decoration:
+                      const InputDecoration(labelText: 'Enter investment type'),
+                  textCapitalization: TextCapitalization.words,
+                  validator: (value) =>
+                      (_selectedType == Investment.otherType &&
+                              (value == null || value.trim().isEmpty))
+                          ? 'Enter a type or pick one above'
+                          : null,
+                ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _isSaving
@@ -95,12 +110,15 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                     : () async {
                         if (_formKey.currentState!.validate()) {
                           setState(() => _isSaving = true);
+                          final type = _selectedType == Investment.otherType
+                              ? _customTypeController.text.trim()
+                              : _selectedType;
                           final investment = Investment(
                             name: _nameController.text,
                             amount: rupeesToMinor(
                                 double.parse(_amountController.text)),
                             date: _selectedDate,
-                            type: _selectedType,
+                            type: type,
                           );
                           final provider = context.read<InvestmentProvider>();
                           try {
