@@ -7,7 +7,11 @@ import '../models/investment.dart';
 import '../utils/currency_format.dart';
 
 class AddInvestmentScreen extends StatefulWidget {
-  const AddInvestmentScreen({super.key});
+  /// Pre-selects a type so "add another contribution" from a type's detail
+  /// screen lands on the right instrument without extra taps.
+  final String? initialType;
+
+  const AddInvestmentScreen({super.key, this.initialType});
 
   @override
   State<AddInvestmentScreen> createState() => _AddInvestmentScreenState();
@@ -19,10 +23,44 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   final _amountController = TextEditingController();
   final _customTypeController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
-  String _selectedType = 'Stocks';
+  late String _selectedType;
   bool _isSaving = false;
 
   final List<String> _types = Investment.builtInTypes;
+
+  static const List<String> _monthAbbr = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // If the caller passed a built-in type, start on it; a custom type starts
+    // on "Other" with the value prefilled so it round-trips.
+    final initial = widget.initialType;
+    if (initial != null && _types.contains(initial)) {
+      _selectedType = initial;
+    } else if (initial != null && initial.isNotEmpty) {
+      _selectedType = Investment.otherType;
+      _customTypeController.text = initial;
+    } else {
+      _selectedType = 'Stocks';
+    }
+  }
+
+  /// The type the form will actually save (resolving the custom-type box).
+  String get _resolvedType => _selectedType == Investment.otherType
+      ? _customTypeController.text.trim()
+      : _selectedType;
+
+  /// A sensible default name when the user leaves the name blank, e.g.
+  /// "Silver Jul 2026", so each contribution is self-describing without
+  /// forcing the user to name it.
+  String _defaultName() {
+    final type = _resolvedType.isEmpty ? 'Investment' : _resolvedType;
+    return '$type ${_monthAbbr[_selectedDate.month - 1]} ${_selectedDate.year}';
+  }
 
   @override
   void dispose() {
@@ -46,9 +84,12 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: InputDecoration(labelText: l.accountName),
-                validator: (value) =>
-                    value!.isEmpty ? 'Enter investment name' : null,
+                decoration: InputDecoration(
+                  labelText: '${l.accountName} (optional)',
+                  hintText: _defaultName(),
+                ),
+                // Name is optional: blank falls back to an auto-generated
+                // label like "Silver Jul 2026".
               ),
               TextFormField(
                 controller: _amountController,
@@ -110,11 +151,12 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                     : () async {
                         if (_formKey.currentState!.validate()) {
                           setState(() => _isSaving = true);
-                          final type = _selectedType == Investment.otherType
-                              ? _customTypeController.text.trim()
-                              : _selectedType;
+                          final type = _resolvedType;
+                          final enteredName = _nameController.text.trim();
                           final investment = Investment(
-                            name: _nameController.text,
+                            name: enteredName.isEmpty
+                                ? _defaultName()
+                                : enteredName,
                             amount: rupeesToMinor(
                                 double.parse(_amountController.text)),
                             date: _selectedDate,

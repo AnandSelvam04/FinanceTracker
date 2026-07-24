@@ -72,5 +72,69 @@ void main() {
 
       expect(provider.investments, isEmpty);
     });
+
+    test('Multiple contributions of a type accumulate into its total',
+        () async {
+      await provider.addInvestment(Investment(
+        name: 'Silver Jun',
+        amount: 100000,
+        date: DateTime(2026, 6, 10),
+        type: 'Silver',
+      ));
+      await provider.addInvestment(Investment(
+        name: 'Silver Jul',
+        amount: 250000,
+        date: DateTime(2026, 7, 5),
+        type: 'Silver',
+      ));
+      await provider.addInvestment(Investment(
+        name: 'Gold Jul',
+        amount: 500000,
+        date: DateTime(2026, 7, 5),
+        type: 'Gold',
+      ));
+
+      expect(provider.totalInvested, 850000);
+
+      final totals = provider.totalsByType();
+      // Ordered largest first: Gold (5000) then Silver (3500).
+      expect(totals.first.key, 'Gold');
+      expect(totals.first.value, 500000);
+      expect(totals[1].key, 'Silver');
+      expect(totals[1].value, 350000);
+
+      expect(provider.ofType('Silver').length, 2);
+    });
+
+    test('monthlyBreakdown groups a type by calendar month, newest first',
+        () async {
+      await provider.addInvestment(Investment(
+        name: 'Silver A',
+        amount: 100000,
+        date: DateTime(2026, 6, 10),
+        type: 'Silver',
+      ));
+      await provider.addInvestment(Investment(
+        name: 'Silver B',
+        amount: 150000,
+        date: DateTime(2026, 7, 5),
+        type: 'Silver',
+      ));
+      await provider.addInvestment(Investment(
+        name: 'Silver C',
+        amount: 50000,
+        date: DateTime(2026, 7, 20),
+        type: 'Silver',
+      ));
+
+      final breakdown = provider.monthlyBreakdown('Silver');
+      expect(breakdown.keys.toList(), ['2026-07', '2026-06']);
+      expect(breakdown['2026-07']!.length, 2);
+      expect(breakdown['2026-06']!.length, 1);
+
+      final julyTotal =
+          breakdown['2026-07']!.fold<int>(0, (s, i) => s + i.amount);
+      expect(julyTotal, 200000);
+    });
   });
 }

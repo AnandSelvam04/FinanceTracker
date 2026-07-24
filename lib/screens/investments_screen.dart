@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/investment.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
 import 'add_investment_screen.dart';
+import 'investment_type_screen.dart';
 
 class InvestmentsScreen extends StatefulWidget {
   const InvestmentsScreen({super.key});
@@ -13,8 +13,6 @@ class InvestmentsScreen extends StatefulWidget {
 }
 
 class _InvestmentsScreenState extends State<InvestmentsScreen> {
-  String? _typeFilter;
-
   @override
   void initState() {
     super.initState();
@@ -29,147 +27,6 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
   String _formatDate(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-  Future<bool> _confirmDelete(Investment investment) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete investment?'),
-        content: Text(
-            'Remove "${investment.name}" for ${formatMoney(investment.amount)}?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      // ignore: use_build_context_synchronously
-      await context.read<InvestmentProvider>().deleteInvestment(investment.id!);
-      return true;
-    }
-    return false;
-  }
-
-  Future<void> _editInvestment(Investment investment) async {
-    final nameController = TextEditingController(text: investment.name);
-    final amountController =
-        TextEditingController(text: minorToEditString(investment.amount));
-    DateTime selectedDate = investment.date;
-
-    const types = Investment.builtInTypes;
-    // A custom type (anything not in the built-in list) maps to "Other" with
-    // the original value prefilled in the text box, so editing keeps it.
-    final isBuiltIn = types.contains(investment.type);
-    String type = isBuiltIn ? investment.type : Investment.otherType;
-    final customTypeController =
-        TextEditingController(text: isBuiltIn ? '' : investment.type);
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return StatefulBuilder(builder: (context, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 16,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Edit Investment',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                ),
-                TextField(
-                  controller: amountController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Amount'),
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: type,
-                  decoration: const InputDecoration(labelText: 'Type'),
-                  items: types
-                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                      .toList(),
-                  onChanged: (v) => setModalState(() => type = v ?? type),
-                ),
-                if (type == Investment.otherType)
-                  TextField(
-                    controller: customTypeController,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                        labelText: 'Enter investment type'),
-                  ),
-                Row(
-                  children: [
-                    Text('Date: ${_formatDate(selectedDate)}'),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate,
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                        );
-                        if (picked != null) {
-                          setModalState(() => selectedDate = picked);
-                        }
-                      },
-                      child: const Text('Change'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final amount =
-                          parseMinor(amountController.text.trim());
-                      if (amount == null) return;
-                      final resolvedType = type == Investment.otherType
-                          ? customTypeController.text.trim()
-                          : type;
-                      // Don't save an empty custom type; keep the sheet open.
-                      if (resolvedType.isEmpty) return;
-                      final updated = Investment(
-                        id: investment.id,
-                        name: nameController.text.trim(),
-                        amount: amount,
-                        date: selectedDate,
-                        type: resolvedType,
-                      );
-                      final provider = context.read<InvestmentProvider>();
-                      await provider.updateInvestment(updated);
-                      if (!context.mounted) return;
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Save'),
-                  ),
-                ),
-              ],
-            ),
-          );
-        });
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -177,12 +34,6 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
       body: Consumer<InvestmentProvider>(
         builder: (context, provider, _) {
           final all = provider.investments;
-          final types = all.map((i) => i.type).toSet().toList()..sort();
-          final investments = _typeFilter == null
-              ? all
-              : all.where((i) => i.type == _typeFilter).toList();
-          final total =
-              investments.fold<int>(0, (sum, i) => sum + i.amount);
 
           if (all.isEmpty) {
             return Center(
@@ -197,6 +48,10 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
             );
           }
 
+          // Each type is one bucket that auto-accumulates every contribution,
+          // so adding to Silver never means editing the previous Silver entry.
+          final totalsByType = provider.totalsByType();
+
           return Column(
             children: [
               Padding(
@@ -208,14 +63,10 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        const Text('Total Invested',
+                            style: TextStyle(fontSize: 16)),
                         Text(
-                          _typeFilter == null
-                              ? 'Total Invested'
-                              : 'Total ($_typeFilter)',
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        Text(
-                          formatMoney(total),
+                          formatMoney(provider.totalInvested),
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold),
                         ),
@@ -224,71 +75,53 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                   ),
                 ),
               ),
-              if (types.length > 1)
-                SizedBox(
-                  height: 40,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: const Text('All'),
-                          selected: _typeFilter == null,
-                          onSelected: (_) =>
-                              setState(() => _typeFilter = null),
-                        ),
-                      ),
-                      ...types.map((t) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(t),
-                              selected: _typeFilter == t,
-                              onSelected: (_) =>
-                                  setState(() => _typeFilter = t),
-                            ),
-                          )),
-                    ],
-                  ),
-                ),
               Expanded(
                 child: ListView.separated(
-                  itemCount: investments.length,
+                  itemCount: totalsByType.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   padding: const EdgeInsets.all(12),
                   itemBuilder: (context, index) {
-                    final investment = investments[index];
-                    return Dismissible(
-                      key: ValueKey(
-                          investment.id ?? '${investment.name}-$index'),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        color: Colors.red.shade400,
-                        child: const Icon(Icons.delete, color: Colors.white),
-                      ),
-                      confirmDismiss: (_) => _confirmDelete(investment),
-                      child: Card(
-                        elevation: 2,
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.green.shade100,
-                            child: const Icon(Icons.trending_up,
-                                color: Colors.green),
-                          ),
-                          title: Text(investment.name,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600)),
-                          subtitle: Text(
-                              '${investment.type} · ${_formatDate(investment.date)}'),
-                          trailing: Text(
-                              formatMoney(investment.amount),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold)),
-                          onTap: () => _editInvestment(investment),
+                    final entry = totalsByType[index];
+                    final type = entry.key;
+                    final items = provider.ofType(type);
+                    // Fetch order is newest-first, so the first item is latest.
+                    final latest = items.first.date;
+                    final count = items.length;
+                    return Card(
+                      elevation: 2,
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.green.shade100,
+                          child: const Icon(Icons.trending_up,
+                              color: Colors.green),
                         ),
+                        title: Text(type,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(
+                          '$count ${count == 1 ? 'contribution' : 'contributions'} · latest ${_formatDate(latest)}',
+                        ),
+                        trailing: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(formatMoney(entry.value),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                            const Icon(Icons.chevron_right,
+                                size: 18, color: Colors.grey),
+                          ],
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  InvestmentTypeScreen(type: type),
+                            ),
+                          );
+                        },
                       ),
                     );
                   },
