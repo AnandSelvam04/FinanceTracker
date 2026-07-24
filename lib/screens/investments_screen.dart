@@ -27,21 +27,21 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Investments')),
+      appBar: AppBar(title: Text(l.investments)),
       body: Consumer<InvestmentProvider>(
         builder: (context, provider, _) {
-          final l = AppLocalizations.of(context);
           final all = provider.investments;
 
           if (all.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.trending_up, size: 48, color: Colors.grey),
-                  SizedBox(height: 8),
-                  Text('No investments yet. Add one to start tracking.'),
+                children: [
+                  const Icon(Icons.trending_up, size: 48, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  Text(l.noInvestments),
                 ],
               ),
             );
@@ -62,8 +62,8 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Total Invested',
-                            style: TextStyle(fontSize: 16)),
+                        Text(l.totalInvested,
+                            style: const TextStyle(fontSize: 16)),
                         Text(
                           formatMoney(provider.totalInvested),
                           style: const TextStyle(
@@ -98,7 +98,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                             style:
                                 const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Text(
-                          '$count ${count == 1 ? 'contribution' : 'contributions'} · latest ${l.dateWithDay(latest)}',
+                          '${l.contributions(count)} · ${l.latest} ${l.dateWithDay(latest)}',
                         ),
                         trailing: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -131,7 +131,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'Add investment',
+        tooltip: l.addInvestment,
         onPressed: () {
           Navigator.push(
             context,

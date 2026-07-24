@@ -15,21 +15,17 @@ class InvestmentTypeScreen extends StatelessWidget {
 
   const InvestmentTypeScreen({super.key, required this.type});
 
-  static const List<String> _monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ];
-
-  String _monthLabel(String ym) {
+  String _monthLabel(AppLocalizations l, String ym) {
     // ym is "YYYY-MM".
     final parts = ym.split('-');
     final year = parts[0];
     final month = int.tryParse(parts[1]) ?? 1;
-    return '${_monthNames[(month - 1).clamp(0, 11)]} $year';
+    return '${l.monthName(month.clamp(1, 12))} $year';
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(type)),
       body: Consumer<InvestmentProvider>(
@@ -60,7 +56,7 @@ class InvestmentTypeScreen extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Total in $type',
+                        Text(l.totalInType(type),
                             style: const TextStyle(fontSize: 16)),
                         Text(
                           formatMoney(total),
@@ -91,7 +87,7 @@ class InvestmentTypeScreen extends StatelessWidget {
                                 MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                _monthLabel(ym),
+                                _monthLabel(l, ym),
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -120,7 +116,7 @@ class InvestmentTypeScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'Add to $type',
+        tooltip: l.addToType(type),
         onPressed: () {
           Navigator.push(
             context,
@@ -167,19 +163,20 @@ class InvestmentTypeScreen extends StatelessWidget {
 
   Future<bool> _confirmDelete(
       BuildContext context, Investment investment) async {
+    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete contribution?'),
-        content: Text(
-            'Remove "${investment.name}" for ${formatMoney(investment.amount)}?'),
+        title: Text(l.deleteContribution),
+        content: Text(l.deleteContributionBody(
+            investment.name, formatMoney(investment.amount))),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+              child: Text(l.cancel)),
           ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
+              child: Text(l.delete)),
         ],
       ),
     );
@@ -211,6 +208,7 @@ class InvestmentTypeScreen extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
+        final l = AppLocalizations.of(context);
         return StatefulBuilder(builder: (context, setModalState) {
           return Padding(
             padding: EdgeInsets.only(
@@ -222,22 +220,22 @@ class InvestmentTypeScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Edit Investment',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(l.editInvestment,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Name'),
+                  decoration: InputDecoration(labelText: l.accountName),
                 ),
                 TextField(
                   controller: amountController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Amount'),
+                  decoration: InputDecoration(labelText: l.amount),
                 ),
                 DropdownButtonFormField<String>(
                   initialValue: type,
-                  decoration: const InputDecoration(labelText: 'Type'),
+                  decoration: InputDecoration(labelText: l.accountType),
                   items: types
                       .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                       .toList(),
@@ -247,13 +245,12 @@ class InvestmentTypeScreen extends StatelessWidget {
                   TextField(
                     controller: customTypeController,
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                        labelText: 'Enter investment type'),
+                    decoration: InputDecoration(
+                        labelText: l.enterInvestmentType),
                   ),
                 Row(
                   children: [
-                    Text(
-                        'Date: ${AppLocalizations.of(context).dateWithDay(selectedDate)}'),
+                    Text('${l.date}: ${l.dateWithDay(selectedDate)}'),
                     const Spacer(),
                     TextButton(
                       onPressed: () async {
@@ -267,7 +264,7 @@ class InvestmentTypeScreen extends StatelessWidget {
                           setModalState(() => selectedDate = picked);
                         }
                       },
-                      child: const Text('Change'),
+                      child: Text(l.change),
                     ),
                   ],
                 ),
@@ -294,7 +291,7 @@ class InvestmentTypeScreen extends StatelessWidget {
                       if (!context.mounted) return;
                       Navigator.pop(context);
                     },
-                    child: const Text('Save'),
+                    child: Text(l.save),
                   ),
                 ),
               ],

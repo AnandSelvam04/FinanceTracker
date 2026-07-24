@@ -85,7 +85,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(
-                  labelText: '${l.accountName} (optional)',
+                  labelText: '${l.accountName} (${l.optional})',
                   hintText: _defaultName(),
                 ),
                 // Name is optional: blank falls back to an auto-generated
@@ -96,7 +96,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                 decoration: InputDecoration(labelText: l.amount),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                validator: (value) => value!.isEmpty ? 'Enter amount' : null,
+                validator: (value) => value!.isEmpty ? l.enterAmount : null,
               ),
               const SizedBox(height: 16),
               Row(
@@ -135,12 +135,12 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                 TextFormField(
                   controller: _customTypeController,
                   decoration:
-                      const InputDecoration(labelText: 'Enter investment type'),
+                      InputDecoration(labelText: l.enterInvestmentType),
                   textCapitalization: TextCapitalization.words,
                   validator: (value) =>
                       (_selectedType == Investment.otherType &&
                               (value == null || value.trim().isEmpty))
-                          ? 'Enter a type or pick one above'
+                          ? l.enterTypeOrPick
                           : null,
                 ),
               const SizedBox(height: 20),
@@ -173,7 +173,9 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Failed: $e')));
+                                  SnackBar(
+                                      content:
+                                          Text(l.errorWithDetails('$e'))));
                             }
                           } finally {
                             if (mounted) setState(() => _isSaving = false);

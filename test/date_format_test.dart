@@ -32,4 +32,34 @@ void main() {
       expect(en.weekdayAbbr(7), 'Sun');
     });
   });
+
+  group('AppLocalizations misc helpers', () {
+    final en = AppLocalizations(const Locale('en'));
+    final ta = AppLocalizations(const Locale('ta'));
+
+    test('monthName maps 1..12 and is localized', () {
+      expect(en.monthName(1), 'January');
+      expect(en.monthName(12), 'December');
+      expect(ta.monthName(7), 'ஜூலை');
+    });
+
+    test('freqLabel maps DbConstants frequency values', () {
+      expect(en.freqLabel('monthly'), 'Monthly');
+      expect(ta.freqLabel('monthly'), 'மாதாந்திரம்');
+      // Unknown value falls through to the raw string.
+      expect(en.freqLabel('fortnightly'), 'fortnightly');
+    });
+
+    test('contributions pluralizes and localizes', () {
+      expect(en.contributions(1), '1 contribution');
+      expect(en.contributions(3), '3 contributions');
+      expect(ta.contributions(1), '1 பங்களிப்பு');
+      expect(ta.contributions(3), '3 பங்களிப்புகள்');
+    });
+
+    test('totalInType substitutes the type', () {
+      expect(en.totalInType('Silver'), 'Total in Silver');
+      expect(ta.totalInType('Silver'), 'Silver இல் மொத்தம்');
+    });
+  });
 }

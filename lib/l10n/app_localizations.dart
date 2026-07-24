@@ -203,6 +203,49 @@ class AppLocalizations {
       'weekdayFri': 'Fri',
       'weekdaySat': 'Sat',
       'weekdaySun': 'Sun',
+      // Month names for date-group headers
+      'monthJan': 'January',
+      'monthFeb': 'February',
+      'monthMar': 'March',
+      'monthApr': 'April',
+      'monthMay': 'May',
+      'monthJun': 'June',
+      'monthJul': 'July',
+      'monthAug': 'August',
+      'monthSep': 'September',
+      'monthOct': 'October',
+      'monthNov': 'November',
+      'monthDec': 'December',
+      // Recurring
+      'addRecurring': 'Add Recurring',
+      'editRecurring': 'Edit Recurring',
+      'frequency': 'Frequency',
+      'freqDaily': 'Daily',
+      'freqWeekly': 'Weekly',
+      'freqMonthly': 'Monthly',
+      'freqYearly': 'Yearly',
+      'nextDue': 'Next due',
+      'nextShort': 'next',
+      'fieldRequired': 'Required',
+      'invalidValue': 'Invalid',
+      'noRecurring':
+          'No recurring transactions. Add rent, salary, bills, and they post automatically.',
+      'deleteRule': 'Delete rule',
+      'addRecurringRule': 'Add recurring rule',
+      // Investments
+      'totalInvested': 'Total Invested',
+      'noInvestments': 'No investments yet. Add one to start tracking.',
+      'contributionOne': '1 contribution',
+      'contributionMany': '{n} contributions',
+      'latest': 'latest',
+      'totalInType': 'Total in {type}',
+      'addToType': 'Add to {type}',
+      'deleteContribution': 'Delete contribution?',
+      'deleteContributionBody': 'Remove "{name}" for {amount}?',
+      'editInvestment': 'Edit Investment',
+      'enterInvestmentType': 'Enter investment type',
+      'enterTypeOrPick': 'Enter a type or pick one above',
+      'optional': 'optional',
     },
     'ta': {
       'appTitle': 'Finance Tracker',
@@ -362,6 +405,49 @@ class AppLocalizations {
       'weekdayFri': 'வெள்',
       'weekdaySat': 'சனி',
       'weekdaySun': 'ஞாயி',
+      // Month names
+      'monthJan': 'ஜனவரி',
+      'monthFeb': 'பிப்ரவரி',
+      'monthMar': 'மார்ச்',
+      'monthApr': 'ஏப்ரல்',
+      'monthMay': 'மே',
+      'monthJun': 'ஜூன்',
+      'monthJul': 'ஜூலை',
+      'monthAug': 'ஆகஸ்ட்',
+      'monthSep': 'செப்டம்பர்',
+      'monthOct': 'அக்டோபர்',
+      'monthNov': 'நவம்பர்',
+      'monthDec': 'டிசம்பர்',
+      // Recurring
+      'addRecurring': 'தொடர் பரிவர்த்தனை சேர்',
+      'editRecurring': 'தொடர் பரிவர்த்தனையைத் திருத்து',
+      'frequency': 'அதிர்வெண்',
+      'freqDaily': 'தினசரி',
+      'freqWeekly': 'வாராந்திரம்',
+      'freqMonthly': 'மாதாந்திரம்',
+      'freqYearly': 'ஆண்டுதோறும்',
+      'nextDue': 'அடுத்த தேதி',
+      'nextShort': 'அடுத்து',
+      'fieldRequired': 'தேவை',
+      'invalidValue': 'தவறானது',
+      'noRecurring':
+          'தொடர் பரிவர்த்தனைகள் இல்லை. வாடகை, சம்பளம், பில்களைச் சேர்த்தால் அவை தானாகவே பதிவாகும்.',
+      'deleteRule': 'விதியை நீக்கு',
+      'addRecurringRule': 'தொடர் விதி சேர்',
+      // Investments
+      'totalInvested': 'மொத்த முதலீடு',
+      'noInvestments': 'இன்னும் முதலீடுகள் இல்லை. கண்காணிக்கத் தொடங்க ஒன்றைச் சேர்க்கவும்.',
+      'contributionOne': '1 பங்களிப்பு',
+      'contributionMany': '{n} பங்களிப்புகள்',
+      'latest': 'சமீபத்தியது',
+      'totalInType': '{type} இல் மொத்தம்',
+      'addToType': '{type} இல் சேர்',
+      'deleteContribution': 'பங்களிப்பை நீக்கவா?',
+      'deleteContributionBody': '"{name}" ({amount}) நீக்கவா?',
+      'editInvestment': 'முதலீட்டைத் திருத்து',
+      'enterInvestmentType': 'முதலீட்டு வகையை உள்ளிடவும்',
+      'enterTypeOrPick': 'ஒரு வகையை உள்ளிடவும் அல்லது மேலே தேர்ந்தெடுக்கவும்',
+      'optional': 'விருப்பம்',
     },
   };
 
@@ -560,6 +646,69 @@ class AppLocalizations {
   /// The numeric part stays ISO in every locale for consistency.
   String dateWithDay(DateTime date) =>
       '${weekdayAbbr(date.weekday)}, ${formatIsoDate(date)}';
+
+  static const List<String> _monthKeys = [
+    'monthJan',
+    'monthFeb',
+    'monthMar',
+    'monthApr',
+    'monthMay',
+    'monthJun',
+    'monthJul',
+    'monthAug',
+    'monthSep',
+    'monthOct',
+    'monthNov',
+    'monthDec',
+  ];
+
+  /// Localized full month name. [month] is 1 (January) .. 12 (December).
+  String monthName(int month) => _t(_monthKeys[(month - 1) % 12]);
+
+  // Recurring
+  String get addRecurring => _t('addRecurring');
+  String get editRecurring => _t('editRecurring');
+  String get frequency => _t('frequency');
+  String get nextDue => _t('nextDue');
+  String get nextShort => _t('nextShort');
+  String get fieldRequired => _t('fieldRequired');
+  String get invalidValue => _t('invalidValue');
+  String get noRecurring => _t('noRecurring');
+  String get deleteRule => _t('deleteRule');
+  String get addRecurringRule => _t('addRecurringRule');
+
+  /// Localized label for a recurrence [frequency] value (a DbConstants.freq*).
+  String freqLabel(String frequency) {
+    switch (frequency) {
+      case 'daily':
+        return _t('freqDaily');
+      case 'weekly':
+        return _t('freqWeekly');
+      case 'monthly':
+        return _t('freqMonthly');
+      case 'yearly':
+        return _t('freqYearly');
+      default:
+        return frequency;
+    }
+  }
+
+  // Investments
+  String get totalInvested => _t('totalInvested');
+  String get noInvestments => _t('noInvestments');
+  String get latest => _t('latest');
+  String get editInvestment => _t('editInvestment');
+  String get enterInvestmentType => _t('enterInvestmentType');
+  String get enterTypeOrPick => _t('enterTypeOrPick');
+  String get optional => _t('optional');
+  String contributions(int n) => n == 1
+      ? _t('contributionOne')
+      : _tArgs('contributionMany', {'n': '$n'});
+  String totalInType(String type) => _tArgs('totalInType', {'type': type});
+  String addToType(String type) => _tArgs('addToType', {'type': type});
+  String get deleteContribution => _t('deleteContribution');
+  String deleteContributionBody(String name, String amount) =>
+      _tArgs('deleteContributionBody', {'name': name, 'amount': amount});
 }
 
 class _AppLocalizationsDelegate
