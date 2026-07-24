@@ -4,6 +4,7 @@ import '../models/recurring_rule.dart';
 import '../providers/account_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../utils/currency_format.dart';
+import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 
 class RecurringScreen extends StatefulWidget {
@@ -46,9 +47,6 @@ class _RecurringScreenState extends State<RecurringScreen> {
         return freq;
     }
   }
-
-  String _formatDate(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   Future<void> _showRuleDialog({RecurringRule? rule}) async {
     _description = rule?.description ?? '';
@@ -135,7 +133,9 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Expanded(child: Text('Next due: ${_formatDate(_nextDue)}')),
+                      Expanded(
+                          child: Text(
+                              'Next due: ${formatDateWithDay(_nextDue)}')),
                       TextButton(
                         onPressed: () async {
                           final picked = await showDatePicker(
@@ -237,7 +237,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   title: Text(rule.description,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(
-                      '${rule.category} · ${_freqLabel(rule.frequency)} · next ${_formatDate(rule.nextDue)}'),
+                      '${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatDateWithDay(rule.nextDue)}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

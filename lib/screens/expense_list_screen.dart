@@ -9,6 +9,7 @@ import '../services/backup_service.dart';
 import '../services/db_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/transaction_filter.dart';
 
@@ -60,9 +61,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       _minAmount != null ||
       _maxAmount != null ||
       _dateRange != null;
-
-  String _formatDate(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   Future<bool> _confirmDelete(Expense expense) async {
     final l = AppLocalizations.of(context);
@@ -155,7 +153,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 ),
                 Row(
                   children: [
-                    Text('${l.date}: ${_formatDate(selectedDate)}'),
+                    Text('${l.date}: ${formatDateWithDay(selectedDate)}'),
                     const Spacer(),
                     TextButton(
                       onPressed: () async {
@@ -290,7 +288,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               ),
               Row(
                 children: [
-                  Text('${l.date}: ${_formatDate(date)}'),
+                  Text('${l.date}: ${formatDateWithDay(date)}'),
                   const Spacer(),
                   TextButton(
                     onPressed: () async {
@@ -533,7 +531,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 
   String _fmtRange(DateTimeRange r) =>
-      '${_formatDate(r.start)} → ${_formatDate(r.end)}';
+      '${formatIsoDate(r.start)} → ${formatIsoDate(r.end)}';
 
   String get _filterLabel {
     final period = _selectedMonth == null
@@ -730,7 +728,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                               style:
                                   const TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: Text(
-                              '${expense.category} · ${_formatDate(expense.date)}'),
+                              '${expense.category} · ${formatDateWithDay(expense.date)}'),
                           trailing: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
