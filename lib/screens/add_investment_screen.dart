@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/investment_provider.dart';
 import '../models/investment.dart';
 import '../utils/currency_format.dart';
+import '../utils/date_format.dart';
 
 class AddInvestmentScreen extends StatefulWidget {
   /// Pre-selects a type so "add another contribution" from a type's detail
@@ -101,8 +102,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Text(
-                      '${l.date}: ${_selectedDate.toLocal().toIso8601String().substring(0, 10)}'),
+                  Text('${l.date}: ${formatDateWithDay(_selectedDate)}'),
                   const Spacer(),
                   TextButton(
                     onPressed: () async {

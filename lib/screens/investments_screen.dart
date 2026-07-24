@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
+import '../utils/date_format.dart';
 import 'add_investment_screen.dart';
 import 'investment_type_screen.dart';
 
@@ -23,9 +24,6 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
       }
     });
   }
-
-  String _formatDate(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +97,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                             style:
                                 const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Text(
-                          '$count ${count == 1 ? 'contribution' : 'contributions'} · latest ${_formatDate(latest)}',
+                          '$count ${count == 1 ? 'contribution' : 'contributions'} · latest ${formatDateWithDay(latest)}',
                         ),
                         trailing: Column(
                           mainAxisSize: MainAxisSize.min,

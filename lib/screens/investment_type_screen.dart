@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/investment.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
+import '../utils/date_format.dart';
 import 'add_investment_screen.dart';
 
 /// Shows every contribution for a single investment [type], with the running
@@ -26,9 +27,6 @@ class InvestmentTypeScreen extends StatelessWidget {
     final month = int.tryParse(parts[1]) ?? 1;
     return '${_monthNames[(month - 1).clamp(0, 11)]} $year';
   }
-
-  String _formatDate(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +155,7 @@ class InvestmentTypeScreen extends StatelessWidget {
           ),
           title: Text(investment.name,
               style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text(_formatDate(investment.date)),
+          subtitle: Text(formatDateWithDay(investment.date)),
           trailing: Text(formatMoney(investment.amount),
               style: const TextStyle(fontWeight: FontWeight.bold)),
           onTap: () => _editInvestment(context, investment),
@@ -253,7 +251,7 @@ class InvestmentTypeScreen extends StatelessWidget {
                   ),
                 Row(
                   children: [
-                    Text('Date: ${_formatDate(selectedDate)}'),
+                    Text('Date: ${formatDateWithDay(selectedDate)}'),
                     const Spacer(),
                     TextButton(
                       onPressed: () async {
