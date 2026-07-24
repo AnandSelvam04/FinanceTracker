@@ -246,6 +246,82 @@ class AppLocalizations {
       'enterInvestmentType': 'Enter investment type',
       'enterTypeOrPick': 'Enter a type or pick one above',
       'optional': 'optional',
+      // Backups & export
+      'backupRestore': 'Backup & Restore',
+      'backupToDriveBtn': 'Backup to Google Drive',
+      'restoreFromDriveBtn': 'Restore from Google Drive',
+      'backupLocalJson': 'Backup locally (JSON)',
+      'restoreLocalJson': 'Restore from local JSON',
+      'driveSetupNote':
+          'Google Drive requires a one-time sign-in setup in the build. If it fails, your data is still safe in local backups below.',
+      'encryptedBackup': 'Encrypted backup',
+      'encryptedBackupNote':
+          'Protect an exported backup with a passphrase (AES-256). Keep the passphrase safe — it is required to restore and cannot be reset.',
+      'encryptedBackupJson': 'Encrypted backup (JSON)',
+      'restoreEncryptedBackup': 'Restore encrypted backup',
+      'downloadEncryptedBackup': 'Download encrypted backup',
+      'downloadShare': 'Download & Share',
+      'downloadShareNote':
+          'Save your data to Files/Downloads, email it, or send it to another app.',
+      'downloadExpensesCsv': 'Download expenses (CSV)',
+      'downloadInvestmentsCsv': 'Download investments (CSV)',
+      'downloadFullJson': 'Download full data (JSON)',
+      'importFromCsv': 'Import from CSV',
+      'replaceAllTitle': 'Replace all data?',
+      'replaceAllBody':
+          'Restoring will delete everything currently in the app and replace it with the backup. This cannot be undone.',
+      'replace': 'Replace',
+      'newerBackupTitle': 'Warning: Newer Backup Found',
+      'newerBackupBody':
+          'A newer backup exists on Google Drive. Overwriting it may cause data loss from other devices.\n\nDo you want to continue and overwrite the remote backup?',
+      'overwrite': 'Overwrite',
+      'exported': 'Exported',
+      'passphrase': 'Passphrase',
+      'confirmPassphrase': 'Confirm passphrase',
+      'passphraseMin': 'Use at least 4 characters',
+      'passphraseMismatch': 'Passphrases do not match',
+      'passphraseForgotWarning':
+          'If you forget this passphrase, the backup cannot be recovered.',
+      'encryptBackupTitle': 'Encrypt backup',
+      'encrypt': 'Encrypt',
+      'restoreAction': 'Restore',
+      'noBackupYet': 'No backup yet — back up to avoid losing your data.',
+      'justNow': 'just now',
+      'lastBackup': 'Last backup: {ago}',
+      'dayAgoOne': '{n} day ago',
+      'dayAgoMany': '{n} days ago',
+      'hourAgoOne': '{n} hour ago',
+      'hourAgoMany': '{n} hours ago',
+      'backedUpToDrive': 'Backed up to Drive',
+      'restoredFromDrive': 'Restored from Drive',
+      'localJsonCreated': 'Local JSON backup created',
+      'restoredLocalJson': 'Restored from local JSON',
+      'encryptedBackupCreated': 'Encrypted backup created',
+      'restoredEncrypted': 'Restored from encrypted backup',
+      'subjectEncrypted': 'Finance Tracker — Encrypted Backup',
+      'subjectExpenses': 'Finance Tracker — Expenses',
+      'subjectInvestments': 'Finance Tracker — Investments',
+      'subjectFullBackup': 'Finance Tracker — Full Backup',
+      // CSV import
+      'columnN': 'Column {n}',
+      'noValidRows': 'No valid rows to import.',
+      'importedSkipped': 'Imported {imported}, skipped {skipped}',
+      'pickCsvHint':
+          'Pick a CSV file (e.g. a bank statement or an export from another app), then map its columns.',
+      'chooseCsvFile': 'Choose CSV file',
+      'firstRowHeader': 'First row is a header',
+      'dateColumn': 'Date column',
+      'descriptionColumn': 'Description column',
+      'amountColumn': 'Amount column',
+      'categoryColumnOptional': 'Category column (optional)',
+      'typeColumnOptional': 'Type column (optional)',
+      'importAllRowsAs': 'Import all rows as',
+      'preview': 'Preview',
+      'importAction': 'Import',
+      'chooseDifferentFile': 'Choose a different file',
+      'noValidRowsMapping': 'No valid rows with the current mapping.',
+      'noDescription': '(no description)',
+      'willImportSkip': 'Will import {n}, skip {skip}.',
     },
     'ta': {
       'appTitle': 'Finance Tracker',
@@ -448,6 +524,82 @@ class AppLocalizations {
       'enterInvestmentType': 'முதலீட்டு வகையை உள்ளிடவும்',
       'enterTypeOrPick': 'ஒரு வகையை உள்ளிடவும் அல்லது மேலே தேர்ந்தெடுக்கவும்',
       'optional': 'விருப்பம்',
+      // Backups & export
+      'backupRestore': 'காப்புப்பிரதி & மீட்டமை',
+      'backupToDriveBtn': 'Google Drive இல் காப்புப்பிரதி',
+      'restoreFromDriveBtn': 'Google Drive இலிருந்து மீட்டமை',
+      'backupLocalJson': 'சாதனத்தில் காப்புப்பிரதி (JSON)',
+      'restoreLocalJson': 'உள்ளூர் JSON இலிருந்து மீட்டமை',
+      'driveSetupNote':
+          'Google Drive க்கு பதிப்பில் ஒரு முறை உள்நுழைவு அமைப்பு தேவை. அது தோல்வியடைந்தாலும், உங்கள் தரவு கீழே உள்ள உள்ளூர் காப்புப்பிரதிகளில் பாதுகாப்பாக இருக்கும்.',
+      'encryptedBackup': 'குறியாக்கப்பட்ட காப்புப்பிரதி',
+      'encryptedBackupNote':
+          'ஏற்றுமதி செய்யப்பட்ட காப்புப்பிரதியை கடவுச்சொல்லுடன் பாதுகாக்கவும் (AES-256). கடவுச்சொல்லைப் பாதுகாப்பாக வைக்கவும் — மீட்டமைக்க இது தேவை, மீட்டமைக்க முடியாது.',
+      'encryptedBackupJson': 'குறியாக்கப்பட்ட காப்புப்பிரதி (JSON)',
+      'restoreEncryptedBackup': 'குறியாக்கப்பட்ட காப்புப்பிரதியை மீட்டமை',
+      'downloadEncryptedBackup': 'குறியாக்கப்பட்ட காப்புப்பிரதியைப் பதிவிறக்கு',
+      'downloadShare': 'பதிவிறக்கு & பகிர்',
+      'downloadShareNote':
+          'உங்கள் தரவை Files/Downloads இல் சேமிக்கவும், மின்னஞ்சல் அனுப்பவும் அல்லது வேறு ஆப்புக்கு அனுப்பவும்.',
+      'downloadExpensesCsv': 'செலவுகளைப் பதிவிறக்கு (CSV)',
+      'downloadInvestmentsCsv': 'முதலீடுகளைப் பதிவிறக்கு (CSV)',
+      'downloadFullJson': 'முழு தரவைப் பதிவிறக்கு (JSON)',
+      'importFromCsv': 'CSV இலிருந்து இறக்குமதி',
+      'replaceAllTitle': 'அனைத்து தரவையும் மாற்றவா?',
+      'replaceAllBody':
+          'மீட்டமைப்பது ஆப்பில் தற்போது உள்ள அனைத்தையும் நீக்கி காப்புப்பிரதியுடன் மாற்றும். இதை மீட்டமைக்க முடியாது.',
+      'replace': 'மாற்று',
+      'newerBackupTitle': 'எச்சரிக்கை: புதிய காப்புப்பிரதி கண்டறியப்பட்டது',
+      'newerBackupBody':
+          'Google Drive இல் புதிய காப்புப்பிரதி உள்ளது. அதை மேலெழுதுவது மற்ற சாதனங்களிலிருந்து தரவு இழப்பை ஏற்படுத்தலாம்.\n\nதொடர்ந்து தொலைநிலை காப்புப்பிரதியை மேலெழுத விரும்புகிறீர்களா?',
+      'overwrite': 'மேலெழுது',
+      'exported': 'ஏற்றுமதி செய்யப்பட்டது',
+      'passphrase': 'கடவுச்சொல்',
+      'confirmPassphrase': 'கடவுச்சொல்லை உறுதிப்படுத்து',
+      'passphraseMin': 'குறைந்தது 4 எழுத்துகளைப் பயன்படுத்தவும்',
+      'passphraseMismatch': 'கடவுச்சொற்கள் பொருந்தவில்லை',
+      'passphraseForgotWarning':
+          'இந்த கடவுச்சொல்லை மறந்தால், காப்புப்பிரதியை மீட்டெடுக்க முடியாது.',
+      'encryptBackupTitle': 'காப்புப்பிரதியைக் குறியாக்கு',
+      'encrypt': 'குறியாக்கு',
+      'restoreAction': 'மீட்டமை',
+      'noBackupYet': 'இன்னும் காப்புப்பிரதி இல்லை — தரவை இழக்காமல் இருக்க காப்புப்பிரதி எடுக்கவும்.',
+      'justNow': 'இப்போது',
+      'lastBackup': 'கடைசி காப்புப்பிரதி: {ago}',
+      'dayAgoOne': '{n} நாள் முன்பு',
+      'dayAgoMany': '{n} நாட்கள் முன்பு',
+      'hourAgoOne': '{n} மணிநேரம் முன்பு',
+      'hourAgoMany': '{n} மணிநேரம் முன்பு',
+      'backedUpToDrive': 'Drive இல் காப்புப்பிரதி எடுக்கப்பட்டது',
+      'restoredFromDrive': 'Drive இலிருந்து மீட்டமைக்கப்பட்டது',
+      'localJsonCreated': 'உள்ளூர் JSON காப்புப்பிரதி உருவாக்கப்பட்டது',
+      'restoredLocalJson': 'உள்ளூர் JSON இலிருந்து மீட்டமைக்கப்பட்டது',
+      'encryptedBackupCreated': 'குறியாக்கப்பட்ட காப்புப்பிரதி உருவாக்கப்பட்டது',
+      'restoredEncrypted': 'குறியாக்கப்பட்ட காப்புப்பிரதியிலிருந்து மீட்டமைக்கப்பட்டது',
+      'subjectEncrypted': 'Finance Tracker — குறியாக்கப்பட்ட காப்புப்பிரதி',
+      'subjectExpenses': 'Finance Tracker — செலவுகள்',
+      'subjectInvestments': 'Finance Tracker — முதலீடுகள்',
+      'subjectFullBackup': 'Finance Tracker — முழு காப்புப்பிரதி',
+      // CSV import
+      'columnN': 'நெடுவரிசை {n}',
+      'noValidRows': 'இறக்குமதி செய்ய செல்லுபடியான வரிசைகள் இல்லை.',
+      'importedSkipped': '{imported} இறக்குமதி, {skipped} தவிர்க்கப்பட்டது',
+      'pickCsvHint':
+          'ஒரு CSV கோப்பைத் தேர்ந்தெடுக்கவும் (எ.கா. வங்கி அறிக்கை அல்லது வேறு ஆப்பிலிருந்து ஏற்றுமதி), பின்னர் அதன் நெடுவரிசைகளை வரைபடமாக்கவும்.',
+      'chooseCsvFile': 'CSV கோப்பைத் தேர்ந்தெடு',
+      'firstRowHeader': 'முதல் வரிசை தலைப்பு',
+      'dateColumn': 'தேதி நெடுவரிசை',
+      'descriptionColumn': 'விவர நெடுவரிசை',
+      'amountColumn': 'தொகை நெடுவரிசை',
+      'categoryColumnOptional': 'பிரிவு நெடுவரிசை (விருப்பம்)',
+      'typeColumnOptional': 'வகை நெடுவரிசை (விருப்பம்)',
+      'importAllRowsAs': 'அனைத்து வரிசைகளையும் இவ்வாறு இறக்குமதி செய்',
+      'preview': 'முன்னோட்டம்',
+      'importAction': 'இறக்குமதி',
+      'chooseDifferentFile': 'வேறு கோப்பைத் தேர்ந்தெடு',
+      'noValidRowsMapping': 'தற்போதைய வரைபடத்துடன் செல்லுபடியான வரிசைகள் இல்லை.',
+      'noDescription': '(விவரம் இல்லை)',
+      'willImportSkip': '{n} இறக்குமதி செய்யும், {skip} தவிர்க்கும்.',
     },
   };
 
@@ -709,6 +861,80 @@ class AppLocalizations {
   String get deleteContribution => _t('deleteContribution');
   String deleteContributionBody(String name, String amount) =>
       _tArgs('deleteContributionBody', {'name': name, 'amount': amount});
+
+  // Backups & export
+  String get backupRestore => _t('backupRestore');
+  String get backupToDriveBtn => _t('backupToDriveBtn');
+  String get restoreFromDriveBtn => _t('restoreFromDriveBtn');
+  String get backupLocalJson => _t('backupLocalJson');
+  String get restoreLocalJson => _t('restoreLocalJson');
+  String get driveSetupNote => _t('driveSetupNote');
+  String get encryptedBackup => _t('encryptedBackup');
+  String get encryptedBackupNote => _t('encryptedBackupNote');
+  String get encryptedBackupJson => _t('encryptedBackupJson');
+  String get restoreEncryptedBackup => _t('restoreEncryptedBackup');
+  String get downloadEncryptedBackup => _t('downloadEncryptedBackup');
+  String get downloadShare => _t('downloadShare');
+  String get downloadShareNote => _t('downloadShareNote');
+  String get downloadExpensesCsv => _t('downloadExpensesCsv');
+  String get downloadInvestmentsCsv => _t('downloadInvestmentsCsv');
+  String get downloadFullJson => _t('downloadFullJson');
+  String get importFromCsv => _t('importFromCsv');
+  String get replaceAllTitle => _t('replaceAllTitle');
+  String get replaceAllBody => _t('replaceAllBody');
+  String get replace => _t('replace');
+  String get newerBackupTitle => _t('newerBackupTitle');
+  String get newerBackupBody => _t('newerBackupBody');
+  String get overwrite => _t('overwrite');
+  String get exported => _t('exported');
+  String get passphrase => _t('passphrase');
+  String get confirmPassphrase => _t('confirmPassphrase');
+  String get passphraseMin => _t('passphraseMin');
+  String get passphraseMismatch => _t('passphraseMismatch');
+  String get passphraseForgotWarning => _t('passphraseForgotWarning');
+  String get encryptBackupTitle => _t('encryptBackupTitle');
+  String get encrypt => _t('encrypt');
+  String get restoreAction => _t('restoreAction');
+  String get noBackupYet => _t('noBackupYet');
+  String get justNow => _t('justNow');
+  String lastBackup(String ago) => _tArgs('lastBackup', {'ago': ago});
+  String daysAgo(int n) =>
+      n == 1 ? _tArgs('dayAgoOne', {'n': '$n'}) : _tArgs('dayAgoMany', {'n': '$n'});
+  String hoursAgo(int n) => n == 1
+      ? _tArgs('hourAgoOne', {'n': '$n'})
+      : _tArgs('hourAgoMany', {'n': '$n'});
+  String get backedUpToDrive => _t('backedUpToDrive');
+  String get restoredFromDrive => _t('restoredFromDrive');
+  String get localJsonCreated => _t('localJsonCreated');
+  String get restoredLocalJson => _t('restoredLocalJson');
+  String get encryptedBackupCreated => _t('encryptedBackupCreated');
+  String get restoredEncrypted => _t('restoredEncrypted');
+  String get subjectEncrypted => _t('subjectEncrypted');
+  String get subjectExpenses => _t('subjectExpenses');
+  String get subjectInvestments => _t('subjectInvestments');
+  String get subjectFullBackup => _t('subjectFullBackup');
+
+  // CSV import
+  String columnN(int n) => _tArgs('columnN', {'n': '$n'});
+  String get noValidRows => _t('noValidRows');
+  String importedSkipped(int imported, int skipped) => _tArgs(
+      'importedSkipped', {'imported': '$imported', 'skipped': '$skipped'});
+  String get pickCsvHint => _t('pickCsvHint');
+  String get chooseCsvFile => _t('chooseCsvFile');
+  String get firstRowHeader => _t('firstRowHeader');
+  String get dateColumn => _t('dateColumn');
+  String get descriptionColumn => _t('descriptionColumn');
+  String get amountColumn => _t('amountColumn');
+  String get categoryColumnOptional => _t('categoryColumnOptional');
+  String get typeColumnOptional => _t('typeColumnOptional');
+  String get importAllRowsAs => _t('importAllRowsAs');
+  String get preview => _t('preview');
+  String get importAction => _t('importAction');
+  String get chooseDifferentFile => _t('chooseDifferentFile');
+  String get noValidRowsMapping => _t('noValidRowsMapping');
+  String get noDescription => _t('noDescription');
+  String willImportSkip(int n, int skip) =>
+      _tArgs('willImportSkip', {'n': '$n', 'skip': '$skip'});
 }
 
 class _AppLocalizationsDelegate

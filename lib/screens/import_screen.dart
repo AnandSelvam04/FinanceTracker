@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../services/csv_import.dart';
@@ -52,7 +53,7 @@ class _ImportScreenState extends State<ImportScreen> {
     });
   }
 
-  List<String> get _columnNames {
+  List<String> _columnNames(AppLocalizations l) {
     final rows = _rows;
     if (rows == null || rows.isEmpty) return [];
     final width = rows.first.length;
@@ -61,10 +62,10 @@ class _ImportScreenState extends State<ImportScreen> {
         for (var i = 0; i < width; i++)
           rows.first[i]?.toString().trim().isNotEmpty == true
               ? rows.first[i].toString()
-              : 'Column ${i + 1}'
+              : l.columnN(i + 1)
       ];
     }
-    return [for (var i = 0; i < width; i++) 'Column ${i + 1}'];
+    return [for (var i = 0; i < width; i++) l.columnN(i + 1)];
   }
 
   CsvColumnMapping get _mapping => CsvColumnMapping(
@@ -79,13 +80,14 @@ class _ImportScreenState extends State<ImportScreen> {
   Future<void> _import() async {
     final rows = _rows;
     if (rows == null) return;
+    final l = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
     final result = parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
     if (result.expenses.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('No valid rows to import.')),
+        SnackBar(content: Text(l.noValidRows)),
       );
       return;
     }
@@ -98,12 +100,13 @@ class _ImportScreenState extends State<ImportScreen> {
       await accountProvider.refreshBalances();
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
-        content: Text(
-            'Imported ${result.expenses.length}, skipped ${result.skipped}'),
+        content:
+            Text(l.importedSkipped(result.expenses.length, result.skipped)),
       ));
       Navigator.pop(context);
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(
+          SnackBar(content: Text(l.errorWithDetails('$e'))));
     } finally {
       if (mounted) setState(() => _importing = false);
     }
@@ -111,11 +114,12 @@ class _ImportScreenState extends State<ImportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final rows = _rows;
-    final columns = _columnNames;
+    final columns = _columnNames(l);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Import from CSV')),
+      appBar: AppBar(title: Text(l.importFromCsv)),
       body: rows == null
           ? Center(
               child: Column(
@@ -123,18 +127,17 @@ class _ImportScreenState extends State<ImportScreen> {
                 children: [
                   const Icon(Icons.upload_file, size: 48, color: Colors.grey),
                   const SizedBox(height: 12),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 32),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
                     child: Text(
-                      'Pick a CSV file (e.g. a bank statement or an export '
-                      'from another app), then map its columns.',
+                      l.pickCsvHint,
                       textAlign: TextAlign.center,
                     ),
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     icon: const Icon(Icons.folder_open),
-                    label: const Text('Choose CSV file'),
+                    label: Text(l.chooseCsvFile),
                     onPressed: _pickFile,
                   ),
                 ],
@@ -145,45 +148,45 @@ class _ImportScreenState extends State<ImportScreen> {
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('First row is a header'),
+                  title: Text(l.firstRowHeader),
                   value: _hasHeader,
                   onChanged: (v) => setState(() => _hasHeader = v),
                 ),
                 const Divider(),
-                _mapDropdown('Date column', _dateCol, columns,
+                _mapDropdown(l.dateColumn, _dateCol, columns,
                     (v) => setState(() => _dateCol = v!)),
-                _mapDropdown('Description column', _descCol, columns,
+                _mapDropdown(l.descriptionColumn, _descCol, columns,
                     (v) => setState(() => _descCol = v!)),
-                _mapDropdown('Amount column', _amountCol, columns,
+                _mapDropdown(l.amountColumn, _amountCol, columns,
                     (v) => setState(() => _amountCol = v!)),
-                _mapDropdownOptional('Category column (optional)', _categoryCol,
-                    columns, (v) => setState(() => _categoryCol = v)),
-                _mapDropdownOptional('Type column (optional)', _typeCol,
-                    columns, (v) => setState(() => _typeCol = v)),
+                _mapDropdownOptional(l.categoryColumnOptional, _categoryCol,
+                    columns, (v) => setState(() => _categoryCol = v), l),
+                _mapDropdownOptional(l.typeColumnOptional, _typeCol,
+                    columns, (v) => setState(() => _typeCol = v), l),
                 if (_typeCol == null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: DropdownButtonFormField<String>(
                       initialValue: _defaultType,
-                      decoration: const InputDecoration(
-                          labelText: 'Import all rows as'),
-                      items: const [
+                      decoration: InputDecoration(
+                          labelText: l.importAllRowsAs),
+                      items: [
                         DropdownMenuItem(
                             value: DbConstants.txExpense,
-                            child: Text('Expense')),
+                            child: Text(l.expense)),
                         DropdownMenuItem(
-                            value: DbConstants.txIncome, child: Text('Income')),
+                            value: DbConstants.txIncome, child: Text(l.income)),
                       ],
                       onChanged: (v) =>
                           setState(() => _defaultType = v ?? _defaultType),
                     ),
                   ),
                 const SizedBox(height: 16),
-                const Text('Preview',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(l.preview,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                _preview(rows),
+                _preview(rows, l),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   icon: _importing
@@ -193,23 +196,23 @@ class _ImportScreenState extends State<ImportScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.check),
-                  label: const Text('Import'),
+                  label: Text(l.importAction),
                   onPressed: _importing ? null : _import,
                 ),
                 TextButton(
                   onPressed: () => setState(() => _rows = null),
-                  child: const Text('Choose a different file'),
+                  child: Text(l.chooseDifferentFile),
                 ),
               ],
             ),
     );
   }
 
-  Widget _preview(List<List<dynamic>> rows) {
+  Widget _preview(List<List<dynamic>> rows, AppLocalizations l) {
     final result = parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
     final sample = result.expenses.take(5).toList();
     if (sample.isEmpty) {
-      return const Text('No valid rows with the current mapping.');
+      return Text(l.noValidRowsMapping);
     }
     return Column(
       children: [
@@ -217,7 +220,8 @@ class _ImportScreenState extends State<ImportScreen> {
           ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            title: Text(e.description.isEmpty ? '(no description)' : e.description),
+            title:
+                Text(e.description.isEmpty ? l.noDescription : e.description),
             subtitle: Text(
                 '${e.category} · ${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')} · ${e.type}'),
             trailing: Text(formatMoney(e.amount)),
@@ -225,7 +229,7 @@ class _ImportScreenState extends State<ImportScreen> {
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(
-            'Will import ${result.expenses.length}, skip ${result.skipped}.',
+            l.willImportSkip(result.expenses.length, result.skipped),
             style: const TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ),
@@ -250,14 +254,14 @@ class _ImportScreenState extends State<ImportScreen> {
   }
 
   Widget _mapDropdownOptional(String label, int? value, List<String> columns,
-      ValueChanged<int?> onChanged) {
+      ValueChanged<int?> onChanged, AppLocalizations l) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: DropdownButtonFormField<int?>(
         initialValue: (value != null && value < columns.length) ? value : null,
         decoration: InputDecoration(labelText: label),
         items: [
-          const DropdownMenuItem<int?>(value: null, child: Text('None')),
+          DropdownMenuItem<int?>(value: null, child: Text(l.none)),
           for (var i = 0; i < columns.length; i++)
             DropdownMenuItem(value: i, child: Text(columns[i])),
         ],
