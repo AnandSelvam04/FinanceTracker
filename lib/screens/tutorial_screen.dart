@@ -1,51 +1,48 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 class TutorialScreen extends StatelessWidget {
   const TutorialScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final steps = <_TutorialStep>[
-      const _TutorialStep(
-        title: 'Add your first entries',
-        body:
-            'Use Add Expense or Add Investment to record transactions with amount, date, and category/type.',
+      _TutorialStep(
+        title: l.tutStep1Title,
+        body: l.tutStep1Body,
         icon: Icons.playlist_add,
       ),
-      const _TutorialStep(
-        title: 'See monthly or yearly totals',
-        body:
-            'On Home, switch Month/Year to view charts, totals, and category breakdowns.',
+      _TutorialStep(
+        title: l.tutStep2Title,
+        body: l.tutStep2Body,
         icon: Icons.bar_chart,
       ),
-      const _TutorialStep(
-        title: 'Back up before switching devices',
-        body:
-            'Open Backups to save to Google Drive (appData) or create a local JSON/CSV export.',
+      _TutorialStep(
+        title: l.tutStep3Title,
+        body: l.tutStep3Body,
         icon: Icons.cloud_upload,
       ),
-      const _TutorialStep(
-        title: 'Restore anytime',
-        body:
-            'Use Restore from Drive or local JSON to bring data back after reinstall or on a new phone.',
+      _TutorialStep(
+        title: l.tutStep4Title,
+        body: l.tutStep4Body,
         icon: Icons.restore,
       ),
-      const _TutorialStep(
-        title: 'Set budgets and track spending',
-        body:
-            'Add monthly budgets per category in the Budgets tab to monitor progress and avoid overspending.',
+      _TutorialStep(
+        title: l.tutStep5Title,
+        body: l.tutStep5Body,
         icon: Icons.account_balance_wallet,
       ),
-      const _TutorialStep(
-        title: 'Optional app lock',
-        body:
-            'Enable "App lock" in the More tab to require biometrics or your device PIN on launch.',
+      _TutorialStep(
+        title: l.tutStep6Title,
+        body: l.tutStep6Body,
         icon: Icons.fingerprint,
       ),
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('How to use')),
+      appBar: AppBar(title: Text(l.howToUse)),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemBuilder: (context, index) {

@@ -322,6 +322,63 @@ class AppLocalizations {
       'noValidRowsMapping': 'No valid rows with the current mapping.',
       'noDescription': '(no description)',
       'willImportSkip': 'Will import {n}, skip {skip}.',
+      // Monthly summary
+      'noTransactionsToInclude': 'No transactions to include.',
+      'statementTitle': 'Finance Tracker Statement',
+      'statementSubject': 'Statement {period}',
+      'sharePdfStatement': 'Share PDF statement',
+      'net': 'Net',
+      'savingsRate': 'Savings rate',
+      'expenseVsLastMonth': 'Expense vs last month: ',
+      'topCategories': 'Top Categories',
+      // Category trends
+      'noExpenses12Months': 'No expenses in the last 12 months.',
+      'spendingByCategory': 'Spending by Category (Last 12 Months)',
+      // Cash flow
+      'incomeVsExpense12': 'Income vs Expense (Last 12 Months)',
+      'totalIncome': 'Total Income',
+      'totalExpense': 'Total Expense',
+      // Accounts
+      'deleteAccountTitle': 'Delete account?',
+      'deleteAccountBody':
+          'Remove "{name}"? Transactions linked to it are kept but lose their account link.',
+      // Add expense
+      'failedToSave': 'Failed to save: {error}',
+      // Tutorial / how to use
+      'tutStep1Title': 'Add your first entries',
+      'tutStep1Body':
+          'Use Add Expense or Add Investment to record transactions with amount, date, and category/type.',
+      'tutStep2Title': 'See monthly or yearly totals',
+      'tutStep2Body':
+          'On Home, switch Month/Year to view charts, totals, and category breakdowns.',
+      'tutStep3Title': 'Back up before switching devices',
+      'tutStep3Body':
+          'Open Backups to save to Google Drive (appData) or create a local JSON/CSV export.',
+      'tutStep4Title': 'Restore anytime',
+      'tutStep4Body':
+          'Use Restore from Drive or local JSON to bring data back after reinstall or on a new phone.',
+      'tutStep5Title': 'Set budgets and track spending',
+      'tutStep5Body':
+          'Add monthly budgets per category in the Budgets tab to monitor progress and avoid overspending.',
+      'tutStep6Title': 'Optional app lock',
+      'tutStep6Body':
+          'Enable "App lock" in the More tab to require biometrics or your device PIN on launch.',
+      // Widgets
+      'previousMonth': 'Previous month',
+      'nextMonth': 'Next month',
+      'selectCategoriesToCompare': 'Select categories to compare.',
+      'noTransactions12Months': 'No transactions in the last 12 months.',
+      'alertsTitle': 'Alerts',
+      'billOverdue': 'overdue',
+      'billDueToday': 'due today',
+      'billDueTomorrow': 'due tomorrow',
+      'billDueInDaysN': 'due in {n} days',
+      // Payment modes (display only; stored values stay English)
+      'pmCash': 'Cash',
+      'pmCreditCard': 'Credit Card',
+      'pmDebitCard': 'Debit Card',
+      'pmUpi': 'UPI',
+      'pmOther': 'Other',
     },
     'ta': {
       'appTitle': 'Finance Tracker',
@@ -600,6 +657,63 @@ class AppLocalizations {
       'noValidRowsMapping': 'தற்போதைய வரைபடத்துடன் செல்லுபடியான வரிசைகள் இல்லை.',
       'noDescription': '(விவரம் இல்லை)',
       'willImportSkip': '{n} இறக்குமதி செய்யும், {skip} தவிர்க்கும்.',
+      // Monthly summary
+      'noTransactionsToInclude': 'சேர்க்க பரிவர்த்தனைகள் இல்லை.',
+      'statementTitle': 'Finance Tracker அறிக்கை',
+      'statementSubject': 'அறிக்கை {period}',
+      'sharePdfStatement': 'PDF அறிக்கையைப் பகிர்',
+      'net': 'நிகரம்',
+      'savingsRate': 'சேமிப்பு விகிதம்',
+      'expenseVsLastMonth': 'சென்ற மாதத்துடன் ஒப்பிடும்போது செலவு: ',
+      'topCategories': 'முதன்மை பிரிவுகள்',
+      // Category trends
+      'noExpenses12Months': 'கடந்த 12 மாதங்களில் செலவுகள் இல்லை.',
+      'spendingByCategory': 'பிரிவு வாரியாக செலவு (கடந்த 12 மாதங்கள்)',
+      // Cash flow
+      'incomeVsExpense12': 'வருமானம் vs செலவு (கடந்த 12 மாதங்கள்)',
+      'totalIncome': 'மொத்த வருமானம்',
+      'totalExpense': 'மொத்த செலவு',
+      // Accounts
+      'deleteAccountTitle': 'கணக்கை நீக்கவா?',
+      'deleteAccountBody':
+          '"{name}" ஐ நீக்கவா? அதனுடன் இணைக்கப்பட்ட பரிவர்த்தனைகள் வைக்கப்படும் ஆனால் கணக்கு இணைப்பை இழக்கும்.',
+      // Add expense
+      'failedToSave': 'சேமிக்க முடியவில்லை: {error}',
+      // Tutorial / how to use
+      'tutStep1Title': 'உங்கள் முதல் பதிவுகளைச் சேர்க்கவும்',
+      'tutStep1Body':
+          'தொகை, தேதி மற்றும் பிரிவு/வகையுடன் பரிவர்த்தனைகளைப் பதிவு செய்ய செலவு சேர் அல்லது முதலீடு சேர் ஐப் பயன்படுத்தவும்.',
+      'tutStep2Title': 'மாதாந்திர அல்லது ஆண்டு மொத்தங்களைப் பார்க்கவும்',
+      'tutStep2Body':
+          'முகப்பில், விளக்கப்படங்கள், மொத்தங்கள் மற்றும் பிரிவு விவரங்களைப் பார்க்க மாதம்/ஆண்டு ஐ மாற்றவும்.',
+      'tutStep3Title': 'சாதனங்களை மாற்றும் முன் காப்புப்பிரதி எடுக்கவும்',
+      'tutStep3Body':
+          'Google Drive (appData) இல் சேமிக்க அல்லது உள்ளூர் JSON/CSV ஏற்றுமதியை உருவாக்க காப்புப்பிரதிகளைத் திறக்கவும்.',
+      'tutStep4Title': 'எப்போது வேண்டுமானாலும் மீட்டமை',
+      'tutStep4Body':
+          'மீண்டும் நிறுவிய பிறகு அல்லது புதிய தொலைபேசியில் தரவை மீண்டும் கொண்டுவர Drive அல்லது உள்ளூர் JSON இலிருந்து மீட்டமை ஐப் பயன்படுத்தவும்.',
+      'tutStep5Title': 'பட்ஜெட்டுகளை அமைத்து செலவைக் கண்காணிக்கவும்',
+      'tutStep5Body':
+          'முன்னேற்றத்தைக் கண்காணிக்க மற்றும் அதிகச் செலவைத் தவிர்க்க பட்ஜெட்டுகள் தாவலில் ஒவ்வொரு பிரிவுக்கும் மாதாந்திர பட்ஜெட்டுகளைச் சேர்க்கவும்.',
+      'tutStep6Title': 'விருப்ப ஆப் பூட்டு',
+      'tutStep6Body':
+          'தொடங்கும்போது பயோமெட்ரிக்ஸ் அல்லது சாதன பின் தேவைப்பட மேலும் தாவலில் "ஆப் பூட்டு" ஐ இயக்கவும்.',
+      // Widgets
+      'previousMonth': 'முந்தைய மாதம்',
+      'nextMonth': 'அடுத்த மாதம்',
+      'selectCategoriesToCompare': 'ஒப்பிட பிரிவுகளைத் தேர்ந்தெடுக்கவும்.',
+      'noTransactions12Months': 'கடந்த 12 மாதங்களில் பரிவர்த்தனைகள் இல்லை.',
+      'alertsTitle': 'எச்சரிக்கைகள்',
+      'billOverdue': 'தாமதம்',
+      'billDueToday': 'இன்று செலுத்த வேண்டும்',
+      'billDueTomorrow': 'நாளை செலுத்த வேண்டும்',
+      'billDueInDaysN': '{n} நாட்களில் செலுத்த வேண்டும்',
+      // Payment modes
+      'pmCash': 'பணம்',
+      'pmCreditCard': 'கிரெடிட் கார்டு',
+      'pmDebitCard': 'டெபிட் கார்டு',
+      'pmUpi': 'UPI',
+      'pmOther': 'மற்றவை',
     },
   };
 
@@ -935,6 +1049,79 @@ class AppLocalizations {
   String get noDescription => _t('noDescription');
   String willImportSkip(int n, int skip) =>
       _tArgs('willImportSkip', {'n': '$n', 'skip': '$skip'});
+
+  // Monthly summary
+  String get noTransactionsToInclude => _t('noTransactionsToInclude');
+  String get statementTitle => _t('statementTitle');
+  String statementSubject(String period) =>
+      _tArgs('statementSubject', {'period': period});
+  String get sharePdfStatement => _t('sharePdfStatement');
+  String get net => _t('net');
+  String get savingsRate => _t('savingsRate');
+  String get expenseVsLastMonth => _t('expenseVsLastMonth');
+  String get topCategories => _t('topCategories');
+
+  // Category trends
+  String get noExpenses12Months => _t('noExpenses12Months');
+  String get spendingByCategory => _t('spendingByCategory');
+
+  // Cash flow
+  String get incomeVsExpense12 => _t('incomeVsExpense12');
+  String get totalIncome => _t('totalIncome');
+  String get totalExpense => _t('totalExpense');
+
+  // Accounts
+  String get deleteAccountTitle => _t('deleteAccountTitle');
+  String deleteAccountBody(String name) =>
+      _tArgs('deleteAccountBody', {'name': name});
+
+  // Add expense
+  String failedToSave(String error) =>
+      _tArgs('failedToSave', {'error': error});
+
+  // Tutorial
+  String get tutStep1Title => _t('tutStep1Title');
+  String get tutStep1Body => _t('tutStep1Body');
+  String get tutStep2Title => _t('tutStep2Title');
+  String get tutStep2Body => _t('tutStep2Body');
+  String get tutStep3Title => _t('tutStep3Title');
+  String get tutStep3Body => _t('tutStep3Body');
+  String get tutStep4Title => _t('tutStep4Title');
+  String get tutStep4Body => _t('tutStep4Body');
+  String get tutStep5Title => _t('tutStep5Title');
+  String get tutStep5Body => _t('tutStep5Body');
+  String get tutStep6Title => _t('tutStep6Title');
+  String get tutStep6Body => _t('tutStep6Body');
+
+  // Widgets
+  String get previousMonth => _t('previousMonth');
+  String get nextMonth => _t('nextMonth');
+  String get selectCategoriesToCompare => _t('selectCategoriesToCompare');
+  String get noTransactions12Months => _t('noTransactions12Months');
+  String get alertsTitle => _t('alertsTitle');
+  String get billOverdue => _t('billOverdue');
+  String get billDueToday => _t('billDueToday');
+  String get billDueTomorrow => _t('billDueTomorrow');
+  String billDueInDaysN(int n) => _tArgs('billDueInDaysN', {'n': '$n'});
+
+  /// Localized display label for a stored payment-mode value (the DB keeps the
+  /// English value; only the label shown to the user is translated).
+  String paymentModeLabel(String mode) {
+    switch (mode) {
+      case 'Cash':
+        return _t('pmCash');
+      case 'Credit Card':
+        return _t('pmCreditCard');
+      case 'Debit Card':
+        return _t('pmDebitCard');
+      case 'UPI':
+        return _t('pmUpi');
+      case 'Other':
+        return _t('pmOther');
+      default:
+        return mode;
+    }
+  }
 }
 
 class _AppLocalizationsDelegate

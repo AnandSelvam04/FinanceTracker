@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/expense_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
@@ -27,8 +28,9 @@ class _CashflowScreenState extends State<CashflowScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Cash Flow')),
+      appBar: AppBar(title: Text(l.cashFlow)),
       body: Consumer<ExpenseProvider>(
         builder: (context, provider, _) {
           final now = DateTime.now();
@@ -46,18 +48,18 @@ class _CashflowScreenState extends State<CashflowScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Income vs Expense (Last 12 Months)',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(l.incomeVsExpense12,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 CashflowChart(provider: provider),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _LegendDot(color: Colors.green.shade600, label: 'Income'),
+                    _LegendDot(color: Colors.green.shade600, label: l.income),
                     const SizedBox(width: 16),
-                    _LegendDot(color: Colors.red.shade400, label: 'Expense'),
+                    _LegendDot(color: Colors.red.shade400, label: l.expense),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -68,17 +70,17 @@ class _CashflowScreenState extends State<CashflowScreen> {
                     child: Column(
                       children: [
                         _SummaryRow(
-                            label: 'Total Income',
+                            label: l.totalIncome,
                             value: totalIncome,
                             color: incomeColor(context)),
                         const SizedBox(height: 8),
                         _SummaryRow(
-                            label: 'Total Expense',
+                            label: l.totalExpense,
                             value: totalExpense,
                             color: expenseColor(context)),
                         const Divider(),
                         _SummaryRow(
-                            label: 'Net',
+                            label: l.net,
                             value: net,
                             color: net >= 0
                                 ? incomeColor(context)

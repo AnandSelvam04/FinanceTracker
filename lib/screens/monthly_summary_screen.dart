@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/expense_provider.dart';
 import '../services/statement_pdf.dart';
 import '../utils/category_colors.dart';
@@ -40,39 +41,42 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
   String get _periodLabel => '$_year-${_month.toString().padLeft(2, '0')}';
 
   Future<void> _sharePdf() async {
+    final l = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final provider = context.read<ExpenseProvider>();
     final transactions = provider.expensesForMonth(_year, _month);
     if (transactions.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('No transactions to include.')),
+        SnackBar(content: Text(l.noTransactionsToInclude)),
       );
       return;
     }
     try {
       final file = await StatementPdf.build(
-        title: 'Finance Tracker Statement',
+        title: l.statementTitle,
         periodLabel: _periodLabel,
         transactions: transactions,
       );
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'application/pdf')],
-        subject: 'Statement $_periodLabel',
+        subject: l.statementSubject(_periodLabel),
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(
+          SnackBar(content: Text(l.errorWithDetails('$e'))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Monthly Summary'),
+        title: Text(l.monthlySummary),
         actions: [
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
-            tooltip: 'Share PDF statement',
+            tooltip: l.sharePdfStatement,
             onPressed: _sharePdf,
           ),
         ],
@@ -119,20 +123,20 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-                        _row('Income', formatMoney(income),
+                        _row(l.income, formatMoney(income),
                             color: incomeColor(context)),
                         const SizedBox(height: 8),
-                        _row('Expense', formatMoney(expense),
+                        _row(l.expense, formatMoney(expense),
                             color: expenseColor(context)),
                         const Divider(),
-                        _row('Net', formatMoney(net),
+                        _row(l.net, formatMoney(net),
                             color: net >= 0
                                 ? incomeColor(context)
                                 : expenseColor(context),
                             bold: true),
                         const SizedBox(height: 8),
                         _row(
-                          'Savings rate',
+                          l.savingsRate,
                           savingsRate == null
                               ? '—'
                               : '${savingsRate.toStringAsFixed(1)}%',
@@ -141,7 +145,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                               : expenseColor(context),
                         ),
                         const SizedBox(height: 8),
-                        _row('Transactions', '$txCount'),
+                        _row(l.transactions, '$txCount'),
                       ],
                     ),
                   ),
@@ -149,20 +153,20 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    const Text('Expense vs last month: ',
-                        style: TextStyle(fontSize: 14)),
+                    Text(l.expenseVsLastMonth,
+                        style: const TextStyle(fontSize: 14)),
                     _DeltaLabel(current: expense, previous: prevExpense),
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Text('Top Categories',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(l.topCategories,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 if (topCategories.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Text('No expenses this month.'),
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(l.noExpensesMonth),
                   )
                 else
                   ...topCategories.map((entry) {

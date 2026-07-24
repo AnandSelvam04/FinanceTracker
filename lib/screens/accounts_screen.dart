@@ -183,19 +183,19 @@ class _AccountsScreenState extends State<AccountsScreen> {
   }
 
   Future<void> _confirmDelete(Account account) async {
+    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete account?'),
-        content: Text(
-            'Remove "${account.name}"? Transactions linked to it are kept but lose their account link.'),
+        title: Text(l.deleteAccountTitle),
+        content: Text(l.deleteAccountBody(account.name)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+              child: Text(l.cancel)),
           ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
+              child: Text(l.delete)),
         ],
       ),
     );

@@ -226,7 +226,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   initialValue: _selectedPaymentMode,
                   decoration: InputDecoration(labelText: l.paymentMode),
                   items: _paymentModes
-                      .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                      .map((p) => DropdownMenuItem(
+                          value: p, child: Text(l.paymentModeLabel(p))))
                       .toList(),
                   onChanged: (value) =>
                       setState(() => _selectedPaymentMode = value!),
@@ -290,7 +291,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context)
                                   .showSnackBar(SnackBar(
-                                content: Text('Failed to save: $e'),
+                                content: Text(l.failedToSave('$e')),
                               ));
                             }
                             AppLogger.error('Error saving expense', e, st);

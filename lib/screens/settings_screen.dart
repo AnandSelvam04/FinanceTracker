@@ -62,7 +62,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final now = await DBService().isEncryptionEnabled();
       if (!mounted) return;
       setState(() => _encryptionEnabled = now);
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(
+          SnackBar(content: Text(l.errorWithDetails('$e'))));
     } finally {
       if (mounted) setState(() => _encryptionBusy = false);
     }

@@ -139,14 +139,20 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: paymentMode,
                   decoration: InputDecoration(labelText: l.paymentMode),
-                  items: const [
-                    DropdownMenuItem(value: 'Cash', child: Text('Cash')),
+                  items: [
                     DropdownMenuItem(
-                        value: 'Credit Card', child: Text('Credit Card')),
+                        value: 'Cash', child: Text(l.paymentModeLabel('Cash'))),
                     DropdownMenuItem(
-                        value: 'Debit Card', child: Text('Debit Card')),
-                    DropdownMenuItem(value: 'UPI', child: Text('UPI')),
-                    DropdownMenuItem(value: 'Other', child: Text('Other')),
+                        value: 'Credit Card',
+                        child: Text(l.paymentModeLabel('Credit Card'))),
+                    DropdownMenuItem(
+                        value: 'Debit Card',
+                        child: Text(l.paymentModeLabel('Debit Card'))),
+                    DropdownMenuItem(
+                        value: 'UPI', child: Text(l.paymentModeLabel('UPI'))),
+                    DropdownMenuItem(
+                        value: 'Other',
+                        child: Text(l.paymentModeLabel('Other'))),
                   ],
                   onChanged: (v) =>
                       setModalState(() => paymentMode = v ?? paymentMode),

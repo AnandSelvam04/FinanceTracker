@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/expense_provider.dart';
 import '../utils/category_colors.dart';
 import '../widgets/category_trend_chart.dart';
@@ -41,8 +42,9 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Category Trends')),
+      appBar: AppBar(title: Text(l.categoryTrends)),
       body: Consumer<ExpenseProvider>(
         builder: (context, provider, _) {
           final categories = _availableCategories(provider);
@@ -54,10 +56,10 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
           }
 
           if (categories.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('No expenses in the last 12 months.'),
+                padding: const EdgeInsets.all(24),
+                child: Text(l.noExpenses12Months),
               ),
             );
           }
@@ -67,9 +69,9 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Spending by Category (Last 12 Months)',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(l.spendingByCategory,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 CategoryTrendChart(
                   provider: provider,

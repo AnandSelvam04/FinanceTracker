@@ -61,5 +61,26 @@ void main() {
       expect(en.totalInType('Silver'), 'Total in Silver');
       expect(ta.totalInType('Silver'), 'Silver இல் மொத்தம்');
     });
+
+    test('paymentModeLabel maps known modes and passes through unknowns', () {
+      expect(en.paymentModeLabel('Cash'), 'Cash');
+      expect(ta.paymentModeLabel('Cash'), 'பணம்');
+      expect(en.paymentModeLabel('UPI'), 'UPI');
+      // Unknown/custom mode passes through unchanged.
+      expect(ta.paymentModeLabel('Cheque'), 'Cheque');
+    });
+
+    test('daysAgo / hoursAgo pluralize', () {
+      expect(en.daysAgo(1), '1 day ago');
+      expect(en.daysAgo(5), '5 days ago');
+      expect(en.hoursAgo(1), '1 hour ago');
+      expect(en.hoursAgo(3), '3 hours ago');
+    });
+
+    test('argument substitution fills every placeholder', () {
+      expect(en.importedSkipped(10, 2), 'Imported 10, skipped 2');
+      expect(en.willImportSkip(8, 1), 'Will import 8, skip 1.');
+      expect(en.lastBackup('just now'), 'Last backup: just now');
+    });
   });
 }
