@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
-import '../utils/date_format.dart';
 import 'add_investment_screen.dart';
 import 'investment_type_screen.dart';
 
@@ -31,6 +31,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
       appBar: AppBar(title: const Text('Investments')),
       body: Consumer<InvestmentProvider>(
         builder: (context, provider, _) {
+          final l = AppLocalizations.of(context);
           final all = provider.investments;
 
           if (all.isEmpty) {
@@ -97,7 +98,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                             style:
                                 const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Text(
-                          '$count ${count == 1 ? 'contribution' : 'contributions'} · latest ${formatDateWithDay(latest)}',
+                          '$count ${count == 1 ? 'contribution' : 'contributions'} · latest ${l.dateWithDay(latest)}',
                         ),
                         trailing: Column(
                           mainAxisSize: MainAxisSize.min,

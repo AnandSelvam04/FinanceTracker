@@ -153,7 +153,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 ),
                 Row(
                   children: [
-                    Text('${l.date}: ${formatDateWithDay(selectedDate)}'),
+                    Text('${l.date}: ${l.dateWithDay(selectedDate)}'),
                     const Spacer(),
                     TextButton(
                       onPressed: () async {
@@ -288,7 +288,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               ),
               Row(
                 children: [
-                  Text('${l.date}: ${formatDateWithDay(date)}'),
+                  Text('${l.date}: ${l.dateWithDay(date)}'),
                   const Spacer(),
                   TextButton(
                     onPressed: () async {
@@ -728,7 +728,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                               style:
                                   const TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: Text(
-                              '${expense.category} · ${formatDateWithDay(expense.date)}'),
+                              '${expense.category} · ${l.dateWithDay(expense.date)}'),
                           trailing: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

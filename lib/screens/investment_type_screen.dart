@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../models/investment.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
-import '../utils/date_format.dart';
 import 'add_investment_screen.dart';
 
 /// Shows every contribution for a single investment [type], with the running
@@ -155,7 +155,8 @@ class InvestmentTypeScreen extends StatelessWidget {
           ),
           title: Text(investment.name,
               style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text(formatDateWithDay(investment.date)),
+          subtitle:
+              Text(AppLocalizations.of(context).dateWithDay(investment.date)),
           trailing: Text(formatMoney(investment.amount),
               style: const TextStyle(fontWeight: FontWeight.bold)),
           onTap: () => _editInvestment(context, investment),
@@ -251,7 +252,8 @@ class InvestmentTypeScreen extends StatelessWidget {
                   ),
                 Row(
                   children: [
-                    Text('Date: ${formatDateWithDay(selectedDate)}'),
+                    Text(
+                        'Date: ${AppLocalizations.of(context).dateWithDay(selectedDate)}'),
                     const Spacer(),
                     TextButton(
                       onPressed: () async {

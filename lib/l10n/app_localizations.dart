@@ -2,6 +2,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../utils/date_format.dart';
+
 /// Lightweight, hand-written localization (no codegen). The app is
 /// translation-ready: add a locale by adding its map to [_values] and its
 /// [Locale] to [supportedLocales]. Strings are exposed as getters so a typo is
@@ -193,6 +195,14 @@ class AppLocalizations {
       'budgetWarning': 'Budget warning',
       'overBudgetBody': '{category}: over budget by {amount}',
       'budgetUsedBody': '{category}: {percent}% of budget used',
+      // Weekday abbreviations (Mon..Sun) for date labels
+      'weekdayMon': 'Mon',
+      'weekdayTue': 'Tue',
+      'weekdayWed': 'Wed',
+      'weekdayThu': 'Thu',
+      'weekdayFri': 'Fri',
+      'weekdaySat': 'Sat',
+      'weekdaySun': 'Sun',
     },
     'ta': {
       'appTitle': 'Finance Tracker',
@@ -344,6 +354,14 @@ class AppLocalizations {
       'budgetWarning': 'பட்ஜெட் எச்சரிக்கை',
       'overBudgetBody': '{category}: பட்ஜெட்டை விட {amount} அதிகம்',
       'budgetUsedBody': '{category}: பட்ஜெட்டில் {percent}% பயன்படுத்தப்பட்டது',
+      // Weekday abbreviations (Mon..Sun)
+      'weekdayMon': 'திங்',
+      'weekdayTue': 'செவ்',
+      'weekdayWed': 'புத',
+      'weekdayThu': 'வியா',
+      'weekdayFri': 'வெள்',
+      'weekdaySat': 'சனி',
+      'weekdaySun': 'ஞாயி',
     },
   };
 
@@ -521,6 +539,27 @@ class AppLocalizations {
       _tArgs('overBudgetBody', {'category': category, 'amount': amount});
   String budgetUsedBody(String category, int percent) =>
       _tArgs('budgetUsedBody', {'category': category, 'percent': '$percent'});
+
+  // Dates
+  static const List<String> _weekdayKeys = [
+    'weekdayMon',
+    'weekdayTue',
+    'weekdayWed',
+    'weekdayThu',
+    'weekdayFri',
+    'weekdaySat',
+    'weekdaySun',
+  ];
+
+  /// Localized weekday abbreviation. [weekday] follows DateTime.weekday:
+  /// 1 (Monday) .. 7 (Sunday).
+  String weekdayAbbr(int weekday) =>
+      _t(_weekdayKeys[(weekday - 1) % 7]);
+
+  /// A date labeled with its (localized) weekday, e.g. "Fri, 2026-07-24".
+  /// The numeric part stays ISO in every locale for consistency.
+  String dateWithDay(DateTime date) =>
+      '${weekdayAbbr(date.weekday)}, ${formatIsoDate(date)}';
 }
 
 class _AppLocalizationsDelegate

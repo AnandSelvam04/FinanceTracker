@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../models/recurring_rule.dart';
 import '../providers/account_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../utils/currency_format.dart';
-import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 
 class RecurringScreen extends StatefulWidget {
@@ -135,7 +135,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     children: [
                       Expanded(
                           child: Text(
-                              'Next due: ${formatDateWithDay(_nextDue)}')),
+                              'Next due: ${AppLocalizations.of(context).dateWithDay(_nextDue)}')),
                       TextButton(
                         onPressed: () async {
                           final picked = await showDatePicker(
@@ -237,7 +237,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   title: Text(rule.description,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(
-                      '${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatDateWithDay(rule.nextDue)}'),
+                      '${rule.category} · ${_freqLabel(rule.frequency)} · next ${AppLocalizations.of(context).dateWithDay(rule.nextDue)}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
