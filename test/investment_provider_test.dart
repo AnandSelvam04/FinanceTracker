@@ -136,5 +136,61 @@ void main() {
           breakdown['2026-07']!.fold<int>(0, (s, i) => s + i.amount);
       expect(julyTotal, 200000);
     });
+
+    test('breakdownByPeriod groups weekly (Monday) and yearly', () async {
+      // 2026-07-20 is a Monday; 07-22 is the same ISO week; 07-27 next week.
+      await provider.addInvestment(Investment(
+          name: 'a',
+          amount: 1000,
+          date: DateTime(2026, 7, 20),
+          type: 'Gold'));
+      await provider.addInvestment(Investment(
+          name: 'b',
+          amount: 2000,
+          date: DateTime(2026, 7, 22),
+          type: 'Gold'));
+      await provider.addInvestment(Investment(
+          name: 'c',
+          amount: 4000,
+          date: DateTime(2026, 7, 27),
+          type: 'Gold'));
+      await provider.addInvestment(Investment(
+          name: 'd',
+          amount: 8000,
+          date: DateTime(2025, 3, 1),
+          type: 'Gold'));
+
+      final weekly =
+          provider.breakdownByPeriod('Gold', InvestmentPeriod.weekly);
+      // Two entries share the week of 2026-07-20.
+      expect(weekly['2026-07-20']!.length, 2);
+      expect(weekly['2026-07-27']!.length, 1);
+
+      final yearly =
+          provider.breakdownByPeriod('Gold', InvestmentPeriod.yearly);
+      expect(yearly.keys.toList(), ['2026', '2025']);
+      expect(yearly['2026']!.length, 3);
+      expect(yearly['2025']!.length, 1);
+    });
+
+    test('usedTypes returns distinct types sorted', () async {
+      await provider.addInvestment(Investment(
+          name: 'a',
+          amount: 1000,
+          date: DateTime(2026, 1, 1),
+          type: 'Crypto'));
+      await provider.addInvestment(Investment(
+          name: 'b',
+          amount: 1000,
+          date: DateTime(2026, 1, 2),
+          type: 'Gold'));
+      await provider.addInvestment(Investment(
+          name: 'c',
+          amount: 1000,
+          date: DateTime(2026, 1, 3),
+          type: 'Crypto'));
+
+      expect(provider.usedTypes(), ['Crypto', 'Gold']);
+    });
   });
 }

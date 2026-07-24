@@ -379,6 +379,7 @@ class AppLocalizations {
       'pmDebitCard': 'Debit Card',
       'pmUpi': 'UPI',
       'pmOther': 'Other',
+      'weekOf': 'Week of {date}',
     },
     'ta': {
       'appTitle': 'Finance Tracker',
@@ -714,6 +715,7 @@ class AppLocalizations {
       'pmDebitCard': 'டெபிட் கார்டு',
       'pmUpi': 'UPI',
       'pmOther': 'மற்றவை',
+      'weekOf': 'வாரம் {date}',
     },
   };
 
@@ -937,6 +939,9 @@ class AppLocalizations {
   String get frequency => _t('frequency');
   String get nextDue => _t('nextDue');
   String get nextShort => _t('nextShort');
+  String get freqWeekly => _t('freqWeekly');
+  String get freqMonthly => _t('freqMonthly');
+  String get freqYearly => _t('freqYearly');
   String get fieldRequired => _t('fieldRequired');
   String get invalidValue => _t('invalidValue');
   String get noRecurring => _t('noRecurring');
@@ -1103,6 +1108,8 @@ class AppLocalizations {
   String get billDueToday => _t('billDueToday');
   String get billDueTomorrow => _t('billDueTomorrow');
   String billDueInDaysN(int n) => _tArgs('billDueInDaysN', {'n': '$n'});
+
+  String weekOf(String date) => _tArgs('weekOf', {'date': date});
 
   /// Localized display label for a stored payment-mode value (the DB keeps the
   /// English value; only the label shown to the user is translated).

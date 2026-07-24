@@ -7,20 +7,35 @@ import '../utils/currency_format.dart';
 import 'add_investment_screen.dart';
 
 /// Shows every contribution for a single investment [type], with the running
-/// total and a month-by-month breakdown ("how much did I put into Silver in
-/// each month/year"). Adding here appends a new contribution instead of
-/// forcing the user to edit an existing one.
-class InvestmentTypeScreen extends StatelessWidget {
+/// total and a breakdown that can be grouped by week, month, or year ("how
+/// much did I put into Silver in each period"). Adding here appends a new
+/// contribution instead of forcing the user to edit an existing one.
+class InvestmentTypeScreen extends StatefulWidget {
   final String type;
 
   const InvestmentTypeScreen({super.key, required this.type});
 
-  String _monthLabel(AppLocalizations l, String ym) {
-    // ym is "YYYY-MM".
-    final parts = ym.split('-');
-    final year = parts[0];
-    final month = int.tryParse(parts[1]) ?? 1;
-    return '${l.monthName(month.clamp(1, 12))} $year';
+  @override
+  State<InvestmentTypeScreen> createState() => _InvestmentTypeScreenState();
+}
+
+class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
+  InvestmentPeriod _period = InvestmentPeriod.monthly;
+
+  String get type => widget.type;
+
+  /// Human label for a period bucket key, formatted for the active grouping.
+  String _periodLabel(AppLocalizations l, String key) {
+    switch (_period) {
+      case InvestmentPeriod.weekly:
+        return l.weekOf(key);
+      case InvestmentPeriod.monthly:
+        final parts = key.split('-');
+        final month = int.tryParse(parts.length > 1 ? parts[1] : '') ?? 1;
+        return '${l.monthName(month.clamp(1, 12))} ${parts[0]}';
+      case InvestmentPeriod.yearly:
+        return key;
+    }
   }
 
   @override
@@ -30,7 +45,7 @@ class InvestmentTypeScreen extends StatelessWidget {
       appBar: AppBar(title: Text(type)),
       body: Consumer<InvestmentProvider>(
         builder: (context, provider, _) {
-          final breakdown = provider.monthlyBreakdown(type);
+          final breakdown = provider.breakdownByPeriod(type, _period);
           final entries = provider.ofType(type);
           final total = entries.fold<int>(0, (sum, i) => sum + i.amount);
 
@@ -43,7 +58,7 @@ class InvestmentTypeScreen extends StatelessWidget {
             return const SizedBox.shrink();
           }
 
-          final months = breakdown.keys.toList();
+          final periods = breakdown.keys.toList();
 
           return Column(
             children: [
@@ -68,15 +83,39 @@ class InvestmentTypeScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<InvestmentPeriod>(
+                    segments: [
+                      ButtonSegment(
+                          value: InvestmentPeriod.weekly,
+                          label: Text(l.freqWeekly)),
+                      ButtonSegment(
+                          value: InvestmentPeriod.monthly,
+                          label: Text(l.freqMonthly)),
+                      ButtonSegment(
+                          value: InvestmentPeriod.yearly,
+                          label: Text(l.freqYearly)),
+                    ],
+                    selected: {_period},
+                    onSelectionChanged: (s) =>
+                        setState(() => _period = s.first),
+                    showSelectedIcon: false,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 88),
-                  itemCount: months.length,
+                  itemCount: periods.length,
                   itemBuilder: (context, index) {
-                    final ym = months[index];
-                    final monthItems = breakdown[ym]!;
-                    final monthTotal =
-                        monthItems.fold<int>(0, (sum, i) => sum + i.amount);
+                    final ym = periods[index];
+                    final periodItems = breakdown[ym]!;
+                    final periodTotal =
+                        periodItems.fold<int>(0, (sum, i) => sum + i.amount);
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -87,7 +126,7 @@ class InvestmentTypeScreen extends StatelessWidget {
                                 MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                _monthLabel(l, ym),
+                                _periodLabel(l, ym),
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -97,7 +136,7 @@ class InvestmentTypeScreen extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                formatMoney(monthTotal),
+                                formatMoney(periodTotal),
                                 style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600),
@@ -105,7 +144,8 @@ class InvestmentTypeScreen extends StatelessWidget {
                             ],
                           ),
                         ),
-                        ...monthItems.map((i) => _contributionTile(context, i)),
+                        ...periodItems
+                            .map((i) => _contributionTile(context, i)),
                       ],
                     );
                   },

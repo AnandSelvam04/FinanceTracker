@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../models/investment.dart';
 import '../services/db_service.dart';
 
+/// The time buckets the per-type investment breakdown can be grouped into.
+enum InvestmentPeriod { weekly, monthly, yearly }
+
 class InvestmentProvider extends ChangeNotifier {
   List<Investment> _investments = [];
 
@@ -26,6 +29,40 @@ class InvestmentProvider extends ChangeNotifier {
   /// Every contribution of [type], newest first (the fetch order).
   List<Investment> ofType(String type) =>
       _investments.where((i) => i.type == type).toList();
+
+  /// Distinct investment types the user has actually used, sorted. Lets the
+  /// Add screen offer previously entered custom types (e.g. Crypto, PPF) so a
+  /// type only has to be typed once.
+  List<String> usedTypes() =>
+      (_investments.map((i) => i.type).toSet().toList())..sort();
+
+  /// The group key for [date] under [period]. Weekly buckets by the Monday of
+  /// the week (ISO date), so keys sort chronologically as plain strings.
+  static String periodKey(DateTime date, InvestmentPeriod period) {
+    switch (period) {
+      case InvestmentPeriod.weekly:
+        final monday = DateTime(date.year, date.month, date.day)
+            .subtract(Duration(days: date.weekday - 1));
+        return '${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
+      case InvestmentPeriod.monthly:
+        return '${date.year}-${date.month.toString().padLeft(2, '0')}';
+      case InvestmentPeriod.yearly:
+        return '${date.year}';
+    }
+  }
+
+  /// Contributions of [type] grouped into [period] buckets, newest bucket
+  /// first, each bucket's entries newest first. Powers the weekly/monthly/
+  /// yearly breakdown on the type detail screen.
+  Map<String, List<Investment>> breakdownByPeriod(
+      String type, InvestmentPeriod period) {
+    final byKey = <String, List<Investment>>{};
+    for (final i in ofType(type)) {
+      byKey.putIfAbsent(periodKey(i.date, period), () => []).add(i);
+    }
+    final ordered = byKey.keys.toList()..sort((a, b) => b.compareTo(a));
+    return {for (final k in ordered) k: byKey[k]!};
+  }
 
   /// Contributions of [type] grouped by calendar month keyed as `YYYY-MM`,
   /// newest month first, with each month's entries newest first. This powers

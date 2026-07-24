@@ -26,20 +26,40 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   late String _selectedType;
   bool _isSaving = false;
 
-  final List<String> _types = Investment.builtInTypes;
+  /// Built-in types plus any custom types the user has already used, with
+  /// "Other" always last. Built via [_buildTypes] in initState.
+  late final List<String> _types;
 
   static const List<String> _monthAbbr = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
 
+  /// Merges the built-in types with the user's previously entered custom types
+  /// so a type only has to be typed once — after that it appears in the
+  /// dropdown and can simply be picked.
+  List<String> _buildTypes() {
+    final base = Investment.builtInTypes
+        .where((t) => t != Investment.otherType)
+        .toList();
+    for (final t in context.read<InvestmentProvider>().usedTypes()) {
+      if (t.isNotEmpty && !base.contains(t)) base.add(t);
+    }
+    base.add(Investment.otherType);
+    return base;
+  }
+
   @override
   void initState() {
     super.initState();
-    // If the caller passed a built-in type, start on it; a custom type starts
-    // on "Other" with the value prefilled so it round-trips.
+    _types = _buildTypes();
+    // If the caller passed a known type (built-in or a previously used custom
+    // one), start on it; an unknown type starts on "Other" with the value
+    // prefilled so it round-trips.
     final initial = widget.initialType;
-    if (initial != null && _types.contains(initial)) {
+    if (initial != null &&
+        initial != Investment.otherType &&
+        _types.contains(initial)) {
       _selectedType = initial;
     } else if (initial != null && initial.isNotEmpty) {
       _selectedType = Investment.otherType;
