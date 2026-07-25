@@ -43,10 +43,20 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      # Stamp the build so Settings > About shows which commit an installed
+      # APK came from (see lib/utils/build_info.dart).
+      - name: Resolve build identity
+        id: build_id
+        run: |
+          echo "version=$(grep '^version:' pubspec.yaml | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
       # Split per ABI so each APK targets one architecture. Release is
       # signed with the debug key (see android/app/build.gradle.kts), so the
       # output is installable for testing.
-      - run: flutter build apk --release --split-per-abi
+      - run: |
+          flutter build apk --release --split-per-abi \
+            --dart-define=APP_VERSION=${{ steps.build_id.outputs.version }} \
+            --dart-define=GIT_SHA=${{ steps.build_id.outputs.sha }}
       - name: Upload x86_64 APK
         uses: actions/upload-artifact@v4
         with:

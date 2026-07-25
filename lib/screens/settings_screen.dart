@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/db_service.dart';
 import '../services/notification_service.dart';
+import '../utils/build_info.dart';
 import '../utils/insets.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -200,6 +202,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: _encryptionBusy
                     ? null
                     : (v) => _toggleEncryption(v),
+              ),
+              const Divider(),
+              _SectionHeader('About'),
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('Version'),
+                // Identifies the exact build, so a screenshot or bug report
+                // can be tied back to a commit. Tap to copy.
+                subtitle: Text(BuildInfo.label),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: BuildInfo.label));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Version copied')),
+                  );
+                },
               ),
             ],
           );
