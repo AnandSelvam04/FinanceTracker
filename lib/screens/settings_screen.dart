@@ -6,6 +6,7 @@ import '../providers/expense_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/db_service.dart';
 import '../services/notification_service.dart';
+import '../utils/insets.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -88,6 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: Consumer2<SettingsProvider, AccountProvider>(
         builder: (context, settings, accounts, _) {
           return ListView(
+            padding: scrollPadding(context, all: 0),
             children: [
               _SectionHeader(l.sectionGeneral),
               ListTile(

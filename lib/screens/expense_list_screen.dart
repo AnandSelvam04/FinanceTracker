@@ -11,7 +11,7 @@ import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
-import '../utils/sheet_layout.dart';
+import '../utils/insets.dart';
 import '../utils/transaction_filter.dart';
 
 class ExpenseListScreen extends StatefulWidget {
@@ -703,7 +703,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 return ListView.separated(
                   itemCount: expenses.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  padding: const EdgeInsets.all(12),
+                  padding: scrollPadding(context, all: 12, fab: true),
                   itemBuilder: (context, index) {
                     final expense = expenses[index];
                     return Dismissible(

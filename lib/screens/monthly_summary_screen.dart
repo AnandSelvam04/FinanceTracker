@@ -7,6 +7,7 @@ import '../services/statement_pdf.dart';
 import '../utils/category_colors.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/insets.dart';
 import '../widgets/month_selector.dart';
 
 class MonthlySummaryScreen extends StatefulWidget {
@@ -101,7 +102,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
           final txCount = provider.expensesForMonth(_year, _month).length;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: scrollPadding(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

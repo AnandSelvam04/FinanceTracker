@@ -13,6 +13,7 @@ import '../providers/recurring_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 import 'import_screen.dart';
+import '../utils/insets.dart';
 
 class BackupsScreen extends StatefulWidget {
   const BackupsScreen({super.key});
@@ -205,7 +206,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(l.backupExport)),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: scrollPadding(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

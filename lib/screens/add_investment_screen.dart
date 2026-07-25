@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/investment_provider.dart';
 import '../models/investment.dart';
 import '../utils/currency_format.dart';
+import '../utils/insets.dart';
 
 class AddInvestmentScreen extends StatefulWidget {
   /// Pre-selects a type so "add another contribution" from a type's detail
@@ -96,7 +97,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(l.addInvestment)),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: scrollPadding(context),
         child: Form(
           key: _formKey,
           child: Column(

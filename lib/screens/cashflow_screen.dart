@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/expense_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/insets.dart';
 import '../widgets/cashflow_chart.dart';
 
 class CashflowScreen extends StatefulWidget {
@@ -44,7 +45,7 @@ class _CashflowScreenState extends State<CashflowScreen> {
           final net = totalIncome - totalExpense;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: scrollPadding(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -11,6 +11,7 @@ import '../services/db_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import '../utils/insets.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
@@ -108,7 +109,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(_isIncome ? l.addIncome : l.addExpense)),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: scrollPadding(context),
         child: Form(
           key: _formKey,
           child: Column(

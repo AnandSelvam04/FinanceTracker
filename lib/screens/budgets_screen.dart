@@ -5,6 +5,7 @@ import '../models/budget.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
 import '../utils/currency_format.dart';
+import '../utils/insets.dart';
 
 class BudgetsScreen extends StatefulWidget {
   const BudgetsScreen({super.key});
@@ -185,7 +186,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
 
           return ListView.separated(
             itemCount: budgets.length,
-            padding: const EdgeInsets.all(12),
+            padding: scrollPadding(context, all: 12, fab: true),
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final budget = budgets[index];

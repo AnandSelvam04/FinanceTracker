@@ -5,6 +5,7 @@ import '../models/account.dart';
 import '../providers/account_provider.dart';
 import '../providers/settings_provider.dart';
 import '../utils/currency_format.dart';
+import '../utils/insets.dart';
 import 'add_transfer_screen.dart';
 
 class AccountsScreen extends StatefulWidget {
@@ -273,7 +274,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               Expanded(
                 child: ListView.separated(
                   itemCount: accounts.length,
-                  padding: const EdgeInsets.all(12),
+                  padding: scrollPadding(context, all: 12, fab: true),
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final account = accounts[index];

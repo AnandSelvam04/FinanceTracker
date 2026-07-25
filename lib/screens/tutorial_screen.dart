@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../utils/insets.dart';
 
 class TutorialScreen extends StatelessWidget {
   const TutorialScreen({super.key});
@@ -44,7 +45,7 @@ class TutorialScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(l.howToUse)),
       body: ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: scrollPadding(context),
         itemBuilder: (context, index) {
           final step = steps[index];
           return Card(

@@ -6,6 +6,7 @@ import '../providers/account_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import '../utils/insets.dart';
 
 class RecurringScreen extends StatefulWidget {
   const RecurringScreen({super.key});
@@ -204,7 +205,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
           }
           return ListView.separated(
             itemCount: rules.length,
-            padding: const EdgeInsets.all(12),
+            padding: scrollPadding(context, all: 12, fab: true),
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final rule = rules[index];

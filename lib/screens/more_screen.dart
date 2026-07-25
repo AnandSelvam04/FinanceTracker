@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../services/backup_service.dart';
+import '../utils/insets.dart';
 import 'accounts_screen.dart';
 import 'backups_screen.dart';
 import 'budgets_screen.dart';
@@ -69,6 +70,8 @@ class _MoreScreenState extends State<MoreScreen> {
     final l = AppLocalizations.of(context);
     return Scaffold(
       body: ListView(
+        // Leaves room under the dashboard FAB so the last tile stays tappable.
+        padding: scrollPadding(context, all: 0, fab: true),
         children: [
           ListTile(
             leading: const Icon(Icons.account_balance),

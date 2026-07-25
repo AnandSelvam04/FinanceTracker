@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
+import '../utils/insets.dart';
 import 'add_investment_screen.dart';
 import 'investment_type_screen.dart';
 
@@ -78,7 +79,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                 child: ListView.separated(
                   itemCount: totalsByType.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  padding: const EdgeInsets.all(12),
+                  padding: scrollPadding(context, all: 12, fab: true),
                   itemBuilder: (context, index) {
                     final entry = totalsByType[index];
                     final type = entry.key;

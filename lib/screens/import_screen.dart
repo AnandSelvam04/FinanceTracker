@@ -12,6 +12,7 @@ import '../services/csv_import.dart';
 import '../services/db_service.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import '../utils/insets.dart';
 
 class ImportScreen extends StatefulWidget {
   const ImportScreen({super.key});
@@ -144,7 +145,7 @@ class _ImportScreenState extends State<ImportScreen> {
               ),
             )
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: scrollPadding(context),
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,

@@ -7,6 +7,7 @@ import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import '../utils/insets.dart';
 
 class AddTransferScreen extends StatefulWidget {
   const AddTransferScreen({super.key});
@@ -66,7 +67,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
               ),
             )
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: scrollPadding(context),
               child: Form(
                 key: _formKey,
                 child: Column(

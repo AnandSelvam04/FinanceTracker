@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/expense_provider.dart';
 import '../utils/category_colors.dart';
+import '../utils/insets.dart';
 import '../widgets/category_trend_chart.dart';
 
 class CategoryTrendsScreen extends StatefulWidget {
@@ -65,7 +66,7 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: scrollPadding(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

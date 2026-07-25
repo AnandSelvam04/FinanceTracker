@@ -4,7 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../models/investment.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
-import '../utils/sheet_layout.dart';
+import '../utils/insets.dart';
 import 'add_investment_screen.dart';
 
 /// Shows every contribution for a single investment [type], with the running
@@ -110,7 +110,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
               const SizedBox(height: 4),
               Expanded(
                 child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 88),
+                  padding: scrollPadding(context, all: 12, top: 0, fab: true),
                   itemCount: periods.length,
                   itemBuilder: (context, index) {
                     final ym = periods[index];
