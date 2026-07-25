@@ -77,6 +77,28 @@ void main() {
       expect(en.hoursAgo(3), '3 hours ago');
     });
 
+    test('lockAfterMinutes switches on singular/plural', () {
+      expect(en.lockAfterMinutes(1), 'After 1 minute');
+      expect(en.lockAfterMinutes(5), 'After 5 minutes');
+      expect(en.lockAfterSeconds(15), 'After 15 seconds');
+      // Tamil uses a distinct singular form and leaves no {n} unsubstituted.
+      expect(ta.lockAfterMinutes(1), isNot(contains('{n}')));
+      expect(ta.lockAfterMinutes(5), contains('5'));
+      expect(ta.lockAfterMinutes(1), isNot(ta.lockAfterMinutes(5)));
+    });
+
+    test('onboarding and service strings are localized', () {
+      expect(en.getStarted, 'Get Started');
+      expect(ta.getStarted, isNot('Get Started'));
+      expect(en.authReason, contains('authenticate'));
+      expect(ta.channelName, isNot(en.channelName));
+    });
+
+    test('expenseBreakdownBy substitutes the category list', () {
+      expect(en.expenseBreakdownBy('Food, Rent'),
+          'Expense breakdown by category: Food, Rent');
+    });
+
     test('argument substitution fills every placeholder', () {
       expect(en.importedSkipped(10, 2), 'Imported 10, skipped 2');
       expect(en.willImportSkip(8, 1), 'Will import 8, skip 1.');

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback? onFinish;
   const OnboardingScreen({super.key, this.onFinish});
@@ -10,27 +12,30 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   int _page = 0;
-  final List<_OnboardPage> _pages = const [
-    _OnboardPage(
-      title: 'Welcome to FinanceTracker',
-      description:
-          'Track expenses, investments, and budgets — all in one place.\n\nQuick manual entry with smart category suggestions.',
-      icon: Icons.account_balance_wallet,
-    ),
-    _OnboardPage(
-      title: 'Secure & Backup',
-      description: 'PIN/biometric lock, local backup, CSV export.',
-      icon: Icons.security,
-    ),
-    _OnboardPage(
-      title: 'Dashboard & Charts',
-      description: 'Visualize your spending with charts and analytics.',
-      icon: Icons.pie_chart,
-    ),
-  ];
+
+  /// Built per-build so the copy follows the active locale.
+  List<_OnboardPage> _buildPages(AppLocalizations l) => [
+        _OnboardPage(
+          title: l.onbTitle1,
+          description: l.onbBody1,
+          icon: Icons.account_balance_wallet,
+        ),
+        _OnboardPage(
+          title: l.onbTitle2,
+          description: l.onbBody2,
+          icon: Icons.security,
+        ),
+        _OnboardPage(
+          title: l.onbTitle3,
+          description: l.onbBody3,
+          icon: Icons.pie_chart,
+        ),
+      ];
+
+  static const int _pageCount = 3;
 
   void _next() {
-    if (_page < _pages.length - 1) {
+    if (_page < _pageCount - 1) {
       setState(() => _page++);
     } else {
       if (widget.onFinish != null) {
@@ -43,7 +48,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final page = _pages[_page];
+    final l = AppLocalizations.of(context);
+    final page = _buildPages(l)[_page];
     return Scaffold(
       body: Center(
         child: Padding(
@@ -63,7 +69,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: _next,
-                child: Text(_page < _pages.length - 1 ? 'Next' : 'Get Started'),
+                child:
+                    Text(_page < _pageCount - 1 ? l.next : l.getStarted),
               ),
             ],
           ),

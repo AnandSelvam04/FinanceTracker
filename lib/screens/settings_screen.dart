@@ -16,13 +16,14 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  static const _lockOptions = <int, String>{
-    0: 'Immediately',
-    15: 'After 15 seconds',
-    30: 'After 30 seconds',
-    60: 'After 1 minute',
-    300: 'After 5 minutes',
-  };
+  /// Auto-lock delays, labelled in the active locale.
+  static Map<int, String> _lockOptions(AppLocalizations l) => {
+        0: l.lockImmediately,
+        15: l.lockAfterSeconds(15),
+        30: l.lockAfterSeconds(30),
+        60: l.lockAfterMinutes(1),
+        300: l.lockAfterMinutes(5),
+      };
 
   bool _encryptionEnabled = false;
   bool _encryptionBusy = false;
@@ -171,11 +172,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: Text(l.autoLock),
                 subtitle: Text(l.autoLockSubtitle),
                 trailing: DropdownButton<int>(
-                  value: _lockOptions.containsKey(settings.lockTimeoutSeconds)
-                      ? settings.lockTimeoutSeconds
-                      : null,
+                  value:
+                      _lockOptions(l).containsKey(settings.lockTimeoutSeconds)
+                          ? settings.lockTimeoutSeconds
+                          : null,
                   hint: Text('${settings.lockTimeoutSeconds}s'),
-                  items: _lockOptions.entries
+                  items: _lockOptions(l).entries
                       .map((e) => DropdownMenuItem(
                           value: e.key, child: Text(e.value)))
                       .toList(),

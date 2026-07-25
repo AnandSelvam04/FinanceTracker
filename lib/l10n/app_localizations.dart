@@ -380,6 +380,36 @@ class AppLocalizations {
       'pmUpi': 'UPI',
       'pmOther': 'Other',
       'weekOf': 'Week of {date}',
+      // Onboarding
+      'onbTitle1': 'Welcome to FinanceTracker',
+      'onbBody1':
+          'Track expenses, investments, and budgets — all in one place.\n\nQuick manual entry with smart category suggestions.',
+      'onbTitle2': 'Secure & Backup',
+      'onbBody2': 'PIN/biometric lock, local backup, CSV export.',
+      'onbTitle3': 'Dashboard & Charts',
+      'onbBody3': 'Visualize your spending with charts and analytics.',
+      'next': 'Next',
+      'getStarted': 'Get Started',
+      // Auto-lock choices
+      'lockImmediately': 'Immediately',
+      'lockAfterSeconds': 'After {n} seconds',
+      'lockAfterMinuteOne': 'After 1 minute',
+      'lockAfterMinutesMany': 'After {n} minutes',
+      // More tab
+      'noBackupYetTap': 'No backup yet — tap to protect your data',
+      // Validators
+      'invalidNumber': 'Invalid number',
+      'enterPositiveRate': 'Enter a positive rate',
+      'invalidYear': 'Invalid year',
+      'invalidMonth': 'Invalid month',
+      // Services
+      'authReason': 'Please authenticate to access FinanceTracker',
+      'channelName': 'Budget & bill alerts',
+      'channelDesc': 'Reminders for due bills and budget limits',
+      'notValidEncryptedBackup': 'Not a valid encrypted backup',
+      'notFinanceTrackerBackup': 'Not an encrypted Finance Tracker backup',
+      // Charts
+      'expenseBreakdownBy': 'Expense breakdown by category: {categories}',
     },
     'ta': {
       'appTitle': 'Finance Tracker',
@@ -716,6 +746,39 @@ class AppLocalizations {
       'pmUpi': 'UPI',
       'pmOther': 'மற்றவை',
       'weekOf': 'வாரம் {date}',
+      // Onboarding
+      'onbTitle1': 'FinanceTracker க்கு வரவேற்கிறோம்',
+      'onbBody1':
+          'செலவுகள், முதலீடுகள் மற்றும் பட்ஜெட்டுகள் — அனைத்தும் ஒரே இடத்தில்.\n\nபுத்திசாலி பிரிவு பரிந்துரைகளுடன் விரைவான கைமுறை பதிவு.',
+      'onbTitle2': 'பாதுகாப்பு & காப்புப்பிரதி',
+      'onbBody2': 'PIN/பயோமெட்ரிக் பூட்டு, உள்ளூர் காப்புப்பிரதி, CSV ஏற்றுமதி.',
+      'onbTitle3': 'டாஷ்போர்டு & விளக்கப்படங்கள்',
+      'onbBody3':
+          'விளக்கப்படங்கள் மற்றும் பகுப்பாய்வுகளுடன் உங்கள் செலவைக் காட்சிப்படுத்துங்கள்.',
+      'next': 'அடுத்து',
+      'getStarted': 'தொடங்கு',
+      // Auto-lock choices
+      'lockImmediately': 'உடனடியாக',
+      'lockAfterSeconds': '{n} விநாடிகளுக்குப் பிறகு',
+      'lockAfterMinuteOne': '1 நிமிடத்திற்குப் பிறகு',
+      'lockAfterMinutesMany': '{n} நிமிடங்களுக்குப் பிறகு',
+      // More tab
+      'noBackupYetTap':
+          'இன்னும் காப்புப்பிரதி இல்லை — உங்கள் தரவைப் பாதுகாக்க தட்டவும்',
+      // Validators
+      'invalidNumber': 'தவறான எண்',
+      'enterPositiveRate': 'நேர்மறை விகிதத்தை உள்ளிடவும்',
+      'invalidYear': 'தவறான ஆண்டு',
+      'invalidMonth': 'தவறான மாதம்',
+      // Services
+      'authReason': 'FinanceTracker ஐ அணுக அங்கீகரிக்கவும்',
+      'channelName': 'பட்ஜெட் & பில் எச்சரிக்கைகள்',
+      'channelDesc': 'செலுத்த வேண்டிய பில்கள் மற்றும் பட்ஜெட் வரம்புகளுக்கான நினைவூட்டல்கள்',
+      'notValidEncryptedBackup': 'செல்லுபடியான குறியாக்கப்பட்ட காப்புப்பிரதி அல்ல',
+      'notFinanceTrackerBackup':
+          'குறியாக்கப்பட்ட Finance Tracker காப்புப்பிரதி அல்ல',
+      // Charts
+      'expenseBreakdownBy': 'பிரிவு வாரியாக செலவு விவரம்: {categories}',
     },
   };
 
@@ -1110,6 +1173,43 @@ class AppLocalizations {
   String billDueInDaysN(int n) => _tArgs('billDueInDaysN', {'n': '$n'});
 
   String weekOf(String date) => _tArgs('weekOf', {'date': date});
+
+  // Onboarding
+  String get onbTitle1 => _t('onbTitle1');
+  String get onbBody1 => _t('onbBody1');
+  String get onbTitle2 => _t('onbTitle2');
+  String get onbBody2 => _t('onbBody2');
+  String get onbTitle3 => _t('onbTitle3');
+  String get onbBody3 => _t('onbBody3');
+  String get next => _t('next');
+  String get getStarted => _t('getStarted');
+
+  // Auto-lock choices
+  String get lockImmediately => _t('lockImmediately');
+  String lockAfterSeconds(int n) => _tArgs('lockAfterSeconds', {'n': '$n'});
+  String lockAfterMinutes(int n) => n == 1
+      ? _t('lockAfterMinuteOne')
+      : _tArgs('lockAfterMinutesMany', {'n': '$n'});
+
+  // More tab
+  String get noBackupYetTap => _t('noBackupYetTap');
+
+  // Validators
+  String get invalidNumber => _t('invalidNumber');
+  String get enterPositiveRate => _t('enterPositiveRate');
+  String get invalidYear => _t('invalidYear');
+  String get invalidMonth => _t('invalidMonth');
+
+  // Services
+  String get authReason => _t('authReason');
+  String get channelName => _t('channelName');
+  String get channelDesc => _t('channelDesc');
+  String get notValidEncryptedBackup => _t('notValidEncryptedBackup');
+  String get notFinanceTrackerBackup => _t('notFinanceTrackerBackup');
+
+  // Charts
+  String expenseBreakdownBy(String categories) =>
+      _tArgs('expenseBreakdownBy', {'categories': categories});
 
   /// Localized display label for a stored payment-mode value (the DB keeps the
   /// English value; only the label shown to the user is translated).

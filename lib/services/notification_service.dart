@@ -26,8 +26,6 @@ class NotificationService {
   bool _tzReady = false;
 
   static const _channelId = 'finance_alerts';
-  static const _channelName = 'Budget & bill alerts';
-  static const _channelDesc = 'Reminders for due bills and budget limits';
 
   // Disjoint id ranges so bill reminders and budget alerts never collide and
   // can be cancelled independently.
@@ -73,15 +71,20 @@ class NotificationService {
     }
   }
 
-  NotificationDetails _details() => NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          channelDescription: _channelDesc,
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
-        ),
-      );
+  NotificationDetails _details() {
+    // Channel name/description show in the Android notification settings, so
+    // resolve them against the device locale.
+    final l = AppLocalizations.resolve();
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        _channelId,
+        l.channelName,
+        channelDescription: l.channelDesc,
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      ),
+    );
+  }
 
   Future<void> _show(int id, String title, String body) async {
     if (!_initialized) return;

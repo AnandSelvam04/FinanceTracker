@@ -63,7 +63,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 initialValue: _category,
                 decoration: InputDecoration(labelText: l.category),
                 validator: (value) =>
-                    (value == null || value.isEmpty) ? 'Required' : null,
+                    (value == null || value.isEmpty) ? l.fieldRequired : null,
                 onSaved: (value) => _category = value ?? '',
               ),
               TextFormField(
@@ -72,7 +72,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   final parsed = double.tryParse(value ?? '');
-                  return parsed == null ? 'Invalid number' : null;
+                  return parsed == null ? l.invalidNumber : null;
                 },
                 onSaved: (value) => _amount = parseMinor(value ?? '0') ?? 0,
               ),
@@ -85,7 +85,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                       initialValue: _year.toString(),
                       validator: (value) {
                         final parsed = int.tryParse(value ?? '');
-                        return parsed == null ? 'Invalid year' : null;
+                        return parsed == null ? l.invalidYear : null;
                       },
                       onSaved: (value) => _year =
                           int.tryParse(value ?? '${DateTime.now().year}') ??
@@ -101,7 +101,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                       validator: (value) {
                         final parsed = int.tryParse(value ?? '');
                         if (parsed == null || parsed < 1 || parsed > 12) {
-                          return 'Invalid month';
+                          return l.invalidMonth;
                         }
                         return null;
                       },

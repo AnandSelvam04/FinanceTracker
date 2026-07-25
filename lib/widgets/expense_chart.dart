@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/expense.dart';
 import '../utils/category_colors.dart';
 
@@ -20,8 +21,8 @@ class ExpenseChart extends StatelessWidget {
             ))
         .toList();
     return Semantics(
-      label: 'Expense breakdown by category: '
-          '${data.keys.join(', ')}',
+      label: AppLocalizations.of(context)
+          .expenseBreakdownBy(data.keys.join(', ')),
       child: PieChart(
         PieChartData(
           sections: sections,

@@ -78,7 +78,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                       initialValue: _name,
                       decoration: InputDecoration(labelText: l.accountName),
                       validator: (value) =>
-                          (value == null || value.isEmpty) ? 'Required' : null,
+                          (value == null || value.isEmpty) ? l.fieldRequired : null,
                       onSaved: (value) => _name = value ?? '',
                     ),
                     DropdownButtonFormField<String>(
@@ -119,7 +119,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           if (!isForeign) return null;
                           final r = double.tryParse(value ?? '');
                           return (r == null || r <= 0)
-                              ? 'Enter a positive rate'
+                              ? l.enterPositiveRate
                               : null;
                         },
                         onSaved: (value) =>
@@ -137,7 +137,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                       validator: (value) {
                         if (value == null || value.isEmpty) return null;
                         return double.tryParse(value) == null
-                            ? 'Invalid number'
+                            ? l.invalidNumber
                             : null;
                       },
                       onSaved: (value) =>

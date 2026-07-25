@@ -46,16 +46,16 @@ class _MoreScreenState extends State<MoreScreen> {
 
   /// Short human-friendly backup age shown under the Backup tile, so the
   /// nudge is visible without opening the backup screen.
-  String get _backupSubtitle {
+  String _backupSubtitle(AppLocalizations l) {
     final t = _lastBackup;
-    if (t == null) return 'No backup yet — tap to protect your data';
+    if (t == null) return l.noBackupYetTap;
     final d = DateTime.now().difference(t);
     final ago = d.inDays >= 1
-        ? '${d.inDays} day${d.inDays == 1 ? '' : 's'} ago'
+        ? l.daysAgo(d.inDays)
         : d.inHours >= 1
-            ? '${d.inHours} hour${d.inHours == 1 ? '' : 's'} ago'
-            : 'just now';
-    return 'Last backup: $ago';
+            ? l.hoursAgo(d.inHours)
+            : l.justNow;
+    return l.lastBackup(ago);
   }
 
   Future<void> _setBiometricEnabled(bool value) async {
@@ -157,7 +157,7 @@ class _MoreScreenState extends State<MoreScreen> {
               leading: Icon(Icons.cloud,
                   color: stale ? Colors.orange : null),
               title: Text(l.backupExport),
-              subtitle: Text(_backupSubtitle,
+              subtitle: Text(_backupSubtitle(l),
                   style: stale
                       ? const TextStyle(color: Colors.orange)
                       : null),
