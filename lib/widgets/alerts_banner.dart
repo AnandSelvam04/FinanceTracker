@@ -86,7 +86,7 @@ class AlertsBanner extends StatelessWidget {
             child: Text(
               over
                   ? '${a.category}: over budget by ${formatMoney(a.spent - a.budget)}'
-                  : '${a.category}: \$pct% of budget used',
+                  : '${a.category}: $pct% of budget used',
               style: const TextStyle(fontSize: 13),
             ),
           ),

@@ -199,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: _encryptionEnabled,
                 onChanged: _encryptionBusy
                     ? null
-                    : (v) => _toggleEncryption(v, l),
+                    : (v) => _toggleEncryption(v),
               ),
             ],
           );
