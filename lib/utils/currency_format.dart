@@ -23,6 +23,15 @@ int? parseMinor(String input) {
 String formatMoney(int minor) =>
     '${CurrencyFormat.symbol}${(minor / 100).toStringAsFixed(2)}';
 
+/// Formats a possibly-negative amount with the minus sign *before* the
+/// currency symbol — "-₹75.00", the conventional presentation.
+///
+/// [formatMoney] puts the symbol first, so a negative value comes out as
+/// "₹-75.00". Use this wherever the amount can legitimately be negative
+/// (net totals, net worth, balances).
+String formatMoneySigned(int minor) =>
+    '${minor < 0 ? '-' : ''}${formatMoney(minor.abs())}';
+
 /// Like [formatMoney] but with an explicit [symbol], for accounts held in a
 /// currency other than the app's base currency.
 String formatMoneyIn(String symbol, int minor) =>

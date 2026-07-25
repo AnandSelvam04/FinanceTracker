@@ -76,7 +76,7 @@ class StatementPdf {
               children: [
                 _summaryCell('Income', formatMoney(income)),
                 _summaryCell('Expense', formatMoney(expense)),
-                _summaryCell('Net', formatMoney(net)),
+                _summaryCell('Net', formatMoneySigned(net)),
                 _summaryCell('Transactions', '${transactions.length}'),
               ],
             ),

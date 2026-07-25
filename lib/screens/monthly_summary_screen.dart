@@ -127,7 +127,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                         _row('Expense', formatMoney(expense),
                             color: expenseColor(context)),
                         const Divider(),
-                        _row('Net', formatMoney(net),
+                        _row('Net', formatMoneySigned(net),
                             color: net >= 0
                                 ? incomeColor(context)
                                 : expenseColor(context),

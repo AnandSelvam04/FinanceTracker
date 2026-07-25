@@ -132,7 +132,7 @@ class _SummaryRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label),
-        Text(formatMoney(value),
+        Text(formatMoneySigned(value),
             style: TextStyle(fontWeight: FontWeight.bold, color: color)),
       ],
     );
