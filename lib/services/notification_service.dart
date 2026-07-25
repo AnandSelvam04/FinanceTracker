@@ -71,8 +71,7 @@ class NotificationService {
   }
 
   NotificationDetails _details() {
-    // Channel name/description show in the Android notification settings, so
-    // resolve them against the device locale.
+    // Channel name/description show in the Android notification settings.
     return NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,

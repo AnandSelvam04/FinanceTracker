@@ -15,7 +15,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  /// Auto-lock delays, labelled in the active locale.
+  /// Auto-lock delay choices, keyed by their value in seconds.
   static Map<int, String> get _lockOptions => {
         0: 'Immediately',
         15: 'After 15 seconds',

@@ -4,7 +4,6 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
-
 /// Passphrase-based AES-GCM encryption for backup files. Produces a
 /// self-describing JSON envelope so a restore can detect an encrypted backup
 /// and decrypt it. The passphrase is never stored; a forgotten passphrase

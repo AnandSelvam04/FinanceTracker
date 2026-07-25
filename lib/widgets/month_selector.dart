@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 /// Month stepper shared by the dashboard and the monthly summary screen.
 class MonthSelector extends StatefulWidget {
   final void Function(int year, int month) onChanged;
