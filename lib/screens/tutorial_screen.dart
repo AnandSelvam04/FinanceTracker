@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../l10n/app_localizations.dart';
 import '../utils/insets.dart';
 
 class TutorialScreen extends StatelessWidget {
@@ -8,42 +7,41 @@ class TutorialScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final steps = <_TutorialStep>[
       _TutorialStep(
-        title: l.tutStep1Title,
-        body: l.tutStep1Body,
+        title: 'Add your first entries',
+        body: 'Use Add Expense or Add Investment to record transactions with amount, date, and category/type.',
         icon: Icons.playlist_add,
       ),
       _TutorialStep(
-        title: l.tutStep2Title,
-        body: l.tutStep2Body,
+        title: 'See monthly or yearly totals',
+        body: 'On Home, switch Month/Year to view charts, totals, and category breakdowns.',
         icon: Icons.bar_chart,
       ),
       _TutorialStep(
-        title: l.tutStep3Title,
-        body: l.tutStep3Body,
+        title: 'Back up before switching devices',
+        body: 'Open Backups to save to Google Drive (appData) or create a local JSON/CSV export.',
         icon: Icons.cloud_upload,
       ),
       _TutorialStep(
-        title: l.tutStep4Title,
-        body: l.tutStep4Body,
+        title: 'Restore anytime',
+        body: 'Use Restore from Drive or local JSON to bring data back after reinstall or on a new phone.',
         icon: Icons.restore,
       ),
       _TutorialStep(
-        title: l.tutStep5Title,
-        body: l.tutStep5Body,
+        title: 'Set budgets and track spending',
+        body: 'Add monthly budgets per category in the Budgets tab to monitor progress and avoid overspending.',
         icon: Icons.account_balance_wallet,
       ),
       _TutorialStep(
-        title: l.tutStep6Title,
-        body: l.tutStep6Body,
+        title: 'Optional app lock',
+        body: 'Enable "App lock" in the More tab to require biometrics or your device PIN on launch.',
         icon: Icons.fingerprint,
       ),
     ];
 
     return Scaffold(
-      appBar: AppBar(title: Text(l.howToUse)),
+      appBar: AppBar(title: const Text('How to use')),
       body: ListView.separated(
         padding: scrollPadding(context),
         itemBuilder: (context, index) {

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../l10n/app_localizations.dart';
 import '../models/recurring_rule.dart';
 import '../providers/account_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
+import '../utils/date_format.dart';
 
 class RecurringScreen extends StatefulWidget {
   const RecurringScreen({super.key});
@@ -34,8 +34,22 @@ class _RecurringScreenState extends State<RecurringScreen> {
     });
   }
 
+  static String _freqLabel(String freq) {
+    switch (freq) {
+      case DbConstants.freqDaily:
+        return 'Daily';
+      case DbConstants.freqWeekly:
+        return 'Weekly';
+      case DbConstants.freqMonthly:
+        return 'Monthly';
+      case DbConstants.freqYearly:
+        return 'Yearly';
+      default:
+        return freq;
+    }
+  }
+
   Future<void> _showRuleDialog({RecurringRule? rule}) async {
-    final l = AppLocalizations.of(context);
     _description = rule?.description ?? '';
     _amount = rule?.amount ?? 0;
     _category = rule?.category ?? '';
@@ -50,7 +64,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(rule == null ? l.addRecurring : l.editRecurring),
+          title: Text(rule == null ? 'Add Recurring' : 'Edit Recurring'),
           content: Form(
             key: _formKey,
             child: SingleChildScrollView(
@@ -60,47 +74,47 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   TextFormField(
                     initialValue: _description,
                     decoration:
-                        InputDecoration(labelText: l.description),
+                        const InputDecoration(labelText: 'Description'),
                     validator: (v) =>
-                        (v == null || v.isEmpty) ? l.fieldRequired : null,
+                        (v == null || v.isEmpty) ? 'Required' : null,
                     onSaved: (v) => _description = v ?? '',
                   ),
                   TextFormField(
                     initialValue:
                         _amount == 0 ? '' : minorToEditString(_amount),
-                    decoration: InputDecoration(labelText: l.amount),
+                    decoration: const InputDecoration(labelText: 'Amount'),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     validator: (v) =>
-                        double.tryParse(v ?? '') == null ? l.invalidValue : null,
+                        double.tryParse(v ?? '') == null ? 'Invalid' : null,
                     onSaved: (v) => _amount = parseMinor(v ?? '0') ?? 0,
                   ),
                   TextFormField(
                     initialValue: _category,
-                    decoration: InputDecoration(labelText: l.category),
+                    decoration: const InputDecoration(labelText: 'Category'),
                     validator: (v) =>
-                        (v == null || v.isEmpty) ? l.fieldRequired : null,
+                        (v == null || v.isEmpty) ? 'Required' : null,
                     onSaved: (v) => _category = v ?? '',
                   ),
                   DropdownButtonFormField<String>(
                     initialValue: _type,
-                    decoration: InputDecoration(labelText: l.accountType),
+                    decoration: const InputDecoration(labelText: 'Type'),
                     items: [
                       DropdownMenuItem(
                           value: DbConstants.txExpense,
-                          child: Text(l.expense)),
+                          child: const Text('Expense')),
                       DropdownMenuItem(
-                          value: DbConstants.txIncome, child: Text(l.income)),
+                          value: DbConstants.txIncome, child: const Text('Income')),
                     ],
                     onChanged: (v) => _type = v ?? _type,
                   ),
                   DropdownButtonFormField<String>(
                     initialValue: _frequency,
                     decoration:
-                        InputDecoration(labelText: l.frequency),
+                        const InputDecoration(labelText: 'Frequency'),
                     items: RecurringRule.frequencies
                         .map((f) => DropdownMenuItem(
-                            value: f, child: Text(l.freqLabel(f))))
+                            value: f, child: Text(_freqLabel(f))))
                         .toList(),
                     onChanged: (v) => _frequency = v ?? _frequency,
                   ),
@@ -108,10 +122,10 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     DropdownButtonFormField<int?>(
                       initialValue: _accountId,
                       decoration:
-                          InputDecoration(labelText: l.account),
+                          const InputDecoration(labelText: 'Account'),
                       items: [
                         DropdownMenuItem<int?>(
-                            value: null, child: Text(l.none)),
+                            value: null, child: const Text('None')),
                         ...accounts.map((a) => DropdownMenuItem<int?>(
                             value: a.id, child: Text(a.name))),
                       ],
@@ -122,7 +136,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     children: [
                       Expanded(
                           child: Text(
-                              '${l.nextDue}: ${l.dateWithDay(_nextDue)}')),
+                              'Next due: ${formatDateWithDay(_nextDue)}')),
                       TextButton(
                         onPressed: () async {
                           final picked = await showDatePicker(
@@ -135,7 +149,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                             setDialogState(() => _nextDue = picked);
                           }
                         },
-                        child: Text(l.change),
+                        child: const Text('Change'),
                       ),
                     ],
                   ),
@@ -146,7 +160,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text(l.cancel),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -172,7 +186,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   if (context.mounted) Navigator.of(context).pop();
                 }
               },
-              child: Text(rule == null ? l.add : l.save),
+              child: Text(rule == null ? 'Add' : 'Save'),
             ),
           ],
         ),
@@ -182,9 +196,8 @@ class _RecurringScreenState extends State<RecurringScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l.recurring)),
+      appBar: AppBar(title: const Text('Recurring')),
       body: Consumer<RecurringProvider>(
         builder: (context, provider, _) {
           final rules = provider.rules;
@@ -197,7 +210,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   children: [
                     const Icon(Icons.repeat, size: 48, color: Colors.grey),
                     const SizedBox(height: 8),
-                    Text(l.noRecurring),
+                    const Text('No recurring transactions. Add rent, salary, bills, and they post automatically.'),
                   ],
                 ),
               ),
@@ -224,7 +237,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   title: Text(rule.description,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(
-                      '${rule.category} · ${l.freqLabel(rule.frequency)} · ${l.nextShort} ${l.dateWithDay(rule.nextDue)}'),
+                      '${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatDateWithDay(rule.nextDue)}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -237,7 +250,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete),
-                        tooltip: l.deleteRule,
+                        tooltip: 'Delete rule',
                         onPressed: () => provider.deleteRule(rule.id!),
                       ),
                     ],
@@ -250,7 +263,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: l.addRecurringRule,
+        tooltip: 'Add recurring rule',
         onPressed: () => _showRuleDialog(),
         child: const Icon(Icons.add),
       ),

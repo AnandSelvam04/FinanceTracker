@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../l10n/app_localizations.dart';
 import '../providers/account_provider.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
@@ -40,19 +39,18 @@ class _BackupsScreenState extends State<BackupsScreen> {
 
   /// Restore replaces all current data, so make the user confirm.
   Future<bool> _confirmRestore() async {
-    final l = AppLocalizations.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(l.replaceAllTitle),
-        content: Text(l.replaceAllBody),
+        title: const Text('Replace all data?'),
+        content: const Text('Restoring will delete everything currently in the app and replace it with the backup. This cannot be undone.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l.cancel)),
+              child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l.replace, style: const TextStyle(color: Colors.red)),
+            child: Text('Replace', style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -106,7 +104,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
       );
     }
     return SnackBar(
-        content: Text(AppLocalizations.of(context).errorWithDetails('$e')));
+        content: Text('Error: $e'));
   }
 
   /// Generates a file and opens the system share sheet so the user can
@@ -114,7 +112,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
   Future<void> _exportAndShare(
       Future<File> Function() build, String subject) async {
     if (!mounted) return;
-    final l = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isWorking = true);
     try {
@@ -124,7 +121,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
         subject: subject,
       );
       if (mounted && result.status == ShareResultStatus.success) {
-        messenger.showSnackBar(SnackBar(content: Text(l.exported)));
+        messenger.showSnackBar(SnackBar(content: const Text('Exported')));
       }
     } catch (e) {
       messenger.showSnackBar(_errorSnackBar(e));
@@ -143,7 +140,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
       {required String title,
       required String action,
       bool confirm = false}) async {
-    final l = AppLocalizations.of(context);
     final controller = TextEditingController();
     final confirmController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -160,24 +156,24 @@ class _BackupsScreenState extends State<BackupsScreen> {
                 controller: controller,
                 obscureText: true,
                 autofocus: true,
-                decoration: InputDecoration(labelText: l.passphrase),
+                decoration: const InputDecoration(labelText: 'Passphrase'),
                 validator: (v) =>
-                    (v == null || v.length < 4) ? l.passphraseMin : null,
+                    (v == null || v.length < 4) ? 'Use at least 4 characters' : null,
               ),
               if (confirm)
                 TextFormField(
                   controller: confirmController,
                   obscureText: true,
                   decoration:
-                      InputDecoration(labelText: l.confirmPassphrase),
+                      const InputDecoration(labelText: 'Confirm passphrase'),
                   validator: (v) =>
-                      v != controller.text ? l.passphraseMismatch : null,
+                      v != controller.text ? 'Passphrases do not match' : null,
                 ),
               if (confirm)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    l.passphraseForgotWarning,
+                    'If you forget this passphrase, the backup cannot be recovered.',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ),
@@ -186,7 +182,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: Text(l.cancel)),
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               if (formKey.currentState!.validate()) {
@@ -202,9 +198,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l.backupExport)),
+      appBar: AppBar(title: const Text('Backup & Export')),
       body: SingleChildScrollView(
         padding: scrollPadding(context),
         child: Column(
@@ -213,14 +208,14 @@ class _BackupsScreenState extends State<BackupsScreen> {
             _LastBackupBanner(time: _lastBackup),
             const SizedBox(height: 12),
             Text(
-              l.backupRestore,
+              'Backup & Restore',
               style:
                   const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
               icon: const Icon(Icons.cloud_upload),
-              label: Text(l.backupToDriveBtn),
+              label: const Text('Backup to Google Drive'),
               onPressed: _isWorking
                   ? null
                   : () async {
@@ -235,16 +230,16 @@ class _BackupsScreenState extends State<BackupsScreen> {
                           final shouldOverwrite = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: Text(l.newerBackupTitle),
-                              content: Text(l.newerBackupBody),
+                              title: const Text('Warning: Newer Backup Found'),
+                              content: Text('A newer backup exists on Google Drive. Overwriting it may cause data loss from other devices.\n\nDo you want to continue and overwrite the remote backup?'),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
-                                  child: Text(l.cancel),
+                                  child: const Text('Cancel'),
                                 ),
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, true),
-                                  child: Text(l.overwrite,
+                                  child: Text('Overwrite',
                                       style:
                                           const TextStyle(color: Colors.red)),
                                 ),
@@ -258,7 +253,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                           }
                         }
                         await _runTask(
-                            _backupService.backupToDrive, l.backedUpToDrive);
+                            _backupService.backupToDrive, 'Backed up to Drive');
                       } finally {
                         if (mounted) setState(() => _isWorking = false);
                       }
@@ -266,134 +261,134 @@ class _BackupsScreenState extends State<BackupsScreen> {
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.cloud_download),
-              label: Text(l.restoreFromDriveBtn),
+              label: const Text('Restore from Google Drive'),
               onPressed: _isWorking
                   ? null
                   : () => _restore(
-                      _backupService.restoreFromDrive, l.restoredFromDrive),
+                      _backupService.restoreFromDrive, 'Restored from Drive'),
             ),
             const SizedBox(height: 4),
             Text(
-              l.driveSetupNote,
+              'Google Drive requires a one-time sign-in setup in the build. If it fails, your data is still safe in local backups below.',
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const Divider(height: 32),
             ElevatedButton.icon(
               icon: const Icon(Icons.save_alt),
-              label: Text(l.backupLocalJson),
+              label: const Text('Backup locally (JSON)'),
               onPressed: _isWorking
                   ? null
                   : () => _runTask(
-                      _backupService.backupToJson, l.localJsonCreated),
+                      _backupService.backupToJson, 'Local JSON backup created'),
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.restore),
-              label: Text(l.restoreLocalJson),
+              label: const Text('Restore from local JSON'),
               onPressed: _isWorking
                   ? null
                   : () => _restore(() => _backupService.restoreFromJson(),
-                      l.restoredLocalJson),
+                      'Restored from local JSON'),
             ),
             const Divider(height: 32),
             Text(
-              l.encryptedBackup,
+              'Encrypted backup',
               style:
                   const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
-              l.encryptedBackupNote,
+              'Protect an exported backup with a passphrase (AES-256). Keep the passphrase safe — it is required to restore and cannot be reset.',
               style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
               icon: const Icon(Icons.lock),
-              label: Text(l.encryptedBackupJson),
+              label: const Text('Encrypted backup (JSON)'),
               onPressed: _isWorking
                   ? null
                   : () async {
                       final pass = await _promptPassphrase(
-                          title: l.encryptBackupTitle,
-                          action: l.encrypt,
+                          title: 'Encrypt backup',
+                          action: 'Encrypt',
                           confirm: true);
                       if (pass == null) return;
                       await _runTask(
                           () => _backupService.writeEncryptedBackup(pass),
-                          l.encryptedBackupCreated);
+                          'Encrypted backup created');
                     },
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.lock_open),
-              label: Text(l.restoreEncryptedBackup),
+              label: const Text('Restore encrypted backup'),
               onPressed: _isWorking
                   ? null
                   : () async {
                       if (!await _confirmRestore()) return;
                       final pass = await _promptPassphrase(
-                          title: l.restoreEncryptedBackup,
-                          action: l.restoreAction);
+                          title: 'Restore encrypted backup',
+                          action: 'Restore');
                       if (pass == null) return;
                       await _runTask(
                           () => _backupService.restoreFromEncryptedFile(pass),
-                          l.restoredEncrypted);
+                          'Restored from encrypted backup');
                     },
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.ios_share),
-              label: Text(l.downloadEncryptedBackup),
+              label: const Text('Download encrypted backup'),
               onPressed: _isWorking
                   ? null
                   : () async {
                       final pass = await _promptPassphrase(
-                          title: l.encryptBackupTitle,
-                          action: l.encrypt,
+                          title: 'Encrypt backup',
+                          action: 'Encrypt',
                           confirm: true);
                       if (pass == null) return;
                       await _exportAndShare(
                           () => _backupService.writeEncryptedBackup(pass),
-                          l.subjectEncrypted);
+                          'Finance Tracker — Encrypted Backup');
                     },
             ),
             const Divider(height: 32),
             Text(
-              l.downloadShare,
+              'Download & Share',
               style:
                   const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
-              l.downloadShareNote,
+              'Save your data to Files/Downloads, email it, or send it to another app.',
               style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
               icon: const Icon(Icons.download),
-              label: Text(l.downloadExpensesCsv),
+              label: const Text('Download expenses (CSV)'),
               onPressed: _isWorking
                   ? null
                   : () => _exportAndShare(
-                      exportExpensesToCsv, l.subjectExpenses),
+                      exportExpensesToCsv, 'Finance Tracker — Expenses'),
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.download),
-              label: Text(l.downloadInvestmentsCsv),
+              label: const Text('Download investments (CSV)'),
               onPressed: _isWorking
                   ? null
                   : () => _exportAndShare(
-                      exportInvestmentsToCsv, l.subjectInvestments),
+                      exportInvestmentsToCsv, 'Finance Tracker — Investments'),
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.download),
-              label: Text(l.downloadFullJson),
+              label: const Text('Download full data (JSON)'),
               onPressed: _isWorking
                   ? null
                   : () => _exportAndShare(_backupService.writeJsonBackupFile,
-                      l.subjectFullBackup),
+                      'Finance Tracker — Full Backup'),
             ),
             const Divider(height: 32),
             OutlinedButton.icon(
               icon: const Icon(Icons.upload_file),
-              label: Text(l.importFromCsv),
+              label: const Text('Import from CSV'),
               onPressed: _isWorking
                   ? null
                   : () => Navigator.push(
@@ -419,22 +414,21 @@ class _LastBackupBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final now = DateTime.now();
     final stale = time == null || now.difference(time!) > const Duration(days: 7);
     final color = stale ? Colors.orange : Colors.green;
 
     String label;
     if (time == null) {
-      label = l.noBackupYet;
+      label = 'No backup yet — back up to avoid losing your data.';
     } else {
       final d = now.difference(time!);
       final ago = d.inDays >= 1
-          ? l.daysAgo(d.inDays)
+          ? (d.inDays == 1 ? '1 day ago' : '${d.inDays} days ago')
           : d.inHours >= 1
-              ? l.hoursAgo(d.inHours)
-              : l.justNow;
-      label = l.lastBackup(ago);
+              ? (d.inHours == 1 ? '1 hour ago' : '${d.inHours} hours ago')
+              : 'just now';
+      label = 'Last backup: $ago';
     }
 
     return Container(

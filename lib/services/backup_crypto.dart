@@ -4,7 +4,6 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
-import '../l10n/app_localizations.dart';
 
 /// Passphrase-based AES-GCM encryption for backup files. Produces a
 /// self-describing JSON envelope so a restore can detect an encrypted backup
@@ -45,11 +44,11 @@ class BackupCrypto {
     try {
       map = jsonDecode(envelope) as Map<String, dynamic>;
     } catch (_) {
-      throw FormatException(AppLocalizations.resolve().notValidEncryptedBackup);
+      throw FormatException('Not a valid encrypted backup');
     }
     if (map['magic'] != _magic) {
       throw FormatException(
-          AppLocalizations.resolve().notFinanceTrackerBackup);
+          'Not an encrypted Finance Tracker backup');
     }
     final salt = base64Decode(map['salt'] as String);
     final nonce = base64Decode(map['nonce'] as String);

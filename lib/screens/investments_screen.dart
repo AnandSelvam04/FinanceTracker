@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../l10n/app_localizations.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import 'add_investment_screen.dart';
 import 'investment_type_screen.dart';
+import '../utils/date_format.dart';
 
 class InvestmentsScreen extends StatefulWidget {
   const InvestmentsScreen({super.key});
@@ -28,9 +28,8 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l.investments)),
+      appBar: AppBar(title: const Text('Investments')),
       body: Consumer<InvestmentProvider>(
         builder: (context, provider, _) {
           final all = provider.investments;
@@ -42,7 +41,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                 children: [
                   const Icon(Icons.trending_up, size: 48, color: Colors.grey),
                   const SizedBox(height: 8),
-                  Text(l.noInvestments),
+                  const Text('No investments yet. Add one to start tracking.'),
                 ],
               ),
             );
@@ -63,7 +62,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(l.totalInvested,
+                        Text('Total Invested',
                             style: const TextStyle(fontSize: 16)),
                         Text(
                           formatMoney(provider.totalInvested),
@@ -99,7 +98,8 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                             style:
                                 const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Text(
-                          '${l.contributions(count)} · ${l.latest} ${l.dateWithDay(latest)}',
+                          '$count ${count == 1 ? 'contribution' : 'contributions'}'
+                          ' · latest ${formatDateWithDay(latest)}',
                         ),
                         trailing: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -132,7 +132,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: l.addInvestment,
+        tooltip: 'Add Investment',
         onPressed: () {
           Navigator.push(
             context,

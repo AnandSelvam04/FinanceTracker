@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../l10n/app_localizations.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/recurring_provider.dart';
@@ -17,7 +16,6 @@ class AlertsBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final now = DateTime.now();
     return Consumer4<SettingsProvider, BudgetProvider, ExpenseProvider,
         RecurringProvider>(
@@ -39,8 +37,8 @@ class AlertsBanner extends StatelessWidget {
         }
 
         final tiles = <Widget>[
-          for (final a in budgetIssues) _budgetTile(a, l),
-          for (final b in bills) _billTile(b, l),
+          for (final a in budgetIssues) _budgetTile(a),
+          for (final b in bills) _billTile(b),
         ];
 
         return Card(
@@ -60,7 +58,7 @@ class AlertsBanner extends StatelessWidget {
                   children: [
                     const Icon(Icons.notifications_active, size: 18),
                     const SizedBox(width: 8),
-                    Text(l.alertsTitle,
+                    Text('Alerts',
                         style: const TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
@@ -74,7 +72,7 @@ class AlertsBanner extends StatelessWidget {
     );
   }
 
-  Widget _budgetTile(BudgetAlert a, AppLocalizations l) {
+  Widget _budgetTile(BudgetAlert a) {
     final over = a.isOver;
     final pct = (a.ratio * 100).round();
     return Padding(
@@ -87,9 +85,8 @@ class AlertsBanner extends StatelessWidget {
           Expanded(
             child: Text(
               over
-                  ? l.overBudgetBody(
-                      a.category, formatMoney(a.spent - a.budget))
-                  : l.budgetUsedBody(a.category, pct),
+                  ? '${a.category}: over budget by ${formatMoney(a.spent - a.budget)}'
+                  : '${a.category}: \$pct% of budget used',
               style: const TextStyle(fontSize: 13),
             ),
           ),
@@ -98,16 +95,16 @@ class AlertsBanner extends StatelessWidget {
     );
   }
 
-  Widget _billTile(BillAlert b, AppLocalizations l) {
+  Widget _billTile(BillAlert b) {
     String whenLabel;
     if (b.isOverdue) {
-      whenLabel = l.billOverdue;
+      whenLabel = 'overdue';
     } else if (b.isToday) {
-      whenLabel = l.billDueToday;
+      whenLabel = 'due today';
     } else if (b.daysUntil == 1) {
-      whenLabel = l.billDueTomorrow;
+      whenLabel = 'due tomorrow';
     } else {
-      whenLabel = l.billDueInDaysN(b.daysUntil);
+      whenLabel = 'due in ${b.daysUntil} days';
     }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),

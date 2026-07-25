@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
-import '../l10n/app_localizations.dart';
 import '../providers/investment_provider.dart';
 import '../models/investment.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
+import '../utils/date_format.dart';
 
 class AddInvestmentScreen extends StatefulWidget {
   /// Pre-selects a type so "add another contribution" from a type's detail
@@ -93,9 +93,8 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l.addInvestment)),
+      appBar: AppBar(title: const Text('Add Investment')),
       body: SingleChildScrollView(
         padding: scrollPadding(context),
         child: Form(
@@ -106,7 +105,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(
-                  labelText: '${l.accountName} (${l.optional})',
+                  labelText: 'Name (optional)',
                   hintText: _defaultName(),
                 ),
                 // Name is optional: blank falls back to an auto-generated
@@ -114,15 +113,15 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
               ),
               TextFormField(
                 controller: _amountController,
-                decoration: InputDecoration(labelText: l.amount),
+                decoration: const InputDecoration(labelText: 'Amount'),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                validator: (value) => value!.isEmpty ? l.enterAmount : null,
+                validator: (value) => value!.isEmpty ? 'Enter an amount' : null,
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Text('${l.date}: ${l.dateWithDay(_selectedDate)}'),
+                  Text('Date: ${formatDateWithDay(_selectedDate)}'),
                   const Spacer(),
                   TextButton(
                     onPressed: () async {
@@ -138,13 +137,13 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                         });
                       }
                     },
-                    child: Text(l.selectDate),
+                    child: const Text('Select Date'),
                   ),
                 ],
               ),
               DropdownButtonFormField<String>(
                 initialValue: _selectedType,
-                decoration: InputDecoration(labelText: l.accountType),
+                decoration: const InputDecoration(labelText: 'Type'),
                 items: _types
                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                     .toList(),
@@ -156,12 +155,12 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                 TextFormField(
                   controller: _customTypeController,
                   decoration:
-                      InputDecoration(labelText: l.enterInvestmentType),
+                      const InputDecoration(labelText: 'Enter investment type'),
                   textCapitalization: TextCapitalization.words,
                   validator: (value) =>
                       (_selectedType == Investment.otherType &&
                               (value == null || value.trim().isEmpty))
-                          ? l.enterTypeOrPick
+                          ? 'Enter a type or pick one above'
                           : null,
                 ),
               const SizedBox(height: 20),
@@ -187,7 +186,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                             await provider.addInvestment(investment);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(l.investmentAdded)),
+                                SnackBar(content: const Text('Investment added')),
                               );
                               Navigator.pop(context);
                             }
@@ -196,7 +195,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                       content:
-                                          Text(l.errorWithDetails('$e'))));
+                                          Text('Error: $e')));
                             }
                           } finally {
                             if (mounted) setState(() => _isSaving = false);
@@ -205,7 +204,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                       },
                 child: _isSaving
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : Text(l.addInvestment),
+                    : const Text('Add Investment'),
               ),
             ],
           ),

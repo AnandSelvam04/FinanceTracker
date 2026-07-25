@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../l10n/app_localizations.dart';
 import '../models/expense.dart';
 import '../models/tx_template.dart';
 import '../providers/account_provider.dart';
@@ -87,7 +86,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final accountProvider = context.read<AccountProvider>();
     final recurringProvider = context.read<RecurringProvider>();
     final messenger = ScaffoldMessenger.of(context);
-    final l = AppLocalizations.of(context);
     final posted = await RecurringService.instance.postDueTransactions();
     if (posted > 0) {
       await expenseProvider.reloadLoadedYears();
@@ -95,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await recurringProvider.fetchRules();
       if (mounted) {
         messenger.showSnackBar(SnackBar(
-          content: Text(l.postedRecurring(posted)),
+          content: Text((posted == 1 ? '1 recurring transaction posted' : '$posted recurring transactions posted')),
         ));
       }
     }
@@ -130,7 +128,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
     final messenger = ScaffoldMessenger.of(context);
-    final l = AppLocalizations.of(context);
     final expense = Expense(
       description: template.description,
       amount: template.amount,
@@ -144,9 +141,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await accountProvider.refreshBalances();
     if (!mounted) return;
     messenger.showSnackBar(SnackBar(
-      content: Text(l.addedTemplate(template.name)),
+      content: Text('Added ${template.name}'),
       action: SnackBarAction(
-        label: l.undo,
+        label: 'Undo',
         onPressed: () async {
           await expenseProvider.deleteExpense(addedId);
           await accountProvider.refreshBalances();
@@ -180,7 +177,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ];
 
   void _showAddOptions(BuildContext context) {
-    final l = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       // SafeArea keeps the sheet's items above the system navigation bar in
@@ -191,7 +187,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           children: [
             ListTile(
               leading: const Icon(Icons.money_off),
-              title: Text(l.addExpense),
+              title: const Text('Add Expense'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -203,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
             ListTile(
               leading: const Icon(Icons.trending_up),
-              title: Text(l.addInvestment),
+              title: const Text('Add Investment'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -221,14 +217,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(l.appTitle),
+        title: const Text('Finance Tracker'),
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
-            tooltip: l.howToUse,
+            tooltip: 'How to use',
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TutorialScreen()),
@@ -242,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       body: IndexedStack(index: _selectedIndex, children: _screens),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddOptions(context),
-        tooltip: l.addTransaction,
+        tooltip: 'Add transaction',
         child: const Icon(Icons.add),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -251,11 +246,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         onTap: (i) => setState(() => _selectedIndex = i),
         items: [
           BottomNavigationBarItem(
-              icon: const Icon(Icons.home), label: l.navHome),
+              icon: const Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
-              icon: const Icon(Icons.list), label: l.navExpenses),
+              icon: const Icon(Icons.list), label: 'Expenses'),
           BottomNavigationBarItem(
-              icon: const Icon(Icons.more_horiz), label: l.navMore),
+              icon: const Icon(Icons.more_horiz), label: 'More'),
         ],
       ),
     );
@@ -281,7 +276,6 @@ class _DashboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     return Consumer<ExpenseProvider>(
       builder: (context, provider, _) {
         final monthlyExpenses =
@@ -300,7 +294,7 @@ class _DashboardView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(AppLocalizations.of(context).dashboardCharts,
+                Text('Dashboard & Charts',
                     style: const TextStyle(fontSize: 20)),
                 const SizedBox(height: 12),
                 const AlertsBanner(),
@@ -315,37 +309,37 @@ class _DashboardView extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('${l.viewLabel}:'),
+                    const Text('View:'),
                     const SizedBox(width: 8),
                     ToggleButtons(
                       isSelected: [!yearView, yearView],
                       onPressed: (i) => onViewToggle(i == 1),
-                      children: [Text(l.month), Text(l.year)],
+                      children: [const Text('Month'), const Text('Year')],
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 if (yearView) ...[
                   if (yearlyExpenses.isEmpty)
-                    Text(l.noExpensesYear)
+                    const Text('No expenses this year.')
                   else ...[
                     SizedBox(
                       height: 250,
                       child: ExpenseChart(expenses: yearlyExpenses),
                     ),
                     Text(
-                      '${l.yearTotal}: ${formatMoney(provider.totalForYear(selectedYear))}',
+                      'Year Total: ${formatMoney(provider.totalForYear(selectedYear))}',
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     if (yearlyIncome > 0)
                       Text(
-                        '${l.income}: ${formatMoney(yearlyIncome)}',
+                        'Income: ${formatMoney(yearlyIncome)}',
                         style: TextStyle(
                             fontSize: 14, color: incomeColor(context)),
                       ),
                     const SizedBox(height: 16),
-                    Text(l.categoryBreakdownYear,
+                    Text('Category Breakdown (Year)',
                         style: const TextStyle(fontSize: 16)),
                     SizedBox(
                       height: 180,
@@ -366,25 +360,25 @@ class _DashboardView extends StatelessWidget {
                   ],
                 ] else ...[
                   if (monthlyExpenses.isEmpty)
-                    Text(l.noExpensesMonth)
+                    const Text('No expenses this month.')
                   else ...[
                     SizedBox(
                       height: 250,
                       child: ExpenseChart(expenses: monthlyExpenses),
                     ),
                     Text(
-                      '${l.total}: ${formatMoney(provider.totalForMonth(selectedYear, selectedMonth))}',
+                      'Total: ${formatMoney(provider.totalForMonth(selectedYear, selectedMonth))}',
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     if (monthlyIncome > 0)
                       Text(
-                        '${l.income}: ${formatMoney(monthlyIncome)}',
+                        'Income: ${formatMoney(monthlyIncome)}',
                         style: TextStyle(
                             fontSize: 14, color: incomeColor(context)),
                       ),
                     const SizedBox(height: 16),
-                    Text(l.trendsLast12Months,
+                    Text('Trends (Last 12 Months)',
                         style: const TextStyle(fontSize: 16)),
                     ExpenseTrendsChart(provider: provider),
                   ],
@@ -414,7 +408,7 @@ class _QuickAddRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(AppLocalizations.of(context).quickAdd,
+              Text('Quick add',
                   style: const TextStyle(fontSize: 13)),
               const SizedBox(height: 4),
               SizedBox(

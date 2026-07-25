@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../l10n/app_localizations.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/settings_provider.dart';
@@ -102,12 +101,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final accounts = context.watch<AccountProvider>().accounts;
     final categorySuggestions = _suggestions;
 
     return Scaffold(
-      appBar: AppBar(title: Text(_isIncome ? l.addIncome : l.addExpense)),
+      appBar: AppBar(title: Text(_isIncome ? 'Add Income' : 'Add Expense')),
       body: SingleChildScrollView(
         padding: scrollPadding(context),
         child: Form(
@@ -120,12 +118,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   segments: [
                     ButtonSegment(
                       value: DbConstants.txExpense,
-                      label: Text(l.expense),
+                      label: const Text('Expense'),
                       icon: const Icon(Icons.remove_circle_outline),
                     ),
                     ButtonSegment(
                       value: DbConstants.txIncome,
-                      label: Text(l.income),
+                      label: const Text('Income'),
                       icon: const Icon(Icons.add_circle_outline),
                     ),
                   ],
@@ -141,14 +139,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _descriptionController,
-                decoration: InputDecoration(labelText: l.description),
+                decoration: const InputDecoration(labelText: 'Description'),
                 textInputAction: TextInputAction.next,
                 validator: (value) =>
                     value!.isEmpty ? 'Enter a description' : null,
               ),
               TextFormField(
                 controller: _amountController,
-                decoration: InputDecoration(labelText: l.amount),
+                decoration: const InputDecoration(labelText: 'Amount'),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.next,
@@ -165,7 +163,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                        '${l.date}: ${_selectedDate.toString().split(' ')[0]}'),
+                        'Date: ${_selectedDate.toString().split(' ')[0]}'),
                   ),
                   TextButton(
                     onPressed: () async {
@@ -181,14 +179,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         });
                       }
                     },
-                    child: Text(l.selectDate),
+                    child: const Text('Select Date'),
                   ),
                 ],
               ),
               TextFormField(
                 controller: _categoryController,
                 decoration: InputDecoration(
-                    labelText: _isIncome ? l.source : l.category),
+                    labelText: _isIncome ? 'Source' : 'Category'),
                 textInputAction: TextInputAction.next,
                 validator: (value) => value!.isEmpty
                     ? (_isIncome ? 'Enter a source' : 'Enter a category')
@@ -213,10 +211,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               if (accounts.isNotEmpty)
                 DropdownButtonFormField<int?>(
                   initialValue: _accountId,
-                  decoration: InputDecoration(labelText: l.account),
+                  decoration: const InputDecoration(labelText: 'Account'),
                   items: [
                     DropdownMenuItem<int?>(
-                        value: null, child: Text(l.none)),
+                        value: null, child: const Text('None')),
                     ...accounts.map((a) =>
                         DropdownMenuItem<int?>(value: a.id, child: Text(a.name))),
                   ],
@@ -225,10 +223,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               if (!_isIncome)
                 DropdownButtonFormField<String>(
                   initialValue: _selectedPaymentMode,
-                  decoration: InputDecoration(labelText: l.paymentMode),
+                  decoration: const InputDecoration(labelText: 'Payment Mode'),
                   items: _paymentModes
                       .map((p) => DropdownMenuItem(
-                          value: p, child: Text(l.paymentModeLabel(p))))
+                          value: p, child: Text(p)))
                       .toList(),
                   onChanged: (value) =>
                       setState(() => _selectedPaymentMode = value!),
@@ -236,7 +234,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
-                title: Text(l.saveAsTemplate),
+                title: const Text('Save as quick-add template'),
                 value: _saveAsTemplate,
                 onChanged: (v) =>
                     setState(() => _saveAsTemplate = v ?? false),
@@ -282,8 +280,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                     content: Text(_isIncome
-                                        ? l.incomeAdded
-                                        : l.expenseAdded)),
+                                        ? 'Income added'
+                                        : 'Expense added')),
                               );
                               Navigator.pop(context);
                             }
@@ -292,7 +290,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context)
                                   .showSnackBar(SnackBar(
-                                content: Text(l.failedToSave('$e')),
+                                content: Text('Failed to save: $e'),
                               ));
                             }
                             AppLogger.error('Error saving expense', e, st);
@@ -305,7 +303,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ? const CircularProgressIndicator(
                         color: Colors.white,
                       )
-                    : Text(_isIncome ? l.addIncome : l.addExpense),
+                    : Text(_isIncome ? 'Add Income' : 'Add Expense'),
               ),
             ],
           ),

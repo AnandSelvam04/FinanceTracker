@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:finance_tracker/l10n/app_localizations.dart';
 import 'package:finance_tracker/providers/account_provider.dart';
 import 'package:finance_tracker/providers/budget_provider.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
@@ -58,13 +56,6 @@ class FinanceTrackerApp extends StatelessWidget {
       child: Consumer<SettingsProvider>(
         builder: (context, settings, _) => MaterialApp(
           title: 'Finance Tracker',
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
           // Material 3 with the same green seed in both modes, so dark mode
           // keeps the brand color instead of falling back to grey.
           theme: ThemeData(
@@ -161,7 +152,6 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     if (_unlocked) return widget.child;
-    final l = AppLocalizations.of(context);
     return Scaffold(
       body: Center(
         child: Column(
@@ -169,14 +159,14 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           children: [
             const Icon(Icons.lock_outline, size: 64, color: Colors.green),
             const SizedBox(height: 16),
-            Text(l.appLocked, style: const TextStyle(fontSize: 18)),
+            Text('Finance Tracker is locked', style: const TextStyle(fontSize: 18)),
             const SizedBox(height: 24),
             if (_checking)
               const CircularProgressIndicator()
             else
               ElevatedButton.icon(
                 icon: const Icon(Icons.fingerprint),
-                label: Text(l.unlock),
+                label: const Text('Unlock'),
                 onPressed: _tryUnlock,
               ),
           ],

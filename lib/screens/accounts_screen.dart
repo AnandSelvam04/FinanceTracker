@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../l10n/app_localizations.dart';
 import '../models/account.dart';
 import '../providers/account_provider.dart';
 import '../providers/settings_provider.dart';
@@ -53,7 +52,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
     _currency = account?.currency;
     _rate = account?.rate ?? 1.0;
 
-    final l = AppLocalizations.of(context);
     final base = context.read<SettingsProvider>().currencySymbol;
     // Offer the base symbol plus the standard options, de-duplicated.
     final currencyChoices = <String>{base, ...SettingsProvider.currencyOptions}
@@ -67,7 +65,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         builder: (context, setDialogState) {
           final isForeign = _currency != null && _currency != base;
           return AlertDialog(
-            title: Text(account == null ? l.addAccount : l.editAccount),
+            title: Text(account == null ? 'Add Account' : 'Edit Account'),
             content: Form(
               key: _formKey,
               child: SingleChildScrollView(
@@ -76,14 +74,14 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   children: [
                     TextFormField(
                       initialValue: _name,
-                      decoration: InputDecoration(labelText: l.accountName),
+                      decoration: const InputDecoration(labelText: 'Name'),
                       validator: (value) =>
-                          (value == null || value.isEmpty) ? l.fieldRequired : null,
+                          (value == null || value.isEmpty) ? 'Required' : null,
                       onSaved: (value) => _name = value ?? '',
                     ),
                     DropdownButtonFormField<String>(
                       initialValue: _type,
-                      decoration: InputDecoration(labelText: l.accountType),
+                      decoration: const InputDecoration(labelText: 'Type'),
                       items: Account.types
                           .map((t) => DropdownMenuItem(
                               value: t, child: Text(Account.typeLabel(t))))
@@ -92,7 +90,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     ),
                     DropdownButtonFormField<String>(
                       initialValue: _currency ?? base,
-                      decoration: InputDecoration(labelText: l.currency),
+                      decoration: const InputDecoration(labelText: 'Currency'),
                       items: currencyChoices
                           .map((c) => DropdownMenuItem(
                               value: c,
@@ -110,7 +108,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                       TextFormField(
                         controller: rateController,
                         decoration: InputDecoration(
-                          labelText: l.exchangeRate,
+                          labelText: 'Exchange rate',
                           helperText: '1 $_currency = ? $base',
                         ),
                         keyboardType: const TextInputType.numberWithOptions(
@@ -119,7 +117,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           if (!isForeign) return null;
                           final r = double.tryParse(value ?? '');
                           return (r == null || r <= 0)
-                              ? l.enterPositiveRate
+                              ? 'Enter a positive rate'
                               : null;
                         },
                         onSaved: (value) =>
@@ -131,13 +129,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           : minorToEditString(_openingBalance),
                       decoration: InputDecoration(
                           labelText:
-                              '${l.openingBalance} (${_currency ?? base})'),
+                              'Opening Balance (${_currency ?? base})'),
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
                       validator: (value) {
                         if (value == null || value.isEmpty) return null;
                         return double.tryParse(value) == null
-                            ? l.invalidNumber
+                            ? 'Invalid number'
                             : null;
                       },
                       onSaved: (value) =>
@@ -150,7 +148,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: Text(l.cancel),
+                child: const Text('Cancel'),
               ),
               ElevatedButton(
                 onPressed: () async {
@@ -174,7 +172,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     if (context.mounted) Navigator.of(context).pop();
                   }
                 },
-                child: Text(account == null ? l.add : l.save),
+                child: Text(account == null ? 'Add' : 'Save'),
               ),
             ],
           );
@@ -184,19 +182,18 @@ class _AccountsScreenState extends State<AccountsScreen> {
   }
 
   Future<void> _confirmDelete(Account account) async {
-    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l.deleteAccountTitle),
-        content: Text(l.deleteAccountBody(account.name)),
+        title: const Text('Delete account?'),
+        content: Text('Remove "${account.name}"? Transactions linked to it are kept but lose their account link.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text(l.cancel)),
+              child: const Text('Cancel')),
           ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(l.delete)),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -207,14 +204,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(l.accounts),
+        title: const Text('Accounts'),
         actions: [
           IconButton(
             icon: const Icon(Icons.swap_horiz),
-            tooltip: l.transferBetweenAccounts,
+            tooltip: 'Transfer between accounts',
             onPressed: () {
               Navigator.push(
                 context,
@@ -237,7 +233,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     const Icon(Icons.account_balance_wallet_outlined,
                         size: 48, color: Colors.grey),
                     const SizedBox(height: 8),
-                    Text(l.noAccounts),
+                    const Text('No accounts yet. Add cash, bank, UPI, or card accounts to track balances.'),
                   ],
                 ),
               ),
@@ -259,7 +255,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(l.totalBalance,
+                        Text('Total Balance',
                             style: const TextStyle(fontSize: 16)),
                         Text(
                           formatMoney(totalBalance),
@@ -305,7 +301,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete),
-                              tooltip: l.deleteAccount,
+                              tooltip: 'Delete account',
                               onPressed: () => _confirmDelete(account),
                             ),
                           ],
@@ -321,7 +317,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: l.addAccount,
+        tooltip: 'Add Account',
         onPressed: () => _showAccountDialog(),
         child: const Icon(Icons.add),
       ),

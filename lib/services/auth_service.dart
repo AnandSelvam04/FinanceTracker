@@ -1,6 +1,5 @@
 import 'package:local_auth/local_auth.dart';
 
-import '../l10n/app_localizations.dart';
 
 class AuthService {
   final LocalAuthentication _auth = LocalAuthentication();
@@ -33,7 +32,7 @@ class AuthService {
       return await _auth.authenticate(
         // No BuildContext here (called before the app tree is up), so resolve
         // against the device locale.
-        localizedReason: AppLocalizations.resolve().authReason,
+        localizedReason: 'Please authenticate to access FinanceTracker',
       );
     } catch (e) {
       return false;

@@ -1,6 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import '../l10n/app_localizations.dart';
 import '../providers/expense_provider.dart';
 import '../utils/category_colors.dart';
 
@@ -25,7 +24,7 @@ class CategoryTrendChart extends StatelessWidget {
       return SizedBox(
         height: 220,
         child: Center(
-            child: Text(AppLocalizations.of(context).selectCategoriesToCompare)),
+            child: const Text('Select categories to compare.')),
       );
     }
 

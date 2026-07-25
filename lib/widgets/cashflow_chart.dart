@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import '../l10n/app_localizations.dart';
 import '../providers/expense_provider.dart';
 import '../utils/currency_format.dart';
 
@@ -17,7 +16,6 @@ class CashflowChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final now = DateTime.now();
     final groups = <BarChartGroupData>[];
     final months = <DateTime>[];
@@ -51,7 +49,7 @@ class CashflowChart extends StatelessWidget {
     if (maxValue == 0) {
       return SizedBox(
         height: 220,
-        child: Center(child: Text(l.noTransactions12Months)),
+        child: Center(child: const Text('No transactions in the last 12 months.')),
       );
     }
 
@@ -89,7 +87,7 @@ class CashflowChart extends StatelessWidget {
             touchTooltipData: BarTouchTooltipData(
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
                 final date = months[group.x];
-                final label = rodIndex == 0 ? l.income : l.expense;
+                final label = rodIndex == 0 ? 'Income' : 'Expense';
                 return BarTooltipItem(
                   '${date.year}-${date.month.toString().padLeft(2, '0')}\n$label: ${formatMoneyRounded((rod.toY * 100).round())}',
                   const TextStyle(color: Colors.white, fontSize: 12),

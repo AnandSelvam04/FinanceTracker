@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../l10n/app_localizations.dart';
 import '../models/investment.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import 'add_investment_screen.dart';
+import '../utils/date_format.dart';
 
 /// Shows every contribution for a single investment [type], with the running
 /// total and a breakdown that can be grouped by week, month, or year ("how
@@ -26,14 +26,14 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
   String get type => widget.type;
 
   /// Human label for a period bucket key, formatted for the active grouping.
-  String _periodLabel(AppLocalizations l, String key) {
+  String _periodLabel(String key) {
     switch (_period) {
       case InvestmentPeriod.weekly:
-        return l.weekOf(key);
+        return 'Week of $key';
       case InvestmentPeriod.monthly:
         final parts = key.split('-');
         final month = int.tryParse(parts.length > 1 ? parts[1] : '') ?? 1;
-        return '${l.monthName(month.clamp(1, 12))} ${parts[0]}';
+        return '${monthName(month.clamp(1, 12))} ${parts[0]}';
       case InvestmentPeriod.yearly:
         return key;
     }
@@ -41,7 +41,6 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(type)),
       body: Consumer<InvestmentProvider>(
@@ -72,7 +71,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(l.totalInType(type),
+                        Text('Total in $type',
                             style: const TextStyle(fontSize: 16)),
                         Text(
                           formatMoney(total),
@@ -92,13 +91,13 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                     segments: [
                       ButtonSegment(
                           value: InvestmentPeriod.weekly,
-                          label: Text(l.freqWeekly)),
+                          label: const Text('Weekly')),
                       ButtonSegment(
                           value: InvestmentPeriod.monthly,
-                          label: Text(l.freqMonthly)),
+                          label: const Text('Monthly')),
                       ButtonSegment(
                           value: InvestmentPeriod.yearly,
-                          label: Text(l.freqYearly)),
+                          label: const Text('Yearly')),
                     ],
                     selected: {_period},
                     onSelectionChanged: (s) =>
@@ -127,7 +126,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                                 MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                _periodLabel(l, ym),
+                                _periodLabel(ym),
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -157,7 +156,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: l.addToType(type),
+        tooltip: 'Add to $type',
         onPressed: () {
           Navigator.push(
             context,
@@ -193,7 +192,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
           title: Text(investment.name,
               style: const TextStyle(fontWeight: FontWeight.w600)),
           subtitle:
-              Text(AppLocalizations.of(context).dateWithDay(investment.date)),
+              Text(formatDateWithDay(investment.date)),
           trailing: Text(formatMoney(investment.amount),
               style: const TextStyle(fontWeight: FontWeight.bold)),
           onTap: () => _editInvestment(context, investment),
@@ -204,20 +203,19 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
 
   Future<bool> _confirmDelete(
       BuildContext context, Investment investment) async {
-    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l.deleteContribution),
-        content: Text(l.deleteContributionBody(
-            investment.name, formatMoney(investment.amount))),
+        title: const Text('Delete contribution?'),
+        content: Text('Remove "${investment.name}" for '
+            '${formatMoney(investment.amount)}?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text(l.cancel)),
+              child: const Text('Cancel')),
           ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(l.delete)),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -249,7 +247,6 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
-        final l = AppLocalizations.of(context);
         return StatefulBuilder(builder: (context, setModalState) {
           return Padding(
             padding: bottomSheetPadding(context),
@@ -259,22 +256,22 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(l.editInvestment,
+                  Text('Edit Investment',
                       style: const TextStyle(
                           fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   TextField(
                     controller: nameController,
-                    decoration: InputDecoration(labelText: l.accountName),
+                    decoration: const InputDecoration(labelText: 'Name'),
                   ),
                   TextField(
                     controller: amountController,
                     keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: l.amount),
+                    decoration: const InputDecoration(labelText: 'Amount'),
                   ),
                   DropdownButtonFormField<String>(
                     initialValue: type,
-                    decoration: InputDecoration(labelText: l.accountType),
+                    decoration: const InputDecoration(labelText: 'Type'),
                     items: types
                         .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                         .toList(),
@@ -285,11 +282,11 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                       controller: customTypeController,
                       textCapitalization: TextCapitalization.words,
                       decoration: InputDecoration(
-                          labelText: l.enterInvestmentType),
+                          labelText: 'Enter investment type'),
                     ),
                   Row(
                     children: [
-                      Text('${l.date}: ${l.dateWithDay(selectedDate)}'),
+                      Text('Date: ${formatDateWithDay(selectedDate)}'),
                       const Spacer(),
                       TextButton(
                         onPressed: () async {
@@ -303,7 +300,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                             setModalState(() => selectedDate = picked);
                           }
                         },
-                        child: Text(l.change),
+                        child: const Text('Change'),
                       ),
                     ],
                   ),
@@ -331,7 +328,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                         if (!context.mounted) return;
                         Navigator.pop(context);
                       },
-                      child: Text(l.save),
+                      child: const Text('Save'),
                     ),
                   ),
                 ],

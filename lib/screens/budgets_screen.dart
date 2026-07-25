@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../l10n/app_localizations.dart';
 import '../models/budget.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
@@ -49,11 +48,10 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       _month = DateTime.now().month;
     }
 
-    final l = AppLocalizations.of(context);
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(budget == null ? l.addBudget : l.editBudget),
+        title: Text(budget == null ? 'Add Budget' : 'Edit Budget'),
         content: Form(
           key: _formKey,
           child: Column(
@@ -61,18 +59,18 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             children: [
               TextFormField(
                 initialValue: _category,
-                decoration: InputDecoration(labelText: l.category),
+                decoration: const InputDecoration(labelText: 'Category'),
                 validator: (value) =>
-                    (value == null || value.isEmpty) ? l.fieldRequired : null,
+                    (value == null || value.isEmpty) ? 'Required' : null,
                 onSaved: (value) => _category = value ?? '',
               ),
               TextFormField(
                 initialValue: _amount == 0 ? '' : minorToEditString(_amount),
-                decoration: InputDecoration(labelText: l.amount),
+                decoration: const InputDecoration(labelText: 'Amount'),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   final parsed = double.tryParse(value ?? '');
-                  return parsed == null ? l.invalidNumber : null;
+                  return parsed == null ? 'Invalid number' : null;
                 },
                 onSaved: (value) => _amount = parseMinor(value ?? '0') ?? 0,
               ),
@@ -80,12 +78,12 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 children: [
                   Expanded(
                     child: TextFormField(
-                      decoration: InputDecoration(labelText: l.year),
+                      decoration: const InputDecoration(labelText: 'Year'),
                       keyboardType: TextInputType.number,
                       initialValue: _year.toString(),
                       validator: (value) {
                         final parsed = int.tryParse(value ?? '');
-                        return parsed == null ? l.invalidYear : null;
+                        return parsed == null ? 'Invalid year' : null;
                       },
                       onSaved: (value) => _year =
                           int.tryParse(value ?? '${DateTime.now().year}') ??
@@ -95,13 +93,13 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextFormField(
-                      decoration: InputDecoration(labelText: l.month),
+                      decoration: const InputDecoration(labelText: 'Month'),
                       keyboardType: TextInputType.number,
                       initialValue: _month.toString(),
                       validator: (value) {
                         final parsed = int.tryParse(value ?? '');
                         if (parsed == null || parsed < 1 || parsed > 12) {
-                          return l.invalidMonth;
+                          return 'Invalid month';
                         }
                         return null;
                       },
@@ -118,7 +116,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(l.cancel),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -139,7 +137,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 if (context.mounted) Navigator.of(context).pop();
               }
             },
-            child: Text(budget == null ? l.add : l.save),
+            child: Text(budget == null ? 'Add' : 'Save'),
           ),
         ],
       ),
@@ -148,9 +146,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l.budgets)),
+      appBar: AppBar(title: const Text('Budgets')),
       body: Consumer2<BudgetProvider, ExpenseProvider>(
         builder: (context, budgetProvider, expenseProvider, _) {
           final budgets = budgetProvider.budgets;
@@ -164,7 +161,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     const Icon(Icons.account_balance_wallet_outlined,
                         size: 48, color: Colors.grey),
                     const SizedBox(height: 8),
-                    Text(l.noBudgets),
+                    const Text('No budgets yet. Add one to start tracking.'),
                   ],
                 ),
               ),
@@ -200,8 +197,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('${l.budgetLabel}: ${formatMoneyRounded(budget.amount)}'),
-                      Text('${l.spentLabel}: ${formatMoney(spent)}'),
+                      Text('Budget: ${formatMoneyRounded(budget.amount)}'),
+                      Text('Spent: ${formatMoney(spent)}'),
                       const SizedBox(height: 4),
                       LinearProgressIndicator(
                         value: progress.clamp(0.0, 1.0).toDouble(),
@@ -215,12 +212,12 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.edit),
-                        tooltip: l.editBudgetTooltip,
+                        tooltip: 'Edit budget',
                         onPressed: () => _showBudgetDialog(budget: budget),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete),
-                        tooltip: l.deleteBudgetTooltip,
+                        tooltip: 'Delete budget',
                         onPressed: () =>
                             budgetProvider.deleteBudget(budget.id!),
                       ),
@@ -233,7 +230,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: l.addBudget,
+        tooltip: 'Add Budget',
         onPressed: () => _showBudgetDialog(),
         child: const Icon(Icons.add),
       ),

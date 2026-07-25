@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../l10n/app_localizations.dart';
 
 /// Month stepper shared by the dashboard and the monthly summary screen.
 class MonthSelector extends StatefulWidget {
@@ -45,13 +44,12 @@ class _MonthSelectorState extends State<MonthSelector> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         IconButton(
           icon: const Icon(Icons.chevron_left),
-          tooltip: l.previousMonth,
+          tooltip: 'Previous month',
           onPressed: () => _changeMonth(-1),
         ),
         Text(
@@ -60,7 +58,7 @@ class _MonthSelectorState extends State<MonthSelector> {
         ),
         IconButton(
           icon: const Icon(Icons.chevron_right),
-          tooltip: l.nextMonth,
+          tooltip: 'Next month',
           onPressed: () => _changeMonth(1),
         ),
       ],

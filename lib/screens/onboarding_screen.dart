@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../l10n/app_localizations.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback? onFinish;
@@ -14,20 +13,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _page = 0;
 
   /// Built per-build so the copy follows the active locale.
-  List<_OnboardPage> _buildPages(AppLocalizations l) => [
+  List<_OnboardPage> _buildPages() => [
         _OnboardPage(
-          title: l.onbTitle1,
-          description: l.onbBody1,
+          title: 'Welcome to FinanceTracker',
+          description: 'Track expenses, investments, and budgets — all in one place.\n\nQuick manual entry with smart category suggestions.',
           icon: Icons.account_balance_wallet,
         ),
         _OnboardPage(
-          title: l.onbTitle2,
-          description: l.onbBody2,
+          title: 'Secure & Backup',
+          description: 'PIN/biometric lock, local backup, CSV export.',
           icon: Icons.security,
         ),
         _OnboardPage(
-          title: l.onbTitle3,
-          description: l.onbBody3,
+          title: 'Dashboard & Charts',
+          description: 'Visualize your spending with charts and analytics.',
           icon: Icons.pie_chart,
         ),
       ];
@@ -48,8 +47,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final page = _buildPages(l)[_page];
+    final page = _buildPages()[_page];
     return Scaffold(
       body: Center(
         child: Padding(
@@ -70,7 +68,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ElevatedButton(
                 onPressed: _next,
                 child:
-                    Text(_page < _pageCount - 1 ? l.next : l.getStarted),
+                    Text(_page < _pageCount - 1 ? 'Next' : 'Get Started'),
               ),
             ],
           ),
