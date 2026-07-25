@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../models/investment.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
+import '../utils/sheet_layout.dart';
 import 'add_investment_screen.dart';
 
 /// Shows every contribution for a single investment [type], with the running
@@ -251,90 +252,90 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
         final l = AppLocalizations.of(context);
         return StatefulBuilder(builder: (context, setModalState) {
           return Padding(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 16,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(l.editInvestment,
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(labelText: l.accountName),
-                ),
-                TextField(
-                  controller: amountController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(labelText: l.amount),
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: type,
-                  decoration: InputDecoration(labelText: l.accountType),
-                  items: types
-                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                      .toList(),
-                  onChanged: (v) => setModalState(() => type = v ?? type),
-                ),
-                if (type == Investment.otherType)
+            padding: bottomSheetPadding(context),
+            // Scrollable so the form can still be reached (and Save tapped)
+            // when the keyboard shrinks the available height.
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(l.editInvestment,
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
                   TextField(
-                    controller: customTypeController,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: InputDecoration(
-                        labelText: l.enterInvestmentType),
+                    controller: nameController,
+                    decoration: InputDecoration(labelText: l.accountName),
                   ),
-                Row(
-                  children: [
-                    Text('${l.date}: ${l.dateWithDay(selectedDate)}'),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate,
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                        );
-                        if (picked != null) {
-                          setModalState(() => selectedDate = picked);
-                        }
-                      },
-                      child: Text(l.change),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(labelText: l.amount),
+                  ),
+                  DropdownButtonFormField<String>(
+                    initialValue: type,
+                    decoration: InputDecoration(labelText: l.accountType),
+                    items: types
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                        .toList(),
+                    onChanged: (v) => setModalState(() => type = v ?? type),
+                  ),
+                  if (type == Investment.otherType)
+                    TextField(
+                      controller: customTypeController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: InputDecoration(
+                          labelText: l.enterInvestmentType),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final amount = parseMinor(amountController.text.trim());
-                      if (amount == null) return;
-                      final resolvedType = type == Investment.otherType
-                          ? customTypeController.text.trim()
-                          : type;
-                      if (resolvedType.isEmpty) return;
-                      final updated = Investment(
-                        id: investment.id,
-                        name: nameController.text.trim(),
-                        amount: amount,
-                        date: selectedDate,
-                        type: resolvedType,
-                      );
-                      final provider = context.read<InvestmentProvider>();
-                      await provider.updateInvestment(updated);
-                      if (!context.mounted) return;
-                      Navigator.pop(context);
-                    },
-                    child: Text(l.save),
+                  Row(
+                    children: [
+                      Text('${l.date}: ${l.dateWithDay(selectedDate)}'),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setModalState(() => selectedDate = picked);
+                          }
+                        },
+                        child: Text(l.change),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: kSheetActionHeight,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final amount = parseMinor(amountController.text.trim());
+                        if (amount == null) return;
+                        final resolvedType = type == Investment.otherType
+                            ? customTypeController.text.trim()
+                            : type;
+                        if (resolvedType.isEmpty) return;
+                        final updated = Investment(
+                          id: investment.id,
+                          name: nameController.text.trim(),
+                          amount: amount,
+                          date: selectedDate,
+                          type: resolvedType,
+                        );
+                        final provider = context.read<InvestmentProvider>();
+                        await provider.updateInvestment(updated);
+                        if (!context.mounted) return;
+                        Navigator.pop(context);
+                      },
+                      child: Text(l.save),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         });
