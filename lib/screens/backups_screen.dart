@@ -14,6 +14,16 @@ import '../services/backup_service.dart';
 import 'import_screen.dart';
 import '../utils/insets.dart';
 
+/// A restore, parameterised by whether the user has already agreed to apply a
+/// backup that contains no rows.
+typedef _RestoreTask = Future<void> Function({bool allowEmpty});
+
+/// Unwinds a task the user backed out of part-way through, so [_runTask]
+/// reports neither success nor an error.
+class _Cancelled implements Exception {
+  const _Cancelled();
+}
+
 class BackupsScreen extends StatefulWidget {
   const BackupsScreen({super.key});
 
@@ -37,6 +47,34 @@ class _BackupsScreenState extends State<BackupsScreen> {
     if (mounted) setState(() => _lastBackup = t);
   }
 
+  /// A restore that turned out to contain nothing, which the user then
+  /// declined to apply. Unwinds the task without reporting success or an error.
+  static const _cancelled = _Cancelled();
+
+  /// Second confirmation, shown only when the backup parsed cleanly but has no
+  /// rows at all. The generic "Replace all data?" prompt isn't enough here —
+  /// the user thinks they are restoring something.
+  Future<bool> _confirmEmptyRestore(String detail) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('This backup is empty'),
+        content: Text('$detail\n\nContinue anyway?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Erase everything',
+                style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   /// Restore replaces all current data, so make the user confirm.
   Future<bool> _confirmRestore() async {
     final ok = await showDialog<bool>(
@@ -58,11 +96,23 @@ class _BackupsScreenState extends State<BackupsScreen> {
     return ok == true;
   }
 
-  Future<void> _restore(Future<void> Function() task, String success) async {
-    if (await _confirmRestore()) {
-      await _runTask(task, success);
-      await _loadLastBackup();
-    }
+  /// Runs a restore behind the "Replace all data?" confirmation. If the backup
+  /// turns out to be empty the service refuses it, and we ask a second time
+  /// before retrying with [allowEmpty] — otherwise a `{}` file would silently
+  /// erase everything.
+  Future<void> _restore(_RestoreTask task, String success) async {
+    if (!await _confirmRestore()) return;
+    await _runTask(() async {
+      try {
+        await task();
+      } on EmptyBackupException catch (e) {
+        if (!mounted || !await _confirmEmptyRestore(e.message)) {
+          throw _cancelled;
+        }
+        await task(allowEmpty: true);
+      }
+    }, success);
+    await _loadLastBackup();
   }
 
   Future<void> _runTask(Future<void> Function() task, String success) async {
@@ -86,6 +136,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
       await recurringProvider.fetchRules();
       await templateProvider.fetchTemplates();
       await _loadLastBackup();
+    } on _Cancelled {
+      // The user backed out of a second confirmation; nothing to report.
     } catch (e) {
       messenger.showSnackBar(_errorSnackBar(e));
     } finally {
@@ -93,13 +145,19 @@ class _BackupsScreenState extends State<BackupsScreen> {
     }
   }
 
-  /// Drive/backup failures carry a user-facing message (e.g. Drive not set up);
-  /// show it plainly and give the reader time to act. Everything else falls
-  /// back to a generic "Error: …".
+  /// Drive/backup failures carry a user-facing message (e.g. Drive not set up,
+  /// or a file that isn't a backup); show it plainly and give the reader time
+  /// to act. Everything else falls back to a generic "Error: …".
   SnackBar _errorSnackBar(Object e) {
     if (e is DriveBackupException) {
       return SnackBar(
         content: Text(e.message),
+        duration: const Duration(seconds: 8),
+      );
+    }
+    if (e is BackupFormatException || e is EmptyBackupException) {
+      return SnackBar(
+        content: Text('$e'),
         duration: const Duration(seconds: 8),
       );
     }
@@ -278,15 +336,20 @@ class _BackupsScreenState extends State<BackupsScreen> {
               label: const Text('Backup locally (JSON)'),
               onPressed: _isWorking
                   ? null
-                  : () => _runTask(
-                      _backupService.backupToJson, 'Local JSON backup created'),
+                  // writeJsonBackupFile, not backupToJson: it applies the
+                  // device key when at-rest encryption is on, so this button
+                  // can't leave a readable copy of everything on disk.
+                  : () => _runTask(_backupService.writeJsonBackupFile,
+                      'Local JSON backup created'),
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.restore),
               label: const Text('Restore from local JSON'),
               onPressed: _isWorking
                   ? null
-                  : () => _restore(() => _backupService.restoreFromJson(),
+                  : () => _restore(
+                      ({bool allowEmpty = false}) =>
+                          _backupService.restoreFromJson(allowEmpty: allowEmpty),
                       'Restored from local JSON'),
             ),
             const Divider(height: 32),
@@ -328,9 +391,18 @@ class _BackupsScreenState extends State<BackupsScreen> {
                           title: 'Restore encrypted backup',
                           action: 'Restore');
                       if (pass == null) return;
-                      await _runTask(
-                          () => _backupService.restoreFromEncryptedFile(pass),
-                          'Restored from encrypted backup');
+                      await _runTask(() async {
+                        try {
+                          await _backupService.restoreFromEncryptedFile(pass);
+                        } on EmptyBackupException catch (e) {
+                          if (!mounted ||
+                              !await _confirmEmptyRestore(e.message)) {
+                            throw _cancelled;
+                          }
+                          await _backupService.restoreFromEncryptedFile(pass,
+                              allowEmpty: true);
+                        }
+                      }, 'Restored from encrypted backup');
                     },
             ),
             ElevatedButton.icon(

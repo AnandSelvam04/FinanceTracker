@@ -44,41 +44,66 @@ class DBService {
   }
 
   /// Whether the on-device database is currently encrypted. Always false in
-  /// test mode. Never throws (returns false if secure storage is unavailable).
+  /// test mode.
+  ///
+  /// A secure-storage read can fail transiently (keystore not yet unlocked
+  /// after boot, for one). Treating that as "encryption is off" is a lie that
+  /// used to propagate silently: Settings showed the toggle off, and the
+  /// backup paths wrote plaintext. It still reports false so the UI has
+  /// something to render, but the failure is logged and
+  /// [readEncryptionFlagOrThrow] gives the paths that must not guess a way to
+  /// tell the two apart.
   Future<bool> isEncryptionEnabled() async {
     if (testFactory != null || dbNameOverride != null) return false;
     try {
-      return (await _secureStorage.read(key: _kEncEnabledFlag)) == 'true';
-    } catch (_) {
+      return await readEncryptionFlagOrThrow();
+    } catch (e) {
+      AppLogger.error(
+          'Could not read the encryption flag from secure storage; '
+          'reporting encryption as off',
+          e);
       return false;
     }
   }
 
+  /// Reads the encryption flag, propagating a secure-storage failure instead
+  /// of collapsing it into `false`.
+  Future<bool> readEncryptionFlagOrThrow() async {
+    if (testFactory != null || dbNameOverride != null) return false;
+    return (await _secureStorage.read(key: _kEncEnabledFlag)) == 'true';
+  }
+
   /// Password to open the database: the stored key when encryption is on,
-  /// otherwise null (plaintext). Guarded so the plain path never fails on a
-  /// host without secure storage (unit tests, desktop).
+  /// otherwise null (plaintext).
+  ///
+  /// Only the *flag read* is guarded, so the plain path still works on a host
+  /// without secure storage (unit tests, desktop). Once we know encryption is
+  /// on, a failure to fetch the key is fatal and propagates — returning null
+  /// there would try to open an encrypted file with no key and surface as an
+  /// unintelligible SQLite error.
   Future<String?> _password() async {
     if (dbNameOverride != null) return null;
+    bool enabled;
     try {
-      if ((await _secureStorage.read(key: _kEncEnabledFlag)) != 'true') {
-        return null;
-      }
-      return await _getOrCreateKey();
-    } catch (_) {
+      enabled = await readEncryptionFlagOrThrow();
+    } catch (e) {
+      AppLogger.error(
+          'Secure storage unavailable; opening the database unencrypted', e);
       return null;
     }
+    return enabled ? await _getOrCreateKey() : null;
   }
 
   /// The device-held database key when at-rest encryption is on, otherwise
   /// null. Used to protect the automatic local backup with the same key, so
   /// enabling DB encryption doesn't leave a readable JSON copy on disk.
+  ///
+  /// Throws if encryption is on but the key can't be read: callers use this to
+  /// decide whether to encrypt a backup, and a null there would quietly write
+  /// the plaintext copy this exists to prevent.
   Future<String?> deviceKeyIfEncrypted() async {
-    if (!await isEncryptionEnabled()) return null;
-    try {
-      return await _getOrCreateKey();
-    } catch (_) {
-      return null;
-    }
+    if (!await readEncryptionFlagOrThrow()) return null;
+    return _getOrCreateKey();
   }
 
   Future<String> _getOrCreateKey() async {
