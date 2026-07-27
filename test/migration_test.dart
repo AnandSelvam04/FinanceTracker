@@ -71,5 +71,51 @@ void main() {
 
     // Accounts table exists and is empty.
     expect(await DBService().getAccounts(), isEmpty);
+
+    // v9 gave every money column INTEGER affinity. Amounts had been integer
+    // minor units since v6, but the columns were still declared REAL, so
+    // SQLite coerced each one to a double on write.
+    final db = await DBService().database;
+    Future<String> affinityOf(String table, String column) async {
+      final columns = await db.rawQuery('PRAGMA table_info($table)');
+      return columns.firstWhere((c) => c['name'] == column)['type'] as String;
+    }
+
+    expect(await affinityOf(DbConstants.tableExpenses, DbConstants.colAmount),
+        'INTEGER');
+    expect(
+        await affinityOf(DbConstants.tableInvestments, DbConstants.colAmount),
+        'INTEGER');
+    expect(await affinityOf(DbConstants.tableBudgets, DbConstants.colAmount),
+        'INTEGER');
+    expect(
+        await affinityOf(
+            DbConstants.tableAccounts, DbConstants.colOpeningBalance),
+        'INTEGER');
+    expect(
+        await affinityOf(
+            DbConstants.tableRecurringRules, DbConstants.colAmount),
+        'INTEGER');
+    expect(await affinityOf(DbConstants.tableTemplates, DbConstants.colAmount),
+        'INTEGER');
+    // `rate` is a genuine fraction and must stay REAL.
+    expect(await affinityOf(DbConstants.tableAccounts, DbConstants.colRate),
+        'REAL');
+
+    // The stored value is now a true int, not a double that reads back as one.
+    final raw = await db.rawQuery(
+        'SELECT ${DbConstants.colAmount} AS a FROM ${DbConstants.tableExpenses}');
+    expect(raw.first['a'], isA<int>());
+    expect(raw.first['a'], 7500);
+
+    // Dropping the expenses table dropped its indexes; v9 must put them back,
+    // or the date-range and balance queries silently go back to full scans.
+    final indexes = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ?",
+        [DbConstants.tableExpenses]);
+    final names = indexes.map((r) => r['name']).toSet();
+    expect(names, contains(DbConstants.idxExpensesDate));
+    expect(names, contains(DbConstants.idxExpensesTypeAccount));
+    expect(names, contains(DbConstants.idxExpensesToAccount));
   });
 }

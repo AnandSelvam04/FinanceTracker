@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 8;
+  static const int dbVersion = 9;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';

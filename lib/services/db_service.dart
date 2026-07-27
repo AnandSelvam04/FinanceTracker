@@ -154,7 +154,7 @@ class DBService {
           CREATE TABLE ${DbConstants.tableExpenses}(
             ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
             ${DbConstants.colDescription} TEXT,
-            ${DbConstants.colAmount} REAL,
+            ${DbConstants.colAmount} INTEGER,
             ${DbConstants.colDate} TEXT,
             ${DbConstants.colCategory} TEXT,
             ${DbConstants.colPaymentMode} TEXT,
@@ -169,7 +169,7 @@ class DBService {
           CREATE TABLE ${DbConstants.tableInvestments}(
             ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
             ${DbConstants.colName} TEXT,
-            ${DbConstants.colAmount} REAL,
+            ${DbConstants.colAmount} INTEGER,
             ${DbConstants.colDate} TEXT,
             ${DbConstants.colType} TEXT
           )
@@ -178,7 +178,7 @@ class DBService {
           CREATE TABLE ${DbConstants.tableBudgets}(
             ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
             ${DbConstants.colCategory} TEXT,
-            ${DbConstants.colAmount} REAL,
+            ${DbConstants.colAmount} INTEGER,
             ${DbConstants.colYear} INTEGER,
             ${DbConstants.colMonth} INTEGER
           )
@@ -265,6 +265,179 @@ class DBService {
           'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colToAmount} INTEGER');
       await _createExpenseIndexes(db);
     }
+    if (oldVersion < 9) {
+      await _migrateAmountsToInteger(db);
+    }
+  }
+
+  /// v9: give every money column INTEGER affinity.
+  ///
+  /// Amounts became integer minor units back in v6, but the columns were still
+  /// declared REAL, so SQLite coerced each one to a double on write and the
+  /// Dart side rounded it back on read. It worked, yet it quietly gave up the
+  /// exactness the minor-unit migration existed to provide — and `SUM()` came
+  /// back as a float. Only whole numbers are stored, so the values themselves
+  /// do not change.
+  ///
+  /// SQLite cannot alter a column's type, so each table is rebuilt. sqflite
+  /// runs onUpgrade inside a transaction, so a failure here rolls the whole
+  /// thing back rather than leaving half-converted tables.
+  static Future<void> _migrateAmountsToInteger(Database db) async {
+    // (table, column definitions, columns to copy) — amount columns are
+    // CAST on the way across; everything else is copied verbatim.
+    Future<void> rebuild(
+        String table, String columns, List<String> copy) async {
+      // Databases upgrading from an old enough version may not have every
+      // table yet (the earlier migration steps create some of them), so a
+      // missing table here is normal rather than an error.
+      final exists = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [table]);
+      if (exists.isEmpty) return;
+
+      final tmp = '${table}_v9';
+      await db.execute('CREATE TABLE $tmp($columns)');
+      final names = copy.join(', ');
+      await db.execute('INSERT INTO $tmp ($names) SELECT $names FROM $table');
+      await db.execute('DROP TABLE $table');
+      await db.execute('ALTER TABLE $tmp RENAME TO $table');
+    }
+
+    const amt = DbConstants.colAmount;
+    final id = DbConstants.colId;
+
+    await rebuild(
+      DbConstants.tableExpenses,
+      '''
+        $id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.colDescription} TEXT,
+        $amt INTEGER,
+        ${DbConstants.colDate} TEXT,
+        ${DbConstants.colCategory} TEXT,
+        ${DbConstants.colPaymentMode} TEXT,
+        ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}',
+        ${DbConstants.colAccountId} INTEGER,
+        ${DbConstants.colToAccountId} INTEGER,
+        ${DbConstants.colToAmount} INTEGER
+      ''',
+      [
+        id,
+        DbConstants.colDescription,
+        amt,
+        DbConstants.colDate,
+        DbConstants.colCategory,
+        DbConstants.colPaymentMode,
+        DbConstants.colType,
+        DbConstants.colAccountId,
+        DbConstants.colToAccountId,
+        DbConstants.colToAmount,
+      ],
+    );
+    // Dropping the table dropped its indexes with it.
+    await _createExpenseIndexes(db);
+
+    await rebuild(
+      DbConstants.tableInvestments,
+      '''
+        $id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.colName} TEXT,
+        $amt INTEGER,
+        ${DbConstants.colDate} TEXT,
+        ${DbConstants.colType} TEXT
+      ''',
+      [id, DbConstants.colName, amt, DbConstants.colDate, DbConstants.colType],
+    );
+
+    await rebuild(
+      DbConstants.tableBudgets,
+      '''
+        $id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.colCategory} TEXT,
+        $amt INTEGER,
+        ${DbConstants.colYear} INTEGER,
+        ${DbConstants.colMonth} INTEGER
+      ''',
+      [
+        id,
+        DbConstants.colCategory,
+        amt,
+        DbConstants.colYear,
+        DbConstants.colMonth
+      ],
+    );
+
+    // `rate` stays REAL — it is a genuine fraction, not a money amount.
+    await rebuild(
+      DbConstants.tableAccounts,
+      '''
+        $id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.colName} TEXT NOT NULL,
+        ${DbConstants.colType} TEXT NOT NULL,
+        ${DbConstants.colOpeningBalance} INTEGER NOT NULL DEFAULT 0,
+        ${DbConstants.colColor} INTEGER,
+        ${DbConstants.colCurrency} TEXT,
+        ${DbConstants.colRate} REAL NOT NULL DEFAULT 1
+      ''',
+      [
+        id,
+        DbConstants.colName,
+        DbConstants.colType,
+        DbConstants.colOpeningBalance,
+        DbConstants.colColor,
+        DbConstants.colCurrency,
+        DbConstants.colRate,
+      ],
+    );
+
+    await rebuild(
+      DbConstants.tableRecurringRules,
+      '''
+        $id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.colDescription} TEXT,
+        $amt INTEGER,
+        ${DbConstants.colCategory} TEXT,
+        ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}',
+        ${DbConstants.colAccountId} INTEGER,
+        ${DbConstants.colFrequency} TEXT NOT NULL,
+        ${DbConstants.colNextDue} TEXT NOT NULL,
+        ${DbConstants.colAnchorDay} INTEGER NOT NULL DEFAULT 1,
+        ${DbConstants.colEnabled} INTEGER NOT NULL DEFAULT 1
+      ''',
+      [
+        id,
+        DbConstants.colDescription,
+        amt,
+        DbConstants.colCategory,
+        DbConstants.colType,
+        DbConstants.colAccountId,
+        DbConstants.colFrequency,
+        DbConstants.colNextDue,
+        DbConstants.colAnchorDay,
+        DbConstants.colEnabled,
+      ],
+    );
+
+    await rebuild(
+      DbConstants.tableTemplates,
+      '''
+        $id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.colName} TEXT NOT NULL,
+        ${DbConstants.colDescription} TEXT,
+        $amt INTEGER,
+        ${DbConstants.colCategory} TEXT,
+        ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}',
+        ${DbConstants.colAccountId} INTEGER
+      ''',
+      [
+        id,
+        DbConstants.colName,
+        DbConstants.colDescription,
+        amt,
+        DbConstants.colCategory,
+        DbConstants.colType,
+        DbConstants.colAccountId,
+      ],
+    );
   }
 
   static Future<void> _createExpenseIndexes(Database db) async {
@@ -285,7 +458,7 @@ class DBService {
         ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
         ${DbConstants.colName} TEXT NOT NULL,
         ${DbConstants.colType} TEXT NOT NULL,
-        ${DbConstants.colOpeningBalance} REAL NOT NULL DEFAULT 0,
+        ${DbConstants.colOpeningBalance} INTEGER NOT NULL DEFAULT 0,
         ${DbConstants.colColor} INTEGER,
         ${DbConstants.colCurrency} TEXT,
         ${DbConstants.colRate} REAL NOT NULL DEFAULT 1
@@ -298,7 +471,7 @@ class DBService {
       CREATE TABLE ${DbConstants.tableRecurringRules}(
         ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
         ${DbConstants.colDescription} TEXT,
-        ${DbConstants.colAmount} REAL,
+        ${DbConstants.colAmount} INTEGER,
         ${DbConstants.colCategory} TEXT,
         ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}',
         ${DbConstants.colAccountId} INTEGER,
@@ -313,7 +486,7 @@ class DBService {
         ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
         ${DbConstants.colName} TEXT NOT NULL,
         ${DbConstants.colDescription} TEXT,
-        ${DbConstants.colAmount} REAL,
+        ${DbConstants.colAmount} INTEGER,
         ${DbConstants.colCategory} TEXT,
         ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}',
         ${DbConstants.colAccountId} INTEGER
