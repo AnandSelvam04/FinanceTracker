@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ (API 31) backup/transfer rules.
+
+  The app holds the user's complete financial history in a local SQLite file
+  and its settings in SharedPreferences. Neither should leave the device
+  through Android's automatic backup: at-rest encryption is opt-in, so the
+  default install would otherwise sync a plaintext database to the user's
+  Google account without them ever asking. The app has its own explicit
+  backup/export features for when the user does want a copy.
+
+  cloud-backup is excluded outright. device-transfer is excluded for the same
+  reason — a direct phone-to-phone copy still moves the plaintext database.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="file" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="file" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

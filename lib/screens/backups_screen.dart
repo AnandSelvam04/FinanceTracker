@@ -31,6 +31,10 @@ class BackupsScreen extends StatefulWidget {
   State<BackupsScreen> createState() => _BackupsScreenState();
 }
 
+/// Minimum length when *setting* a backup passphrase. Encrypted backups are
+/// shared off-device, so the passphrase is their only protection.
+const _minPassphraseLength = 12;
+
 class _BackupsScreenState extends State<BackupsScreen> {
   final _backupService = BackupService();
   bool _isWorking = false;
@@ -214,9 +218,22 @@ class _BackupsScreenState extends State<BackupsScreen> {
                 controller: controller,
                 obscureText: true,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: 'Passphrase'),
-                validator: (v) =>
-                    (v == null || v.length < 4) ? 'Use at least 4 characters' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Passphrase',
+                  helperText: 'At least 12 characters',
+                ),
+                // These files are meant to leave the device via the share
+                // sheet, so the passphrase is the only thing protecting them.
+                // Four characters fall to a brute-force in seconds; only
+                // enforced when setting a passphrase, so existing backups
+                // stay restorable.
+                validator: confirm
+                    ? (v) => (v == null || v.length < _minPassphraseLength)
+                        ? 'Use at least $_minPassphraseLength characters'
+                        : null
+                    : (v) => (v == null || v.isEmpty)
+                        ? 'Enter the passphrase'
+                        : null,
               ),
               if (confirm)
                 TextFormField(
