@@ -21,9 +21,10 @@ class CategoryTrendChart extends StatelessWidget {
     ];
 
     if (categories.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: 220,
-        child: Center(child: Text('Select categories to compare.')),
+        child: Center(
+            child: const Text('Select categories to compare.')),
       );
     }
 

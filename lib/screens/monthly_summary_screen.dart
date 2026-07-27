@@ -6,6 +6,7 @@ import '../services/statement_pdf.dart';
 import '../utils/category_colors.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/insets.dart';
 import '../widgets/month_selector.dart';
 
 class MonthlySummaryScreen extends StatefulWidget {
@@ -45,7 +46,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     final transactions = provider.expensesForMonth(_year, _month);
     if (transactions.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('No transactions to include.')),
+        SnackBar(content: const Text('No transactions to include.')),
       );
       return;
     }
@@ -60,7 +61,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         subject: 'Statement $_periodLabel',
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(
+          SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -97,7 +99,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
           final txCount = provider.expensesForMonth(_year, _month).length;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: scrollPadding(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -125,7 +127,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                         _row('Expense', formatMoney(expense),
                             color: expenseColor(context)),
                         const Divider(),
-                        _row('Net', formatMoney(net),
+                        _row('Net', formatMoneySigned(net),
                             color: net >= 0
                                 ? incomeColor(context)
                                 : expenseColor(context),
@@ -149,20 +151,20 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    const Text('Expense vs last month: ',
-                        style: TextStyle(fontSize: 14)),
+                    Text('Expense vs last month: ',
+                        style: const TextStyle(fontSize: 14)),
                     _DeltaLabel(current: expense, previous: prevExpense),
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Text('Top Categories',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Top Categories',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 if (topCategories.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Text('No expenses this month.'),
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: const Text('No expenses this month.'),
                   )
                 else
                   ...topCategories.map((entry) {

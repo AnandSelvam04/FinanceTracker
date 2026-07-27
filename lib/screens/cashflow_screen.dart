@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/expense_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/insets.dart';
 import '../widgets/cashflow_chart.dart';
 
 class CashflowScreen extends StatefulWidget {
@@ -42,13 +43,13 @@ class _CashflowScreenState extends State<CashflowScreen> {
           final net = totalIncome - totalExpense;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: scrollPadding(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Income vs Expense (Last 12 Months)',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Income vs Expense (Last 12 Months)',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 CashflowChart(provider: provider),
                 const SizedBox(height: 8),
@@ -131,7 +132,7 @@ class _SummaryRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label),
-        Text(formatMoney(value),
+        Text(formatMoneySigned(value),
             style: TextStyle(fontWeight: FontWeight.bold, color: color)),
       ],
     );

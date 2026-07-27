@@ -5,6 +5,8 @@ import '../providers/account_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import '../utils/insets.dart';
+import '../utils/date_format.dart';
 
 class RecurringScreen extends StatefulWidget {
   const RecurringScreen({super.key});
@@ -46,9 +48,6 @@ class _RecurringScreenState extends State<RecurringScreen> {
         return freq;
     }
   }
-
-  String _formatDate(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   Future<void> _showRuleDialog({RecurringRule? rule}) async {
     _description = rule?.description ?? '';
@@ -100,12 +99,12 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   DropdownButtonFormField<String>(
                     initialValue: _type,
                     decoration: const InputDecoration(labelText: 'Type'),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
                           value: DbConstants.txExpense,
-                          child: Text('Expense')),
+                          child: const Text('Expense')),
                       DropdownMenuItem(
-                          value: DbConstants.txIncome, child: Text('Income')),
+                          value: DbConstants.txIncome, child: const Text('Income')),
                     ],
                     onChanged: (v) => _type = v ?? _type,
                   ),
@@ -125,8 +124,8 @@ class _RecurringScreenState extends State<RecurringScreen> {
                       decoration:
                           const InputDecoration(labelText: 'Account'),
                       items: [
-                        const DropdownMenuItem<int?>(
-                            value: null, child: Text('None')),
+                        DropdownMenuItem<int?>(
+                            value: null, child: const Text('None')),
                         ...accounts.map((a) => DropdownMenuItem<int?>(
                             value: a.id, child: Text(a.name))),
                       ],
@@ -135,7 +134,9 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Expanded(child: Text('Next due: ${_formatDate(_nextDue)}')),
+                      Expanded(
+                          child: Text(
+                              'Next due: ${formatDateWithDay(_nextDue)}')),
                       TextButton(
                         onPressed: () async {
                           final picked = await showDatePicker(
@@ -201,16 +202,15 @@ class _RecurringScreenState extends State<RecurringScreen> {
         builder: (context, provider, _) {
           final rules = provider.rules;
           if (rules.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.repeat, size: 48, color: Colors.grey),
-                    SizedBox(height: 8),
-                    Text(
-                        'No recurring transactions. Add rent, salary, bills, and they post automatically.'),
+                    const Icon(Icons.repeat, size: 48, color: Colors.grey),
+                    const SizedBox(height: 8),
+                    const Text('No recurring transactions. Add rent, salary, bills, and they post automatically.'),
                   ],
                 ),
               ),
@@ -218,7 +218,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
           }
           return ListView.separated(
             itemCount: rules.length,
-            padding: const EdgeInsets.all(12),
+            padding: scrollPadding(context, all: 12, fab: true),
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final rule = rules[index];
@@ -237,7 +237,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   title: Text(rule.description,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(
-                      '${rule.category} · ${_freqLabel(rule.frequency)} · next ${_formatDate(rule.nextDue)}'),
+                      '${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatDateWithDay(rule.nextDue)}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

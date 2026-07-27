@@ -27,4 +27,22 @@ void main() {
     CurrencyFormat.symbol = '\$';
     expect(formatMoney(100000), '\$1000.00');
   });
+
+  group('formatMoneySigned', () {
+    test('puts the minus sign before the currency symbol', () {
+      // formatMoney would render this as the awkward '₹-7500.00'.
+      expect(formatMoneySigned(-750000), '-₹7500.00');
+      expect(formatMoney(-750000), '₹-7500.00');
+    });
+
+    test('leaves positive and zero amounts unsigned', () {
+      expect(formatMoneySigned(750000), '₹7500.00');
+      expect(formatMoneySigned(0), '₹0.00');
+    });
+
+    test('honors the configured currency symbol', () {
+      CurrencyFormat.symbol = '\$';
+      expect(formatMoneySigned(-100000), '-\$1000.00');
+    });
+  });
 }

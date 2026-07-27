@@ -12,6 +12,7 @@ import '../providers/recurring_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 import 'import_screen.dart';
+import '../utils/insets.dart';
 
 class BackupsScreen extends StatefulWidget {
   const BackupsScreen({super.key});
@@ -42,16 +43,14 @@ class _BackupsScreenState extends State<BackupsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Replace all data?'),
-        content: const Text(
-            'Restoring will delete everything currently in the app and '
-            'replace it with the backup. This cannot be undone.'),
+        content: const Text('Restoring will delete everything currently in the app and replace it with the backup. This cannot be undone.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Replace', style: TextStyle(color: Colors.red)),
+            child: Text('Replace', style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -104,7 +103,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
         duration: const Duration(seconds: 8),
       );
     }
-    return SnackBar(content: Text('Error: $e'));
+    return SnackBar(
+        content: Text('Error: $e'));
   }
 
   /// Generates a file and opens the system share sheet so the user can
@@ -121,10 +121,10 @@ class _BackupsScreenState extends State<BackupsScreen> {
         subject: subject,
       );
       if (mounted && result.status == ShareResultStatus.success) {
-        messenger.showSnackBar(const SnackBar(content: Text('Exported')));
+        messenger.showSnackBar(SnackBar(content: const Text('Exported')));
       }
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(_errorSnackBar(e));
     } finally {
       if (mounted) setState(() => _isWorking = false);
     }
@@ -157,9 +157,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
                 obscureText: true,
                 autofocus: true,
                 decoration: const InputDecoration(labelText: 'Passphrase'),
-                validator: (v) => (v == null || v.length < 4)
-                    ? 'Use at least 4 characters'
-                    : null,
+                validator: (v) =>
+                    (v == null || v.length < 4) ? 'Use at least 4 characters' : null,
               ),
               if (confirm)
                 TextFormField(
@@ -171,12 +170,11 @@ class _BackupsScreenState extends State<BackupsScreen> {
                       v != controller.text ? 'Passphrases do not match' : null,
                 ),
               if (confirm)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'If you forget this passphrase, the backup cannot be '
-                    'recovered.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    'If you forget this passphrase, the backup cannot be recovered.',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ),
             ],
@@ -203,15 +201,16 @@ class _BackupsScreenState extends State<BackupsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Backup & Export')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: scrollPadding(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _LastBackupBanner(time: _lastBackup),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Backup & Restore',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
@@ -232,8 +231,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: const Text('Warning: Newer Backup Found'),
-                              content: const Text(
-                                  'A newer backup exists on Google Drive. Overwriting it may cause data loss from other devices.\n\nDo you want to continue and overwrite the remote backup?'),
+                              content: Text('A newer backup exists on Google Drive. Overwriting it may cause data loss from other devices.\n\nDo you want to continue and overwrite the remote backup?'),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
@@ -241,8 +239,9 @@ class _BackupsScreenState extends State<BackupsScreen> {
                                 ),
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, true),
-                                  child: const Text('Overwrite',
-                                      style: TextStyle(color: Colors.red)),
+                                  child: Text('Overwrite',
+                                      style:
+                                          const TextStyle(color: Colors.red)),
                                 ),
                               ],
                             ),
@@ -269,10 +268,9 @@ class _BackupsScreenState extends State<BackupsScreen> {
                       _backupService.restoreFromDrive, 'Restored from Drive'),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Google Drive requires a one-time sign-in setup in the build. '
-              'If it fails, your data is still safe in local backups below.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+            Text(
+              'Google Drive requires a one-time sign-in setup in the build. If it fails, your data is still safe in local backups below.',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const Divider(height: 32),
             ElevatedButton.icon(
@@ -292,15 +290,15 @@ class _BackupsScreenState extends State<BackupsScreen> {
                       'Restored from local JSON'),
             ),
             const Divider(height: 32),
-            const Text(
+            Text(
               'Encrypted backup',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Protect an exported backup with a passphrase (AES-256). Keep the '
-              'passphrase safe — it is required to restore and cannot be reset.',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
+            Text(
+              'Protect an exported backup with a passphrase (AES-256). Keep the passphrase safe — it is required to restore and cannot be reset.',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
@@ -352,15 +350,15 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     },
             ),
             const Divider(height: 32),
-            const Text(
+            Text(
               'Download & Share',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Save your data to Files/Downloads, email it, or send it to '
-              'another app.',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
+            Text(
+              'Save your data to Files/Downloads, email it, or send it to another app.',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
@@ -376,8 +374,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
               label: const Text('Download investments (CSV)'),
               onPressed: _isWorking
                   ? null
-                  : () => _exportAndShare(exportInvestmentsToCsv,
-                      'Finance Tracker — Investments'),
+                  : () => _exportAndShare(
+                      exportInvestmentsToCsv, 'Finance Tracker — Investments'),
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.download),
@@ -426,9 +424,9 @@ class _LastBackupBanner extends StatelessWidget {
     } else {
       final d = now.difference(time!);
       final ago = d.inDays >= 1
-          ? '${d.inDays} day${d.inDays == 1 ? '' : 's'} ago'
+          ? (d.inDays == 1 ? '1 day ago' : '${d.inDays} days ago')
           : d.inHours >= 1
-              ? '${d.inHours} hour${d.inHours == 1 ? '' : 's'} ago'
+              ? (d.inHours == 1 ? '1 hour ago' : '${d.inHours} hours ago')
               : 'just now';
       label = 'Last backup: $ago';
     }

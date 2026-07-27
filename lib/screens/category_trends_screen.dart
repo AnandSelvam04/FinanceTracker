@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/expense_provider.dart';
 import '../utils/category_colors.dart';
+import '../utils/insets.dart';
 import '../widgets/category_trend_chart.dart';
 
 class CategoryTrendsScreen extends StatefulWidget {
@@ -54,22 +55,22 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
           }
 
           if (categories.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('No expenses in the last 12 months.'),
+                padding: const EdgeInsets.all(24),
+                child: const Text('No expenses in the last 12 months.'),
               ),
             );
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: scrollPadding(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Spending by Category (Last 12 Months)',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Spending by Category (Last 12 Months)',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 CategoryTrendChart(
                   provider: provider,

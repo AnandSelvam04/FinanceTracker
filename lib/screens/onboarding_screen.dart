@@ -10,7 +10,8 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   int _page = 0;
-  final List<_OnboardPage> _pages = const [
+
+  static const List<_OnboardPage> _pages = [
     _OnboardPage(
       title: 'Welcome to FinanceTracker',
       description:
@@ -63,7 +64,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: _next,
-                child: Text(_page < _pages.length - 1 ? 'Next' : 'Get Started'),
+                child:
+                    Text(_page < _pages.length - 1 ? 'Next' : 'Get Started'),
               ),
             ],
           ),

@@ -11,6 +11,7 @@ import '../services/csv_import.dart';
 import '../services/db_service.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import '../utils/insets.dart';
 
 class ImportScreen extends StatefulWidget {
   const ImportScreen({super.key});
@@ -85,7 +86,7 @@ class _ImportScreenState extends State<ImportScreen> {
     final result = parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
     if (result.expenses.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('No valid rows to import.')),
+        SnackBar(content: const Text('No valid rows to import.')),
       );
       return;
     }
@@ -98,12 +99,13 @@ class _ImportScreenState extends State<ImportScreen> {
       await accountProvider.refreshBalances();
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
-        content: Text(
-            'Imported ${result.expenses.length}, skipped ${result.skipped}'),
+        content:
+            Text('Imported ${result.expenses.length}, skipped ${result.skipped}'),
       ));
       Navigator.pop(context);
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(
+          SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _importing = false);
     }
@@ -123,11 +125,10 @@ class _ImportScreenState extends State<ImportScreen> {
                 children: [
                   const Icon(Icons.upload_file, size: 48, color: Colors.grey),
                   const SizedBox(height: 12),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 32),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
                     child: Text(
-                      'Pick a CSV file (e.g. a bank statement or an export '
-                      'from another app), then map its columns.',
+                      'Pick a CSV file (e.g. a bank statement or an export from another app), then map its columns.',
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -141,7 +142,7 @@ class _ImportScreenState extends State<ImportScreen> {
               ),
             )
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: scrollPadding(context),
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -165,23 +166,23 @@ class _ImportScreenState extends State<ImportScreen> {
                     padding: const EdgeInsets.only(top: 8),
                     child: DropdownButtonFormField<String>(
                       initialValue: _defaultType,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                           labelText: 'Import all rows as'),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
                             value: DbConstants.txExpense,
-                            child: Text('Expense')),
+                            child: const Text('Expense')),
                         DropdownMenuItem(
-                            value: DbConstants.txIncome, child: Text('Income')),
+                            value: DbConstants.txIncome, child: const Text('Income')),
                       ],
                       onChanged: (v) =>
                           setState(() => _defaultType = v ?? _defaultType),
                     ),
                   ),
                 const SizedBox(height: 16),
-                const Text('Preview',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Preview',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 _preview(rows),
                 const SizedBox(height: 16),
@@ -217,7 +218,8 @@ class _ImportScreenState extends State<ImportScreen> {
           ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            title: Text(e.description.isEmpty ? '(no description)' : e.description),
+            title:
+                Text(e.description.isEmpty ? '(no description)' : e.description),
             subtitle: Text(
                 '${e.category} · ${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')} · ${e.type}'),
             trailing: Text(formatMoney(e.amount)),
@@ -257,7 +259,7 @@ class _ImportScreenState extends State<ImportScreen> {
         initialValue: (value != null && value < columns.length) ? value : null,
         decoration: InputDecoration(labelText: label),
         items: [
-          const DropdownMenuItem<int?>(value: null, child: Text('None')),
+          DropdownMenuItem<int?>(value: null, child: const Text('None')),
           for (var i = 0; i < columns.length; i++)
             DropdownMenuItem(value: i, child: Text(columns[i])),
         ],

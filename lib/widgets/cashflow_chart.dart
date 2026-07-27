@@ -47,9 +47,9 @@ class CashflowChart extends StatelessWidget {
     }
 
     if (maxValue == 0) {
-      return const SizedBox(
+      return SizedBox(
         height: 220,
-        child: Center(child: Text('No transactions in the last 12 months.')),
+        child: Center(child: const Text('No transactions in the last 12 months.')),
       );
     }
 

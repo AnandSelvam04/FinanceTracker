@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import '../l10n/app_localizations.dart';
 import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
@@ -9,7 +8,9 @@ import '../services/backup_service.dart';
 import '../services/db_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
+import '../utils/insets.dart';
 import '../utils/transaction_filter.dart';
 
 class ExpenseListScreen extends StatefulWidget {
@@ -61,24 +62,20 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       _maxAmount != null ||
       _dateRange != null;
 
-  String _formatDate(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
   Future<bool> _confirmDelete(Expense expense) async {
-    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l.deleteExpenseTitle),
-        content: Text(l.deleteExpenseBody(
-            expense.description, formatMoney(expense.amount))),
+        title: const Text('Delete expense?'),
+        content: Text('Remove "${expense.description}" for '
+            '${formatMoney(expense.amount)}?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text(l.cancel)),
+              child: const Text('Cancel')),
           ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(l.delete)),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -94,7 +91,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 
   Future<void> _editExpense(Expense expense) async {
-    final l = AppLocalizations.of(context);
     final descController = TextEditingController(text: expense.description);
     final amountController =
         TextEditingController(text: minorToEditString(expense.amount));
@@ -111,98 +107,104 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       builder: (context) {
         return StatefulBuilder(builder: (context, setModalState) {
           return Padding(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 16,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(l.editExpense,
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descController,
-                  decoration: InputDecoration(labelText: l.description),
-                ),
-                TextField(
-                  controller: amountController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(labelText: l.amount),
-                ),
-                TextField(
-                  controller: categoryController,
-                  decoration: InputDecoration(labelText: l.category),
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: paymentMode,
-                  decoration: InputDecoration(labelText: l.paymentMode),
-                  items: const [
-                    DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                    DropdownMenuItem(
-                        value: 'Credit Card', child: Text('Credit Card')),
-                    DropdownMenuItem(
-                        value: 'Debit Card', child: Text('Debit Card')),
-                    DropdownMenuItem(value: 'UPI', child: Text('UPI')),
-                    DropdownMenuItem(value: 'Other', child: Text('Other')),
-                  ],
-                  onChanged: (v) =>
-                      setModalState(() => paymentMode = v ?? paymentMode),
-                ),
-                Row(
-                  children: [
-                    Text('${l.date}: ${_formatDate(selectedDate)}'),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate,
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime.now(),
-                        );
-                        if (picked != null) {
-                          setModalState(() => selectedDate = picked);
-                        }
-                      },
-                      child: Text(l.change),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final amount =
-                          parseMinor(amountController.text.trim());
-                      if (amount == null) return;
-                      final updated = Expense(
-                        id: expense.id,
-                        description: descController.text.trim(),
-                        amount: amount,
-                        date: selectedDate,
-                        category: categoryController.text.trim(),
-                        paymentMode: paymentMode,
-                        type: expense.type,
-                        accountId: expense.accountId,
-                        toAccountId: expense.toAccountId,
-                      );
-                      final provider = context.read<ExpenseProvider>();
-                      final accountProvider = context.read<AccountProvider>();
-                      await provider.updateExpense(updated);
-                      await accountProvider.refreshBalances();
-                      if (!context.mounted) return;
-                      Navigator.pop(context);
-                    },
-                    child: Text(l.save),
+            padding: bottomSheetPadding(context),
+            // Scrollable so the form can still be reached (and Save tapped)
+            // when the keyboard shrinks the available height.
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Edit Expense',
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descController,
+                    decoration: const InputDecoration(labelText: 'Description'),
                   ),
-                ),
-              ],
+                  TextField(
+                    controller: amountController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'Amount'),
+                  ),
+                  TextField(
+                    controller: categoryController,
+                    decoration: const InputDecoration(labelText: 'Category'),
+                  ),
+                  DropdownButtonFormField<String>(
+                    initialValue: paymentMode,
+                    decoration: const InputDecoration(labelText: 'Payment Mode'),
+                    items: [
+                      DropdownMenuItem(
+                          value: 'Cash', child: const Text('Cash')),
+                      DropdownMenuItem(
+                          value: 'Credit Card',
+                          child: const Text('Credit Card')),
+                      DropdownMenuItem(
+                          value: 'Debit Card',
+                          child: const Text('Debit Card')),
+                      DropdownMenuItem(
+                          value: 'UPI', child: const Text('UPI')),
+                      DropdownMenuItem(
+                          value: 'Other',
+                          child: const Text('Other')),
+                    ],
+                    onChanged: (v) =>
+                        setModalState(() => paymentMode = v ?? paymentMode),
+                  ),
+                  Row(
+                    children: [
+                      Text('Date: ${formatDateWithDay(selectedDate)}'),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime.now(),
+                          );
+                          if (picked != null) {
+                            setModalState(() => selectedDate = picked);
+                          }
+                        },
+                        child: const Text('Change'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: kSheetActionHeight,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final amount =
+                            parseMinor(amountController.text.trim());
+                        if (amount == null) return;
+                        final updated = Expense(
+                          id: expense.id,
+                          description: descController.text.trim(),
+                          amount: amount,
+                          date: selectedDate,
+                          category: categoryController.text.trim(),
+                          paymentMode: paymentMode,
+                          type: expense.type,
+                          accountId: expense.accountId,
+                          toAccountId: expense.toAccountId,
+                        );
+                        final provider = context.read<ExpenseProvider>();
+                        final accountProvider = context.read<AccountProvider>();
+                        await provider.updateExpense(updated);
+                        await accountProvider.refreshBalances();
+                        if (!context.mounted) return;
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Save'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         });
@@ -211,7 +213,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 
   Future<void> _editTransfer(Expense transfer) async {
-    final l = AppLocalizations.of(context);
     final accountProvider0 = context.read<AccountProvider>();
     final accounts = accountProvider0.accounts;
     final amountController =
@@ -237,115 +238,115 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setSheet) => Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(l.editTransfer,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int?>(
-                initialValue: accounts.any((a) => a.id == fromId) ? fromId : null,
-                decoration: InputDecoration(labelText: l.fromAccount),
-                items: accounts
-                    .map((a) =>
-                        DropdownMenuItem<int?>(value: a.id, child: Text(a.name)))
-                    .toList(),
-                onChanged: (v) => setSheet(() => fromId = v),
-              ),
-              DropdownButtonFormField<int?>(
-                initialValue: accounts.any((a) => a.id == toId) ? toId : null,
-                decoration: InputDecoration(labelText: l.toAccount),
-                items: accounts
-                    .map((a) =>
-                        DropdownMenuItem<int?>(value: a.id, child: Text(a.name)))
-                    .toList(),
-                onChanged: (v) => setSheet(() => toId = v),
-              ),
-              TextField(
-                controller: amountController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(labelText: l.amount),
-              ),
-              if (crossCurrency())
+          padding: bottomSheetPadding(context),
+          // Scrollable so the form can still be reached (and Save tapped)
+          // when the keyboard shrinks the available height.
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Edit Transfer',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int?>(
+                  initialValue: accounts.any((a) => a.id == fromId) ? fromId : null,
+                  decoration: const InputDecoration(labelText: 'From account'),
+                  items: accounts
+                      .map((a) =>
+                          DropdownMenuItem<int?>(value: a.id, child: Text(a.name)))
+                      .toList(),
+                  onChanged: (v) => setSheet(() => fromId = v),
+                ),
+                DropdownButtonFormField<int?>(
+                  initialValue: accounts.any((a) => a.id == toId) ? toId : null,
+                  decoration: const InputDecoration(labelText: 'To account'),
+                  items: accounts
+                      .map((a) =>
+                          DropdownMenuItem<int?>(value: a.id, child: Text(a.name)))
+                      .toList(),
+                  onChanged: (v) => setSheet(() => toId = v),
+                ),
                 TextField(
-                  controller: toAmountController,
+                  controller: amountController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText:
-                        '${l.amountReceived} (${accountProvider0.accountById(toId)!.symbol})',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Amount'),
                 ),
-              TextField(
-                controller: noteController,
-                decoration: InputDecoration(labelText: l.note),
-              ),
-              Row(
-                children: [
-                  Text('${l.date}: ${_formatDate(date)}'),
-                  const Spacer(),
-                  TextButton(
+                if (crossCurrency())
+                  TextField(
+                    controller: toAmountController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText:
+                          'Amount received (${accountProvider0.accountById(toId)!.symbol})',
+                    ),
+                  ),
+                TextField(
+                  controller: noteController,
+                  decoration: const InputDecoration(labelText: 'Note'),
+                ),
+                Row(
+                  children: [
+                    Text('Date: ${formatDateWithDay(date)}'),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: date,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) setSheet(() => date = picked);
+                      },
+                      child: const Text('Change'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: kSheetActionHeight,
+                  child: ElevatedButton(
                     onPressed: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: date,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime.now(),
+                      final amount = parseMinor(amountController.text.trim());
+                      if (amount == null || fromId == null || toId == null ||
+                          fromId == toId) {
+                        return;
+                      }
+                      int? toAmount;
+                      if (crossCurrency()) {
+                        toAmount = parseMinor(toAmountController.text.trim());
+                        if (toAmount == null) return;
+                      }
+                      final updated = Expense(
+                        id: transfer.id,
+                        description: noteController.text.trim().isEmpty
+                            ? 'Transfer'
+                            : noteController.text.trim(),
+                        amount: amount,
+                        date: date,
+                        category: 'Transfer',
+                        paymentMode: 'Other',
+                        type: DbConstants.txTransfer,
+                        accountId: fromId,
+                        toAccountId: toId,
+                        toAmount: toAmount,
                       );
-                      if (picked != null) setSheet(() => date = picked);
+                      final expenseProvider = context.read<ExpenseProvider>();
+                      final accountProvider = context.read<AccountProvider>();
+                      await expenseProvider.updateExpense(updated);
+                      await accountProvider.refreshBalances();
+                      if (!context.mounted) return;
+                      Navigator.pop(context);
                     },
-                    child: Text(l.change),
+                    child: const Text('Save'),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final amount = parseMinor(amountController.text.trim());
-                    if (amount == null || fromId == null || toId == null ||
-                        fromId == toId) {
-                      return;
-                    }
-                    int? toAmount;
-                    if (crossCurrency()) {
-                      toAmount = parseMinor(toAmountController.text.trim());
-                      if (toAmount == null) return;
-                    }
-                    final updated = Expense(
-                      id: transfer.id,
-                      description: noteController.text.trim().isEmpty
-                          ? 'Transfer'
-                          : noteController.text.trim(),
-                      amount: amount,
-                      date: date,
-                      category: 'Transfer',
-                      paymentMode: 'Other',
-                      type: DbConstants.txTransfer,
-                      accountId: fromId,
-                      toAccountId: toId,
-                      toAmount: toAmount,
-                    );
-                    final expenseProvider = context.read<ExpenseProvider>();
-                    final accountProvider = context.read<AccountProvider>();
-                    await expenseProvider.updateExpense(updated);
-                    await accountProvider.refreshBalances();
-                    if (!context.mounted) return;
-                    Navigator.pop(context);
-                  },
-                  child: Text(l.save),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -370,7 +371,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 
   Future<void> _openFilterSheet() async {
-    final l = AppLocalizations.of(context);
     final provider = context.read<ExpenseProvider>();
     final accounts = context.read<AccountProvider>().accounts;
     final categories = provider.expenses
@@ -397,135 +397,137 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setSheet) => Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l.filters,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String?>(
-                initialValue: categories.contains(category) ? category : null,
-                decoration: InputDecoration(labelText: l.category),
-                items: [
-                  DropdownMenuItem<String?>(value: null, child: Text(l.any)),
-                  ...categories.map((c) =>
-                      DropdownMenuItem<String?>(value: c, child: Text(c))),
-                ],
-                onChanged: (v) => setSheet(() => category = v),
-              ),
-              if (accounts.isNotEmpty)
-                DropdownButtonFormField<int?>(
-                  initialValue: accounts.any((a) => a.id == accountId)
-                      ? accountId
-                      : null,
-                  decoration: InputDecoration(labelText: l.account),
+          padding: bottomSheetPadding(context),
+          // Scrollable so the filter list can still be reached (and Apply
+          // tapped) when the keyboard shrinks the available height.
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Filters',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String?>(
+                  initialValue: categories.contains(category) ? category : null,
+                  decoration: const InputDecoration(labelText: 'Category'),
                   items: [
-                    DropdownMenuItem<int?>(value: null, child: Text(l.any)),
-                    ...accounts.map((a) => DropdownMenuItem<int?>(
-                        value: a.id, child: Text(a.name))),
+                    DropdownMenuItem<String?>(value: null, child: const Text('Any')),
+                    ...categories.map((c) =>
+                        DropdownMenuItem<String?>(value: c, child: Text(c))),
                   ],
-                  onChanged: (v) => setSheet(() => accountId = v),
+                  onChanged: (v) => setSheet(() => category = v),
                 ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: minController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(labelText: l.minAmount),
+                if (accounts.isNotEmpty)
+                  DropdownButtonFormField<int?>(
+                    initialValue: accounts.any((a) => a.id == accountId)
+                        ? accountId
+                        : null,
+                    decoration: const InputDecoration(labelText: 'Account'),
+                    items: [
+                      DropdownMenuItem<int?>(value: null, child: const Text('Any')),
+                      ...accounts.map((a) => DropdownMenuItem<int?>(
+                          value: a.id, child: Text(a.name))),
+                    ],
+                    onChanged: (v) => setSheet(() => accountId = v),
+                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: minController,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'Min amount'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: maxController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(labelText: l.maxAmount),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: maxController,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'Max amount'),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(range == null
-                        ? l.dateRangeUsesYearMonth
-                        : l.dateRangeIs(_fmtRange(range!))),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      final picked = await showDateRangePicker(
-                        context: context,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime.now(),
-                        initialDateRange: range,
-                      );
-                      if (picked != null) setSheet(() => range = picked);
-                    },
-                    child: Text(l.pick),
-                  ),
-                  if (range != null)
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(range == null
+                          ? 'Date range: uses Year/Month above'
+                          : 'Date range: ${_fmtRange(range!)}'),
+                    ),
                     TextButton(
-                      onPressed: () => setSheet(() => range = null),
-                      child: Text(l.clear),
+                      onPressed: () async {
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now(),
+                          initialDateRange: range,
+                        );
+                        if (picked != null) setSheet(() => range = picked);
+                      },
+                      child: const Text('Pick'),
                     ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _categoryFilter = null;
-                        _accountFilter = null;
-                        _minAmount = null;
-                        _maxAmount = null;
-                        _dateRange = null;
-                      });
-                      Navigator.pop(context);
-                    },
-                    child: Text(l.resetAll),
-                  ),
-                  const Spacer(),
-                  ElevatedButton(
-                    onPressed: () {
-                      final appliedRange = range;
-                      setState(() {
-                        _categoryFilter = category;
-                        _accountFilter = accountId;
-                        _minAmount = parseMinor(minController.text.trim());
-                        _maxAmount = parseMinor(maxController.text.trim());
-                        _dateRange = appliedRange;
-                      });
-                      // A custom range can span years the provider hasn't
-                      // loaded yet; load them so the filter shows everything.
-                      if (appliedRange != null) {
-                        context.read<ExpenseProvider>().ensureYearsLoaded([
-                          for (var y = appliedRange.start.year;
-                              y <= appliedRange.end.year;
-                              y++)
-                            y
-                        ]);
-                      }
-                      Navigator.pop(context);
-                    },
-                    child: Text(l.apply),
-                  ),
-                ],
-              ),
-            ],
+                    if (range != null)
+                      TextButton(
+                        onPressed: () => setSheet(() => range = null),
+                        child: const Text('Clear'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _categoryFilter = null;
+                          _accountFilter = null;
+                          _minAmount = null;
+                          _maxAmount = null;
+                          _dateRange = null;
+                        });
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Reset all'),
+                    ),
+                    const Spacer(),
+                    SizedBox(
+                      height: kSheetActionHeight,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final appliedRange = range;
+                          setState(() {
+                            _categoryFilter = category;
+                            _accountFilter = accountId;
+                            _minAmount = parseMinor(minController.text.trim());
+                            _maxAmount = parseMinor(maxController.text.trim());
+                            _dateRange = appliedRange;
+                          });
+                          // A custom range can span years the provider hasn't
+                          // loaded yet; load them so the filter shows everything.
+                          if (appliedRange != null) {
+                            context.read<ExpenseProvider>().ensureYearsLoaded([
+                              for (var y = appliedRange.start.year;
+                                  y <= appliedRange.end.year;
+                                  y++)
+                                y
+                            ]);
+                          }
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Apply'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -533,7 +535,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 
   String _fmtRange(DateTimeRange r) =>
-      '${_formatDate(r.start)} → ${_formatDate(r.end)}';
+      '${formatIsoDate(r.start)} → ${formatIsoDate(r.end)}';
 
   String get _filterLabel {
     final period = _selectedMonth == null
@@ -544,13 +546,12 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
 
   /// Downloads exactly what the current filters show, via the share sheet.
   Future<void> _downloadFiltered() async {
-    final l = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final provider = context.read<ExpenseProvider>();
     final filtered = _applyFilters(provider.expenses);
     if (filtered.isEmpty) {
       messenger.showSnackBar(
-        SnackBar(content: Text(l.nothingToDownload)),
+        SnackBar(content: const Text('Nothing to download for this filter.')),
       );
       return;
     }
@@ -561,17 +562,16 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       );
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'text/csv')],
-        subject: 'Finance Tracker — ${l.transactions} ($_filterLabel)',
+        subject: 'Finance Tracker — Transactions ($_filterLabel)',
       );
     } catch (e) {
       messenger.showSnackBar(
-          SnackBar(content: Text(l.errorWithDetails('$e'))));
+          SnackBar(content: Text('Error: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final currentYear = DateTime.now().year;
     // Every year from the earliest transaction to now, newest first, so old
     // data stays reachable (the list used to stop at 10 years back).
@@ -583,18 +583,18 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l.transactions),
+        title: const Text('Transactions'),
         actions: [
           IconButton(
             icon: Icon(_hasAdvancedFilters
                 ? Icons.filter_alt
                 : Icons.filter_alt_outlined),
-            tooltip: l.filters,
+            tooltip: 'Filters',
             onPressed: _openFilterSheet,
           ),
           IconButton(
             icon: const Icon(Icons.download),
-            tooltip: l.downloadFilteredCsv,
+            tooltip: 'Download filtered (CSV)',
             onPressed: _downloadFiltered,
           ),
         ],
@@ -605,7 +605,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
             padding: const EdgeInsets.all(8.0),
             child: TextField(
               decoration: InputDecoration(
-                labelText: l.searchExpenses,
+                labelText: 'Search Expenses',
                 prefixIcon: const Icon(Icons.search),
               ),
               onChanged: (value) {
@@ -618,7 +618,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('${l.year}:'),
+              const Text('Year:'),
               const SizedBox(width: 8),
               DropdownButton<int>(
                 value: _selectedYear,
@@ -633,14 +633,14 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 },
               ),
               const SizedBox(width: 16),
-              Text('${l.month}:'),
+              const Text('Month:'),
               const SizedBox(width: 8),
               DropdownButton<int?>(
                 value: _selectedMonth,
                 items: [
                   DropdownMenuItem(
                     value: null,
-                    child: Text(l.all),
+                    child: const Text('All'),
                   ),
                   ...List.generate(
                       12,
@@ -660,10 +660,10 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
                 for (final entry in [
-                  (null, l.all),
-                  (DbConstants.txExpense, l.navExpenses),
-                  (DbConstants.txIncome, l.income),
-                  (DbConstants.txTransfer, l.transfers),
+                  (null, 'All'),
+                  (DbConstants.txExpense, 'Expenses'),
+                  (DbConstants.txIncome, 'Income'),
+                  (DbConstants.txTransfer, 'Transfers'),
                 ])
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -688,7 +688,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       children: [
                         const Icon(Icons.inbox, size: 48, color: Colors.grey),
                         const SizedBox(height: 8),
-                        Text(l.noExpensesFound),
+                        const Text('No expenses found.'),
                       ],
                     ),
                   );
@@ -696,7 +696,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 return ListView.separated(
                   itemCount: expenses.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  padding: const EdgeInsets.all(12),
+                  padding: scrollPadding(context, all: 12, fab: true),
                   itemBuilder: (context, index) {
                     final expense = expenses[index];
                     return Dismissible(
@@ -730,7 +730,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                               style:
                                   const TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: Text(
-                              '${expense.category} · ${_formatDate(expense.date)}'),
+                              '${expense.category} · ${formatDateWithDay(expense.date)}'),
                           trailing: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -752,8 +752,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                                   expense.isExpense
                                       ? expense.paymentMode
                                       : expense.isIncome
-                                          ? l.income
-                                          : l.transfer,
+                                          ? 'Income'
+                                          : 'Transfer',
                                   style: TextStyle(
                                       color: mutedTextColor(context),
                                       fontSize: 12)),

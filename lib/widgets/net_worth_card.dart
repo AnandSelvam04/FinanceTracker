@@ -2,7 +2,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../l10n/app_localizations.dart';
 import '../models/net_worth_point.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
@@ -41,12 +40,12 @@ class NetWorthCard extends StatelessWidget {
                   children: [
                     const Icon(Icons.account_balance, size: 20),
                     const SizedBox(width: 8),
-                    Text(AppLocalizations.of(context).netWorth,
+                    Text('Net Worth',
                         style: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.bold)),
                     const Spacer(),
                     Text(
-                      formatMoney(netWorth),
+                      formatMoneySigned(netWorth),
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -59,8 +58,8 @@ class NetWorthCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${AppLocalizations.of(context).accounts} ${formatMoney(liquid)} · '
-                  '${AppLocalizations.of(context).investments} ${formatMoney(invested)}',
+                  'Accounts ${formatMoneySigned(liquid)} · '
+                  'Investments ${formatMoneySigned(invested)}',
                   style:
                       TextStyle(fontSize: 12, color: mutedTextColor(context)),
                 ),
@@ -97,7 +96,7 @@ class _NetWorthTrend extends StatelessWidget {
         final series = snapshot.data!;
         if (series.every((p) => p.value == 0)) {
           return Center(
-            child: Text(AppLocalizations.of(context).noHistoryYet,
+            child: Text('No history yet',
                 style:
                     TextStyle(fontSize: 12, color: mutedTextColor(context))),
           );
@@ -108,7 +107,7 @@ class _NetWorthTrend extends StatelessWidget {
         ];
         final color = Theme.of(context).colorScheme.primary;
         return Semantics(
-          label: AppLocalizations.of(context).netWorthTrendSemantics,
+          label: 'Net worth trend over the last 12 months',
           child: LineChart(
             LineChartData(
               gridData: FlGridData(show: false),

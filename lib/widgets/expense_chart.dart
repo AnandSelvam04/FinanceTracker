@@ -20,8 +20,7 @@ class ExpenseChart extends StatelessWidget {
             ))
         .toList();
     return Semantics(
-      label: 'Expense breakdown by category: '
-          '${data.keys.join(', ')}',
+      label: 'Expense breakdown by category: ${data.keys.join(', ')}',
       child: PieChart(
         PieChartData(
           sections: sections,

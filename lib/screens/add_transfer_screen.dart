@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../l10n/app_localizations.dart';
 import '../models/account.dart';
 import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import '../utils/insets.dart';
 
 class AddTransferScreen extends StatefulWidget {
   const AddTransferScreen({super.key});
@@ -45,7 +45,6 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final accountProvider = context.watch<AccountProvider>();
     final accounts = accountProvider.accounts;
     final fromAccount = accountProvider.accountById(_fromAccountId);
@@ -57,16 +56,16 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
         fromAccount.symbol != toAccount.symbol;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l.transferBetweenAccounts)),
+      appBar: AppBar(title: const Text('Transfer between accounts')),
       body: accounts.length < 2
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(l.needTwoAccounts),
+                child: const Text('You need at least two accounts to record a transfer.'),
               ),
             )
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: scrollPadding(context),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -75,12 +74,12 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                     DropdownButtonFormField<int>(
                       initialValue: _fromAccountId,
                       decoration:
-                          InputDecoration(labelText: l.fromAccount),
+                          const InputDecoration(labelText: 'From account'),
                       items: accounts
                           .map((a) => DropdownMenuItem(
                               value: a.id, child: Text(a.name)))
                           .toList(),
-                      validator: (v) => v == null ? l.selectAccount : null,
+                      validator: (v) => v == null ? 'Select an account' : null,
                       onChanged: (v) {
                         setState(() => _fromAccountId = v);
                         _suggestToAmount(
@@ -90,15 +89,15 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                     DropdownButtonFormField<int>(
                       initialValue: _toAccountId,
                       decoration:
-                          InputDecoration(labelText: l.toAccount),
+                          const InputDecoration(labelText: 'To account'),
                       items: accounts
                           .map((a) => DropdownMenuItem(
                               value: a.id, child: Text(a.name)))
                           .toList(),
                       validator: (v) {
-                        if (v == null) return l.selectAccount;
+                        if (v == null) return 'Select an account';
                         if (v == _fromAccountId) {
-                          return l.mustDifferFromSource;
+                          return 'Must differ from source account';
                         }
                         return null;
                       },
@@ -112,8 +111,8 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                       controller: _amountController,
                       decoration: InputDecoration(
                         labelText: crossCurrency
-                            ? '${l.amount} (${fromAccount.symbol})'
-                            : l.amount,
+                            ? 'Amount (${fromAccount.symbol})'
+                            : 'Amount',
                       ),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
@@ -124,11 +123,11 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                       },
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return l.enterAmount;
+                          return 'Enter an amount';
                         }
                         final amount = double.tryParse(value);
                         if (amount == null || amount <= 0) {
-                          return l.enterValidAmount;
+                          return 'Enter a valid amount';
                         }
                         return null;
                       },
@@ -138,7 +137,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                         controller: _toAmountController,
                         decoration: InputDecoration(
                           labelText:
-                              '${l.amountReceived} (${toAccount.symbol})',
+                              'Amount received (${toAccount.symbol})',
                           helperText:
                               '${fromAccount.symbol} → ${toAccount.symbol}',
                         ),
@@ -146,11 +145,11 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                             decimal: true),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return l.enterAmount;
+                            return 'Enter an amount';
                           }
                           final amount = double.tryParse(value);
                           if (amount == null || amount <= 0) {
-                            return l.enterValidAmount;
+                            return 'Enter a valid amount';
                           }
                           return null;
                         },
@@ -158,14 +157,14 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                     TextFormField(
                       controller: _noteController,
                       decoration:
-                          InputDecoration(labelText: l.noteOptional),
+                          const InputDecoration(labelText: 'Note (optional)'),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: Text(
-                              '${l.date}: ${_selectedDate.toString().split(' ')[0]}'),
+                              'Date: ${_selectedDate.toString().split(' ')[0]}'),
                         ),
                         TextButton(
                           onPressed: () async {
@@ -179,7 +178,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                               setState(() => _selectedDate = picked);
                             }
                           },
-                          child: Text(l.selectDate),
+                          child: const Text('Select Date'),
                         ),
                       ],
                     ),
@@ -191,7 +190,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                         child: _isSaving
                             ? const CircularProgressIndicator(
                                 color: Colors.white)
-                            : Text(l.recordTransfer),
+                            : const Text('Record Transfer'),
                       ),
                     ),
                   ],
@@ -203,7 +202,6 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
 
   Future<void> _save(BuildContext context) async {
     if (!_formKey.currentState!.validate()) return;
-    final l = AppLocalizations.of(context);
     setState(() => _isSaving = true);
     final note = _noteController.text.trim();
     final accountProvider0 = context.read<AccountProvider>();
@@ -232,7 +230,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
       await accountProvider.refreshBalances();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.transferRecorded)),
+          SnackBar(content: const Text('Transfer recorded')),
         );
         Navigator.pop(context);
       }

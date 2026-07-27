@@ -55,11 +55,11 @@ class AlertsBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  children: const [
-                    Icon(Icons.notifications_active, size: 18),
-                    SizedBox(width: 8),
+                  children: [
+                    const Icon(Icons.notifications_active, size: 18),
+                    const SizedBox(width: 8),
                     Text('Alerts',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
                 const SizedBox(height: 4),

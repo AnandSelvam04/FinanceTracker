@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../l10n/app_localizations.dart';
 import '../models/recurring_rule.dart';
 import '../utils/alerts.dart';
 import '../utils/app_logger.dart';
@@ -26,8 +25,6 @@ class NotificationService {
   bool _tzReady = false;
 
   static const _channelId = 'finance_alerts';
-  static const _channelName = 'Budget & bill alerts';
-  static const _channelDesc = 'Reminders for due bills and budget limits';
 
   // Disjoint id ranges so bill reminders and budget alerts never collide and
   // can be cancelled independently.
@@ -73,15 +70,18 @@ class NotificationService {
     }
   }
 
-  NotificationDetails _details() => NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          channelDescription: _channelDesc,
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
-        ),
-      );
+  NotificationDetails _details() {
+    // Channel name/description show in the Android notification settings.
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        _channelId,
+        'Budget & bill alerts',
+        channelDescription: 'Reminders for due bills and budget limits',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      ),
+    );
+  }
 
   Future<void> _show(int id, String title, String body) async {
     if (!_initialized) return;
@@ -103,7 +103,6 @@ class NotificationService {
       for (final p in await _plugin.pendingNotificationRequests()) {
         if (p.id >= _billIdBase) await _plugin.cancel(p.id);
       }
-      final l = AppLocalizations.resolve();
       final now = tz.TZDateTime.now(tz.local);
       for (final rule in rules) {
         if (!rule.enabled || rule.id == null) continue;
@@ -115,9 +114,9 @@ class NotificationService {
         if (!when.isAfter(now)) continue;
         await _plugin.zonedSchedule(
           _billIdBase + rule.id!,
-          l.billDueSoon,
-          l.billDueBody(rule.description, formatMoney(rule.amount),
-              _dueLabel(l, daysBefore)),
+          'Bill due soon',
+          '${rule.description} ${formatMoney(rule.amount)} is due '
+              '${_dueLabel(daysBefore)}',
           when,
           _details(),
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -130,11 +129,11 @@ class NotificationService {
     }
   }
 
-  String _dueLabel(AppLocalizations l, int daysBefore) => daysBefore <= 0
-      ? l.dueToday
+  String _dueLabel(int daysBefore) => daysBefore <= 0
+      ? 'today'
       : daysBefore == 1
-          ? l.dueTomorrow
-          : l.dueInDays(daysBefore);
+          ? 'tomorrow'
+          : 'in $daysBefore days';
 
   /// Stable per-category notification id from a persistent map, so two
   /// categories can never collide and overwrite each other's notification
@@ -159,7 +158,6 @@ class NotificationService {
       {required int year, required int month}) async {
     if (!_initialized || alerts.isEmpty) return;
     try {
-      final l = AppLocalizations.resolve();
       final prefs = await SharedPreferences.getInstance();
       final key = 'notified_budget_${year}_$month';
       final already = prefs.getStringList(key)?.toSet() ?? <String>{};
@@ -169,10 +167,10 @@ class NotificationService {
         already.add(tag);
         await _show(
           await _budgetNotificationId(prefs, a.category),
-          a.isOver ? l.overBudget : l.budgetWarning,
+          a.isOver ? 'Over budget' : 'Budget warning',
           a.isOver
-              ? l.overBudgetBody(a.category, formatMoney(a.spent - a.budget))
-              : l.budgetUsedBody(a.category, (a.ratio * 100).round()),
+              ? '${a.category}: over budget by ${formatMoney(a.spent - a.budget)}'
+              : '${a.category}: ${(a.ratio * 100).round()}% of budget used',
         );
       }
       await prefs.setStringList(key, already.toList());
