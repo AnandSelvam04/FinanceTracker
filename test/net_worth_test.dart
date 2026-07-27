@@ -53,8 +53,14 @@ void main() {
   test('netWorthSeries ignores transfers (they cancel across accounts)',
       () async {
     final db = DBService();
-    await db.insertAccount(Account(name: 'A', type: 'bank', openingBalance: 50000));
-    await db.insertAccount(Account(name: 'B', type: 'cash', openingBalance: 0));
+    // Use the ids insertAccount actually returns. Hardcoding 1 and 2 was only
+    // ever right by luck: clearAll() does not reset SQLite's AUTOINCREMENT, so
+    // on a fresh database these rows are ids 2 and 3, and the transfer pointed
+    // at a dead account and a live one instead of at both of these.
+    final aId = await db
+        .insertAccount(Account(name: 'A', type: 'bank', openingBalance: 50000));
+    final bId = await db
+        .insertAccount(Account(name: 'B', type: 'cash', openingBalance: 0));
     await db.insertExpense(Expense(
       description: 'move',
       amount: 10000,
@@ -62,12 +68,50 @@ void main() {
       category: '',
       paymentMode: 'Other',
       type: DbConstants.txTransfer,
-      accountId: 1,
-      toAccountId: 2,
+      accountId: aId,
+      toAccountId: bId,
     ));
 
     final series = await db.netWorthSeries(2, now: DateTime(2026, 2, 10));
     expect(series.last.value, 50000); // unchanged by the transfer
+  });
+
+  test('a transfer leg pointing at a deleted account does not move net worth',
+      () async {
+    // deleteAccount nulls accountId/toAccountId on the rows that referenced it,
+    // so one leg of a transfer can end up pointing nowhere. That leg must not
+    // count: getAccountFlows excludes it from the balances, and net worth has
+    // to agree with the balances or the trend diverges from them permanently.
+    final db = DBService();
+    final aId = await db
+        .insertAccount(Account(name: 'A', type: 'bank', openingBalance: 50000));
+    final bId = await db
+        .insertAccount(Account(name: 'B', type: 'cash', openingBalance: 0));
+    await db.insertExpense(Expense(
+      description: 'move',
+      amount: 10000,
+      date: DateTime(2026, 2, 1),
+      category: '',
+      paymentMode: 'Other',
+      type: DbConstants.txTransfer,
+      accountId: aId,
+      toAccountId: bId,
+    ));
+
+    // Deleting B leaves the transfer's destination dangling. A is down 10000
+    // and that money is no longer anywhere we track, so net worth is 40000 —
+    // not 50000, which would credit a destination that no longer exists.
+    await db.deleteAccount(bId);
+
+    final series = await db.netWorthSeries(2, now: DateTime(2026, 2, 10));
+    expect(series.last.value, 40000);
+
+    // ...and the balances say the same thing.
+    final accounts = await db.getAccounts();
+    final flows = await db.getAccountFlows();
+    final total = accounts.fold<int>(
+        0, (sum, a) => sum + a.openingBalance + (flows[a.id] ?? 0));
+    expect(total, 40000);
   });
 
   test('netWorthSeries converts foreign-currency accounts at their rate '
