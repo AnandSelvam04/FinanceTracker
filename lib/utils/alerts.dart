@@ -66,6 +66,16 @@ List<BudgetAlert> budgetAlerts({
   return alerts;
 }
 
+/// Whole calendar days from [from] to [to], ignoring the time of day.
+///
+/// Computed in UTC on purpose: subtracting two local midnights spans 23 or 25
+/// hours across a DST transition, and `inDays` truncates, so "due tomorrow"
+/// rendered as "due today". UTC has no such days, so the count is exact.
+int calendarDaysBetween(DateTime from, DateTime to) =>
+    DateTime.utc(to.year, to.month, to.day)
+        .difference(DateTime.utc(from.year, from.month, from.day))
+        .inDays;
+
 /// Enabled recurring rules due within the next [withinDays] days (or already
 /// overdue), soonest first.
 List<BillAlert> upcomingBills({
@@ -73,12 +83,10 @@ List<BillAlert> upcomingBills({
   required DateTime now,
   int withinDays = 3,
 }) {
-  final today = DateTime(now.year, now.month, now.day);
   final alerts = <BillAlert>[];
   for (final r in rules) {
     if (!r.enabled) continue;
-    final due = DateTime(r.nextDue.year, r.nextDue.month, r.nextDue.day);
-    final days = due.difference(today).inDays;
+    final days = calendarDaysBetween(now, r.nextDue);
     if (days <= withinDays) {
       alerts.add(BillAlert(
         description: r.description,

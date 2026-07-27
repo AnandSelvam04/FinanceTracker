@@ -85,8 +85,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     decoration: const InputDecoration(labelText: 'Amount'),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    validator: (v) =>
-                        double.tryParse(v ?? '') == null ? 'Invalid' : null,
+                    validator: validateAmountField,
                     onSaved: (v) => _amount = parseMinor(v ?? '0') ?? 0,
                   ),
                   TextFormField(

@@ -124,4 +124,69 @@ void main() {
       expect(result.contains('Salary'), isFalse);
     });
   });
+
+  group('nextDate is DST-safe', () {
+    // Duration(days: 1) adds 24 hours, which lands on the wrong wall-clock
+    // time (and sometimes the wrong date) on the two days a year a local day
+    // is 23 or 25 hours long. Calendar arithmetic keeps the time of day.
+    test('daily keeps the wall-clock time and advances exactly one date', () {
+      var due = DateTime(2026, 3, 7, 0, 0);
+      for (var i = 0; i < 10; i++) {
+        final next = RecurringService.nextDate(due, DbConstants.freqDaily, 7);
+        expect(next.hour, 0, reason: 'hour drifted on step $i');
+        expect(next.minute, 0);
+        expect(next.difference(DateTime(due.year, due.month, due.day)).inDays,
+            greaterThan(0));
+        expect(next.day, DateTime(due.year, due.month, due.day + 1).day);
+        due = next;
+      }
+    });
+
+    test('weekly advances seven calendar days, same weekday and time', () {
+      final due = DateTime(2026, 10, 29, 9, 30);
+      final next = RecurringService.nextDate(due, DbConstants.freqWeekly, 29);
+      expect(next, DateTime(2026, 11, 5, 9, 30));
+      expect(next.weekday, due.weekday);
+    });
+
+    test('daily rolls over month and year boundaries', () {
+      expect(RecurringService.nextDate(DateTime(2026, 1, 31),
+              DbConstants.freqDaily, 31),
+          DateTime(2026, 2, 1));
+      expect(RecurringService.nextDate(DateTime(2026, 12, 31),
+              DbConstants.freqDaily, 31),
+          DateTime(2027, 1, 1));
+    });
+  });
+
+  group('catch-up is bounded', () {
+    test('a long-overdue daily rule posts at most the cap in one run',
+        () async {
+      final db = DBService();
+      // nextDue three years back: unbounded catch-up would materialise ~1,100
+      // transactions in one launch-blocking pass.
+      await db.insertRecurringRule(RecurringRule(
+        description: 'Coffee',
+        amount: 100,
+        category: 'Food',
+        frequency: DbConstants.freqDaily,
+        nextDue: DateTime(2023, 1, 1),
+      ));
+
+      final posted = await RecurringService.instance
+          .postDueTransactions(now: DateTime(2026, 1, 1));
+
+      expect(posted, RecurringService.maxOccurrencesPerRun);
+      expect((await db.getExpenses()).length,
+          RecurringService.maxOccurrencesPerRun);
+
+      // The rule resumes where it left off, so nothing is lost.
+      final rule = (await db.getRecurringRules()).single;
+      expect(rule.nextDue.isAfter(DateTime(2023, 1, 1)), isTrue);
+
+      final more = await RecurringService.instance
+          .postDueTransactions(now: DateTime(2026, 1, 1));
+      expect(more, greaterThan(0));
+    });
+  });
 }

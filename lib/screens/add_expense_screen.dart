@@ -150,14 +150,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.next,
-                validator: (value) {
-                  if (value!.isEmpty) return 'Enter an amount';
-                  final amount = double.tryParse(value);
-                  if (amount == null || amount <= 0) {
-                    return 'Enter a valid amount';
-                  }
-                  return null;
-                },
+                validator: validateAmountField,
               ),
               Row(
                 children: [

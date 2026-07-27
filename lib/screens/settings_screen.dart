@@ -7,6 +7,7 @@ import '../providers/settings_provider.dart';
 import '../services/db_service.dart';
 import '../services/notification_service.dart';
 import '../utils/build_info.dart';
+import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -28,6 +29,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _encryptionEnabled = false;
   bool _encryptionBusy = false;
+
+  /// Warns before switching base currency while foreign-currency accounts
+  /// exist.
+  ///
+  /// Each account stores a `rate` meaning "base units per 1 unit of this
+  /// account's currency". Changing the base currency silently invalidates
+  /// every one of those rates — net worth, budgets and all converted totals
+  /// quietly become wrong — and an account held in the *new* base currency
+  /// keeps a rate that is no longer 1.0. Nothing here can recompute them
+  /// (the app has no FX feed), so the honest move is to say so and point the
+  /// user at the accounts they need to fix.
+  Future<bool> _confirmCurrencyChange(String next) async {
+    final accounts = context.read<AccountProvider>().accounts;
+    final affected = accounts.where((a) => a.rate != 1.0).toList();
+    if (affected.isEmpty) return true;
+
+    final names = affected.map((a) => '${a.name} (${a.symbol})').join(', ');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Update exchange rates too?'),
+        content: Text(
+          'Exchange rates are stored relative to the current base currency '
+          '(${CurrencyFormat.symbol}). Switching to $next leaves these '
+          'accounts with rates that no longer mean anything:\n\n$names\n\n'
+          'Balances and totals will be wrong until you edit each account\'s '
+          'rate to be against $next.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Change anyway')),
+        ],
+      ),
+    );
+    return ok == true;
+  }
 
   @override
   void initState() {
@@ -106,8 +147,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       .map((s) =>
                           DropdownMenuItem(value: s, child: Text(s)))
                       .toList(),
-                  onChanged: (v) {
-                    if (v != null) settings.setCurrencySymbol(v);
+                  onChanged: (v) async {
+                    if (v == null || v == settings.currencySymbol) return;
+                    if (!await _confirmCurrencyChange(v)) return;
+                    await settings.setCurrencySymbol(v);
                   },
                 ),
               ),

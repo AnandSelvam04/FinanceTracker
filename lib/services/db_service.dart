@@ -330,6 +330,25 @@ class DBService {
     }
   }
 
+  /// Inserts many rows in one transaction, so a bulk operation (CSV import)
+  /// either lands completely or not at all. Returns the number inserted.
+  Future<int> insertExpenses(List<Expense> expenses) async {
+    if (expenses.isEmpty) return 0;
+    final db = await database;
+    try {
+      await db.transaction((txn) async {
+        final batch = txn.batch();
+        for (final e in expenses) {
+          batch.insert(DbConstants.tableExpenses, e.toMap());
+        }
+        await batch.commit(noResult: true);
+      });
+      return expenses.length;
+    } catch (e) {
+      throw Exception('Failed to import expenses: $e');
+    }
+  }
+
   Future<List<Expense>> getExpenses() async {
     final db = await database;
     try {
@@ -837,6 +856,14 @@ class DBService {
     final rateById = {for (final a in accounts) a.id!: a.rate};
     double rateOf(Object? accountId) =>
         accountId == null ? 1.0 : (rateById[accountId] ?? 1.0);
+    // Deleting an account nulls accountId/toAccountId on the rows that
+    // referenced it. For a transfer that means one leg now points nowhere:
+    // the money did not actually move into or out of anything we still track,
+    // so that leg must not affect net worth. Counting it (at rate 1.0, no
+    // less) made the trend diverge permanently from the account balances,
+    // which exclude these rows outright — see getAccountFlows.
+    bool isLiveAccount(Object? accountId) =>
+        accountId != null && rateById.containsKey(accountId);
     final opening = accounts.fold<int>(
         0, (sum, a) => sum + toBaseMinor(a.openingBalance, a.rate));
 
@@ -872,9 +899,14 @@ class DBService {
         case DbConstants.txExpense:
           addDelta(row['ym'], -amt * rateOf(row['accountId']));
         case DbConstants.txTransfer:
-          addDelta(row['ym'],
-              -amt * rateOf(row['accountId']) +
-                  toAmt * rateOf(row['toAccountId']));
+          var delta = 0.0;
+          if (isLiveAccount(row['accountId'])) {
+            delta -= amt * rateOf(row['accountId']);
+          }
+          if (isLiveAccount(row['toAccountId'])) {
+            delta += toAmt * rateOf(row['toAccountId']);
+          }
+          addDelta(row['ym'], delta);
       }
     }
     for (final row in invRows) {

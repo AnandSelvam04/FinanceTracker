@@ -179,9 +179,17 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                     height: kSheetActionHeight,
                     child: ElevatedButton(
                       onPressed: () async {
+                        // Say why nothing happened. Returning silently made
+                        // Save look like a dead button.
+                        final problem =
+                            validateAmountField(amountController.text);
+                        if (problem != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(problem)));
+                          return;
+                        }
                         final amount =
-                            parseMinor(amountController.text.trim());
-                        if (amount == null) return;
+                            parseMinor(amountController.text.trim())!;
                         final updated = Expense(
                           id: expense.id,
                           description: descController.text.trim(),
@@ -311,16 +319,26 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                   height: kSheetActionHeight,
                   child: ElevatedButton(
                     onPressed: () async {
-                      final amount = parseMinor(amountController.text.trim());
-                      if (amount == null || fromId == null || toId == null ||
-                          fromId == toId) {
+                      // Each of these used to bail out silently, so Save did
+                      // nothing and said nothing.
+                      String? problem =
+                          validateAmountField(amountController.text);
+                      if (problem == null && (fromId == null || toId == null)) {
+                        problem = 'Pick both accounts';
+                      } else if (problem == null && fromId == toId) {
+                        problem = 'Pick two different accounts';
+                      } else if (problem == null && crossCurrency()) {
+                        problem = validateAmountField(toAmountController.text);
+                      }
+                      if (problem != null) {
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(SnackBar(content: Text(problem)));
                         return;
                       }
-                      int? toAmount;
-                      if (crossCurrency()) {
-                        toAmount = parseMinor(toAmountController.text.trim());
-                        if (toAmount == null) return;
-                      }
+                      final amount = parseMinor(amountController.text.trim())!;
+                      final toAmount = crossCurrency()
+                          ? parseMinor(toAmountController.text.trim())
+                          : null;
                       final updated = Expense(
                         id: transfer.id,
                         description: noteController.text.trim().isEmpty

@@ -121,16 +121,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                           _suggestToAmount(fromAccount, toAccount);
                         }
                       },
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Enter an amount';
-                        }
-                        final amount = double.tryParse(value);
-                        if (amount == null || amount <= 0) {
-                          return 'Enter a valid amount';
-                        }
-                        return null;
-                      },
+                      validator: validateAmountField,
                     ),
                     if (crossCurrency)
                       TextFormField(
@@ -143,16 +134,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                         ),
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Enter an amount';
-                          }
-                          final amount = double.tryParse(value);
-                          if (amount == null || amount <= 0) {
-                            return 'Enter a valid amount';
-                          }
-                          return null;
-                        },
+                        validator: validateAmountField,
                       ),
                     TextFormField(
                       controller: _noteController,

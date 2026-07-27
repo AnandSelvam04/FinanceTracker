@@ -67,11 +67,11 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               TextFormField(
                 initialValue: _amount == 0 ? '' : minorToEditString(_amount),
                 decoration: const InputDecoration(labelText: 'Amount'),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  final parsed = double.tryParse(value ?? '');
-                  return parsed == null ? 'Invalid number' : null;
-                },
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                // A zero cap silently never alerts (see budgetAlerts), so a
+                // budget has to be a positive amount.
+                validator: validateAmountField,
                 onSaved: (value) => _amount = parseMinor(value ?? '0') ?? 0,
               ),
               Row(
