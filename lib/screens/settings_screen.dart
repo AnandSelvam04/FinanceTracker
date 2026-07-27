@@ -7,6 +7,7 @@ import '../providers/settings_provider.dart';
 import '../services/db_service.dart';
 import '../services/notification_service.dart';
 import '../utils/build_info.dart';
+import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -28,6 +29,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _encryptionEnabled = false;
   bool _encryptionBusy = false;
+
+  /// Warns before switching base currency while foreign-currency accounts
+  /// exist.
+  ///
+  /// Each account stores a `rate` meaning "base units per 1 unit of this
+  /// account's currency". Changing the base currency silently invalidates
+  /// every one of those rates — net worth, budgets and all converted totals
+  /// quietly become wrong — and an account held in the *new* base currency
+  /// keeps a rate that is no longer 1.0. Nothing here can recompute them
+  /// (the app has no FX feed), so the honest move is to say so and point the
+  /// user at the accounts they need to fix.
+  Future<bool> _confirmCurrencyChange(String next) async {
+    final accounts = context.read<AccountProvider>().accounts;
+    final affected = accounts.where((a) => a.rate != 1.0).toList();
+    if (affected.isEmpty) return true;
+
+    final names = affected.map((a) => '${a.name} (${a.symbol})').join(', ');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Update exchange rates too?'),
+        content: Text(
+          'Exchange rates are stored relative to the current base currency '
+          '(${CurrencyFormat.symbol}). Switching to $next leaves these '
+          'accounts with rates that no longer mean anything:\n\n$names\n\n'
+          'Balances and totals will be wrong until you edit each account\'s '
+          'rate to be against $next.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Change anyway')),
+        ],
+      ),
+    );
+    return ok == true;
+  }
 
   @override
   void initState() {
@@ -60,13 +101,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       setState(() => _encryptionEnabled = now);
       messenger.showSnackBar(SnackBar(
-          content: Text(now ? 'Database encrypted' : 'Database encryption removed')));
+          content: Text(
+              now ? 'Database encrypted' : 'Database encryption removed')));
     } catch (e) {
       final now = await DBService().isEncryptionEnabled();
       if (!mounted) return;
       setState(() => _encryptionEnabled = now);
-      messenger.showSnackBar(
-          SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _encryptionBusy = false);
     }
@@ -103,11 +144,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       : null,
                   hint: Text(settings.currencySymbol),
                   items: SettingsProvider.currencyOptions
-                      .map((s) =>
-                          DropdownMenuItem(value: s, child: Text(s)))
+                      .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                       .toList(),
-                  onChanged: (v) {
-                    if (v != null) settings.setCurrencySymbol(v);
+                  onChanged: (v) async {
+                    if (v == null || v == settings.currencySymbol) return;
+                    if (!await _confirmCurrencyChange(v)) return;
+                    await settings.setCurrencySymbol(v);
                   },
                 ),
               ),
@@ -137,9 +179,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   items: [
                     DropdownMenuItem<int?>(
                         value: null, child: const Text('None')),
-                    ...accounts.accounts.map((a) =>
-                        DropdownMenuItem<int?>(
-                            value: a.id, child: Text(a.name))),
+                    ...accounts.accounts.map((a) => DropdownMenuItem<int?>(
+                        value: a.id, child: Text(a.name))),
                   ],
                   onChanged: (id) => settings.setDefaultAccountId(id),
                 ),
@@ -147,14 +188,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               SwitchListTile(
                 secondary: const Icon(Icons.notifications_active),
                 title: const Text('Budget & bill alerts'),
-                subtitle: const Text('Show dashboard warnings for budgets and due bills'),
+                subtitle: const Text(
+                    'Show dashboard warnings for budgets and due bills'),
                 value: settings.alertsEnabled,
                 onChanged: settings.setAlertsEnabled,
               ),
               SwitchListTile(
                 secondary: const Icon(Icons.notifications),
                 title: const Text('Push notifications'),
-                subtitle: const Text('Reminders before bills are due and budget-limit alerts'),
+                subtitle: const Text(
+                    'Reminders before bills are due and budget-limit alerts'),
                 value: settings.notificationsEnabled,
                 onChanged: (v) async {
                   await settings.setNotificationsEnabled(v);
@@ -170,16 +213,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ListTile(
                 leading: const Icon(Icons.timer_outlined),
                 title: const Text('Auto-lock'),
-                subtitle: const Text('When app lock is on, re-lock after being away'),
+                subtitle:
+                    const Text('When app lock is on, re-lock after being away'),
                 trailing: DropdownButton<int>(
-                  value:
-                      _lockOptions.containsKey(settings.lockTimeoutSeconds)
-                          ? settings.lockTimeoutSeconds
-                          : null,
+                  value: _lockOptions.containsKey(settings.lockTimeoutSeconds)
+                      ? settings.lockTimeoutSeconds
+                      : null,
                   hint: Text('${settings.lockTimeoutSeconds}s'),
                   items: _lockOptions.entries
-                      .map((e) => DropdownMenuItem(
-                          value: e.key, child: Text(e.value)))
+                      .map((e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.value)))
                       .toList(),
                   onChanged: (v) {
                     if (v != null) settings.setLockTimeoutSeconds(v);
@@ -196,12 +239,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : const Icon(Icons.enhanced_encryption),
                 title: const Text('Encrypt database'),
                 subtitle: Text(_encryptionBusy
-                    ? (_encryptionEnabled ? 'Removing encryption…' : 'Encrypting database…')
+                    ? (_encryptionEnabled
+                        ? 'Removing encryption…'
+                        : 'Encrypting database…')
                     : 'Protect on-device data with a device-secured key'),
                 value: _encryptionEnabled,
-                onChanged: _encryptionBusy
-                    ? null
-                    : (v) => _toggleEncryption(v),
+                onChanged: _encryptionBusy ? null : (v) => _toggleEncryption(v),
               ),
               const Divider(),
               _SectionHeader('About'),

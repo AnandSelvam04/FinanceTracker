@@ -15,16 +15,16 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 - Filter & download: filter the Transactions list by search, year/month, type, category, account, amount range, or a custom date range — then download exactly that set as CSV.
 - Backup / Export / Import: Drive backup/restore, versioned local JSON backup/restore, optional passphrase-encrypted backups (AES-256-GCM, PBKDF2), CSV/JSON download via the share sheet, a PDF monthly statement, and CSV import with column mapping and a preview.
 - Settings: currency symbol, theme (light/dark/system), budget/bill alerts toggle, auto-lock timeout, and a default account for new transactions.
-- Security & onboarding: optional app lock (biometrics or device PIN) that re-locks on resume after a configurable grace period; optional at-rest database encryption (SQLCipher, key held in the device keystore via `flutter_secure_storage`) toggled in Settings with a verify-and-rollback migration; plus a first-run tutorial/onboarding flow.
-- Localization: English and Tamil via `flutter_localizations` + a hand-written `AppLocalizations`; navigation, dashboard, Transactions (list/filters/edit sheets), Settings, Accounts, Budgets, the lock screen, and notifications are localized, with graceful fallback to English for any untranslated key. Add a language by dropping in a locale map.
+- Security & onboarding: optional app lock (biometrics or device PIN) that re-locks on resume after a configurable grace period; optional at-rest database encryption (SQLCipher, key held in the device keystore via `flutter_secure_storage`) toggled in Settings with a verify-and-rollback migration; plus a first-run tutorial/onboarding flow. Automatic Android backup is disabled and `FLAG_SECURE` is set, so the database never syncs off-device on its own and balances stay out of the recents thumbnail.
+- Multi-currency: accounts can be held in a currency other than the base one, with a per-account exchange rate. Amounts are stored in their source account's currency; every base-currency total (dashboard, budgets, net worth, PDF statement) converts at that rate.
 
 ## Tech stack
-- Flutter 3, Provider, sqflite, path/path_provider
+- Flutter 3, Provider, `sqflite_sqlcipher`, path/path_provider
 - fl_chart for charts
 - shared_preferences, local_auth
 - file_picker, csv
 - google_sign_in, googleapis, googleapis_auth (Drive backup/restore)
-- Test support: flutter_test, sqflite_common_ffi (in-memory DB for unit tests)
+- Test support: flutter_test, sqflite_common_ffi (file-backed SQLite for unit tests)
 
 ## Project structure (key paths)
 ```
@@ -32,7 +32,7 @@ lib/
   main.dart                 # App entry, providers, theming, AuthGate, onboarding wrapper
   models/                   # Expense (expense/income/transfer), account, investment, budget, recurring rule, template
   providers/                # Expense, Investment, Budget, Account, Recurring, Template providers
-  services/                 # DB (schema v5, migrations), backup, auth, recurring service
+  services/                 # DB (schema v9, migrations), backup + crypto, auth, notifications, recurring, CSV import, PDF statement
   screens/                  # UI screens (home, add expense/transfer, accounts, budgets, recurring, insights, backups, list)
   widgets/                  # Charts (pie, trends, cash flow, category trend), month selector
   utils/                    # DbConstants, category colors, currency format, logger
@@ -41,17 +41,20 @@ android/                  # Platform target (Android only)
 ```
 
 ## Continuous integration
-`.github/workflows/ci.yml` runs `flutter analyze` and `flutter test` on every push to `main` and on pull requests.
+`.github/workflows/ci.yml` runs `flutter analyze` and `flutter test`, then builds split-per-ABI release APKs and uploads them as artifacts (14-day retention), on every push to `main` and on pull requests.
+
+Both jobs are gated on `github.event.repository.private == false`, so GitHub Actions minutes are never billed. Note the consequence: if the repository is ever made private, CI is skipped silently — no failed check, just no checks at all.
 
 ## Getting started
 1) Install Flutter SDK and platform toolchains.
 2) From the project root: `flutter pub get`
 3) Run on a device/emulator: `flutter run`
 4) Static checks: `flutter analyze` (also available as VS Code task `flutter:analyze`).
-5) Tests: `flutter test` (uses in-memory sqflite via `sqflite_common_ffi`).
+5) Tests: `flutter test` (runs against file-backed SQLite via `sqflite_common_ffi`; each test file isolates its own database with `DBService.dbNameOverride`).
 
 ## Configuration notes
 - App lock: toggle "App lock" in the More tab (persists `biometricEnabled` in SharedPreferences); falls back to device PIN and shows a retry lock screen instead of exiting on failure.
 - Backups to Drive: create OAuth credentials and configure the consent screen before shipping; current packages are present but require proper credentials.
 - Budgets: budgets are month- and category-scoped; adjust DB versioning if schema changes further.
+- Release signing: `android/key.properties` and the keystore are committed on purpose, so the Drive OAuth SHA-1 stays stable across rebuilds. See the comment in `android/app/build.gradle.kts` for what that trades away — do not copy the pattern for a Play Store release.
 - SMS parsing is intentionally not included; telephony dependency is removed to avoid Play Store permission issues.

@@ -45,10 +45,18 @@ class FinanceTrackerApp extends StatelessWidget {
         seenOnboarding ? const HomeScreen() : const OnboardingWrapper();
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ExpenseProvider()),
         ChangeNotifierProvider(create: (_) => InvestmentProvider()),
         ChangeNotifierProvider(create: (_) => BudgetProvider()),
         ChangeNotifierProvider(create: (_) => AccountProvider()),
+        // Transaction amounts are stored in their source account's currency,
+        // so ExpenseProvider needs the accounts' exchange rates to report
+        // base-currency totals. Proxied rather than pushed by hand at each
+        // call site, so the two can't drift apart.
+        ChangeNotifierProxyProvider<AccountProvider, ExpenseProvider>(
+          create: (_) => ExpenseProvider(),
+          update: (_, accounts, expenses) => (expenses ?? ExpenseProvider())
+            ..syncAccountRates(accounts.ratesByAccount),
+        ),
         ChangeNotifierProvider(create: (_) => RecurringProvider()),
         ChangeNotifierProvider(create: (_) => TemplateProvider()),
         ChangeNotifierProvider.value(value: settings),
@@ -159,7 +167,8 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           children: [
             const Icon(Icons.lock_outline, size: 64, color: Colors.green),
             const SizedBox(height: 16),
-            Text('Finance Tracker is locked', style: const TextStyle(fontSize: 18)),
+            Text('Finance Tracker is locked',
+                style: const TextStyle(fontSize: 18)),
             const SizedBox(height: 24),
             if (_checking)
               const CircularProgressIndicator()

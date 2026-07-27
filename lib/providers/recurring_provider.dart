@@ -28,7 +28,8 @@ class RecurringProvider extends ChangeNotifier {
   }
 
   Future<void> toggleEnabled(RecurringRule rule) async {
-    await DBService().updateRecurringRule(rule.copyWith(enabled: !rule.enabled));
+    await DBService()
+        .updateRecurringRule(rule.copyWith(enabled: !rule.enabled));
     await fetchRules();
   }
 }

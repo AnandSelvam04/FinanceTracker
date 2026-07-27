@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:provider/provider.dart';
 import '../models/investment.dart';
 import '../providers/investment_provider.dart';
@@ -122,24 +123,20 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                         Padding(
                           padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
                           child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 _periodLabel(ym),
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primary,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                               Text(
                                 formatMoney(periodTotal),
                                 style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600),
+                                    fontSize: 13, fontWeight: FontWeight.w600),
                               ),
                             ],
                           ),
@@ -171,34 +168,43 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
   }
 
   Widget _contributionTile(BuildContext context, Investment investment) {
-    return Dismissible(
-      key: ValueKey(investment.id ?? '${investment.name}-${investment.date}'),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        color: Colors.red.shade400,
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      confirmDismiss: (_) => _confirmDelete(context, investment),
-      child: Card(
-        elevation: 1,
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Colors.green.shade100,
-            child: const Icon(Icons.trending_up, color: Colors.green),
+    // A Dismissible exposes no action to TalkBack or switch access, so swipe
+    // was the only way to delete a contribution. Add a custom semantics
+    // action and a long-press alongside it.
+    return Semantics(
+        customSemanticsActions: {
+          const CustomSemanticsAction(label: 'Delete'): () =>
+              _confirmDelete(context, investment),
+        },
+        child: Dismissible(
+          key: ValueKey(
+              investment.id ?? '${investment.name}-${investment.date}'),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            color: Colors.red.shade400,
+            child: const Icon(Icons.delete, color: Colors.white),
           ),
-          title: Text(investment.name,
-              style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle:
-              Text(formatDateWithDay(investment.date)),
-          trailing: Text(formatMoney(investment.amount),
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          onTap: () => _editInvestment(context, investment),
-        ),
-      ),
-    );
+          confirmDismiss: (_) => _confirmDelete(context, investment),
+          child: Card(
+            elevation: 1,
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.green.shade100,
+                child: const Icon(Icons.trending_up, color: Colors.green),
+              ),
+              title: Text(investment.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(formatDateWithDay(investment.date)),
+              trailing: Text(formatMoney(investment.amount),
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              onTap: () => _editInvestment(context, investment),
+              onLongPress: () => _confirmDelete(context, investment),
+            ),
+          ),
+        ));
   }
 
   Future<bool> _confirmDelete(
@@ -240,103 +246,113 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     final customTypeController =
         TextEditingController(text: isBuiltIn ? '' : investment.type);
 
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return StatefulBuilder(builder: (context, setModalState) {
-          return Padding(
-            padding: bottomSheetPadding(context),
-            // Scrollable so the form can still be reached (and Save tapped)
-            // when the keyboard shrinks the available height.
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Edit Investment',
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Name'),
-                  ),
-                  TextField(
-                    controller: amountController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Amount'),
-                  ),
-                  DropdownButtonFormField<String>(
-                    initialValue: type,
-                    decoration: const InputDecoration(labelText: 'Type'),
-                    items: types
-                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                        .toList(),
-                    onChanged: (v) => setModalState(() => type = v ?? type),
-                  ),
-                  if (type == Investment.otherType)
+    // The sheet owns these controllers for its lifetime; dispose them once
+    // it closes rather than leaking one set per open/close cycle.
+    try {
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (context) {
+          return StatefulBuilder(builder: (context, setModalState) {
+            return Padding(
+              padding: bottomSheetPadding(context),
+              // Scrollable so the form can still be reached (and Save tapped)
+              // when the keyboard shrinks the available height.
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Edit Investment',
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
                     TextField(
-                      controller: customTypeController,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: InputDecoration(
-                          labelText: 'Enter investment type'),
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Name'),
                     ),
-                  Row(
-                    children: [
-                      Text('Date: ${formatDateWithDay(selectedDate)}'),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: selectedDate,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null) {
-                            setModalState(() => selectedDate = picked);
-                          }
-                        },
-                        child: const Text('Change'),
+                    TextField(
+                      controller: amountController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Amount'),
+                    ),
+                    DropdownButtonFormField<String>(
+                      initialValue: type,
+                      decoration: const InputDecoration(labelText: 'Type'),
+                      items: types
+                          .map(
+                              (t) => DropdownMenuItem(value: t, child: Text(t)))
+                          .toList(),
+                      onChanged: (v) => setModalState(() => type = v ?? type),
+                    ),
+                    if (type == Investment.otherType)
+                      TextField(
+                        controller: customTypeController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration:
+                            InputDecoration(labelText: 'Enter investment type'),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    height: kSheetActionHeight,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final amount = parseMinor(amountController.text.trim());
-                        if (amount == null) return;
-                        final resolvedType = type == Investment.otherType
-                            ? customTypeController.text.trim()
-                            : type;
-                        if (resolvedType.isEmpty) return;
-                        final updated = Investment(
-                          id: investment.id,
-                          name: nameController.text.trim(),
-                          amount: amount,
-                          date: selectedDate,
-                          type: resolvedType,
-                        );
-                        final provider = context.read<InvestmentProvider>();
-                        await provider.updateInvestment(updated);
-                        if (!context.mounted) return;
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Save'),
+                    Row(
+                      children: [
+                        Text('Date: ${formatDateWithDay(selectedDate)}'),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: selectedDate,
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                            );
+                            if (picked != null) {
+                              setModalState(() => selectedDate = picked);
+                            }
+                          },
+                          child: const Text('Change'),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: kSheetActionHeight,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final amount =
+                              parseMinor(amountController.text.trim());
+                          if (amount == null) return;
+                          final resolvedType = type == Investment.otherType
+                              ? customTypeController.text.trim()
+                              : type;
+                          if (resolvedType.isEmpty) return;
+                          final updated = Investment(
+                            id: investment.id,
+                            name: nameController.text.trim(),
+                            amount: amount,
+                            date: selectedDate,
+                            type: resolvedType,
+                          );
+                          final provider = context.read<InvestmentProvider>();
+                          await provider.updateInvestment(updated);
+                          if (!context.mounted) return;
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Save'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        });
-      },
-    );
+            );
+          });
+        },
+      );
+    } finally {
+      nameController.dispose();
+      amountController.dispose();
+      customTypeController.dispose();
+    }
   }
 }

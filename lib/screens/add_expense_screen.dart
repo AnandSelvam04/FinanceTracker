@@ -89,6 +89,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _amountController.dispose();
+    _categoryController.dispose();
+    super.dispose();
+  }
+
   bool get _isIncome => _txType == DbConstants.txIncome;
 
   /// Recent categories first, then built-in defaults, de-duplicated.
@@ -150,20 +158,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.next,
-                validator: (value) {
-                  if (value!.isEmpty) return 'Enter an amount';
-                  final amount = double.tryParse(value);
-                  if (amount == null || amount <= 0) {
-                    return 'Enter a valid amount';
-                  }
-                  return null;
-                },
+                validator: validateAmountField,
               ),
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                        'Date: ${_selectedDate.toString().split(' ')[0]}'),
+                    child:
+                        Text('Date: ${_selectedDate.toString().split(' ')[0]}'),
                   ),
                   TextButton(
                     onPressed: () async {
@@ -215,8 +216,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   items: [
                     DropdownMenuItem<int?>(
                         value: null, child: const Text('None')),
-                    ...accounts.map((a) =>
-                        DropdownMenuItem<int?>(value: a.id, child: Text(a.name))),
+                    ...accounts.map((a) => DropdownMenuItem<int?>(
+                        value: a.id, child: Text(a.name))),
                   ],
                   onChanged: (value) => setState(() => _accountId = value),
                 ),
@@ -225,8 +226,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   initialValue: _selectedPaymentMode,
                   decoration: const InputDecoration(labelText: 'Payment Mode'),
                   items: _paymentModes
-                      .map((p) => DropdownMenuItem(
-                          value: p, child: Text(p)))
+                      .map((p) => DropdownMenuItem(value: p, child: Text(p)))
                       .toList(),
                   onChanged: (value) =>
                       setState(() => _selectedPaymentMode = value!),
@@ -236,8 +236,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 controlAffinity: ListTileControlAffinity.leading,
                 title: const Text('Save as quick-add template'),
                 value: _saveAsTemplate,
-                onChanged: (v) =>
-                    setState(() => _saveAsTemplate = v ?? false),
+                onChanged: (v) => setState(() => _saveAsTemplate = v ?? false),
               ),
               const SizedBox(height: 20),
               ElevatedButton(

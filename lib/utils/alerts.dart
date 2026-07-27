@@ -5,6 +5,17 @@ import '../models/recurring_rule.dart';
 /// can be unit-tested and reused by any surface (dashboard banner today,
 /// OS notifications later).
 
+/// Share of a budget at which it counts as "nearly spent" — the point the
+/// dashboard banner and the budget notifications fire at.
+///
+/// Defined once here and reused by the budgets screen's progress colours,
+/// which previously hardcoded the same 0.9 and would have drifted from it.
+const double kBudgetWarnRatio = 0.9;
+
+/// Share of a budget at which the progress bar starts warning, ahead of
+/// [kBudgetWarnRatio].
+const double kBudgetCautionRatio = 0.7;
+
 class BudgetAlert {
   final String category;
 
@@ -51,7 +62,7 @@ List<BudgetAlert> budgetAlerts({
   required int year,
   required int month,
   required int Function(String category) spentForCategory,
-  double warnAt = 0.9,
+  double warnAt = kBudgetWarnRatio,
 }) {
   final alerts = <BudgetAlert>[];
   for (final b in budgets) {
@@ -66,6 +77,16 @@ List<BudgetAlert> budgetAlerts({
   return alerts;
 }
 
+/// Whole calendar days from [from] to [to], ignoring the time of day.
+///
+/// Computed in UTC on purpose: subtracting two local midnights spans 23 or 25
+/// hours across a DST transition, and `inDays` truncates, so "due tomorrow"
+/// rendered as "due today". UTC has no such days, so the count is exact.
+int calendarDaysBetween(DateTime from, DateTime to) =>
+    DateTime.utc(to.year, to.month, to.day)
+        .difference(DateTime.utc(from.year, from.month, from.day))
+        .inDays;
+
 /// Enabled recurring rules due within the next [withinDays] days (or already
 /// overdue), soonest first.
 List<BillAlert> upcomingBills({
@@ -73,12 +94,10 @@ List<BillAlert> upcomingBills({
   required DateTime now,
   int withinDays = 3,
 }) {
-  final today = DateTime(now.year, now.month, now.day);
   final alerts = <BillAlert>[];
   for (final r in rules) {
     if (!r.enabled) continue;
-    final due = DateTime(r.nextDue.year, r.nextDue.month, r.nextDue.day);
-    final days = due.difference(today).inDays;
+    final days = calendarDaysBetween(now, r.nextDue);
     if (days <= withinDays) {
       alerts.add(BillAlert(
         description: r.description,

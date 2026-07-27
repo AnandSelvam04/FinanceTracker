@@ -79,6 +79,11 @@ class NotificationService {
         channelDescription: 'Reminders for due bills and budget limits',
         importance: Importance.defaultImportance,
         priority: Priority.defaultPriority,
+        // The body carries exact amounts ("Groceries: over budget by
+        // ₹4,320.00"), so on a locked screen it would show the very figures
+        // the app lock exists to hide. `private` keeps the title visible and
+        // hides the content until the device is unlocked.
+        visibility: NotificationVisibility.private,
       ),
     );
   }

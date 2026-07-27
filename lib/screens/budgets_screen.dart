@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../models/budget.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
+import '../utils/alerts.dart';
+import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 
@@ -67,11 +69,11 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               TextFormField(
                 initialValue: _amount == 0 ? '' : minorToEditString(_amount),
                 decoration: const InputDecoration(labelText: 'Amount'),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  final parsed = double.tryParse(value ?? '');
-                  return parsed == null ? 'Invalid number' : null;
-                },
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                // A zero cap silently never alerts (see budgetAlerts), so a
+                // budget has to be a positive amount.
+                validator: validateAmountField,
                 onSaved: (value) => _amount = parseMinor(value ?? '0') ?? 0,
               ),
               Row(
@@ -168,17 +170,22 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             );
           }
 
+          // Thresholds come from alerts.dart so the bar turns red at exactly
+          // the point the banner and notifications fire.
           Color progressColor(double ratio) {
-            if (ratio >= 0.9) return Colors.red;
-            if (ratio >= 0.7) return Colors.orange;
-            return Colors.green;
+            if (ratio >= kBudgetWarnRatio) return expenseColor(context);
+            if (ratio >= kBudgetCautionRatio) return Colors.orange;
+            return incomeColor(context);
           }
 
+          // baseAmountOf, not e.amount: spending on a foreign-currency account
+          // is stored in that account's currency, and the budget cap is in the
+          // base currency.
           int spentForBudget(Budget b) {
             return expenseProvider
                 .spendingForMonth(b.year, b.month)
                 .where((e) => e.category == b.category)
-                .fold(0, (sum, e) => sum + e.amount);
+                .fold(0, (sum, e) => sum + expenseProvider.baseAmountOf(e));
           }
 
           return ListView.separated(

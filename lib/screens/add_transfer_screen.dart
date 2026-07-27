@@ -61,7 +61,8 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: const Text('You need at least two accounts to record a transfer.'),
+                child: const Text(
+                    'You need at least two accounts to record a transfer.'),
               ),
             )
           : SingleChildScrollView(
@@ -121,38 +122,19 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                           _suggestToAmount(fromAccount, toAccount);
                         }
                       },
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Enter an amount';
-                        }
-                        final amount = double.tryParse(value);
-                        if (amount == null || amount <= 0) {
-                          return 'Enter a valid amount';
-                        }
-                        return null;
-                      },
+                      validator: validateAmountField,
                     ),
                     if (crossCurrency)
                       TextFormField(
                         controller: _toAmountController,
                         decoration: InputDecoration(
-                          labelText:
-                              'Amount received (${toAccount.symbol})',
+                          labelText: 'Amount received (${toAccount.symbol})',
                           helperText:
                               '${fromAccount.symbol} → ${toAccount.symbol}',
                         ),
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Enter an amount';
-                          }
-                          final amount = double.tryParse(value);
-                          if (amount == null || amount <= 0) {
-                            return 'Enter a valid amount';
-                          }
-                          return null;
-                        },
+                        validator: validateAmountField,
                       ),
                     TextFormField(
                       controller: _noteController,

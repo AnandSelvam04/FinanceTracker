@@ -1,10 +1,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Local notifications for budget/bill reminders (Android 13+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!--
+      allowBackup="false": at-rest database encryption is opt-in, so with
+      Android's automatic backup enabled the default install would sync a
+      plaintext copy of every transaction to the user's Google account. The app
+      provides its own explicit backup/export instead. The two rules files
+      cover the same ground for API 31+ and pre-31 respectively, in case this
+      attribute is ever changed.
+    -->
     <application
         android:label="Finance Tracker"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <activity
             android:name=".MainActivity"
             android:exported="true"

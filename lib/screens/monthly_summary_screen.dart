@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../services/statement_pdf.dart';
 import '../utils/category_colors.dart';
@@ -43,6 +44,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
   Future<void> _sharePdf() async {
     final messenger = ScaffoldMessenger.of(context);
     final provider = context.read<ExpenseProvider>();
+    final rates = context.read<AccountProvider>().ratesByAccount;
     final transactions = provider.expensesForMonth(_year, _month);
     if (transactions.isEmpty) {
       messenger.showSnackBar(
@@ -55,14 +57,14 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         title: 'Finance Tracker Statement',
         periodLabel: _periodLabel,
         transactions: transactions,
+        ratesByAccount: rates,
       );
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'application/pdf')],
         subject: 'Statement $_periodLabel',
       );
     } catch (e) {
-      messenger.showSnackBar(
-          SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -180,8 +182,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                         subtitle: _DeltaLabel(
                             current: entry.value, previous: prevValue),
                         trailing: Text(formatMoney(entry.value),
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold)),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     );
                   }),
@@ -193,8 +195,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     );
   }
 
-  Widget _row(String label, String value,
-      {Color? color, bool bold = false}) {
+  Widget _row(String label, String value, {Color? color, bool bold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

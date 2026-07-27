@@ -32,8 +32,18 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   late final List<String> _types;
 
   static const List<String> _monthAbbr = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   /// Merges the built-in types with the user's previously entered custom types
@@ -186,16 +196,15 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                             await provider.addInvestment(investment);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: const Text('Investment added')),
+                                SnackBar(
+                                    content: const Text('Investment added')),
                               );
                               Navigator.pop(context);
                             }
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content:
-                                          Text('Error: $e')));
+                                  SnackBar(content: Text('Error: $e')));
                             }
                           } finally {
                             if (mounted) setState(() => _isSaving = false);

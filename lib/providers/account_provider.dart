@@ -27,14 +27,20 @@ class AccountProvider extends ChangeNotifier {
   }
 
   /// Sum of every account's balance, each converted to the base currency.
-  int totalBaseBalance() => _accounts.fold<int>(
-      0, (sum, a) => sum + (baseBalanceOf(a) ?? 0));
+  int totalBaseBalance() =>
+      _accounts.fold<int>(0, (sum, a) => sum + (baseBalanceOf(a) ?? 0));
+
+  /// Exchange rate per account id, for consumers that hold amounts in an
+  /// account's currency and need base-currency totals (see
+  /// `ExpenseProvider.syncAccountRates`).
+  Map<int, double> get ratesByAccount =>
+      {for (final a in _accounts) a.id!: a.rate};
 
   Future<void> fetchAccounts() async {
     _accounts = await DBService().getAccounts();
     await _recomputeBalances();
-    _balances.removeWhere(
-        (id, _) => !_accounts.any((account) => account.id == id));
+    _balances
+        .removeWhere((id, _) => !_accounts.any((account) => account.id == id));
     notifyListeners();
   }
 

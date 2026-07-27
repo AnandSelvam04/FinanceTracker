@@ -15,23 +15,35 @@ import '../utils/db_constants.dart';
 class StatementPdf {
   StatementPdf._();
 
+  /// [ratesByAccount] maps account id to its exchange rate (base-currency
+  /// units per 1 unit of the account's currency). Rows are stored in their
+  /// source account's currency, so without it a $100 line would be both
+  /// totalled and printed as ₹100. Omit it for a single-currency setup.
   static Future<File> build({
     required String title,
     required String periodLabel,
     required List<Expense> transactions,
+    Map<int, double> ratesByAccount = const {},
   }) async {
-    final regular = pw.Font.ttf(
-        await rootBundle.load('assets/fonts/FreeSans.ttf'));
+    final regular =
+        pw.Font.ttf(await rootBundle.load('assets/fonts/FreeSans.ttf'));
     final bold =
         pw.Font.ttf(await rootBundle.load('assets/fonts/FreeSansBold.ttf'));
     final theme = pw.ThemeData.withFont(base: regular, bold: bold);
 
+    // The whole statement is denominated in the base currency, so every row
+    // and total converts at its account's rate.
+    int base(Expense e) {
+      final rate = ratesByAccount[e.accountId] ?? 1.0;
+      return rate == 1.0 ? e.amount : toBaseMinor(e.amount, rate);
+    }
+
     var income = 0, expense = 0;
     for (final t in transactions) {
       if (t.type == DbConstants.txIncome) {
-        income += t.amount;
+        income += base(t);
       } else if (t.type == DbConstants.txExpense) {
-        expense += t.amount;
+        expense += base(t);
       }
     }
     final net = income - expense;
@@ -39,9 +51,9 @@ class StatementPdf {
     final sorted = [...transactions]..sort((a, b) => a.date.compareTo(b.date));
 
     String signed(Expense e) {
-      if (e.isIncome) return '+${formatMoney(e.amount)}';
-      if (e.isTransfer) return formatMoney(e.amount);
-      return '-${formatMoney(e.amount)}';
+      if (e.isIncome) return '+${formatMoney(base(e))}';
+      if (e.isTransfer) return formatMoney(base(e));
+      return '-${formatMoney(base(e))}';
     }
 
     final doc = pw.Document();
@@ -84,8 +96,7 @@ class StatementPdf {
           pw.SizedBox(height: 16),
           pw.TableHelper.fromTextArray(
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-            headerDecoration:
-                const pw.BoxDecoration(color: PdfColors.grey200),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
             cellAlignments: {
               0: pw.Alignment.centerLeft,
               1: pw.Alignment.centerLeft,
@@ -117,12 +128,12 @@ class StatementPdf {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(label,
-              style: const pw.TextStyle(
-                  fontSize: 10, color: PdfColors.grey700)),
+              style:
+                  const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
           pw.SizedBox(height: 2),
           pw.Text(value,
-              style: pw.TextStyle(
-                  fontSize: 13, fontWeight: pw.FontWeight.bold)),
+              style:
+                  pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
         ],
       );
 

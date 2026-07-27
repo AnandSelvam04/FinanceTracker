@@ -9,6 +9,7 @@ import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../services/csv_import.dart';
 import '../services/db_service.dart';
+import '../utils/app_logger.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
@@ -32,22 +33,59 @@ class _ImportScreenState extends State<ImportScreen> {
   int? _typeCol;
   String _defaultType = DbConstants.txExpense;
 
+  /// Largest CSV accepted. Reading and parsing both run on the UI isolate, so
+  /// an unbounded file would lock the app up with no way to cancel.
+  static const _maxCsvBytes = 10 * 1024 * 1024;
+
   Future<void> _pickFile() async {
+    final messenger = ScaffoldMessenger.of(context);
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
     );
     final path = result?.files.single.path;
     if (path == null) return;
-    final content = await File(path).readAsString();
-    final rows = const CsvToListConverter(shouldParseNumbers: false)
-        .convert(content);
+
+    List<List<dynamic>> rows;
+    try {
+      final file = File(path);
+      // Reading and parsing both happen on the UI isolate, so a huge file
+      // would freeze the app with no way out. Refuse it up front instead.
+      final length = await file.length();
+      if (length > _maxCsvBytes) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(
+              'That file is ${(length / (1024 * 1024)).toStringAsFixed(1)} MB. '
+              'Please split it into files under '
+              '${_maxCsvBytes ~/ (1024 * 1024)} MB.'),
+        ));
+        return;
+      }
+      // Not every export is UTF-8; a Latin-1 statement used to throw an
+      // unhandled decoding error with no feedback at all.
+      final content = await file.readAsString();
+      rows =
+          const CsvToListConverter(shouldParseNumbers: false).convert(content);
+    } catch (e) {
+      AppLogger.error('Could not read the selected CSV', e);
+      messenger.showSnackBar(SnackBar(
+        content: const Text(
+            "Could not read that file. Make sure it's a UTF-8 CSV export."),
+      ));
+      return;
+    }
+
+    if (rows.isEmpty) {
+      messenger.showSnackBar(
+          SnackBar(content: const Text('That file has no rows.')));
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _rows = rows;
       _dateCol = 0;
-      _descCol = rows.isNotEmpty && rows.first.length > 1 ? 1 : 0;
-      _amountCol = rows.isNotEmpty && rows.first.length > 2 ? 2 : 0;
+      _descCol = rows.first.length > 1 ? 1 : 0;
+      _amountCol = rows.first.length > 2 ? 2 : 0;
       _categoryCol = null;
       _typeCol = null;
     });
@@ -83,7 +121,8 @@ class _ImportScreenState extends State<ImportScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
-    final result = parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
+    final result =
+        parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
     if (result.expenses.isEmpty) {
       messenger.showSnackBar(
         SnackBar(content: const Text('No valid rows to import.')),
@@ -92,20 +131,19 @@ class _ImportScreenState extends State<ImportScreen> {
     }
     setState(() => _importing = true);
     try {
-      for (final e in result.expenses) {
-        await DBService().insertExpense(e);
-      }
+      // One transaction, so a failure part-way through leaves no half-imported
+      // file behind for the user to untangle by hand.
+      await DBService().insertExpenses(result.expenses);
       await expenseProvider.reloadLoadedYears();
       await accountProvider.refreshBalances();
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
-        content:
-            Text('Imported ${result.expenses.length}, skipped ${result.skipped}'),
+        content: Text(
+            'Imported ${result.expenses.length}, skipped ${result.skipped}'),
       ));
       Navigator.pop(context);
     } catch (e) {
-      messenger.showSnackBar(
-          SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _importing = false);
     }
@@ -166,14 +204,15 @@ class _ImportScreenState extends State<ImportScreen> {
                     padding: const EdgeInsets.only(top: 8),
                     child: DropdownButtonFormField<String>(
                       initialValue: _defaultType,
-                      decoration: InputDecoration(
-                          labelText: 'Import all rows as'),
+                      decoration:
+                          InputDecoration(labelText: 'Import all rows as'),
                       items: [
                         DropdownMenuItem(
                             value: DbConstants.txExpense,
                             child: const Text('Expense')),
                         DropdownMenuItem(
-                            value: DbConstants.txIncome, child: const Text('Income')),
+                            value: DbConstants.txIncome,
+                            child: const Text('Income')),
                       ],
                       onChanged: (v) =>
                           setState(() => _defaultType = v ?? _defaultType),
@@ -207,7 +246,8 @@ class _ImportScreenState extends State<ImportScreen> {
   }
 
   Widget _preview(List<List<dynamic>> rows) {
-    final result = parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
+    final result =
+        parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
     final sample = result.expenses.take(5).toList();
     if (sample.isEmpty) {
       return const Text('No valid rows with the current mapping.');
@@ -218,8 +258,8 @@ class _ImportScreenState extends State<ImportScreen> {
           ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            title:
-                Text(e.description.isEmpty ? '(no description)' : e.description),
+            title: Text(
+                e.description.isEmpty ? '(no description)' : e.description),
             subtitle: Text(
                 '${e.category} · ${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')} · ${e.type}'),
             trailing: Text(formatMoney(e.amount)),

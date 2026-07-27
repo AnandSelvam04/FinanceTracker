@@ -14,12 +14,26 @@ import '../services/backup_service.dart';
 import 'import_screen.dart';
 import '../utils/insets.dart';
 
+/// A restore, parameterised by whether the user has already agreed to apply a
+/// backup that contains no rows.
+typedef _RestoreTask = Future<void> Function({bool allowEmpty});
+
+/// Unwinds a task the user backed out of part-way through, so [_runTask]
+/// reports neither success nor an error.
+class _Cancelled implements Exception {
+  const _Cancelled();
+}
+
 class BackupsScreen extends StatefulWidget {
   const BackupsScreen({super.key});
 
   @override
   State<BackupsScreen> createState() => _BackupsScreenState();
 }
+
+/// Minimum length when *setting* a backup passphrase. Encrypted backups are
+/// shared off-device, so the passphrase is their only protection.
+const _minPassphraseLength = 12;
 
 class _BackupsScreenState extends State<BackupsScreen> {
   final _backupService = BackupService();
@@ -37,13 +51,42 @@ class _BackupsScreenState extends State<BackupsScreen> {
     if (mounted) setState(() => _lastBackup = t);
   }
 
+  /// A restore that turned out to contain nothing, which the user then
+  /// declined to apply. Unwinds the task without reporting success or an error.
+  static const _cancelled = _Cancelled();
+
+  /// Second confirmation, shown only when the backup parsed cleanly but has no
+  /// rows at all. The generic "Replace all data?" prompt isn't enough here —
+  /// the user thinks they are restoring something.
+  Future<bool> _confirmEmptyRestore(String detail) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('This backup is empty'),
+        content: Text('$detail\n\nContinue anyway?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Erase everything',
+                style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   /// Restore replaces all current data, so make the user confirm.
   Future<bool> _confirmRestore() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Replace all data?'),
-        content: const Text('Restoring will delete everything currently in the app and replace it with the backup. This cannot be undone.'),
+        content: const Text(
+            'Restoring will delete everything currently in the app and replace it with the backup. This cannot be undone.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -58,11 +101,23 @@ class _BackupsScreenState extends State<BackupsScreen> {
     return ok == true;
   }
 
-  Future<void> _restore(Future<void> Function() task, String success) async {
-    if (await _confirmRestore()) {
-      await _runTask(task, success);
-      await _loadLastBackup();
-    }
+  /// Runs a restore behind the "Replace all data?" confirmation. If the backup
+  /// turns out to be empty the service refuses it, and we ask a second time
+  /// before retrying with [allowEmpty] — otherwise a `{}` file would silently
+  /// erase everything.
+  Future<void> _restore(_RestoreTask task, String success) async {
+    if (!await _confirmRestore()) return;
+    await _runTask(() async {
+      try {
+        await task();
+      } on EmptyBackupException catch (e) {
+        if (!mounted || !await _confirmEmptyRestore(e.message)) {
+          throw _cancelled;
+        }
+        await task(allowEmpty: true);
+      }
+    }, success);
+    await _loadLastBackup();
   }
 
   Future<void> _runTask(Future<void> Function() task, String success) async {
@@ -86,6 +141,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
       await recurringProvider.fetchRules();
       await templateProvider.fetchTemplates();
       await _loadLastBackup();
+    } on _Cancelled {
+      // The user backed out of a second confirmation; nothing to report.
     } catch (e) {
       messenger.showSnackBar(_errorSnackBar(e));
     } finally {
@@ -93,9 +150,9 @@ class _BackupsScreenState extends State<BackupsScreen> {
     }
   }
 
-  /// Drive/backup failures carry a user-facing message (e.g. Drive not set up);
-  /// show it plainly and give the reader time to act. Everything else falls
-  /// back to a generic "Error: …".
+  /// Drive/backup failures carry a user-facing message (e.g. Drive not set up,
+  /// or a file that isn't a backup); show it plainly and give the reader time
+  /// to act. Everything else falls back to a generic "Error: …".
   SnackBar _errorSnackBar(Object e) {
     if (e is DriveBackupException) {
       return SnackBar(
@@ -103,8 +160,13 @@ class _BackupsScreenState extends State<BackupsScreen> {
         duration: const Duration(seconds: 8),
       );
     }
-    return SnackBar(
-        content: Text('Error: $e'));
+    if (e is BackupFormatException || e is EmptyBackupException) {
+      return SnackBar(
+        content: Text('$e'),
+        duration: const Duration(seconds: 8),
+      );
+    }
+    return SnackBar(content: Text('Error: $e'));
   }
 
   /// Generates a file and opens the system share sheet so the user can
@@ -143,57 +205,79 @@ class _BackupsScreenState extends State<BackupsScreen> {
     final controller = TextEditingController();
     final confirmController = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: controller,
-                obscureText: true,
-                autofocus: true,
-                decoration: const InputDecoration(labelText: 'Passphrase'),
-                validator: (v) =>
-                    (v == null || v.length < 4) ? 'Use at least 4 characters' : null,
-              ),
-              if (confirm)
+    try {
+      return await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(title),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 TextFormField(
-                  controller: confirmController,
+                  controller: controller,
                   obscureText: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Confirm passphrase'),
-                  validator: (v) =>
-                      v != controller.text ? 'Passphrases do not match' : null,
-                ),
-              if (confirm)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    'If you forget this passphrase, the backup cannot be recovered.',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Passphrase',
+                    helperText: 'At least 12 characters',
                   ),
+                  // These files are meant to leave the device via the share
+                  // sheet, so the passphrase is the only thing protecting them.
+                  // Four characters fall to a brute-force in seconds; only
+                  // enforced when setting a passphrase, so existing backups
+                  // stay restorable.
+                  validator: confirm
+                      ? (v) => (v == null || v.length < _minPassphraseLength)
+                          ? 'Use at least $_minPassphraseLength characters'
+                          : null
+                      : (v) => (v == null || v.isEmpty)
+                          ? 'Enter the passphrase'
+                          : null,
                 ),
-            ],
+                if (confirm)
+                  TextFormField(
+                    controller: confirmController,
+                    obscureText: true,
+                    decoration:
+                        const InputDecoration(labelText: 'Confirm passphrase'),
+                    validator: (v) => v != controller.text
+                        ? 'Passphrases do not match'
+                        : null,
+                  ),
+                if (confirm)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'If you forget this passphrase, the backup cannot be recovered.',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(ctx, controller.text);
+                }
+              },
+              child: Text(action),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(ctx, controller.text);
-              }
-            },
-            child: Text(action),
-          ),
-        ],
-      ),
-    );
+      );
+    } finally {
+      // Dispose once the dialog closes. These held a backup passphrase, so
+      // leaking them left it sitting in the heap for the rest of the session.
+      controller.dispose();
+      confirmController.dispose();
+    }
   }
 
   @override
@@ -209,8 +293,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
             const SizedBox(height: 12),
             Text(
               'Backup & Restore',
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
@@ -224,14 +307,15 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         final isNewer =
                             await _backupService.isRemoteBackupNewer();
                         if (!context.mounted) return;
-                        
+
                         if (isNewer) {
                           // ignore: use_build_context_synchronously
                           final shouldOverwrite = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: const Text('Warning: Newer Backup Found'),
-                              content: Text('A newer backup exists on Google Drive. Overwriting it may cause data loss from other devices.\n\nDo you want to continue and overwrite the remote backup?'),
+                              content: Text(
+                                  'A newer backup exists on Google Drive. Overwriting it may cause data loss from other devices.\n\nDo you want to continue and overwrite the remote backup?'),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
@@ -278,22 +362,26 @@ class _BackupsScreenState extends State<BackupsScreen> {
               label: const Text('Backup locally (JSON)'),
               onPressed: _isWorking
                   ? null
-                  : () => _runTask(
-                      _backupService.backupToJson, 'Local JSON backup created'),
+                  // writeJsonBackupFile, not backupToJson: it applies the
+                  // device key when at-rest encryption is on, so this button
+                  // can't leave a readable copy of everything on disk.
+                  : () => _runTask(_backupService.writeJsonBackupFile,
+                      'Local JSON backup created'),
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.restore),
               label: const Text('Restore from local JSON'),
               onPressed: _isWorking
                   ? null
-                  : () => _restore(() => _backupService.restoreFromJson(),
+                  : () => _restore(
+                      ({bool allowEmpty = false}) => _backupService
+                          .restoreFromJson(allowEmpty: allowEmpty),
                       'Restored from local JSON'),
             ),
             const Divider(height: 32),
             Text(
               'Encrypted backup',
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -325,12 +413,20 @@ class _BackupsScreenState extends State<BackupsScreen> {
                   : () async {
                       if (!await _confirmRestore()) return;
                       final pass = await _promptPassphrase(
-                          title: 'Restore encrypted backup',
-                          action: 'Restore');
+                          title: 'Restore encrypted backup', action: 'Restore');
                       if (pass == null) return;
-                      await _runTask(
-                          () => _backupService.restoreFromEncryptedFile(pass),
-                          'Restored from encrypted backup');
+                      await _runTask(() async {
+                        try {
+                          await _backupService.restoreFromEncryptedFile(pass);
+                        } on EmptyBackupException catch (e) {
+                          if (!mounted ||
+                              !await _confirmEmptyRestore(e.message)) {
+                            throw _cancelled;
+                          }
+                          await _backupService.restoreFromEncryptedFile(pass,
+                              allowEmpty: true);
+                        }
+                      }, 'Restored from encrypted backup');
                     },
             ),
             ElevatedButton.icon(
@@ -352,8 +448,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
             const Divider(height: 32),
             Text(
               'Download & Share',
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -393,8 +488,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                   ? null
                   : () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                            builder: (_) => const ImportScreen()),
+                        MaterialPageRoute(builder: (_) => const ImportScreen()),
                       ),
             ),
             const SizedBox(height: 12),
@@ -415,7 +509,8 @@ class _LastBackupBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final stale = time == null || now.difference(time!) > const Duration(days: 7);
+    final stale =
+        time == null || now.difference(time!) > const Duration(days: 7);
     final color = stale ? Colors.orange : Colors.green;
 
     String label;

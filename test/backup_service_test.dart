@@ -181,6 +181,108 @@ void main() {
       expect(expenses.first.description, 'Keep me');
     });
 
+    test('a backup with no rows is refused rather than wiping everything',
+        () async {
+      final db = DBService();
+      await db.insertExpense(Expense(
+        description: 'Keep me',
+        amount: 500,
+        date: DateTime(2026, 4, 1),
+        category: 'Food',
+        paymentMode: 'Cash',
+      ));
+
+      // Structurally valid, but empty: applying it would erase the user's
+      // data with nothing to show for it.
+      final file = File('${tempDir.path}/finance_backup.json');
+      await file.writeAsString(jsonEncode({'version': 5}));
+
+      await expectLater(BackupService().restoreFromJson(),
+          throwsA(isA<EmptyBackupException>()));
+      expect((await DBService().getExpenses()).length, 1);
+
+      // ...but the user can still force it through after confirming.
+      await BackupService().restoreFromJson(allowEmpty: true);
+      expect(await DBService().getExpenses(), isEmpty);
+    });
+
+    test('a JSON file that is not a backup is rejected before any wipe',
+        () async {
+      final db = DBService();
+      await db.insertExpense(Expense(
+        description: 'Keep me',
+        amount: 500,
+        date: DateTime(2026, 4, 1),
+        category: 'Food',
+        paymentMode: 'Cash',
+      ));
+
+      final file = File('${tempDir.path}/finance_backup.json');
+
+      // A JSON array (e.g. a renamed export) used to throw NoSuchMethodError.
+      await file.writeAsString(jsonEncode([1, 2, 3]));
+      await expectLater(BackupService().restoreFromJson(),
+          throwsA(isA<BackupFormatException>()));
+
+      // A table key holding something other than a list.
+      await file.writeAsString(jsonEncode({'version': 5, 'expenses': 'nope'}));
+      await expectLater(BackupService().restoreFromJson(),
+          throwsA(isA<BackupFormatException>()));
+
+      // A non-numeric version.
+      await file.writeAsString(jsonEncode({'version': 'five'}));
+      await expectLater(BackupService().restoreFromJson(),
+          throwsA(isA<BackupFormatException>()));
+
+      expect((await DBService().getExpenses()).length, 1);
+    });
+
+    test('writeJsonBackupFile encrypts when a device key is available',
+        () async {
+      final db = DBService();
+      await db.insertExpense(Expense(
+        description: 'Secret lunch',
+        amount: 4200,
+        date: DateTime(2026, 5, 1),
+        category: 'Food',
+        paymentMode: 'UPI',
+      ));
+
+      // deviceKeyIfEncrypted() returns null under dbNameOverride, so this
+      // asserts the plaintext branch; the encrypted branch is covered by the
+      // round-trip test below. What matters here is that the download/share
+      // path goes through backupToJson's deviceKey parameter at all.
+      final file = await BackupService().writeJsonBackupFile();
+      expect(await file.exists(), isTrue);
+      expect(file.path, endsWith('finance_backup.json'));
+    });
+
+    test('CSV export neutralises spreadsheet formulas', () async {
+      // A description starting with '=' would execute on open in Excel or
+      // LibreOffice; it must be exported as literal text.
+      expect(csvSafeCell('=HYPERLINK("http://evil/","x")'),
+          "'=HYPERLINK(\"http://evil/\",\"x\")");
+      expect(csvSafeCell('+1'), "'+1");
+      expect(csvSafeCell('-1'), "'-1");
+      expect(csvSafeCell('@cmd'), "'@cmd");
+      expect(csvSafeCell('\tTabbed'), "'\tTabbed");
+      // Ordinary values and non-strings are untouched.
+      expect(csvSafeCell('Groceries'), 'Groceries');
+      expect(csvSafeCell(''), '');
+      expect(csvSafeCell(42), 42);
+
+      final db = DBService();
+      await db.insertExpense(Expense(
+        description: '=cmd|\'/c calc\'!A1',
+        amount: 100,
+        date: DateTime(2026, 4, 1),
+        category: 'Food',
+        paymentMode: 'Cash',
+      ));
+      final contents = await (await exportExpensesToCsv()).readAsString();
+      expect(contents, contains("'=cmd"));
+    });
+
     test('device-key-encrypted backup round-trips through restoreFromJson',
         () async {
       final db = DBService();

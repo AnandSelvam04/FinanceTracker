@@ -41,8 +41,11 @@ class InvestmentProvider extends ChangeNotifier {
   static String periodKey(DateTime date, InvestmentPeriod period) {
     switch (period) {
       case InvestmentPeriod.weekly:
-        final monday = DateTime(date.year, date.month, date.day)
-            .subtract(Duration(days: date.weekday - 1));
+        // Step back in calendar days rather than by a Duration: subtracting
+        // 24-hour blocks across a fall-back DST boundary lands on Sunday
+        // 23:00 and buckets the row into the wrong week.
+        final monday =
+            DateTime(date.year, date.month, date.day - (date.weekday - 1));
         return '${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
       case InvestmentPeriod.monthly:
         return '${date.year}-${date.month.toString().padLeft(2, '0')}';
@@ -70,8 +73,7 @@ class InvestmentProvider extends ChangeNotifier {
   Map<String, List<Investment>> monthlyBreakdown(String type) {
     final byMonth = <String, List<Investment>>{};
     for (final i in ofType(type)) {
-      final key =
-          '${i.date.year}-${i.date.month.toString().padLeft(2, '0')}';
+      final key = '${i.date.year}-${i.date.month.toString().padLeft(2, '0')}';
       byMonth.putIfAbsent(key, () => []).add(i);
     }
     final ordered = byMonth.keys.toList()..sort((a, b) => b.compareTo(a));
