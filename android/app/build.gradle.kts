@@ -7,13 +7,29 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// Release signing is read from android/key.properties (not committed):
+// Release signing is read from android/key.properties:
 //   storeFile=/path/to/keystore.jks
 //   storePassword=...
 //   keyAlias=...
 //   keyPassword=...
-// When the file is absent (CI, local testing), the release build falls back
-// to the debug key so `flutter build apk --release` still works.
+// When the file is absent (a fork, or a checkout without it), the release
+// build falls back to the debug key so `flutter build apk --release` still
+// works.
+//
+// NOTE: in this repository android/key.properties AND the keystore itself
+// (android/app/finance-release.jks) are committed, with the passwords in
+// plaintext, past the .gitignore rules that would normally exclude them. That
+// is deliberate: this is a personal app distributed as an APK, and Google
+// Drive's OAuth client is bound to the package name plus the signing
+// certificate's SHA-1, so a stable key keeps Drive backup working across
+// rebuilds (see docs/GOOGLE_DRIVE_SETUP.md, which publishes that SHA-1).
+//
+// Understand what it costs before copying this pattern: anyone with repo
+// access can build an APK that Android accepts as an in-place update of an
+// installed Finance Tracker — inheriting its private data directory — and one
+// that Google accepts as this app. The key cannot be rotated for already
+// installed copies. For anything published to Play, generate a key that stays
+// out of version control and inject it from a CI secret instead.
 val keystoreProperties = Properties().apply {
     val f = rootProject.file("key.properties")
     if (f.exists()) f.inputStream().use { load(it) }

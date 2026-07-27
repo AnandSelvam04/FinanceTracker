@@ -1,5 +1,14 @@
 # Application Review & Improvement Analysis
 
+> **This file is a historical record, not a to-do list.** Every finding below
+> was implemented and shipped. It is kept for the reasoning, not the tasks —
+> do not read it as a list of open bugs.
+>
+> One caveat if you are cross-referencing it: items 1.1 and 1.3 were only
+> partly closed at the time. Backups still went to Drive in plaintext, and the
+> report totals still summed foreign-currency rows raw. Both were finished
+> later; see the commits following this file's own.
+
 _Updated: July 2026 (branch `claude/app-improvement-analysis-2q29is`)._
 
 > **Implementation status:** every item below has been implemented on this
