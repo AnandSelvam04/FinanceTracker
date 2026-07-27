@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../services/statement_pdf.dart';
 import '../utils/category_colors.dart';
@@ -43,6 +44,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
   Future<void> _sharePdf() async {
     final messenger = ScaffoldMessenger.of(context);
     final provider = context.read<ExpenseProvider>();
+    final rates = context.read<AccountProvider>().ratesByAccount;
     final transactions = provider.expensesForMonth(_year, _month);
     if (transactions.isEmpty) {
       messenger.showSnackBar(
@@ -55,6 +57,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         title: 'Finance Tracker Statement',
         periodLabel: _periodLabel,
         transactions: transactions,
+        ratesByAccount: rates,
       );
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'application/pdf')],

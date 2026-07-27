@@ -30,6 +30,12 @@ class AccountProvider extends ChangeNotifier {
   int totalBaseBalance() => _accounts.fold<int>(
       0, (sum, a) => sum + (baseBalanceOf(a) ?? 0));
 
+  /// Exchange rate per account id, for consumers that hold amounts in an
+  /// account's currency and need base-currency totals (see
+  /// `ExpenseProvider.syncAccountRates`).
+  Map<int, double> get ratesByAccount =>
+      {for (final a in _accounts) a.id!: a.rate};
+
   Future<void> fetchAccounts() async {
     _accounts = await DBService().getAccounts();
     await _recomputeBalances();

@@ -15,10 +15,15 @@ import '../utils/db_constants.dart';
 class StatementPdf {
   StatementPdf._();
 
+  /// [ratesByAccount] maps account id to its exchange rate (base-currency
+  /// units per 1 unit of the account's currency). Rows are stored in their
+  /// source account's currency, so without it a $100 line would be both
+  /// totalled and printed as ₹100. Omit it for a single-currency setup.
   static Future<File> build({
     required String title,
     required String periodLabel,
     required List<Expense> transactions,
+    Map<int, double> ratesByAccount = const {},
   }) async {
     final regular = pw.Font.ttf(
         await rootBundle.load('assets/fonts/FreeSans.ttf'));
@@ -26,12 +31,19 @@ class StatementPdf {
         pw.Font.ttf(await rootBundle.load('assets/fonts/FreeSansBold.ttf'));
     final theme = pw.ThemeData.withFont(base: regular, bold: bold);
 
+    // The whole statement is denominated in the base currency, so every row
+    // and total converts at its account's rate.
+    int base(Expense e) {
+      final rate = ratesByAccount[e.accountId] ?? 1.0;
+      return rate == 1.0 ? e.amount : toBaseMinor(e.amount, rate);
+    }
+
     var income = 0, expense = 0;
     for (final t in transactions) {
       if (t.type == DbConstants.txIncome) {
-        income += t.amount;
+        income += base(t);
       } else if (t.type == DbConstants.txExpense) {
-        expense += t.amount;
+        expense += base(t);
       }
     }
     final net = income - expense;
@@ -39,9 +51,9 @@ class StatementPdf {
     final sorted = [...transactions]..sort((a, b) => a.date.compareTo(b.date));
 
     String signed(Expense e) {
-      if (e.isIncome) return '+${formatMoney(e.amount)}';
-      if (e.isTransfer) return formatMoney(e.amount);
-      return '-${formatMoney(e.amount)}';
+      if (e.isIncome) return '+${formatMoney(base(e))}';
+      if (e.isTransfer) return formatMoney(base(e));
+      return '-${formatMoney(base(e))}';
     }
 
     final doc = pw.Document();

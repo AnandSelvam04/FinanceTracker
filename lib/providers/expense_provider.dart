@@ -1,14 +1,54 @@
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import '../models/expense.dart';
 import '../services/db_service.dart';
+import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 
 class ExpenseProvider extends ChangeNotifier {
   final List<Expense> _expenses = [];
   final Set<int> _loadedYears = {};
 
+  /// Exchange rate per account id (base-currency units per 1 unit of the
+  /// account's currency), mirrored from `AccountProvider` by the
+  /// `ChangeNotifierProxyProvider` in main.dart.
+  ///
+  /// Every row's amount is stored in *its source account's* currency, so any
+  /// total shown in the base currency has to convert. Without this the
+  /// dashboard counted a $100 expense as ₹100 and labelled it with the base
+  /// symbol, disagreeing with the net-worth card right above it.
+  Map<int, double> _ratesByAccount = const {};
+
   /// All loaded transaction rows (expenses, income, and transfers).
   List<Expense> get expenses => _expenses;
+
+  /// Mirrors the current account exchange rates. Safe to call on every
+  /// account change; only notifies when a rate actually moved.
+  void syncAccountRates(Map<int, double> rates) {
+    if (mapEquals(_ratesByAccount, rates)) return;
+    _ratesByAccount = Map.unmodifiable(rates);
+    notifyListeners();
+  }
+
+  /// [e]'s amount converted to base-currency minor units.
+  ///
+  /// Rows with no account, or an account whose rate we haven't loaded, fall
+  /// back to 1.0 — the same value a single-currency setup would use.
+  int baseAmountOf(Expense e) {
+    final rate = _ratesByAccount[e.accountId] ?? 1.0;
+    return rate == 1.0 ? e.amount : toBaseMinor(e.amount, rate);
+  }
+
+  int _sumBase(Iterable<Expense> rows) =>
+      rows.fold(0, (sum, e) => sum + baseAmountOf(e));
+
+  Map<String, int> _categoryTotals(Iterable<Expense> rows) {
+    final map = <String, int>{};
+    for (final e in rows) {
+      map[e.category] = (map[e.category] ?? 0) + baseAmountOf(e);
+    }
+    return map;
+  }
 
   /// Ensures expenses for the given year are loaded.
   Future<void> ensureYearLoaded(int year) async {
@@ -61,22 +101,17 @@ class ExpenseProvider extends ChangeNotifier {
           e.date.year == year && e.date.month == month && e.type == type);
 
   /// Returns the total amount spent in a given year (expenses only), in
+  /// base-currency minor units.
+  int totalForYear(int year) => _sumBase(_byYear(year, DbConstants.txExpense));
+
+  /// Returns the total income received in a given year, in base-currency
   /// minor units.
-  int totalForYear(int year) =>
-      _byYear(year, DbConstants.txExpense).fold(0, (sum, e) => sum + e.amount);
+  int incomeForYear(int year) => _sumBase(_byYear(year, DbConstants.txIncome));
 
-  /// Returns the total income received in a given year, in minor units.
-  int incomeForYear(int year) =>
-      _byYear(year, DbConstants.txIncome).fold(0, (sum, e) => sum + e.amount);
-
-  /// Returns category totals (minor units) for a given year (expenses only).
-  Map<String, int> categoryTotalsForYear(int year) {
-    final map = <String, int>{};
-    for (final e in _byYear(year, DbConstants.txExpense)) {
-      map[e.category] = (map[e.category] ?? 0) + e.amount;
-    }
-    return map;
-  }
+  /// Returns category totals (base-currency minor units) for a given year
+  /// (expenses only).
+  Map<String, int> categoryTotalsForYear(int year) =>
+      _categoryTotals(_byYear(year, DbConstants.txExpense));
 
   /// Returns all transaction rows for a given year.
   List<Expense> expensesForYear(int year) =>
@@ -123,24 +158,17 @@ class ExpenseProvider extends ChangeNotifier {
       _byMonth(year, month, DbConstants.txExpense).toList();
 
   /// Returns the total amount spent in a given month and year (expenses
-  /// only), in minor units.
+  /// only), in base-currency minor units.
   int totalForMonth(int year, int month) =>
-      _byMonth(year, month, DbConstants.txExpense)
-          .fold(0, (sum, e) => sum + e.amount);
+      _sumBase(_byMonth(year, month, DbConstants.txExpense));
 
-  /// Returns the total income received in a given month and year, in minor
-  /// units.
+  /// Returns the total income received in a given month and year, in
+  /// base-currency minor units.
   int incomeForMonth(int year, int month) =>
-      _byMonth(year, month, DbConstants.txIncome)
-          .fold(0, (sum, e) => sum + e.amount);
+      _sumBase(_byMonth(year, month, DbConstants.txIncome));
 
-  /// Returns a map of category to total (minor units) for a given month and
-  /// year (expenses only).
-  Map<String, int> categoryTotalsForMonth(int year, int month) {
-    final map = <String, int>{};
-    for (final e in _byMonth(year, month, DbConstants.txExpense)) {
-      map[e.category] = (map[e.category] ?? 0) + e.amount;
-    }
-    return map;
-  }
+  /// Returns a map of category to total (base-currency minor units) for a
+  /// given month and year (expenses only).
+  Map<String, int> categoryTotalsForMonth(int year, int month) =>
+      _categoryTotals(_byMonth(year, month, DbConstants.txExpense));
 }

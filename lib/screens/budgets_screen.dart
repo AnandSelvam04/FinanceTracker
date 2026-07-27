@@ -174,11 +174,14 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             return Colors.green;
           }
 
+          // baseAmountOf, not e.amount: spending on a foreign-currency account
+          // is stored in that account's currency, and the budget cap is in the
+          // base currency.
           int spentForBudget(Budget b) {
             return expenseProvider
                 .spendingForMonth(b.year, b.month)
                 .where((e) => e.category == b.category)
-                .fold(0, (sum, e) => sum + e.amount);
+                .fold(0, (sum, e) => sum + expenseProvider.baseAmountOf(e));
           }
 
           return ListView.separated(
