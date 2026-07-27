@@ -74,8 +74,7 @@ class BackupCrypto {
       throw FormatException('Not a valid encrypted backup');
     }
     if (map['magic'] != _magic) {
-      throw FormatException(
-          'Not an encrypted Finance Tracker backup');
+      throw FormatException('Not an encrypted Finance Tracker backup');
     }
     final salt = base64Decode(map['salt'] as String);
     final nonce = base64Decode(map['nonce'] as String);

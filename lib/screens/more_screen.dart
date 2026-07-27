@@ -77,8 +77,7 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (context) => const AccountsScreen()),
+                MaterialPageRoute(builder: (context) => const AccountsScreen()),
               );
             },
           ),
@@ -99,8 +98,7 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (context) => const CashflowScreen()),
+                MaterialPageRoute(builder: (context) => const CashflowScreen()),
               );
             },
           ),
@@ -152,13 +150,10 @@ class _MoreScreenState extends State<MoreScreen> {
                 DateTime.now().difference(_lastBackup!) >
                     const Duration(days: 7);
             return ListTile(
-              leading: Icon(Icons.cloud,
-                  color: stale ? Colors.orange : null),
+              leading: Icon(Icons.cloud, color: stale ? Colors.orange : null),
               title: const Text('Backup & Export'),
               subtitle: Text(_backupSubtitle,
-                  style: stale
-                      ? const TextStyle(color: Colors.orange)
-                      : null),
+                  style: stale ? const TextStyle(color: Colors.orange) : null),
               onTap: () async {
                 await Navigator.push(
                   context,

@@ -61,7 +61,8 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: const Text('You need at least two accounts to record a transfer.'),
+                child: const Text(
+                    'You need at least two accounts to record a transfer.'),
               ),
             )
           : SingleChildScrollView(
@@ -127,8 +128,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                       TextFormField(
                         controller: _toAmountController,
                         decoration: InputDecoration(
-                          labelText:
-                              'Amount received (${toAccount.symbol})',
+                          labelText: 'Amount received (${toAccount.symbol})',
                           helperText:
                               '${fromAccount.symbol} → ${toAccount.symbol}',
                         ),

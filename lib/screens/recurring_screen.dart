@@ -73,8 +73,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                 children: [
                   TextFormField(
                     initialValue: _description,
-                    decoration:
-                        const InputDecoration(labelText: 'Description'),
+                    decoration: const InputDecoration(labelText: 'Description'),
                     validator: (v) =>
                         (v == null || v.isEmpty) ? 'Required' : null,
                     onSaved: (v) => _description = v ?? '',
@@ -103,14 +102,14 @@ class _RecurringScreenState extends State<RecurringScreen> {
                           value: DbConstants.txExpense,
                           child: const Text('Expense')),
                       DropdownMenuItem(
-                          value: DbConstants.txIncome, child: const Text('Income')),
+                          value: DbConstants.txIncome,
+                          child: const Text('Income')),
                     ],
                     onChanged: (v) => _type = v ?? _type,
                   ),
                   DropdownButtonFormField<String>(
                     initialValue: _frequency,
-                    decoration:
-                        const InputDecoration(labelText: 'Frequency'),
+                    decoration: const InputDecoration(labelText: 'Frequency'),
                     items: RecurringRule.frequencies
                         .map((f) => DropdownMenuItem(
                             value: f, child: Text(_freqLabel(f))))
@@ -120,8 +119,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   if (accounts.isNotEmpty)
                     DropdownButtonFormField<int?>(
                       initialValue: _accountId,
-                      decoration:
-                          const InputDecoration(labelText: 'Account'),
+                      decoration: const InputDecoration(labelText: 'Account'),
                       items: [
                         DropdownMenuItem<int?>(
                             value: null, child: const Text('None')),
@@ -134,8 +132,8 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   Row(
                     children: [
                       Expanded(
-                          child: Text(
-                              'Next due: ${formatDateWithDay(_nextDue)}')),
+                          child:
+                              Text('Next due: ${formatDateWithDay(_nextDue)}')),
                       TextButton(
                         onPressed: () async {
                           final picked = await showDatePicker(
@@ -209,7 +207,8 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   children: [
                     const Icon(Icons.repeat, size: 48, color: Colors.grey),
                     const SizedBox(height: 8),
-                    const Text('No recurring transactions. Add rent, salary, bills, and they post automatically.'),
+                    const Text(
+                        'No recurring transactions. Add rent, salary, bills, and they post automatically.'),
                   ],
                 ),
               ),
@@ -241,8 +240,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(formatMoneyRounded(rule.amount),
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold)),
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
                       Switch(
                         value: rule.enabled,
                         onChanged: (_) => provider.toggleEnabled(rule),

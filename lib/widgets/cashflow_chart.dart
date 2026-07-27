@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../providers/expense_provider.dart';
+import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 
 /// Grouped bars of income vs expense per month for the trailing 12 months.
@@ -11,7 +12,18 @@ class CashflowChart extends StatelessWidget {
   const CashflowChart({super.key, required this.provider});
 
   static const _monthLabels = [
-    'J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'
+    'J',
+    'F',
+    'M',
+    'A',
+    'M',
+    'J',
+    'J',
+    'A',
+    'S',
+    'O',
+    'N',
+    'D'
   ];
 
   @override
@@ -32,13 +44,13 @@ class CashflowChart extends StatelessWidget {
         barRods: [
           BarChartRodData(
             toY: income,
-            color: Colors.green.shade600,
+            color: incomeColor(context),
             width: 6,
             borderRadius: BorderRadius.circular(2),
           ),
           BarChartRodData(
             toY: expense,
-            color: Colors.red.shade400,
+            color: expenseColor(context),
             width: 6,
             borderRadius: BorderRadius.circular(2),
           ),
@@ -49,50 +61,68 @@ class CashflowChart extends StatelessWidget {
     if (maxValue == 0) {
       return SizedBox(
         height: 220,
-        child: Center(child: const Text('No transactions in the last 12 months.')),
+        child:
+            Center(child: const Text('No transactions in the last 12 months.')),
       );
     }
 
-    return SizedBox(
-      height: 220,
-      child: BarChart(
-        BarChartData(
-          barGroups: groups,
-          gridData: const FlGridData(show: false),
-          borderData: FlBorderData(show: false),
-          titlesData: FlTitlesData(
-            leftTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  final index = value.toInt();
-                  if (index < 0 || index >= months.length) {
-                    return const SizedBox.shrink();
-                  }
-                  return Text(
-                    _monthLabels[months[index].month - 1],
-                    style: const TextStyle(fontSize: 10),
-                  );
-                },
+    // Spoken summary: the bars are painted on a canvas, so a screen reader
+    // would otherwise find nothing here at all.
+    final summary = [
+      for (var i = 0; i < months.length; i++)
+        '${_monthLabels[months[i].month - 1]}${months[i].year % 100}: '
+            'in ${formatMoneyRounded(provider.incomeForMonth(months[i].year, months[i].month))}, '
+            'out ${formatMoneyRounded(provider.totalForMonth(months[i].year, months[i].month))}'
+    ].join('; ');
+
+    return Semantics(
+      label: 'Income versus expenses over the last 12 months. $summary',
+      child: ExcludeSemantics(
+        child: SizedBox(
+          height: 220,
+          child: BarChart(
+            BarChartData(
+              barGroups: groups,
+              gridData: const FlGridData(show: false),
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                leftTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, meta) {
+                      final index = value.toInt();
+                      if (index < 0 || index >= months.length) {
+                        return const SizedBox.shrink();
+                      }
+                      return Text(
+                        _monthLabels[months[index].month - 1],
+                        style: TextStyle(
+                            fontSize: 10,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant),
+                      );
+                    },
+                  ),
+                ),
               ),
-            ),
-          ),
-          barTouchData: BarTouchData(
-            touchTooltipData: BarTouchTooltipData(
-              getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                final date = months[group.x];
-                final label = rodIndex == 0 ? 'Income' : 'Expense';
-                return BarTooltipItem(
-                  '${date.year}-${date.month.toString().padLeft(2, '0')}\n$label: ${formatMoneyRounded((rod.toY * 100).round())}',
-                  const TextStyle(color: Colors.white, fontSize: 12),
-                );
-              },
+              barTouchData: BarTouchData(
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    final date = months[group.x];
+                    final label = rodIndex == 0 ? 'Income' : 'Expense';
+                    return BarTooltipItem(
+                      '${date.year}-${date.month.toString().padLeft(2, '0')}\n$label: ${formatMoneyRounded((rod.toY * 100).round())}',
+                      const TextStyle(color: Colors.white, fontSize: 12),
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),

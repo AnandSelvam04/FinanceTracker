@@ -11,6 +11,7 @@ class RecurringRule {
   final int? accountId;
   final String frequency; // daily | weekly | monthly | yearly
   final DateTime nextDue;
+
   /// Day-of-month the rule anchors to, so a monthly rule created on the
   /// 31st posts on the 31st again after a short month instead of drifting.
   final int anchorDay;

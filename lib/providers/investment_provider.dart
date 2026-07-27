@@ -73,8 +73,7 @@ class InvestmentProvider extends ChangeNotifier {
   Map<String, List<Investment>> monthlyBreakdown(String type) {
     final byMonth = <String, List<Investment>>{};
     for (final i in ofType(type)) {
-      final key =
-          '${i.date.year}-${i.date.month.toString().padLeft(2, '0')}';
+      final key = '${i.date.year}-${i.date.month.toString().padLeft(2, '0')}';
       byMonth.putIfAbsent(key, () => []).add(i);
     }
     final ordered = byMonth.keys.toList()..sort((a, b) => b.compareTo(a));

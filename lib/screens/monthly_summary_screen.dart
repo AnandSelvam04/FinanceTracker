@@ -64,8 +64,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         subject: 'Statement $_periodLabel',
       );
     } catch (e) {
-      messenger.showSnackBar(
-          SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -183,8 +182,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                         subtitle: _DeltaLabel(
                             current: entry.value, previous: prevValue),
                         trailing: Text(formatMoney(entry.value),
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold)),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     );
                   }),
@@ -196,8 +195,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     );
   }
 
-  Widget _row(String label, String value,
-      {Color? color, bool bold = false}) {
+  Widget _row(String label, String value, {Color? color, bool bold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

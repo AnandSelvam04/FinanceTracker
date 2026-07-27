@@ -189,9 +189,10 @@ class DBService {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-          // Rename 'title' to 'description' in expenses table
-          await db.execute('ALTER TABLE ${DbConstants.tableExpenses} RENAME TO expenses_old;');
-          await db.execute('''
+      // Rename 'title' to 'description' in expenses table
+      await db.execute(
+          'ALTER TABLE ${DbConstants.tableExpenses} RENAME TO expenses_old;');
+      await db.execute('''
             CREATE TABLE ${DbConstants.tableExpenses}(
               ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
               ${DbConstants.colDescription} TEXT,
@@ -201,15 +202,15 @@ class DBService {
               ${DbConstants.colPaymentMode} TEXT
             )
           ''');
-          // Copy data from old table to new table
-          await db.execute('''
+      // Copy data from old table to new table
+      await db.execute('''
             INSERT INTO ${DbConstants.tableExpenses} (${DbConstants.colId}, ${DbConstants.colDescription}, ${DbConstants.colAmount}, ${DbConstants.colDate}, ${DbConstants.colCategory}, ${DbConstants.colPaymentMode})
             SELECT id, title as description, amount, date, category, paymentMode FROM expenses_old;
           ''');
-          await db.execute('DROP TABLE expenses_old;');
-        }
-        if (oldVersion < 3) {
-          await db.execute('''
+      await db.execute('DROP TABLE expenses_old;');
+    }
+    if (oldVersion < 3) {
+      await db.execute('''
             CREATE TABLE ${DbConstants.tableBudgets}(
               ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
               ${DbConstants.colCategory} TEXT,
@@ -218,58 +219,58 @@ class DBService {
               ${DbConstants.colMonth} INTEGER
             )
           ''');
-        }
-        if (oldVersion < 4) {
-          await _createAccountsTable(db);
-          await db.execute(
-              "ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}'");
-          await db.execute(
-              'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colAccountId} INTEGER');
-          await db.execute(
-              'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colToAccountId} INTEGER');
-        }
-        if (oldVersion < 5) {
-          await _createRecurringTables(db);
-        }
-        if (oldVersion < 6) {
-          // Convert all amounts from major-unit reals to integer minor units
-          // (paise/cents) to eliminate floating-point rounding.
-          await db.execute(
-              'UPDATE ${DbConstants.tableExpenses} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
-          await db.execute(
-              'UPDATE ${DbConstants.tableInvestments} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
-          await db.execute(
-              'UPDATE ${DbConstants.tableBudgets} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
-          await db.execute(
-              'UPDATE ${DbConstants.tableAccounts} SET ${DbConstants.colOpeningBalance} = CAST(ROUND(${DbConstants.colOpeningBalance} * 100) AS INTEGER)');
-          await db.execute(
-              'UPDATE ${DbConstants.tableRecurringRules} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
-          await db.execute(
-              'UPDATE ${DbConstants.tableTemplates} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
-        }
-        if (oldVersion >= 4 && oldVersion < 7) {
-          // Per-account currency + exchange rate. Only devices whose accounts
-          // table predates this (oldVersion >= 4) need the columns added;
-          // upgrades from < 4 already get them from _createAccountsTable.
-          await db.execute(
-              'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN ${DbConstants.colCurrency} TEXT');
-          await db.execute(
-              'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN ${DbConstants.colRate} REAL NOT NULL DEFAULT 1');
-        }
-        if (oldVersion < 8) {
-          // Destination-side amount for cross-currency transfers (null means
-          // both sides move by `amount`), plus indexes for the date-range,
-          // balance, and net-worth queries.
-          await db.execute(
-              'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colToAmount} INTEGER');
-          await _createExpenseIndexes(db);
-        }
+    }
+    if (oldVersion < 4) {
+      await _createAccountsTable(db);
+      await db.execute(
+          "ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}'");
+      await db.execute(
+          'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colAccountId} INTEGER');
+      await db.execute(
+          'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colToAccountId} INTEGER');
+    }
+    if (oldVersion < 5) {
+      await _createRecurringTables(db);
+    }
+    if (oldVersion < 6) {
+      // Convert all amounts from major-unit reals to integer minor units
+      // (paise/cents) to eliminate floating-point rounding.
+      await db.execute(
+          'UPDATE ${DbConstants.tableExpenses} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
+      await db.execute(
+          'UPDATE ${DbConstants.tableInvestments} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
+      await db.execute(
+          'UPDATE ${DbConstants.tableBudgets} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
+      await db.execute(
+          'UPDATE ${DbConstants.tableAccounts} SET ${DbConstants.colOpeningBalance} = CAST(ROUND(${DbConstants.colOpeningBalance} * 100) AS INTEGER)');
+      await db.execute(
+          'UPDATE ${DbConstants.tableRecurringRules} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
+      await db.execute(
+          'UPDATE ${DbConstants.tableTemplates} SET ${DbConstants.colAmount} = CAST(ROUND(${DbConstants.colAmount} * 100) AS INTEGER)');
+    }
+    if (oldVersion >= 4 && oldVersion < 7) {
+      // Per-account currency + exchange rate. Only devices whose accounts
+      // table predates this (oldVersion >= 4) need the columns added;
+      // upgrades from < 4 already get them from _createAccountsTable.
+      await db.execute(
+          'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN ${DbConstants.colCurrency} TEXT');
+      await db.execute(
+          'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN ${DbConstants.colRate} REAL NOT NULL DEFAULT 1');
+    }
+    if (oldVersion < 8) {
+      // Destination-side amount for cross-currency transfers (null means
+      // both sides move by `amount`), plus indexes for the date-range,
+      // balance, and net-worth queries.
+      await db.execute(
+          'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colToAmount} INTEGER');
+      await _createExpenseIndexes(db);
+    }
   }
 
   static Future<void> _createExpenseIndexes(Database db) async {
-    await db.execute(
-        'CREATE INDEX IF NOT EXISTS ${DbConstants.idxExpensesDate} '
-        'ON ${DbConstants.tableExpenses}(${DbConstants.colDate})');
+    await db
+        .execute('CREATE INDEX IF NOT EXISTS ${DbConstants.idxExpensesDate} '
+            'ON ${DbConstants.tableExpenses}(${DbConstants.colDate})');
     await db.execute(
         'CREATE INDEX IF NOT EXISTS ${DbConstants.idxExpensesTypeAccount} '
         'ON ${DbConstants.tableExpenses}(${DbConstants.colType}, ${DbConstants.colAccountId})');
@@ -454,7 +455,8 @@ class DBService {
 
   Future<List<Investment>> getInvestments() async {
     final db = await database;
-    final maps = await db.query(DbConstants.tableInvestments, orderBy: '${DbConstants.colDate} DESC');
+    final maps = await db.query(DbConstants.tableInvestments,
+        orderBy: '${DbConstants.colDate} DESC');
     final investments = <Investment>[];
     for (final map in maps) {
       try {
@@ -474,7 +476,8 @@ class DBService {
 
   Future<int> deleteInvestment(int id) async {
     final db = await database;
-    return await db.delete(DbConstants.tableInvestments, where: '${DbConstants.colId} = ?', whereArgs: [id]);
+    return await db.delete(DbConstants.tableInvestments,
+        where: '${DbConstants.colId} = ?', whereArgs: [id]);
   }
 
   Future<void> clearInvestments() async {
@@ -665,8 +668,7 @@ class DBService {
   /// none. Drives the year filter so old data stays reachable.
   Future<(int, int)?> transactionYearBounds() async {
     final db = await database;
-    final row = (await db.rawQuery(
-            'SELECT MIN(${DbConstants.colDate}) AS lo, '
+    final row = (await db.rawQuery('SELECT MIN(${DbConstants.colDate}) AS lo, '
             'MAX(${DbConstants.colDate}) AS hi '
             'FROM ${DbConstants.tableExpenses}'))
         .first;
@@ -681,9 +683,8 @@ class DBService {
   Future<List<String>> frequentCategories(String type,
       {int days = 90, int limit = 6}) async {
     final db = await database;
-    final cutoff = DateTime.now()
-        .subtract(Duration(days: days))
-        .toIso8601String();
+    final cutoff =
+        DateTime.now().subtract(Duration(days: days)).toIso8601String();
     final maps = await db.rawQuery(
       'SELECT ${DbConstants.colCategory} AS category, COUNT(*) AS n '
       'FROM ${DbConstants.tableExpenses} '
@@ -717,7 +718,8 @@ class DBService {
 
   Future<int> deleteBudget(int id) async {
     final db = await database;
-    return await db.delete(DbConstants.tableBudgets, where: '${DbConstants.colId} = ?', whereArgs: [id]);
+    return await db.delete(DbConstants.tableBudgets,
+        where: '${DbConstants.colId} = ?', whereArgs: [id]);
   }
 
   Future<void> clearBudgets() async {
@@ -878,10 +880,10 @@ class DBService {
         'SUM(COALESCE(${DbConstants.colToAmount}, ${DbConstants.colAmount})) AS toAmt '
         'FROM ${DbConstants.tableExpenses} '
         'GROUP BY ym, type, accountId, toAccountId');
-    final invRows = await db.rawQuery(
-        'SELECT substr(${DbConstants.colDate}, 1, 7) AS ym, '
-        'SUM(${DbConstants.colAmount}) AS amt '
-        'FROM ${DbConstants.tableInvestments} GROUP BY ym');
+    final invRows =
+        await db.rawQuery('SELECT substr(${DbConstants.colDate}, 1, 7) AS ym, '
+            'SUM(${DbConstants.colAmount}) AS amt '
+            'FROM ${DbConstants.tableInvestments} GROUP BY ym');
 
     // Net base-currency change per month.
     final deltaByMonth = <String, double>{};
@@ -943,13 +945,13 @@ class DBService {
     final db = await database;
     final flows = <int, double>{};
 
-    final outRows = await db.rawQuery(
-        'SELECT ${DbConstants.colAccountId} AS accountId, '
-        '${DbConstants.colType} AS type, '
-        'SUM(${DbConstants.colAmount}) AS amt '
-        'FROM ${DbConstants.tableExpenses} '
-        'WHERE ${DbConstants.colAccountId} IS NOT NULL '
-        'GROUP BY accountId, type');
+    final outRows =
+        await db.rawQuery('SELECT ${DbConstants.colAccountId} AS accountId, '
+            '${DbConstants.colType} AS type, '
+            'SUM(${DbConstants.colAmount}) AS amt '
+            'FROM ${DbConstants.tableExpenses} '
+            'WHERE ${DbConstants.colAccountId} IS NOT NULL '
+            'GROUP BY accountId, type');
     for (final row in outRows) {
       final id = row['accountId'] as int;
       final amt = ((row['amt'] ?? 0) as num).toDouble();

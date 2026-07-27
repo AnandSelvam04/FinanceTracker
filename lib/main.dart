@@ -54,9 +54,8 @@ class FinanceTrackerApp extends StatelessWidget {
         // call site, so the two can't drift apart.
         ChangeNotifierProxyProvider<AccountProvider, ExpenseProvider>(
           create: (_) => ExpenseProvider(),
-          update: (_, accounts, expenses) =>
-              (expenses ?? ExpenseProvider())
-                ..syncAccountRates(accounts.ratesByAccount),
+          update: (_, accounts, expenses) => (expenses ?? ExpenseProvider())
+            ..syncAccountRates(accounts.ratesByAccount),
         ),
         ChangeNotifierProvider(create: (_) => RecurringProvider()),
         ChangeNotifierProvider(create: (_) => TemplateProvider()),
@@ -168,7 +167,8 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           children: [
             const Icon(Icons.lock_outline, size: 64, color: Colors.green),
             const SizedBox(height: 16),
-            Text('Finance Tracker is locked', style: const TextStyle(fontSize: 18)),
+            Text('Finance Tracker is locked',
+                style: const TextStyle(fontSize: 18)),
             const SizedBox(height: 24),
             if (_checking)
               const CircularProgressIndicator()

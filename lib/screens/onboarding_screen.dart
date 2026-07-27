@@ -64,8 +64,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: _next,
-                child:
-                    Text(_page < _pages.length - 1 ? 'Next' : 'Get Started'),
+                child: Text(_page < _pages.length - 1 ? 'Next' : 'Get Started'),
               ),
             ],
           ),

@@ -23,7 +23,11 @@ void main() {
     await settings.load();
     await tester.pumpWidget(
         FinanceTrackerApp(settings: settings, seenOnboarding: true));
-    await tester.pumpAndSettle();
+    // Not pumpAndSettle: the dashboard shows a CircularProgressIndicator
+    // while the first year of transactions loads, and an indeterminate
+    // spinner schedules frames forever, so pumpAndSettle never returns.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('Finance Tracker'), findsOneWidget);
   });
 }

@@ -68,7 +68,8 @@ class NetWorthCard extends StatelessWidget {
                   height: 120,
                   // key forces the FutureBuilder to refetch when totals change.
                   child: _NetWorthTrend(
-                    key: ValueKey('$netWorth-${investments.investments.length}'),
+                    key:
+                        ValueKey('$netWorth-${investments.investments.length}'),
                   ),
                 ),
               ],
@@ -97,8 +98,7 @@ class _NetWorthTrend extends StatelessWidget {
         if (series.every((p) => p.value == 0)) {
           return Center(
             child: Text('No history yet',
-                style:
-                    TextStyle(fontSize: 12, color: mutedTextColor(context))),
+                style: TextStyle(fontSize: 12, color: mutedTextColor(context))),
           );
         }
         final spots = <FlSpot>[

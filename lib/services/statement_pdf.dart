@@ -25,8 +25,8 @@ class StatementPdf {
     required List<Expense> transactions,
     Map<int, double> ratesByAccount = const {},
   }) async {
-    final regular = pw.Font.ttf(
-        await rootBundle.load('assets/fonts/FreeSans.ttf'));
+    final regular =
+        pw.Font.ttf(await rootBundle.load('assets/fonts/FreeSans.ttf'));
     final bold =
         pw.Font.ttf(await rootBundle.load('assets/fonts/FreeSansBold.ttf'));
     final theme = pw.ThemeData.withFont(base: regular, bold: bold);
@@ -96,8 +96,7 @@ class StatementPdf {
           pw.SizedBox(height: 16),
           pw.TableHelper.fromTextArray(
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-            headerDecoration:
-                const pw.BoxDecoration(color: PdfColors.grey200),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
             cellAlignments: {
               0: pw.Alignment.centerLeft,
               1: pw.Alignment.centerLeft,
@@ -129,12 +128,12 @@ class StatementPdf {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(label,
-              style: const pw.TextStyle(
-                  fontSize: 10, color: PdfColors.grey700)),
+              style:
+                  const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
           pw.SizedBox(height: 2),
           pw.Text(value,
-              style: pw.TextStyle(
-                  fontSize: 13, fontWeight: pw.FontWeight.bold)),
+              style:
+                  pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
         ],
       );
 

@@ -5,6 +5,17 @@ import '../models/recurring_rule.dart';
 /// can be unit-tested and reused by any surface (dashboard banner today,
 /// OS notifications later).
 
+/// Share of a budget at which it counts as "nearly spent" — the point the
+/// dashboard banner and the budget notifications fire at.
+///
+/// Defined once here and reused by the budgets screen's progress colours,
+/// which previously hardcoded the same 0.9 and would have drifted from it.
+const double kBudgetWarnRatio = 0.9;
+
+/// Share of a budget at which the progress bar starts warning, ahead of
+/// [kBudgetWarnRatio].
+const double kBudgetCautionRatio = 0.7;
+
 class BudgetAlert {
   final String category;
 
@@ -51,7 +62,7 @@ List<BudgetAlert> budgetAlerts({
   required int year,
   required int month,
   required int Function(String category) spentForCategory,
-  double warnAt = 0.9,
+  double warnAt = kBudgetWarnRatio,
 }) {
   final alerts = <BudgetAlert>[];
   for (final b in budgets) {

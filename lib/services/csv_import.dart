@@ -158,8 +158,7 @@ double? tryParseCsvAmount(String raw) {
     final decimal = lastDot > lastComma ? '.' : ',';
     final group = decimal == '.' ? ',' : '.';
     normalized = s.replaceAll(group, '');
-    normalized =
-        '${normalized.substring(0, normalized.lastIndexOf(decimal))}'
+    normalized = '${normalized.substring(0, normalized.lastIndexOf(decimal))}'
         '.${normalized.substring(normalized.lastIndexOf(decimal) + 1)}';
   } else if (lastDot >= 0 || lastComma >= 0) {
     final separator = lastDot >= 0 ? '.' : ',';

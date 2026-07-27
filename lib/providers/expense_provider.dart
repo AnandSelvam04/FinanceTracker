@@ -22,6 +22,26 @@ class ExpenseProvider extends ChangeNotifier {
   /// All loaded transaction rows (expenses, income, and transfers).
   List<Expense> get expenses => _expenses;
 
+  int _pendingLoads = 0;
+
+  /// Whether a year is currently being fetched.
+  ///
+  /// Without this, every list and the dashboard rendered their "No expenses
+  /// found" empty state for the first few frames of a cold start, which reads
+  /// as data loss on a large database.
+  bool get isLoading => _pendingLoads > 0;
+
+  /// Runs [work] with [isLoading] set, so the UI can show a spinner instead of
+  /// an empty state. Nested/concurrent loads are counted, not toggled.
+  Future<T> _tracked<T>(Future<T> Function() work) async {
+    if (_pendingLoads++ == 0) notifyListeners();
+    try {
+      return await work();
+    } finally {
+      if (--_pendingLoads == 0) notifyListeners();
+    }
+  }
+
   /// Mirrors the current account exchange rates. Safe to call on every
   /// account change; only notifies when a rate actually moved.
   void syncAccountRates(Map<int, double> rates) {
@@ -54,11 +74,13 @@ class ExpenseProvider extends ChangeNotifier {
   Future<void> ensureYearLoaded(int year) async {
     if (_loadedYears.contains(year)) return;
 
-    final newExpenses = await DBService().getExpensesByYear(year);
-    _expenses.addAll(newExpenses);
-    // Sort descending by date
-    _expenses.sort((a, b) => b.date.compareTo(a.date));
-    _loadedYears.add(year);
+    await _tracked(() async {
+      final newExpenses = await DBService().getExpensesByYear(year);
+      _expenses.addAll(newExpenses);
+      // Sort descending by date
+      _expenses.sort((a, b) => b.date.compareTo(a.date));
+      _loadedYears.add(year);
+    });
     notifyListeners();
   }
 
@@ -88,13 +110,15 @@ class ExpenseProvider extends ChangeNotifier {
     final yearsToReload = _loadedYears.toList();
     _expenses.clear();
     _loadedYears.clear();
-    for (final year in yearsToReload) {
-      await ensureYearLoaded(year);
-    }
+    await _tracked(() async {
+      for (final year in yearsToReload) {
+        await ensureYearLoaded(year);
+      }
+    });
   }
 
-  Iterable<Expense> _byYear(int year, String type) => _expenses
-      .where((e) => e.date.year == year && e.type == type);
+  Iterable<Expense> _byYear(int year, String type) =>
+      _expenses.where((e) => e.date.year == year && e.type == type);
 
   Iterable<Expense> _byMonth(int year, int month, String type) =>
       _expenses.where((e) =>

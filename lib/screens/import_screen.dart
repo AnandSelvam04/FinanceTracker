@@ -54,7 +54,8 @@ class _ImportScreenState extends State<ImportScreen> {
       final length = await file.length();
       if (length > _maxCsvBytes) {
         messenger.showSnackBar(SnackBar(
-          content: Text('That file is ${(length / (1024 * 1024)).toStringAsFixed(1)} MB. '
+          content: Text(
+              'That file is ${(length / (1024 * 1024)).toStringAsFixed(1)} MB. '
               'Please split it into files under '
               '${_maxCsvBytes ~/ (1024 * 1024)} MB.'),
         ));
@@ -120,7 +121,8 @@ class _ImportScreenState extends State<ImportScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
-    final result = parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
+    final result =
+        parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
     if (result.expenses.isEmpty) {
       messenger.showSnackBar(
         SnackBar(content: const Text('No valid rows to import.')),
@@ -136,13 +138,12 @@ class _ImportScreenState extends State<ImportScreen> {
       await accountProvider.refreshBalances();
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
-        content:
-            Text('Imported ${result.expenses.length}, skipped ${result.skipped}'),
+        content: Text(
+            'Imported ${result.expenses.length}, skipped ${result.skipped}'),
       ));
       Navigator.pop(context);
     } catch (e) {
-      messenger.showSnackBar(
-          SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _importing = false);
     }
@@ -203,14 +204,15 @@ class _ImportScreenState extends State<ImportScreen> {
                     padding: const EdgeInsets.only(top: 8),
                     child: DropdownButtonFormField<String>(
                       initialValue: _defaultType,
-                      decoration: InputDecoration(
-                          labelText: 'Import all rows as'),
+                      decoration:
+                          InputDecoration(labelText: 'Import all rows as'),
                       items: [
                         DropdownMenuItem(
                             value: DbConstants.txExpense,
                             child: const Text('Expense')),
                         DropdownMenuItem(
-                            value: DbConstants.txIncome, child: const Text('Income')),
+                            value: DbConstants.txIncome,
+                            child: const Text('Income')),
                       ],
                       onChanged: (v) =>
                           setState(() => _defaultType = v ?? _defaultType),
@@ -244,7 +246,8 @@ class _ImportScreenState extends State<ImportScreen> {
   }
 
   Widget _preview(List<List<dynamic>> rows) {
-    final result = parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
+    final result =
+        parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
     final sample = result.expenses.take(5).toList();
     if (sample.isEmpty) {
       return const Text('No valid rows with the current mapping.');
@@ -255,8 +258,8 @@ class _ImportScreenState extends State<ImportScreen> {
           ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            title:
-                Text(e.description.isEmpty ? '(no description)' : e.description),
+            title: Text(
+                e.description.isEmpty ? '(no description)' : e.description),
             subtitle: Text(
                 '${e.category} · ${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')} · ${e.type}'),
             trailing: Text(formatMoney(e.amount)),

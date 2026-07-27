@@ -73,7 +73,8 @@ class RecurringService {
     _running = true;
     try {
       final today = now ?? DateTime.now();
-      final endOfToday = DateTime(today.year, today.month, today.day, 23, 59, 59);
+      final endOfToday =
+          DateTime(today.year, today.month, today.day, 23, 59, 59);
       final db = DBService();
       final rules = await db.getRecurringRules();
       var posted = 0;

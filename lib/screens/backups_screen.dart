@@ -85,7 +85,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Replace all data?'),
-        content: const Text('Restoring will delete everything currently in the app and replace it with the backup. This cannot be undone.'),
+        content: const Text(
+            'Restoring will delete everything currently in the app and replace it with the backup. This cannot be undone.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -165,8 +166,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
         duration: const Duration(seconds: 8),
       );
     }
-    return SnackBar(
-        content: Text('Error: $e'));
+    return SnackBar(content: Text('Error: $e'));
   }
 
   /// Generates a file and opens the system share sheet so the user can
@@ -205,70 +205,79 @@ class _BackupsScreenState extends State<BackupsScreen> {
     final controller = TextEditingController();
     final confirmController = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: controller,
-                obscureText: true,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Passphrase',
-                  helperText: 'At least 12 characters',
-                ),
-                // These files are meant to leave the device via the share
-                // sheet, so the passphrase is the only thing protecting them.
-                // Four characters fall to a brute-force in seconds; only
-                // enforced when setting a passphrase, so existing backups
-                // stay restorable.
-                validator: confirm
-                    ? (v) => (v == null || v.length < _minPassphraseLength)
-                        ? 'Use at least $_minPassphraseLength characters'
-                        : null
-                    : (v) => (v == null || v.isEmpty)
-                        ? 'Enter the passphrase'
-                        : null,
-              ),
-              if (confirm)
+    try {
+      return await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(title),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 TextFormField(
-                  controller: confirmController,
+                  controller: controller,
                   obscureText: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Confirm passphrase'),
-                  validator: (v) =>
-                      v != controller.text ? 'Passphrases do not match' : null,
-                ),
-              if (confirm)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    'If you forget this passphrase, the backup cannot be recovered.',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Passphrase',
+                    helperText: 'At least 12 characters',
                   ),
+                  // These files are meant to leave the device via the share
+                  // sheet, so the passphrase is the only thing protecting them.
+                  // Four characters fall to a brute-force in seconds; only
+                  // enforced when setting a passphrase, so existing backups
+                  // stay restorable.
+                  validator: confirm
+                      ? (v) => (v == null || v.length < _minPassphraseLength)
+                          ? 'Use at least $_minPassphraseLength characters'
+                          : null
+                      : (v) => (v == null || v.isEmpty)
+                          ? 'Enter the passphrase'
+                          : null,
                 ),
-            ],
+                if (confirm)
+                  TextFormField(
+                    controller: confirmController,
+                    obscureText: true,
+                    decoration:
+                        const InputDecoration(labelText: 'Confirm passphrase'),
+                    validator: (v) => v != controller.text
+                        ? 'Passphrases do not match'
+                        : null,
+                  ),
+                if (confirm)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'If you forget this passphrase, the backup cannot be recovered.',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(ctx, controller.text);
+                }
+              },
+              child: Text(action),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(ctx, controller.text);
-              }
-            },
-            child: Text(action),
-          ),
-        ],
-      ),
-    );
+      );
+    } finally {
+      // Dispose once the dialog closes. These held a backup passphrase, so
+      // leaking them left it sitting in the heap for the rest of the session.
+      controller.dispose();
+      confirmController.dispose();
+    }
   }
 
   @override
@@ -284,8 +293,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
             const SizedBox(height: 12),
             Text(
               'Backup & Restore',
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
@@ -299,14 +307,15 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         final isNewer =
                             await _backupService.isRemoteBackupNewer();
                         if (!context.mounted) return;
-                        
+
                         if (isNewer) {
                           // ignore: use_build_context_synchronously
                           final shouldOverwrite = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: const Text('Warning: Newer Backup Found'),
-                              content: Text('A newer backup exists on Google Drive. Overwriting it may cause data loss from other devices.\n\nDo you want to continue and overwrite the remote backup?'),
+                              content: Text(
+                                  'A newer backup exists on Google Drive. Overwriting it may cause data loss from other devices.\n\nDo you want to continue and overwrite the remote backup?'),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
@@ -365,15 +374,14 @@ class _BackupsScreenState extends State<BackupsScreen> {
               onPressed: _isWorking
                   ? null
                   : () => _restore(
-                      ({bool allowEmpty = false}) =>
-                          _backupService.restoreFromJson(allowEmpty: allowEmpty),
+                      ({bool allowEmpty = false}) => _backupService
+                          .restoreFromJson(allowEmpty: allowEmpty),
                       'Restored from local JSON'),
             ),
             const Divider(height: 32),
             Text(
               'Encrypted backup',
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -405,8 +413,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                   : () async {
                       if (!await _confirmRestore()) return;
                       final pass = await _promptPassphrase(
-                          title: 'Restore encrypted backup',
-                          action: 'Restore');
+                          title: 'Restore encrypted backup', action: 'Restore');
                       if (pass == null) return;
                       await _runTask(() async {
                         try {
@@ -441,8 +448,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
             const Divider(height: 32),
             Text(
               'Download & Share',
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -482,8 +488,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                   ? null
                   : () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                            builder: (_) => const ImportScreen()),
+                        MaterialPageRoute(builder: (_) => const ImportScreen()),
                       ),
             ),
             const SizedBox(height: 12),
@@ -504,7 +509,8 @@ class _LastBackupBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final stale = time == null || now.difference(time!) > const Duration(days: 7);
+    final stale =
+        time == null || now.difference(time!) > const Duration(days: 7);
     final color = stale ? Colors.orange : Colors.green;
 
     String label;

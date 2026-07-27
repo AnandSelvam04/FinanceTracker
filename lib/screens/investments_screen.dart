@@ -117,8 +117,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  InvestmentTypeScreen(type: type),
+                              builder: (_) => InvestmentTypeScreen(type: type),
                             ),
                           );
                         },

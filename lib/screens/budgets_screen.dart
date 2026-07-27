@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../models/budget.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
+import '../utils/alerts.dart';
+import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 
@@ -168,10 +170,12 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             );
           }
 
+          // Thresholds come from alerts.dart so the bar turns red at exactly
+          // the point the banner and notifications fire.
           Color progressColor(double ratio) {
-            if (ratio >= 0.9) return Colors.red;
-            if (ratio >= 0.7) return Colors.orange;
-            return Colors.green;
+            if (ratio >= kBudgetWarnRatio) return expenseColor(context);
+            if (ratio >= kBudgetCautionRatio) return Colors.orange;
+            return incomeColor(context);
           }
 
           // baseAmountOf, not e.amount: spending on a foreign-currency account

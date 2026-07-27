@@ -93,7 +93,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await recurringProvider.fetchRules();
       if (mounted) {
         messenger.showSnackBar(SnackBar(
-          content: Text((posted == 1 ? '1 recurring transaction posted' : '$posted recurring transactions posted')),
+          content: Text((posted == 1
+              ? '1 recurring transaction posted'
+              : '$posted recurring transactions posted')),
         ));
       }
     }
@@ -245,8 +247,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         currentIndex: _selectedIndex,
         onTap: (i) => setState(() => _selectedIndex = i),
         items: [
-          BottomNavigationBarItem(
-              icon: const Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: const Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
               icon: const Icon(Icons.list), label: 'Expenses'),
           BottomNavigationBarItem(
@@ -320,12 +321,20 @@ class _DashboardView extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 if (yearView) ...[
-                  if (yearlyExpenses.isEmpty)
+                  // Tell "still loading" apart from "nothing recorded"; the
+                  // empty text otherwise flashes on every cold start.
+                  if (yearlyExpenses.isEmpty && provider.isLoading)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (yearlyExpenses.isEmpty)
                     const Text('No expenses this year.')
                   else ...[
                     SizedBox(
                       height: 250,
-                      child: ExpenseChart(expenses: yearlyExpenses),
+                      child: ExpenseChart(
+                          totals: provider.categoryTotalsForYear(selectedYear)),
                     ),
                     Text(
                       'Year Total: ${formatMoney(provider.totalForYear(selectedYear))}',
@@ -351,20 +360,26 @@ class _DashboardView extends StatelessWidget {
                             .map((e) => ListTile(
                                   dense: true,
                                   title: Text(e.key),
-                                  trailing:
-                                      Text(formatMoney(e.value)),
+                                  trailing: Text(formatMoney(e.value)),
                                 ))
                             .toList(),
                       ),
                     ),
                   ],
                 ] else ...[
-                  if (monthlyExpenses.isEmpty)
+                  if (monthlyExpenses.isEmpty && provider.isLoading)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (monthlyExpenses.isEmpty)
                     const Text('No expenses this month.')
                   else ...[
                     SizedBox(
                       height: 250,
-                      child: ExpenseChart(expenses: monthlyExpenses),
+                      child: ExpenseChart(
+                          totals: provider.categoryTotalsForMonth(
+                              selectedYear, selectedMonth)),
                     ),
                     Text(
                       'Total: ${formatMoney(provider.totalForMonth(selectedYear, selectedMonth))}',
@@ -408,8 +423,7 @@ class _QuickAddRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Quick add',
-                  style: const TextStyle(fontSize: 13)),
+              Text('Quick add', style: const TextStyle(fontSize: 13)),
               const SizedBox(height: 4),
               SizedBox(
                 height: 40,

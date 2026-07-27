@@ -231,8 +231,7 @@ class BackupService {
       return false;
     }
     await backupToJson(deviceKey: deviceKey);
-    await prefs.setString(
-        _kLastAutoBackup, DateTime.now().toIso8601String());
+    await prefs.setString(_kLastAutoBackup, DateTime.now().toIso8601String());
     return true;
   }
 
