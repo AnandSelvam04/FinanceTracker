@@ -17,10 +17,19 @@ import 'sms_import.dart';
 class SmsService {
   SmsService._();
 
-  /// How far back a scan looks. Bank alerts older than this are almost always
-  /// already recorded, and reading the whole inbox on a long-lived phone is
-  /// slow enough to feel like a hang.
-  static const defaultWindow = Duration(days: 90);
+  /// How far back a scan looks.
+  ///
+  /// Deliberately short: it keeps the first run from dumping months of history
+  /// into the queue, and keeps each scan to what has happened since you last
+  /// looked. The trade is that a message older than this is never offered, so
+  /// going more than a couple of days without opening the screen means those
+  /// transactions have to be entered by hand.
+  static const defaultWindow = Duration(days: 2);
+
+  /// Whether the user has switched SMS import on in Settings. Mirrored here
+  /// from SettingsProvider so the service can refuse to read the inbox
+  /// without reaching into the widget tree — see [SettingsProvider].
+  static bool enabled = false;
 
   /// Set by tests to stand in for the plugin. Production leaves this null.
   static Future<List<RawSms>> Function()? inboxOverride;
@@ -41,7 +50,7 @@ class SmsService {
   /// Asks for READ_SMS, returning whether it was granted. Safe to call again;
   /// Android shows the dialog only until the user has answered it.
   static Future<bool> requestPermission() async {
-    if (!isSupported) return false;
+    if (!isSupported || !enabled) return false;
     try {
       return await Telephony.instance.requestSmsPermissions ?? false;
     } catch (e, s) {
@@ -58,7 +67,9 @@ class SmsService {
     Duration window = defaultWindow,
     DateTime? now,
   }) async {
-    if (!isSupported) return const [];
+    // Checked here as well as at the permission gate, so no code path can read
+    // the inbox while the setting is off.
+    if (!isSupported || !enabled) return const [];
     final cutoff = (now ?? DateTime.now()).subtract(window);
     final seen = await DBService().existingSourceRefs();
 

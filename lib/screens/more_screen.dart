@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../providers/settings_provider.dart';
 import '../services/backup_service.dart';
 import '../utils/insets.dart';
 import 'accounts_screen.dart';
@@ -82,18 +84,21 @@ class _MoreScreenState extends State<MoreScreen> {
               );
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.sms),
-            title: const Text('Import from SMS'),
-            subtitle: const Text('Find transactions in bank alerts'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const SmsReviewScreen()),
-              );
-            },
-          ),
+          // Hidden until SMS reading is switched on in Settings, so the entry
+          // never leads to a screen that can only report it is turned off.
+          if (context.watch<SettingsProvider>().smsImportEnabled)
+            ListTile(
+              leading: const Icon(Icons.sms),
+              title: const Text('Import from SMS'),
+              subtitle: const Text('Find transactions in bank alerts'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SmsReviewScreen()),
+                );
+              },
+            ),
           ListTile(
             leading: const Icon(Icons.summarize),
             title: const Text('Monthly Summary'),

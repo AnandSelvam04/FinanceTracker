@@ -27,9 +27,16 @@ void main() {
         receivedAt: now.subtract(Duration(days: daysAgo)),
       );
 
-  setUp(() => DBService().clearAll());
+  setUp(() async {
+    await DBService().clearAll();
+    // Mirrors the Settings toggle; off by default, so tests must opt in.
+    SmsService.enabled = true;
+  });
 
-  tearDown(() => SmsService.inboxOverride = null);
+  tearDown(() {
+    SmsService.inboxOverride = null;
+    SmsService.enabled = false;
+  });
 
   test('parses transaction alerts and skips the rest', () async {
     SmsService.inboxOverride = () async => [
@@ -46,8 +53,8 @@ void main() {
 
   test('ignores messages older than the window', () async {
     SmsService.inboxOverride = () async => [
-          sms('Rs.100 debited from A/c XX4821 to RECENT', daysAgo: 10),
-          sms('Rs.200 debited from A/c XX4821 to STALE', daysAgo: 200),
+          sms('Rs.100 debited from A/c XX4821 to RECENT', daysAgo: 1),
+          sms('Rs.200 debited from A/c XX4821 to STALE', daysAgo: 10),
         ];
 
     final found = await SmsService.scan(now: now);
@@ -540,6 +547,71 @@ void main() {
       final provider = ExpenseProvider();
       await provider.ensureYearLoaded(2025);
       expect(provider.spendByAccountForMonth(2025, 3), isEmpty);
+    });
+  });
+
+  group('the Settings toggle', () {
+    test('scanning reads nothing while it is off', () async {
+      SmsService.inboxOverride =
+          () async => [sms('Rs.499 debited from A/c XX4821 to SWIGGY')];
+      expect(await SmsService.scan(now: now), isNotEmpty);
+
+      SmsService.enabled = false;
+      expect(await SmsService.scan(now: now), isEmpty);
+    });
+
+    test('the inbox is not even opened while it is off', () async {
+      var reads = 0;
+      SmsService.inboxOverride = () async {
+        reads++;
+        return [sms('Rs.499 debited from A/c XX4821 to SWIGGY')];
+      };
+
+      SmsService.enabled = false;
+      await SmsService.scan(now: now);
+      expect(reads, 0, reason: 'the setting must gate the read itself');
+
+      SmsService.enabled = true;
+      await SmsService.scan(now: now);
+      expect(reads, 1);
+    });
+
+    test('permission is never requested while it is off', () async {
+      SmsService.enabled = false;
+      expect(await SmsService.requestPermission(), isFalse);
+    });
+
+    test('turning it back on resumes where it left off', () async {
+      SmsService.inboxOverride =
+          () async => [sms('Rs.499 debited from A/c XX4821 to SWIGGY')];
+      final first = await SmsService.scan(now: now);
+      await DBService().insertExpenses(
+          [first.single.toExpense(accountId: null, category: 'Food')]);
+
+      SmsService.enabled = false;
+      expect(await SmsService.scan(now: now), isEmpty);
+
+      // Still deduped against what was already imported, not re-offered.
+      SmsService.enabled = true;
+      expect(await SmsService.scan(now: now), isEmpty);
+    });
+  });
+
+  group('the two-day window', () {
+    test('yesterday is in range', () async {
+      SmsService.inboxOverride = () async =>
+          [sms('Rs.100 debited from A/c XX4821 to RECENT', daysAgo: 1)];
+      expect((await SmsService.scan(now: now)).length, 1);
+    });
+
+    test('three days ago is out of range', () async {
+      SmsService.inboxOverride = () async =>
+          [sms('Rs.100 debited from A/c XX4821 to OLD', daysAgo: 3)];
+      expect(await SmsService.scan(now: now), isEmpty);
+    });
+
+    test('the default window is two days', () {
+      expect(SmsService.defaultWindow, const Duration(days: 2));
     });
   });
 }
