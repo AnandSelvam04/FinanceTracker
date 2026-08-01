@@ -67,8 +67,14 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
 
     final found = await SmsService.scan();
     // Hand-entered rows near the scan window, so a message that duplicates one
-    // can be flagged rather than silently recorded twice.
-    final existing = await DBService().getExpenses();
+    // can be flagged rather than silently recorded twice. Bounded to the
+    // window the candidates can fall in (plus the duplicate tolerance either
+    // side) rather than reading a ledger that grows without limit.
+    final now = DateTime.now();
+    final existing = await DBService().getExpensesByDateRange(
+      now.subtract(SmsService.defaultWindow + const Duration(days: 7)),
+      now.add(const Duration(days: 7)),
+    );
     if (!mounted) return;
     setState(() {
       _permissionDenied = false;
