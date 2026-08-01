@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_tracker/models/account.dart';
 import 'package:finance_tracker/models/expense.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
+import 'package:finance_tracker/services/category_memory.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/services/sms_import.dart';
 import 'package:finance_tracker/services/sms_service.dart';
@@ -330,6 +331,215 @@ void main() {
           existing: existing);
       expect(draft.duplicateOf, isNull);
       expect(draft.selected, isTrue);
+    });
+  });
+
+  group('category memory', () {
+    test('a familiar merchant arrives with its category already set',
+        () async {
+      final bankId = await DBService()
+          .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
+      // Three past Swiggy orders, all filed under Food.
+      for (var i = 1; i <= 3; i++) {
+        await DBService().insertExpense(Expense(
+          description: 'SWIGGY',
+          amount: 30000 + i,
+          date: now.subtract(Duration(days: 10 + i)),
+          category: 'Food',
+          paymentMode: 'Other',
+          accountId: bankId,
+        ));
+      }
+      SmsService.inboxOverride =
+          () async => [sms('Rs.499 debited from A/c XX4821 to SWIGGY')];
+
+      final memory =
+          CategoryMemory.fromRows(await DBService().merchantCategoryCounts());
+      final draft = SmsDraft.from(
+          (await SmsService.scan(now: now)).single,
+          await DBService().getAccounts(),
+          memory: memory);
+
+      expect(draft.category, 'Food');
+      expect(draft.recalledCategory, 'Food');
+      expect(draft.toExpense().category, 'Food');
+    });
+
+    test('an unfamiliar merchant still defaults to Other', () async {
+      await DBService()
+          .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
+      SmsService.inboxOverride =
+          () async => [sms('Rs.499 debited from A/c XX4821 to NEWSHOP')];
+
+      final memory =
+          CategoryMemory.fromRows(await DBService().merchantCategoryCounts());
+      final draft = SmsDraft.from(
+          (await SmsService.scan(now: now)).single,
+          await DBService().getAccounts(),
+          memory: memory);
+
+      expect(draft.category, 'Other');
+      expect(draft.recalledCategory, isNull);
+    });
+
+    test('the most-used category wins over a one-off', () async {
+      final bankId = await DBService()
+          .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
+      for (var i = 0; i < 4; i++) {
+        await DBService().insertExpense(Expense(
+          description: 'AMAZON',
+          amount: 1000 + i,
+          date: now.subtract(Duration(days: 5 + i)),
+          category: 'Shopping',
+          paymentMode: 'Other',
+          accountId: bankId,
+        ));
+      }
+      await DBService().insertExpense(Expense(
+        description: 'AMAZON',
+        amount: 9999,
+        date: now.subtract(const Duration(days: 2)),
+        category: 'Entertainment',
+        paymentMode: 'Other',
+        accountId: bankId,
+      ));
+      SmsService.inboxOverride =
+          () async => [sms('Rs.2,150 spent on card XX4821 at AMAZON')];
+
+      final memory =
+          CategoryMemory.fromRows(await DBService().merchantCategoryCounts());
+      final draft = SmsDraft.from(
+          (await SmsService.scan(now: now)).single,
+          await DBService().getAccounts(),
+          memory: memory);
+      expect(draft.category, 'Shopping');
+    });
+
+    test('a transfer is never given a recalled category', () async {
+      final bankId = await DBService()
+          .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
+      final cardId = await DBService().insertAccount(
+          Account(name: 'HDFC Card', type: 'credit_card', last4: '5678'));
+      await DBService().insertExpense(Expense(
+        description: 'Transfer',
+        amount: 500,
+        date: now.subtract(const Duration(days: 3)),
+        category: 'Bills',
+        paymentMode: 'Other',
+        accountId: bankId,
+      ));
+      SmsService.inboxOverride = () async => [
+            sms('Rs.15,000 debited from A/c XX4821 towards Credit Card '
+                'XX5678 payment'),
+          ];
+
+      final memory =
+          CategoryMemory.fromRows(await DBService().merchantCategoryCounts());
+      final draft = SmsDraft.from(
+          (await SmsService.scan(now: now)).single,
+          await DBService().getAccounts(),
+          memory: memory);
+      expect(draft.category, 'Transfer');
+      expect(draft.recalledCategory, isNull);
+      expect(cardId, isNotNull);
+    });
+
+    test('transfers contribute nothing to the memory', () async {
+      final bankId = await DBService()
+          .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
+      await DBService().insertExpense(Expense(
+        description: 'BIGBASKET',
+        amount: 500,
+        date: now.subtract(const Duration(days: 3)),
+        category: 'Transfer',
+        paymentMode: '',
+        type: DbConstants.txTransfer,
+        accountId: bankId,
+      ));
+      final memory =
+          CategoryMemory.fromRows(await DBService().merchantCategoryCounts());
+      expect(memory.categoryFor('BIGBASKET'), isNull);
+    });
+  });
+
+  group('spend by account', () {
+    test('splits the month across the accounts that carried it', () async {
+      final bankId = await DBService()
+          .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
+      final cardId = await DBService().insertAccount(
+          Account(name: 'HDFC Card', type: 'credit_card', last4: '5678'));
+
+      Future<void> spend(int? account, int amount) => DBService().insertExpense(
+            Expense(
+              description: 'x',
+              amount: amount,
+              date: DateTime(2025, 8, 10),
+              category: 'Food',
+              paymentMode: 'Other',
+              accountId: account,
+            ),
+          );
+      await spend(bankId, 10000);
+      await spend(cardId, 25000);
+      await spend(cardId, 5000);
+      await spend(null, 700);
+
+      final provider = ExpenseProvider();
+      await provider.ensureYearLoaded(2025);
+      final byAccount = provider.spendByAccountForMonth(2025, 8);
+
+      expect(byAccount[bankId], 10000);
+      expect(byAccount[cardId], 30000);
+      // Rows with no account are kept under a null key rather than dropped.
+      expect(byAccount[null], 700);
+      expect(byAccount.values.fold<int>(0, (a, b) => a + b),
+          provider.totalForMonth(2025, 8));
+    });
+
+    test('income and transfers are left out', () async {
+      final bankId = await DBService()
+          .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
+      final cardId = await DBService().insertAccount(
+          Account(name: 'HDFC Card', type: 'credit_card', last4: '5678'));
+      await DBService().insertExpense(Expense(
+        description: 'Salary',
+        amount: 4500000,
+        date: DateTime(2025, 8, 1),
+        category: 'Salary',
+        paymentMode: '',
+        type: DbConstants.txIncome,
+        accountId: bankId,
+      ));
+      await DBService().insertExpense(Expense(
+        description: 'Card bill',
+        amount: 1500000,
+        date: DateTime(2025, 8, 28),
+        category: 'Transfer',
+        paymentMode: '',
+        type: DbConstants.txTransfer,
+        accountId: bankId,
+        toAccountId: cardId,
+      ));
+      await DBService().insertExpense(Expense(
+        description: 'Lunch',
+        amount: 20000,
+        date: DateTime(2025, 8, 10),
+        category: 'Food',
+        paymentMode: 'Other',
+        accountId: bankId,
+      ));
+
+      final provider = ExpenseProvider();
+      await provider.ensureYearLoaded(2025);
+      // Only the lunch counts: paying the card bill is not spending on the
+      // bank it came from.
+      expect(provider.spendByAccountForMonth(2025, 8), {bankId: 20000});
+    });
+
+    test('a month with no spending is empty', () async {
+      final provider = ExpenseProvider();
+      await provider.ensureYearLoaded(2025);
+      expect(provider.spendByAccountForMonth(2025, 3), isEmpty);
     });
   });
 }

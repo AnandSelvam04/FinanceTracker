@@ -1198,6 +1198,30 @@ class DBService {
     return flows.map((id, v) => MapEntry(id, v.round()));
   }
 
+  /// How often each merchant has been filed under each category, most-used
+  /// first and newest first within a tie.
+  ///
+  /// Feeds [CategoryMemory], which pre-fills the category of an imported
+  /// transaction from what the same merchant was filed under before.
+  /// Transfers are excluded — their category is fixed and carries no signal.
+  Future<List<Map<String, Object?>>> merchantCategoryCounts(
+      {int limit = 500}) async {
+    final db = await database;
+    return db.rawQuery(
+      'SELECT ${DbConstants.colDescription}, ${DbConstants.colCategory}, '
+      'COUNT(*) AS n, MAX(${DbConstants.colDate}) AS lastDate '
+      'FROM ${DbConstants.tableExpenses} '
+      'WHERE ${DbConstants.colType} != ? '
+      'AND ${DbConstants.colDescription} IS NOT NULL '
+      "AND ${DbConstants.colDescription} != '' "
+      'AND ${DbConstants.colCategory} IS NOT NULL '
+      "AND ${DbConstants.colCategory} != '' "
+      'GROUP BY ${DbConstants.colDescription}, ${DbConstants.colCategory} '
+      'ORDER BY n DESC, lastDate DESC LIMIT ?',
+      [DbConstants.txTransfer, limit],
+    );
+  }
+
   /// Every sourceRef already accounted for: imported as a transaction, or
   /// dismissed in the review queue. A rescan filters its candidates through
   /// this so neither an imported message nor a rejected one comes back.

@@ -6,6 +6,7 @@ import '../models/account.dart';
 import '../models/expense.dart';
 import '../services/db_service.dart';
 import '../utils/app_logger.dart';
+import 'category_memory.dart';
 import 'sms_import.dart';
 
 /// Reads the device SMS inbox and hands each message to [SmsImport].
@@ -136,6 +137,10 @@ class SmsDraft {
   /// twice.
   Expense? duplicateOf;
 
+  /// Set when [category] came from how this merchant was filed before, rather
+  /// than from the default. Shown on the card so a wrong recall is obvious.
+  final String? recalledCategory;
+
   SmsDraft({
     required this.parsed,
     required this.accountId,
@@ -143,6 +148,7 @@ class SmsDraft {
     required this.category,
     this.selected = true,
     this.duplicateOf,
+    this.recalledCategory,
   });
 
   bool get isTransfer => parsed.isTransfer;
@@ -151,22 +157,27 @@ class SmsDraft {
   /// would debit the source and credit nothing.
   bool get needsDestination => isTransfer && toAccountId == null;
 
-  /// Builds a draft with both accounts pre-resolved from the message, and
-  /// flagged when [existing] already contains a matching hand-entered row.
+  /// Builds a draft with both accounts pre-resolved from the message, the
+  /// category recalled from how this merchant was filed before, and a flag
+  /// when [existing] already contains a matching hand-entered row.
   factory SmsDraft.from(
     ParsedSms parsed,
     List<Account> accounts, {
     List<Expense> existing = const [],
+    CategoryMemory memory = const CategoryMemory.empty(),
   }) {
     final accountId = parsed.matchAccount(accounts)?.id;
     final duplicate = SmsImport.findDuplicate(parsed, accountId, existing);
+    final remembered =
+        parsed.isTransfer ? null : memory.categoryFor(parsed.description);
     return SmsDraft(
       parsed: parsed,
       accountId: accountId,
       toAccountId: parsed.matchToAccount(accounts)?.id,
       category: parsed.isTransfer
           ? 'Transfer'
-          : (parsed.isExpense ? 'Other' : 'Income'),
+          : (remembered ?? (parsed.isExpense ? 'Other' : 'Income')),
+      recalledCategory: remembered,
       selected: duplicate == null,
       duplicateOf: duplicate,
     );

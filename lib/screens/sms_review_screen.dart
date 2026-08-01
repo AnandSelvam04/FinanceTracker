@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/account.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
+import '../services/category_memory.dart';
 import '../services/db_service.dart';
 import '../services/sms_service.dart';
 import '../utils/app_colors.dart';
@@ -75,12 +76,17 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
       now.subtract(SmsService.defaultWindow + const Duration(days: 7)),
       now.add(const Duration(days: 7)),
     );
+    // What each merchant was filed under before, so a familiar one arrives
+    // with its category already set.
+    final memory =
+        CategoryMemory.fromRows(await DBService().merchantCategoryCounts());
     if (!mounted) return;
     setState(() {
       _permissionDenied = false;
       _drafts = [
         for (final p in found)
-          SmsDraft.from(p, accountProvider.accounts, existing: existing)
+          SmsDraft.from(p, accountProvider.accounts,
+              existing: existing, memory: memory)
       ];
       _loading = false;
     });
@@ -366,6 +372,12 @@ class _DraftCard extends StatelessWidget {
                 text: 'Money moved between your accounts — recorded as a '
                     'transfer, so it is not counted as spending.',
               ),
+            if (draft.recalledCategory != null)
+              _Notice(
+                icon: Icons.history,
+                color: Colors.blueGrey,
+                text: 'Filed as ${draft.recalledCategory} last time.',
+              ),
             const SizedBox(height: 4),
             Padding(
               padding: const EdgeInsets.only(left: 8),
@@ -403,13 +415,14 @@ class _DraftCard extends StatelessWidget {
                             },
                           )
                         : DropdownButtonFormField<String>(
-                            initialValue: categories.contains(draft.category)
-                                ? draft.category
-                                : categories.last,
+                            initialValue: draft.category,
                             isExpanded: true,
                             decoration: const InputDecoration(
                                 labelText: 'Category', isDense: true),
-                            items: categories
+                            // A category recalled from history may be one the
+                            // user created, so it has to join the standard
+                            // list or the dropdown would silently discard it.
+                            items: <String>{...categories, draft.category}
                                 .map((c) => DropdownMenuItem(
                                     value: c,
                                     child: Text(c,
