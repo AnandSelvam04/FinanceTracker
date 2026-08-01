@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:another_telephony/telephony.dart';
 
 import '../models/account.dart';
+import '../models/expense.dart';
 import '../services/db_service.dart';
 import '../utils/app_logger.dart';
 import 'sms_import.dart';
@@ -71,8 +72,11 @@ class SmsService {
       if (candidate == null || seen.contains(candidate.sourceRef)) continue;
       parsed.add(candidate);
     }
-    parsed.sort((a, b) => b.date.compareTo(a.date));
-    return parsed;
+    // Pair up the two alerts one movement produces before sorting, so a card
+    // payment shows as a single transfer rather than a debit and a credit.
+    final collapsed = SmsImport.collapseTransferPairs(parsed)
+      ..sort((a, b) => b.date.compareTo(a.date));
+    return collapsed;
   }
 
   /// Reads raw inbox rows, translating the plugin's message type into
@@ -121,22 +125,56 @@ class RawSms {
 class SmsDraft {
   final ParsedSms parsed;
   int? accountId;
+
+  /// Receiving account, for a transfer only.
+  int? toAccountId;
   String category;
   bool selected;
+
+  /// A hand-entered transaction this message appears to duplicate. Set means
+  /// the draft starts unselected — importing it would record the same spend
+  /// twice.
+  Expense? duplicateOf;
 
   SmsDraft({
     required this.parsed,
     required this.accountId,
+    this.toAccountId,
     required this.category,
     this.selected = true,
+    this.duplicateOf,
   });
 
-  /// Builds a draft with the account pre-resolved from the message's last-4.
-  factory SmsDraft.from(ParsedSms parsed, List<Account> accounts) {
+  bool get isTransfer => parsed.isTransfer;
+
+  /// A transfer needs both ends to post correctly; without a destination it
+  /// would debit the source and credit nothing.
+  bool get needsDestination => isTransfer && toAccountId == null;
+
+  /// Builds a draft with both accounts pre-resolved from the message, and
+  /// flagged when [existing] already contains a matching hand-entered row.
+  factory SmsDraft.from(
+    ParsedSms parsed,
+    List<Account> accounts, {
+    List<Expense> existing = const [],
+  }) {
+    final accountId = parsed.matchAccount(accounts)?.id;
+    final duplicate = SmsImport.findDuplicate(parsed, accountId, existing);
     return SmsDraft(
       parsed: parsed,
-      accountId: parsed.matchAccount(accounts)?.id,
-      category: parsed.isExpense ? 'Other' : 'Income',
+      accountId: accountId,
+      toAccountId: parsed.matchToAccount(accounts)?.id,
+      category: parsed.isTransfer
+          ? 'Transfer'
+          : (parsed.isExpense ? 'Other' : 'Income'),
+      selected: duplicate == null,
+      duplicateOf: duplicate,
     );
   }
+
+  Expense toExpense() => parsed.toExpense(
+        accountId: accountId,
+        category: category,
+        toAccountId: toAccountId,
+      );
 }

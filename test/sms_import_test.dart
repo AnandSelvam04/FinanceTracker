@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_tracker/models/account.dart';
+import 'package:finance_tracker/models/expense.dart';
 import 'package:finance_tracker/services/sms_import.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
 
@@ -7,6 +8,7 @@ import 'package:finance_tracker/utils/db_constants.dart';
 /// matching against templates banks change without notice, so these tests are
 /// the only place its accuracy is pinned down.
 void main() {
+  _transferTests();
   final received = DateTime(2025, 8, 1, 14, 30);
 
   ParsedSms? parse(String body, {String sender = 'VM-HDFCBK'}) =>
@@ -38,10 +40,13 @@ void main() {
       expect(r.type, DbConstants.txExpense);
     });
 
-    test('a transfer leg keeps the direction of the earlier verb', () {
+    test('a message naming both sides is a transfer, not a one-sided debit',
+        () {
       final r = parse('Rs.5,000 debited from A/c XX4821 and credited to '
           'A/c XX9999 on 01-Aug-25')!;
-      expect(r.type, DbConstants.txExpense);
+      expect(r.type, DbConstants.txTransfer);
+      expect(r.last4, '4821');
+      expect(r.toLast4, '9999');
     });
   });
 
@@ -245,6 +250,265 @@ void main() {
       // Always positive; direction lives in `type`, matching how the rest of
       // the app stores amounts.
       expect(e.amount.isNegative, isFalse);
+    });
+  });
+}
+
+/// Transfers between the user's own accounts. Recording these as spending
+/// double-counts: a card's purchases already hit the ledger, so the repayment
+/// has to move balances rather than add to the month's expenses.
+void _transferTests() {
+  final received = DateTime(2025, 8, 1, 14, 30);
+
+  ParsedSms? parse(String body, {String sender = 'VM-HDFCBK'}) =>
+      SmsImport.parse(sender: sender, body: body, receivedAt: received);
+
+  group('transfer detection', () {
+    test('a card bill paid from a bank is a transfer, not an expense', () {
+      final r = parse('Rs.15,000.00 debited from A/c XX4821 on 01-Aug-25 '
+          'towards HDFC Credit Card XX5678 payment')!;
+      expect(r.type, DbConstants.txTransfer);
+      expect(r.isTransfer, isTrue);
+      expect(r.last4, '4821');
+      expect(r.toLast4, '5678');
+      expect(r.amount, 1500000);
+    });
+
+    test('an NEFT naming both accounts is a transfer', () {
+      final r = parse('Rs.20,000 debited from A/c XX4821 and credited to '
+          'A/c XX9012 via NEFT on 01-Aug-25')!;
+      expect(r.type, DbConstants.txTransfer);
+      expect(r.last4, '4821');
+      expect(r.toLast4, '9012');
+    });
+
+    test('"transferred from X to Y" is no longer dropped', () {
+      final r = parse('Rs.5,000 transferred from A/c XX4821 to A/c XX9012')!;
+      expect(r.type, DbConstants.txTransfer);
+      expect(r.last4, '4821');
+      expect(r.toLast4, '9012');
+    });
+
+    test('a payment arriving on a card is a credit, not another purchase', () {
+      final r = parse('Payment of Rs.15,000 received on your HDFC Bank '
+          'Credit Card XX5678. Thank you.')!;
+      expect(r.type, DbConstants.txIncome);
+      // Lands on the card, so it reduces what is owed.
+      expect(r.last4, '5678');
+      expect(r.toLast4, isNull);
+    });
+
+    test('an ordinary purchase is still a plain expense', () {
+      final r = parse('Rs.499 debited from A/c XX4821 on 01-Aug-25 to SWIGGY')!;
+      expect(r.type, DbConstants.txExpense);
+      expect(r.toLast4, isNull);
+      expect(r.description, 'SWIGGY');
+    });
+
+    test('a card spend is still a plain expense', () {
+      final r = parse('Rs.2,150 spent on Credit Card XX5678 at AMAZON')!;
+      expect(r.type, DbConstants.txExpense);
+      expect(r.last4, '5678');
+      expect(r.toLast4, isNull);
+    });
+
+    test('salary credited to one account is income, not a transfer', () {
+      final r = parse('INR 45,000 credited to A/c XX4821. Info: SALARY')!;
+      expect(r.type, DbConstants.txIncome);
+      expect(r.last4, '4821');
+      expect(r.toLast4, isNull);
+    });
+
+    test('a reference number is not mistaken for an account', () {
+      final r = parse('Rs.500 debited from A/c XX4821 to VPA x@ybl '
+          'ref 123456789')!;
+      expect(r.type, DbConstants.txExpense);
+      expect(r.toLast4, isNull);
+    });
+
+    test('a transfer resolves both ends against the account list', () {
+      final accounts = [
+        Account(id: 1, name: 'HDFC Bank', type: 'bank', last4: '4821'),
+        Account(id: 2, name: 'HDFC Card', type: 'credit_card', last4: '5678'),
+      ];
+      final r = parse('Rs.15,000 debited from A/c XX4821 towards '
+          'Credit Card XX5678 payment')!;
+      expect(r.matchAccount(accounts)!.id, 1);
+      expect(r.matchToAccount(accounts)!.id, 2);
+
+      final e = r.toExpense(accountId: 1, category: 'Transfer', toAccountId: 2);
+      expect(e.type, DbConstants.txTransfer);
+      expect(e.accountId, 1);
+      expect(e.toAccountId, 2);
+    });
+
+    test('toAccountId is dropped on a non-transfer', () {
+      final e = parse('Rs.499 debited from A/c XX4821 to SWIGGY')!
+          .toExpense(accountId: 1, category: 'Food', toAccountId: 9);
+      expect(e.toAccountId, isNull);
+    });
+  });
+
+  group('collapsing the two alerts one movement sends', () {
+    ParsedSms at(String body, {int hour = 12, String sender = 'VM-HDFCBK'}) =>
+        SmsImport.parse(
+            sender: sender,
+            body: body,
+            receivedAt: DateTime(2025, 8, 1, hour))!;
+
+    test('a two-sided transfer absorbs the card-side alert', () {
+      final bank = at('Rs.15,000 debited from A/c XX4821 towards '
+          'Credit Card XX5678 payment');
+      final card = at(
+          'Payment of Rs.15,000 received on your Credit Card XX5678',
+          hour: 13,
+          sender: 'VM-HDFCBK2');
+
+      final out = SmsImport.collapseTransferPairs([bank, card]);
+      expect(out.length, 1);
+      expect(out.single.type, DbConstants.txTransfer);
+      expect(out.single.last4, '4821');
+      expect(out.single.toLast4, '5678');
+      // The absorbed message is marked seen, so a rescan will not re-offer it.
+      expect(out.single.alsoCoversRefs, contains(card.sourceRef));
+    });
+
+    test('order does not matter', () {
+      final bank = at('Rs.15,000 debited from A/c XX4821 towards '
+          'Credit Card XX5678 payment');
+      final card = at(
+          'Payment of Rs.15,000 received on your Credit Card XX5678',
+          hour: 13,
+          sender: 'VM-HDFCBK2');
+      expect(SmsImport.collapseTransferPairs([card, bank]).length, 1);
+    });
+
+    test('a lone debit and a lone credit become one transfer', () {
+      final out = SmsImport.collapseTransferPairs([
+        at('Rs.20,000 debited from A/c XX4821 to BENEFICIARY'),
+        at('INR 20,000 credited to A/c XX9012', hour: 13, sender: 'VM-ICICIB'),
+      ]);
+      expect(out.length, 1);
+      expect(out.single.type, DbConstants.txTransfer);
+      expect(out.single.last4, '4821');
+      expect(out.single.toLast4, '9012');
+      expect(out.single.description, 'Transfer');
+    });
+
+    test('different amounts are left alone', () {
+      final out = SmsImport.collapseTransferPairs([
+        at('Rs.15,000 debited from A/c XX4821 to BENEFICIARY'),
+        at('INR 12,000 credited to A/c XX9012', hour: 13),
+      ]);
+      expect(out.length, 2);
+    });
+
+    test('the same amount far apart in time is left alone', () {
+      final a = SmsImport.parse(
+          sender: 'VM-HDFCBK',
+          body: 'Rs.15,000 debited from A/c XX4821 to BENEFICIARY',
+          receivedAt: DateTime(2025, 8, 1))!;
+      final b = SmsImport.parse(
+          sender: 'VM-ICICIB',
+          body: 'INR 15,000 credited to A/c XX9012',
+          receivedAt: DateTime(2025, 8, 20))!;
+      expect(SmsImport.collapseTransferPairs([a, b]).length, 2);
+    });
+
+    test('two unrelated expenses of the same amount both survive', () {
+      final out = SmsImport.collapseTransferPairs([
+        at('Rs.500 debited from A/c XX4821 to SWIGGY'),
+        at('Rs.500 debited from A/c XX4821 to ZOMATO', hour: 18),
+      ]);
+      expect(out.length, 2);
+    });
+
+    test('a credit on the same account is not merged into a self-transfer', () {
+      final out = SmsImport.collapseTransferPairs([
+        at('Rs.500 debited from A/c XX4821 to SWIGGY'),
+        at('INR 500 credited to A/c XX4821', hour: 18),
+      ]);
+      expect(out.length, 2);
+    });
+
+    test('an empty list and a single item are unchanged', () {
+      expect(SmsImport.collapseTransferPairs([]), isEmpty);
+      final one = [at('Rs.500 debited from A/c XX4821 to SWIGGY')];
+      expect(SmsImport.collapseTransferPairs(one).length, 1);
+    });
+  });
+
+  group('duplicates of hand-entered rows', () {
+    Expense typed({
+      int amount = 49900,
+      String? sourceRef,
+      int? accountId = 1,
+      DateTime? date,
+      String type = DbConstants.txExpense,
+    }) =>
+        Expense(
+          description: 'Lunch',
+          amount: amount,
+          date: date ?? DateTime(2025, 8, 1),
+          category: 'Food',
+          paymentMode: 'Cash',
+          type: type,
+          accountId: accountId,
+          sourceRef: sourceRef,
+        );
+
+    final parsed = parse('Rs.499 debited from A/c XX4821 to SWIGGY')!;
+
+    test('flags a same-amount row on the same account and day', () {
+      expect(SmsImport.findDuplicate(parsed, 1, [typed()]), isNotNull);
+    });
+
+    test('flags one a day either side', () {
+      expect(
+          SmsImport.findDuplicate(
+              parsed, 1, [typed(date: DateTime(2025, 7, 31))]),
+          isNotNull);
+    });
+
+    test('ignores one outside the window', () {
+      expect(
+          SmsImport.findDuplicate(
+              parsed, 1, [typed(date: DateTime(2025, 7, 20))]),
+          isNull);
+    });
+
+    test('ignores a different amount', () {
+      expect(SmsImport.findDuplicate(parsed, 1, [typed(amount: 10000)]), isNull);
+    });
+
+    test('ignores a different account', () {
+      expect(SmsImport.findDuplicate(parsed, 1, [typed(accountId: 2)]), isNull);
+    });
+
+    test('still matches when either side has no account', () {
+      expect(
+          SmsImport.findDuplicate(parsed, null, [typed(accountId: 2)]), isNotNull);
+      expect(
+          SmsImport.findDuplicate(parsed, 1, [typed(accountId: null)]), isNotNull);
+    });
+
+    test('ignores a different direction', () {
+      expect(
+          SmsImport.findDuplicate(
+              parsed, 1, [typed(type: DbConstants.txIncome)]),
+          isNull);
+    });
+
+    test('never flags a previously imported row', () {
+      // Those are already handled by the sourceRef check; matching them would
+      // flag a genuine second purchase of the same amount.
+      expect(
+          SmsImport.findDuplicate(parsed, 1, [typed(sourceRef: 'sms:x:1:a')]),
+          isNull);
+    });
+
+    test('no history means no duplicate', () {
+      expect(SmsImport.findDuplicate(parsed, 1, const []), isNull);
     });
   });
 }

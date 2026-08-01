@@ -66,11 +66,15 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     }
 
     final found = await SmsService.scan();
+    // Hand-entered rows near the scan window, so a message that duplicates one
+    // can be flagged rather than silently recorded twice.
+    final existing = await DBService().getExpenses();
     if (!mounted) return;
     setState(() {
       _permissionDenied = false;
       _drafts = [
-        for (final p in found) SmsDraft.from(p, accountProvider.accounts)
+        for (final p in found)
+          SmsDraft.from(p, accountProvider.accounts, existing: existing)
       ];
       _loading = false;
     });
@@ -83,6 +87,18 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     final chosen = _selected;
     if (chosen.isEmpty) return;
     final messenger = ScaffoldMessenger.of(context);
+
+    // A transfer with no destination would debit the source and credit
+    // nothing, quietly losing the money rather than moving it.
+    final incomplete = chosen.where((d) => d.needsDestination).length;
+    if (incomplete > 0) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('$incomplete transfer'
+            '${incomplete == 1 ? ' needs a' : 's need'} destination account.'),
+      ));
+      return;
+    }
+
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
 
@@ -90,10 +106,11 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     try {
       // One transaction, matching the CSV importer: a failure part-way through
       // leaves nothing half-imported.
-      await DBService().insertExpenses([
-        for (final d in chosen)
-          d.parsed.toExpense(accountId: d.accountId, category: d.category),
-      ]);
+      await DBService().insertExpenses([for (final d in chosen) d.toExpense()]);
+      // A collapsed pair posts one row but consumes two messages; the absorbed
+      // one has to be marked seen or the next scan offers it on its own.
+      await DBService().ignoreSourceRefs(
+          [for (final d in chosen) ...d.parsed.alsoCoversRefs]);
       await expenseProvider.reloadLoadedYears();
       await accountProvider.refreshBalances();
       if (!mounted) return;
@@ -253,11 +270,34 @@ class _DraftCard extends StatelessWidget {
     required this.onShowRaw,
   });
 
+  Widget _accountDropdown({
+    required String label,
+    required int? value,
+    required String? errorText,
+    required ValueChanged<int?> onChanged,
+  }) =>
+      DropdownButtonFormField<int?>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(
+            labelText: label, errorText: errorText, isDense: true),
+        items: [
+          const DropdownMenuItem<int?>(value: null, child: Text('None')),
+          ...accounts.map((a) => DropdownMenuItem<int?>(
+              value: a.id,
+              child: Text(a.name, overflow: TextOverflow.ellipsis))),
+        ],
+        onChanged: onChanged,
+      );
+
   @override
   Widget build(BuildContext context) {
     final parsed = draft.parsed;
-    final amountColor =
-        parsed.isExpense ? expenseColor(context) : incomeColor(context);
+    // A transfer is neither a gain nor a loss, so it gets neither colour.
+    final amountColor = parsed.isTransfer
+        ? null
+        : (parsed.isExpense ? expenseColor(context) : incomeColor(context));
+    final sign = parsed.isTransfer ? '' : (parsed.isExpense ? '−' : '+');
     // A message that named an account we could not resolve is the case most
     // likely to be filed wrongly, so it is called out rather than left to be
     // noticed in the dropdown.
@@ -298,7 +338,7 @@ class _DraftCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '${parsed.isExpense ? '−' : '+'}${formatMoney(parsed.amount)}',
+                  '$sign${formatMoney(parsed.amount)}',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -306,30 +346,32 @@ class _DraftCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (draft.duplicateOf != null)
+              _Notice(
+                icon: Icons.content_copy,
+                color: Colors.orange,
+                text: 'Looks like "${draft.duplicateOf!.description}", which '
+                    'you already entered. Left unchecked.',
+              ),
+            if (parsed.isTransfer)
+              const _Notice(
+                icon: Icons.swap_horiz,
+                color: Colors.blueGrey,
+                text: 'Money moved between your accounts — recorded as a '
+                    'transfer, so it is not counted as spending.',
+              ),
             const SizedBox(height: 4),
             Padding(
               padding: const EdgeInsets.only(left: 8),
               child: Row(
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<int?>(
-                      initialValue: draft.accountId,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: 'Account',
-                        errorText: unmatchedLast4
-                            ? 'No account with ••${parsed.last4}'
-                            : null,
-                        isDense: true,
-                      ),
-                      items: [
-                        const DropdownMenuItem<int?>(
-                            value: null, child: Text('None')),
-                        ...accounts.map((a) => DropdownMenuItem<int?>(
-                            value: a.id,
-                            child: Text(a.name,
-                                overflow: TextOverflow.ellipsis))),
-                      ],
+                    child: _accountDropdown(
+                      label: parsed.isTransfer ? 'From' : 'Account',
+                      value: draft.accountId,
+                      errorText: unmatchedLast4
+                          ? 'No account with ••${parsed.last4}'
+                          : null,
                       onChanged: (v) {
                         draft.accountId = v;
                         onChanged();
@@ -338,24 +380,40 @@ class _DraftCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: categories.contains(draft.category)
-                          ? draft.category
-                          : categories.last,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                          labelText: 'Category', isDense: true),
-                      items: categories
-                          .map((c) => DropdownMenuItem(
-                              value: c,
-                              child:
-                                  Text(c, overflow: TextOverflow.ellipsis)))
-                          .toList(),
-                      onChanged: (v) {
-                        draft.category = v ?? draft.category;
-                        onChanged();
-                      },
-                    ),
+                    // A transfer needs the receiving account instead of a
+                    // category; its category is fixed at "Transfer".
+                    child: parsed.isTransfer
+                        ? _accountDropdown(
+                            label: 'To',
+                            value: draft.toAccountId,
+                            errorText: draft.needsDestination
+                                ? (parsed.toLast4 != null
+                                    ? 'No account with ••${parsed.toLast4}'
+                                    : 'Pick the receiving account')
+                                : null,
+                            onChanged: (v) {
+                              draft.toAccountId = v;
+                              onChanged();
+                            },
+                          )
+                        : DropdownButtonFormField<String>(
+                            initialValue: categories.contains(draft.category)
+                                ? draft.category
+                                : categories.last,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                                labelText: 'Category', isDense: true),
+                            items: categories
+                                .map((c) => DropdownMenuItem(
+                                    value: c,
+                                    child: Text(c,
+                                        overflow: TextOverflow.ellipsis)))
+                                .toList(),
+                            onChanged: (v) {
+                              draft.category = v ?? draft.category;
+                              onChanged();
+                            },
+                          ),
                   ),
                 ],
               ),
@@ -377,6 +435,33 @@ class _DraftCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A one-line explanation under a draft's header — why it is unchecked, or
+/// why it is being recorded as a transfer rather than as spending.
+class _Notice extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String text;
+  const _Notice({required this.icon, required this.color, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 2, 0, 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(fontSize: 12, color: color)),
+          ),
+        ],
       ),
     );
   }

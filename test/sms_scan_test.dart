@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_tracker/models/account.dart';
 import 'package:finance_tracker/models/expense.dart';
+import 'package:finance_tracker/providers/expense_provider.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/services/sms_import.dart';
 import 'package:finance_tracker/services/sms_service.dart';
@@ -186,5 +187,149 @@ void main() {
         message.sender, message.receivedAt, message.body);
     expect(rederived, parsed.sourceRef);
     expect(await DBService().existingSourceRefs(), contains(rederived));
+  });
+
+  group('transfers end to end', () {
+    test('a card bill collapses to one transfer that moves both balances',
+        () async {
+      // The bank and the card each text about the same payment.
+      SmsService.inboxOverride = () async => [
+            sms('Rs.15,000 debited from A/c XX4821 on 31-Jul-25 towards '
+                'HDFC Credit Card XX5678 payment'),
+            sms('Payment of Rs.15,000 received on your HDFC Credit Card '
+                'XX5678', sender: 'VM-HDFCB2'),
+          ];
+      final bankId = await DBService()
+          .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
+      final cardId = await DBService().insertAccount(
+          Account(name: 'HDFC Card', type: 'credit_card', last4: '5678'));
+      final accounts = await DBService().getAccounts();
+
+      final found = await SmsService.scan(now: now);
+      expect(found.length, 1, reason: 'the two alerts are one movement');
+
+      final draft = SmsDraft.from(found.single, accounts);
+      expect(draft.isTransfer, isTrue);
+      expect(draft.accountId, bankId);
+      expect(draft.toAccountId, cardId);
+      expect(draft.needsDestination, isFalse);
+
+      await DBService().insertExpenses([draft.toExpense()]);
+      final flows = await DBService().getAccountFlows();
+      // Bank goes down, card debt goes up toward zero.
+      expect(flows[bankId], -1500000);
+      expect(flows[cardId], 1500000);
+    });
+
+    test('a card bill is not counted as spending', () async {
+      SmsService.inboxOverride = () async => [
+            sms('Rs.15,000 debited from A/c XX4821 on 31-Jul-25 towards '
+                'HDFC Credit Card XX5678 payment'),
+          ];
+      final bankId = await DBService()
+          .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
+      final cardId = await DBService().insertAccount(
+          Account(name: 'HDFC Card', type: 'credit_card', last4: '5678'));
+      final accounts = await DBService().getAccounts();
+
+      final draft =
+          SmsDraft.from((await SmsService.scan(now: now)).single, accounts);
+      await DBService().insertExpenses([draft.toExpense()]);
+
+      final provider = ExpenseProvider();
+      await provider.ensureYearLoaded(2025);
+      // The purchases already hit the card; the repayment must not be a
+      // second expense on top of them.
+      expect(provider.totalForMonth(2025, 7), 0);
+      expect(provider.spendingForMonth(2025, 7), isEmpty);
+      expect(bankId, isNotNull);
+      expect(cardId, isNotNull);
+    });
+
+    test('both halves are marked seen so neither returns', () async {
+      final bank = sms('Rs.15,000 debited from A/c XX4821 on 31-Jul-25 '
+          'towards HDFC Credit Card XX5678 payment');
+      final card = sms(
+          'Payment of Rs.15,000 received on your HDFC Credit Card XX5678',
+          sender: 'VM-HDFCB2');
+      SmsService.inboxOverride = () async => [bank, card];
+
+      final found = (await SmsService.scan(now: now)).single;
+      await DBService().insertExpenses([
+        found.toExpense(accountId: null, category: 'Transfer', toAccountId: null)
+      ]);
+      await DBService().ignoreSourceRefs(found.alsoCoversRefs);
+
+      expect(await SmsService.scan(now: now), isEmpty);
+    });
+
+    test('an unresolvable destination is flagged, not silently dropped',
+        () async {
+      SmsService.inboxOverride = () async => [
+            sms('Rs.15,000 debited from A/c XX4821 towards Credit Card '
+                'XX9999 payment'),
+          ];
+      final bankId = await DBService()
+          .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
+      final accounts = await DBService().getAccounts();
+
+      final draft =
+          SmsDraft.from((await SmsService.scan(now: now)).single, accounts);
+      expect(draft.isTransfer, isTrue);
+      expect(draft.accountId, bankId);
+      expect(draft.toAccountId, isNull);
+      // The screen blocks import on this rather than posting a one-sided
+      // transfer that debits the bank and credits nothing.
+      expect(draft.needsDestination, isTrue);
+    });
+  });
+
+  group('duplicates of hand-entered rows', () {
+    test('a matching typed row leaves the draft unchecked', () async {
+      final bankId = await DBService()
+          .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
+      await DBService().insertExpense(Expense(
+        description: 'Swiggy dinner',
+        amount: 49900,
+        date: now.subtract(const Duration(days: 1)),
+        category: 'Food',
+        paymentMode: 'Other',
+        accountId: bankId,
+      ));
+      SmsService.inboxOverride =
+          () async => [sms('Rs.499 debited from A/c XX4821 to SWIGGY')];
+      final accounts = await DBService().getAccounts();
+      final existing = await DBService().getExpenses();
+
+      final draft = SmsDraft.from(
+          (await SmsService.scan(now: now)).single, accounts,
+          existing: existing);
+      expect(draft.duplicateOf, isNotNull);
+      expect(draft.duplicateOf!.description, 'Swiggy dinner');
+      expect(draft.selected, isFalse, reason: 'must not import by default');
+    });
+
+    test('an unrelated typed row leaves the draft checked', () async {
+      final bankId = await DBService()
+          .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
+      await DBService().insertExpense(Expense(
+        description: 'Something else',
+        amount: 12300,
+        date: now.subtract(const Duration(days: 1)),
+        category: 'Food',
+        paymentMode: 'Cash',
+        accountId: bankId,
+      ));
+      SmsService.inboxOverride =
+          () async => [sms('Rs.499 debited from A/c XX4821 to SWIGGY')];
+      final accounts = await DBService().getAccounts();
+      final existing = await DBService().getExpenses();
+
+      final draft = SmsDraft.from(
+          (await SmsService.scan(now: now)).single, accounts,
+          existing: existing);
+      expect(draft.duplicateOf, isNull);
+      expect(draft.selected, isTrue);
+    });
   });
 }
