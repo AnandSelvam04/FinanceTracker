@@ -45,4 +45,29 @@ void main() {
       expect(formatMoneySigned(-100000), '-\$1000.00');
     });
   });
+
+  group('formatMoneySignedIn', () {
+    test('puts the minus before the symbol', () {
+      // A credit card balance is what is owed, so this is the common case on
+      // the Accounts screen rather than an edge case.
+      expect(formatMoneySignedIn('\u20b9', -2215000), '-\u20b922150.00');
+    });
+
+    test('leaves a positive balance unsigned', () {
+      expect(formatMoneySignedIn('\u20b9', 2215000), '\u20b922150.00');
+    });
+
+    test('zero has no sign', () {
+      expect(formatMoneySignedIn('\u20b9', 0), '\u20b90.00');
+    });
+
+    test('honours a foreign account symbol', () {
+      expect(formatMoneySignedIn('\u0024', -50025), '-\u0024500.25');
+    });
+
+    test('agrees with formatMoneyIn when positive', () {
+      expect(formatMoneySignedIn('\u20b9', 1234),
+          formatMoneyIn('\u20b9', 1234));
+    });
+  });
 }

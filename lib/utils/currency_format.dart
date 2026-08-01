@@ -55,6 +55,12 @@ String formatMoneySigned(int minor) =>
 String formatMoneyIn(String symbol, int minor) =>
     '$symbol${(minor / 100).toStringAsFixed(2)}';
 
+/// [formatMoneySigned] with an explicit [symbol], for an account balance that
+/// can legitimately be negative — a credit card's balance is what is owed, so
+/// it is negative for as long as there is anything on it.
+String formatMoneySignedIn(String symbol, int minor) =>
+    '${minor < 0 ? '-' : ''}${formatMoneyIn(symbol, minor.abs())}';
+
 /// Formats minor units rounded to whole major units (no decimals).
 String formatMoneyRounded(int minor) =>
     '${CurrencyFormat.symbol}${(minor / 100).round()}';

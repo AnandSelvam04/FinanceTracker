@@ -292,7 +292,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         Text('Total Balance',
                             style: const TextStyle(fontSize: 16)),
                         Text(
-                          formatMoney(totalBalance),
+                          // Signed: credit-card balances are negative, and
+                          // enough of them can take the total negative too.
+                          formatMoneySigned(totalBalance),
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold),
                         ),
@@ -333,7 +335,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                             Text(
                               balance == null
                                   ? '…'
-                                  : formatMoneyIn(account.symbol, balance),
+                                  : formatMoneySignedIn(
+                                      account.symbol, balance),
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 14),
                             ),
