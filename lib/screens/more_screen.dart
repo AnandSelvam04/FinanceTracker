@@ -11,6 +11,7 @@ import 'investments_screen.dart';
 import 'monthly_summary_screen.dart';
 import 'recurring_screen.dart';
 import 'settings_screen.dart';
+import 'sms_review_screen.dart';
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -78,6 +79,18 @@ class _MoreScreenState extends State<MoreScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AccountsScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.sms),
+            title: const Text('Import from SMS'),
+            subtitle: const Text('Find transactions in bank alerts'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const SmsReviewScreen()),
               );
             },
           ),

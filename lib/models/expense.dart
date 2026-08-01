@@ -20,6 +20,11 @@ class Expense {
   /// Null means both sides move by [amount] (same-currency transfer).
   final int? toAmount;
 
+  /// Stable id of the external record this row was imported from (an SMS, for
+  /// instance). Null for hand-entered rows. Used to keep a rescan from
+  /// importing the same message twice.
+  final String? sourceRef;
+
   Expense({
     this.id,
     required this.description,
@@ -31,6 +36,7 @@ class Expense {
     this.accountId,
     this.toAccountId,
     this.toAmount,
+    this.sourceRef,
   });
 
   bool get isExpense => type == DbConstants.txExpense;
@@ -51,6 +57,7 @@ class Expense {
         DbConstants.colAccountId: accountId,
         DbConstants.colToAccountId: toAccountId,
         DbConstants.colToAmount: toAmount,
+        DbConstants.colSourceRef: sourceRef,
       };
 
   factory Expense.fromMap(Map<String, dynamic> map) => Expense(
@@ -66,5 +73,7 @@ class Expense {
         toAccountId: map[DbConstants.colToAccountId],
         // Rows/backups from before schema v8 have no toAmount column.
         toAmount: (map[DbConstants.colToAmount] as num?)?.round(),
+        // Rows/backups from before schema v10 have no sourceRef column.
+        sourceRef: map[DbConstants.colSourceRef] as String?,
       );
 }

@@ -161,10 +161,13 @@ class DBService {
             ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}',
             ${DbConstants.colAccountId} INTEGER,
             ${DbConstants.colToAccountId} INTEGER,
-            ${DbConstants.colToAmount} INTEGER
+            ${DbConstants.colToAmount} INTEGER,
+            ${DbConstants.colSourceRef} TEXT
           )
         ''');
     await _createExpenseIndexes(db);
+    await _createSourceRefIndex(db);
+    await _createSmsIgnoredTable(db);
     await db.execute('''
           CREATE TABLE ${DbConstants.tableInvestments}(
             ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -267,6 +270,16 @@ class DBService {
     }
     if (oldVersion < 9) {
       await _migrateAmountsToInteger(db);
+    }
+    if (oldVersion < 10) {
+      // SMS import: a dedup key on transactions, the last-4 that routes a
+      // message to an account, and the dismissal list for the review queue.
+      await db.execute(
+          'ALTER TABLE ${DbConstants.tableExpenses} ADD COLUMN ${DbConstants.colSourceRef} TEXT');
+      await db.execute(
+          'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN ${DbConstants.colLast4} TEXT');
+      await _createSourceRefIndex(db);
+      await _createSmsIgnoredTable(db);
     }
   }
 
@@ -452,6 +465,28 @@ class DBService {
         'ON ${DbConstants.tableExpenses}(${DbConstants.colToAccountId})');
   }
 
+  /// Kept out of [_createExpenseIndexes] because that helper also runs during
+  /// the v8 and v9 migrations, when the sourceRef column does not exist yet.
+  ///
+  /// Deliberately not UNIQUE: restore-without-clear merges a backup into the
+  /// live database, and a unique constraint would abort the whole restore on
+  /// any row the user already has. Duplicate suppression happens in
+  /// [existingSourceRefs] instead, which is needed for the review queue
+  /// regardless.
+  static Future<void> _createSourceRefIndex(Database db) async {
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS ${DbConstants.idxExpensesSourceRef} '
+        'ON ${DbConstants.tableExpenses}(${DbConstants.colSourceRef})');
+  }
+
+  static Future<void> _createSmsIgnoredTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DbConstants.tableSmsIgnored}(
+        ${DbConstants.colSourceRef} TEXT PRIMARY KEY
+      )
+    ''');
+  }
+
   static Future<void> _createAccountsTable(Database db) async {
     await db.execute('''
       CREATE TABLE ${DbConstants.tableAccounts}(
@@ -461,7 +496,8 @@ class DBService {
         ${DbConstants.colOpeningBalance} INTEGER NOT NULL DEFAULT 0,
         ${DbConstants.colColor} INTEGER,
         ${DbConstants.colCurrency} TEXT,
-        ${DbConstants.colRate} REAL NOT NULL DEFAULT 1
+        ${DbConstants.colRate} REAL NOT NULL DEFAULT 1,
+        ${DbConstants.colLast4} TEXT
       )
     ''');
   }
@@ -665,6 +701,10 @@ class DBService {
     await clearAccounts();
     await clearRecurringRules();
     await clearTemplates();
+    // Wiping the ledger has to drop the dismissal list too, or messages the
+    // user rejected stay suppressed against a database that no longer has the
+    // transactions they were rejected next to.
+    await clearSmsIgnored();
   }
 
   /// Atomically replaces (or, when [clearFirst] is false, appends to) the
@@ -716,6 +756,11 @@ class DBService {
     DbConstants.tableBudgets,
     DbConstants.tableRecurringRules,
     DbConstants.tableTemplates,
+    // Included so toggling at-rest encryption (which copies every table into a
+    // fresh database) carries the dismissal list across. A restore-with-clear
+    // does empty it, since a backup carries no rows for it — the only cost is
+    // that previously dismissed messages reappear once in the review queue.
+    DbConstants.tableSmsIgnored,
   ];
 
   Future<Map<String, List<Map<String, Object?>>>> _dumpAllTables(
@@ -1013,6 +1058,11 @@ class DBService {
     await db.delete(DbConstants.tableTemplates);
   }
 
+  Future<void> clearSmsIgnored() async {
+    final db = await database;
+    await db.delete(DbConstants.tableSmsIgnored);
+  }
+
   /// Net worth (base-currency minor units) at the end of each of the last
   /// [months] months, oldest first. Net worth = account opening balances +
   /// cumulative (income − expense) + cumulative investments, as of each month
@@ -1146,6 +1196,39 @@ class DBService {
     }
 
     return flows.map((id, v) => MapEntry(id, v.round()));
+  }
+
+  /// Every sourceRef already accounted for: imported as a transaction, or
+  /// dismissed in the review queue. A rescan filters its candidates through
+  /// this so neither an imported message nor a rejected one comes back.
+  Future<Set<String>> existingSourceRefs() async {
+    final db = await database;
+    final imported = await db.rawQuery(
+        'SELECT ${DbConstants.colSourceRef} AS ref FROM ${DbConstants.tableExpenses} '
+        'WHERE ${DbConstants.colSourceRef} IS NOT NULL');
+    final ignored = await db.rawQuery(
+        'SELECT ${DbConstants.colSourceRef} AS ref FROM ${DbConstants.tableSmsIgnored}');
+    return {
+      for (final row in [...imported, ...ignored])
+        if (row['ref'] is String) row['ref'] as String,
+    };
+  }
+
+  /// Records that the user dismissed these messages in the review queue.
+  Future<void> ignoreSourceRefs(Iterable<String> refs) async {
+    if (refs.isEmpty) return;
+    final db = await database;
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      for (final ref in refs) {
+        batch.insert(
+          DbConstants.tableSmsIgnored,
+          {DbConstants.colSourceRef: ref},
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+      await batch.commit(noResult: true);
+    });
   }
 
   /// Balance = opening + net flows, in the account's own currency.

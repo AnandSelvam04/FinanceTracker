@@ -1,6 +1,26 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Local notifications for budget/bill reminders (Android 13+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!--
+      Reads bank transaction alerts out of the SMS inbox (More > Import from
+      SMS). Messages are parsed on-device and never leave it; nothing is
+      posted to the ledger without explicit confirmation in the review queue.
+
+      Play Store policy restricts READ_SMS to apps whose core function needs
+      it, so declaring it here makes the app ineligible for store
+      distribution. That is a deliberate trade for a sideloaded personal
+      build — see the README.
+    -->
+    <uses-permission android:name="android.permission.READ_SMS"/>
+    <!--
+      another_telephony's own manifest declares ACCESS_COARSE_LOCATION for the
+      cell/network-info features this app does not use. Without this override
+      the manifest merger folds it into the installed app, so the permission
+      list would show location access for no reason.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"
+        tools:node="remove"/>
     <!--
       allowBackup="false": at-rest database encryption is opt-in, so with
       Android's automatic backup enabled the default install would sync a

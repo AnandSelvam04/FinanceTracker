@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 9;
+  static const int dbVersion = 10;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -16,11 +16,16 @@ class DbConstants {
   // destination account's currency (minor units). Null = same as colAmount
   // (both accounts in the same currency).
   static const String colToAmount = 'toAmount';
+  // Stable identifier of the external record a row was imported from (see
+  // SmsImport.sourceRefFor). Null for hand-entered rows. Lets a rescan of the
+  // SMS inbox skip messages that were already imported.
+  static const String colSourceRef = 'sourceRef';
 
   // Indexes on the expenses table.
   static const String idxExpensesDate = 'idx_expenses_date';
   static const String idxExpensesTypeAccount = 'idx_expenses_type_account';
   static const String idxExpensesToAccount = 'idx_expenses_to_account';
+  static const String idxExpensesSourceRef = 'idx_expenses_source_ref';
 
   // Investments Table
   static const String tableInvestments = 'investments';
@@ -43,6 +48,14 @@ class DbConstants {
   // rate to base (base units per 1 account-currency unit; null/absent = 1.0).
   static const String colCurrency = 'currency';
   static const String colRate = 'rate';
+  // Last four digits of the account/card number, as printed in bank SMS
+  // alerts ("A/c XX4821"). Null when unset; used to route a parsed message
+  // to the right account.
+  static const String colLast4 = 'last4';
+
+  // SMS messages the user dismissed in the import review queue, so a later
+  // rescan of the inbox does not offer them again.
+  static const String tableSmsIgnored = 'sms_ignored';
 
   // Transaction type values stored in expenses.type
   static const String txExpense = 'expense';

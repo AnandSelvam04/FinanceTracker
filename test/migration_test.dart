@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:finance_tracker/models/expense.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
 import 'package:path/path.dart';
@@ -117,5 +118,64 @@ void main() {
     expect(names, contains(DbConstants.idxExpensesDate));
     expect(names, contains(DbConstants.idxExpensesTypeAccount));
     expect(names, contains(DbConstants.idxExpensesToAccount));
+
+    // v10 added the SMS-import columns. The v9 rebuild drops and recreates
+    // expenses and accounts from a fixed column list, so these must be added
+    // after it — if the order ever flips, the ALTERs fail on a duplicate
+    // column and every upgrading install is left unopenable.
+    expect(await affinityOf(DbConstants.tableExpenses, DbConstants.colSourceRef),
+        'TEXT');
+    expect(await affinityOf(DbConstants.tableAccounts, DbConstants.colLast4),
+        'TEXT');
+    expect(names, contains(DbConstants.idxExpensesSourceRef));
+
+    final tables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table'");
+    expect(tables.map((r) => r['name']), contains(DbConstants.tableSmsIgnored));
+
+    // Rows that predate the column read back as null rather than failing.
+    expect(expenses.first.sourceRef, isNull);
+  });
+
+  test('v10 tracks imported and dismissed sourceRefs', () async {
+    DBService.dbNameOverride = 'source_ref_test.db';
+    final path = join(await getDatabasesPath(), 'source_ref_test.db');
+    await databaseFactory.deleteDatabase(path);
+
+    // A hand-entered row contributes no sourceRef.
+    await DBService().insertExpense(Expense(
+      description: 'Typed by hand',
+      amount: 1000,
+      date: DateTime(2025, 8, 1),
+      category: 'Food',
+      paymentMode: 'Cash',
+    ));
+    expect(await DBService().existingSourceRefs(), isEmpty);
+
+    await DBService().insertExpense(Expense(
+      description: 'SWIGGY',
+      amount: 49900,
+      date: DateTime(2025, 8, 1),
+      category: 'Food',
+      paymentMode: 'Other',
+      sourceRef: 'sms:vm-hdfcbk:1000:abcd1234',
+    ));
+    await DBService().ignoreSourceRefs(['sms:vm-icicib:2000:deadbeef']);
+
+    // Both an imported message and a dismissed one count as seen, which is
+    // what keeps a rescan from re-offering either.
+    expect(
+      await DBService().existingSourceRefs(),
+      {'sms:vm-hdfcbk:1000:abcd1234', 'sms:vm-icicib:2000:deadbeef'},
+    );
+
+    // Dismissing twice is a no-op rather than a primary-key violation.
+    await DBService().ignoreSourceRefs(['sms:vm-icicib:2000:deadbeef']);
+    expect((await DBService().existingSourceRefs()).length, 2);
+
+    // The sourceRef survives the round-trip to the database.
+    final saved = (await DBService().getExpenses())
+        .firstWhere((e) => e.description == 'SWIGGY');
+    expect(saved.sourceRef, 'sms:vm-hdfcbk:1000:abcd1234');
   });
 }

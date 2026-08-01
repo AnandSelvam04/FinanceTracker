@@ -28,7 +28,11 @@ dependencies:
   sqflite_sqlcipher: ^3.1.0
   flutter_secure_storage: ^9.2.2
   timezone: ^0.9.4
-  # telephony: ^0.2.0  # Removed to avoid Play Store SMS permission issues
+  # Reads the SMS inbox for bank transaction alerts (Android only). The
+  # original `telephony` package is unmaintained; this is the maintained fork.
+  # Requires READ_SMS, which Play Store policy restricts — fine here because
+  # the app is sideloaded, but it is why this cannot ship to the store.
+  another_telephony: ^0.4.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -17,6 +17,11 @@ class Account {
   /// unit). 1.0 when the account is already in the base currency.
   final double rate;
 
+  /// Last four digits of the account or card number, as they appear in bank
+  /// SMS alerts ("A/c XX4821", "Card ending 5678"). Null when the user has not
+  /// set one, which simply means SMS import cannot auto-route to this account.
+  final String? last4;
+
   Account({
     this.id,
     required this.name,
@@ -25,6 +30,7 @@ class Account {
     this.color,
     this.currency,
     this.rate = 1.0,
+    this.last4,
   });
 
   /// The symbol to display this account's amounts in.
@@ -58,6 +64,7 @@ class Account {
         DbConstants.colColor: color,
         DbConstants.colCurrency: currency,
         DbConstants.colRate: rate,
+        DbConstants.colLast4: last4,
       };
 
   factory Account.fromMap(Map<String, dynamic> map) => Account(
@@ -69,5 +76,7 @@ class Account {
         color: map[DbConstants.colColor],
         currency: map[DbConstants.colCurrency] as String?,
         rate: ((map[DbConstants.colRate] ?? 1.0) as num).toDouble(),
+        // Rows/backups from before schema v10 have no last4 column.
+        last4: map[DbConstants.colLast4] as String?,
       );
 }
