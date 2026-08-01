@@ -9,6 +9,7 @@ void main() {
     String category = 'Food',
     String type = DbConstants.txExpense,
     int? accountId,
+    int? toAccountId,
     DateTime? date,
     String description = 'lunch',
   }) =>
@@ -20,6 +21,7 @@ void main() {
         paymentMode: 'Cash',
         type: type,
         accountId: accountId,
+        toAccountId: toAccountId,
       );
 
   final sample = [
@@ -52,6 +54,52 @@ void main() {
     final r = const TransactionFilter(year: 2026, month: 6, accountId: 2)
         .apply(sample);
     expect(r.length, 2);
+  });
+
+  group('account filter matches either leg of a transfer', () {
+    // Account 1 = bank, account 3 = credit card. The card carries a purchase,
+    // and the bill payment moves money from the bank into the card.
+    final purchase =
+        e(amount: 2150, category: 'Shopping', accountId: 3,
+            date: DateTime(2026, 6, 10), description: 'AMAZON');
+    final billPayment = e(
+        amount: 2150,
+        category: 'Transfer',
+        type: DbConstants.txTransfer,
+        accountId: 1,
+        toAccountId: 3,
+        date: DateTime(2026, 6, 28),
+        description: 'Card bill');
+    final unrelated =
+        e(amount: 100, category: 'Food', accountId: 1,
+            date: DateTime(2026, 6, 5));
+    final ledger = [purchase, billPayment, unrelated];
+
+    test('the card shows both its purchase and the payment into it', () {
+      final r = const TransactionFilter(year: 2026, month: 6, accountId: 3)
+          .apply(ledger);
+      expect(r.map((x) => x.description), ['AMAZON', 'Card bill']);
+    });
+
+    test('the funding bank still shows the outgoing side', () {
+      final r = const TransactionFilter(year: 2026, month: 6, accountId: 1)
+          .apply(ledger);
+      expect(r.map((x) => x.description), ['Card bill', 'lunch']);
+    });
+
+    test('an account on neither leg matches nothing', () {
+      expect(
+          const TransactionFilter(year: 2026, month: 6, accountId: 9)
+              .apply(ledger),
+          isEmpty);
+    });
+
+    test('the transfer is counted once, not twice, for one account', () {
+      // Guards the obvious wrong fix of OR-ing in a second pass over the list.
+      final r = const TransactionFilter(year: 2026, month: 6, accountId: 3)
+          .apply([billPayment]);
+      expect(r.length, 1);
+    });
   });
 
   test('amount range filter', () {

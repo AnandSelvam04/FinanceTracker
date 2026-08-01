@@ -45,7 +45,14 @@ class TransactionFilter {
 
     final matchesType = type == null || e.type == type;
     final matchesCategory = category == null || e.category == category;
-    final matchesAccount = accountId == null || e.accountId == accountId;
+    // Either leg: a transfer stores the source in accountId and the
+    // destination in toAccountId, so matching only the source hid incoming
+    // transfers — a credit card's bill payments never showed up under the
+    // card, and the filtered list would not reconcile to the balance the
+    // Accounts screen computes (which does count both legs).
+    final matchesAccount = accountId == null ||
+        e.accountId == accountId ||
+        e.toAccountId == accountId;
     final matchesMin = minAmount == null || e.amount >= minAmount!;
     final matchesMax = maxAmount == null || e.amount <= maxAmount!;
 
