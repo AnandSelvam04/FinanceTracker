@@ -12,6 +12,7 @@ import 'package:finance_tracker/screens/home_screen.dart';
 import 'package:finance_tracker/screens/onboarding_screen.dart';
 import 'package:finance_tracker/services/auth_service.dart';
 import 'package:finance_tracker/services/notification_service.dart';
+import 'package:finance_tracker/utils/build_info.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,8 @@ void main() async {
   final biometricEnabled = prefs.getBool('biometricEnabled') ?? false;
   final settings = SettingsProvider();
   await settings.load();
+  // Before the first frame, so the About tile never shows a placeholder.
+  await BuildInfo.load();
   await NotificationService.instance.init();
   runApp(FinanceTrackerApp(
     settings: settings,

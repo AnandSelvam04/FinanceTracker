@@ -159,6 +159,10 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                _SpendByAccount(
+                  totals: provider.spendByAccountForMonth(_year, _month),
+                ),
+                const SizedBox(height: 16),
                 Text('Top Categories',
                     style: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.bold)),
@@ -243,6 +247,77 @@ class _DeltaLabel extends StatelessWidget {
         Icon(icon, size: 14, color: color),
         Text('${formatMoney(delta.abs())}$pct',
             style: TextStyle(fontSize: 12, color: color)),
+      ],
+    );
+  }
+}
+
+/// Spend for the month per account, largest first.
+///
+/// The Accounts screen shows balances, which are positions rather than
+/// periods — this is what answers "which card did I actually use this month".
+class _SpendByAccount extends StatelessWidget {
+  final Map<int?, int> totals;
+  const _SpendByAccount({required this.totals});
+
+  @override
+  Widget build(BuildContext context) {
+    if (totals.isEmpty) return const SizedBox.shrink();
+    final accounts = context.watch<AccountProvider>();
+    final entries = totals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final monthTotal = totals.values.fold<int>(0, (sum, v) => sum + v);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Spend by Account',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              children: [
+                for (final entry in entries)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            accounts.accountById(entry.key)?.name ??
+                                'No account',
+                            style: TextStyle(
+                              fontStyle: entry.key == null
+                                  ? FontStyle.italic
+                                  : FontStyle.normal,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // The share matters as much as the figure when spend
+                        // is spread over several cards.
+                        if (monthTotal > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: Text(
+                              '${(entry.value / monthTotal * 100).round()}%',
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.grey),
+                            ),
+                          ),
+                        Text(formatMoney(entry.value),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }

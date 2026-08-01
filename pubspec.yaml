@@ -1,6 +1,6 @@
 name: finance_tracker
 description: A new Flutter project for tracking finances.
-version: 1.2.1+4
+version: 1.3.0+5
 environment:
   sdk: ">=3.0.0 <4.0.0"
 dependencies:
@@ -17,6 +17,7 @@ dependencies:
   googleapis: ^15.0.0
   googleapis_auth: ^2.0.0
   local_auth: ^3.0.0
+  package_info_plus: ^8.0.0
   path: ^1.9.1
   path_provider: ^2.1.5
   pdf: ^3.11.0
@@ -28,7 +29,11 @@ dependencies:
   sqflite_sqlcipher: ^3.1.0
   flutter_secure_storage: ^9.2.2
   timezone: ^0.9.4
-  # telephony: ^0.2.0  # Removed to avoid Play Store SMS permission issues
+  # Reads the SMS inbox for bank transaction alerts (Android only). The
+  # original `telephony` package is unmaintained; this is the maintained fork.
+  # Requires READ_SMS, which Play Store policy restricts — fine here because
+  # the app is sideloaded, but it is why this cannot ship to the store.
+  another_telephony: ^0.4.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

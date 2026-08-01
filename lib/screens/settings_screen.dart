@@ -6,6 +6,7 @@ import '../providers/expense_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/db_service.dart';
 import '../services/notification_service.dart';
+import '../services/sms_service.dart';
 import '../utils/build_info.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
@@ -193,6 +194,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: settings.alertsEnabled,
                 onChanged: settings.setAlertsEnabled,
               ),
+              if (SmsService.isSupported)
+                SwitchListTile(
+                  secondary: const Icon(Icons.sms),
+                  title: const Text('Read SMS for transactions'),
+                  subtitle: const Text(
+                      'Find bank alerts from the last 2 days. Messages are '
+                      'read on this device and never sent anywhere; nothing '
+                      'is recorded without your confirmation.'),
+                  isThreeLine: true,
+                  value: settings.smsImportEnabled,
+                  onChanged: (v) async {
+                    await settings.setSmsImportEnabled(v);
+                    // Ask straight away rather than on the first scan, so
+                    // turning it on either works or visibly does not.
+                    if (v) await SmsService.requestPermission();
+                  },
+                ),
               SwitchListTile(
                 secondary: const Icon(Icons.notifications),
                 title: const Text('Push notifications'),

@@ -181,6 +181,21 @@ class ExpenseProvider extends ChangeNotifier {
   List<Expense> spendingForMonth(int year, int month) =>
       _byMonth(year, month, DbConstants.txExpense).toList();
 
+  /// Spend for the month broken down by account, in base-currency minor units.
+  ///
+  /// Keyed by account id, with null collecting rows that have no account.
+  /// Answers "which card am I actually putting money on this month", which the
+  /// balance on the Accounts screen cannot show — a balance is a position, not
+  /// a period. Transfers are excluded along with income, so paying a card bill
+  /// does not read as spending on the bank it came from.
+  Map<int?, int> spendByAccountForMonth(int year, int month) {
+    final totals = <int?, int>{};
+    for (final e in _byMonth(year, month, DbConstants.txExpense)) {
+      totals[e.accountId] = (totals[e.accountId] ?? 0) + baseAmountOf(e);
+    }
+    return totals;
+  }
+
   /// Returns the total amount spent in a given month and year (expenses
   /// only), in base-currency minor units.
   int totalForMonth(int year, int month) =>

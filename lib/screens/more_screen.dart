@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../providers/settings_provider.dart';
 import '../services/backup_service.dart';
+import '../utils/build_info.dart';
 import '../utils/insets.dart';
 import 'accounts_screen.dart';
 import 'backups_screen.dart';
@@ -11,6 +14,7 @@ import 'investments_screen.dart';
 import 'monthly_summary_screen.dart';
 import 'recurring_screen.dart';
 import 'settings_screen.dart';
+import 'sms_review_screen.dart';
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -81,6 +85,21 @@ class _MoreScreenState extends State<MoreScreen> {
               );
             },
           ),
+          // Hidden until SMS reading is switched on in Settings, so the entry
+          // never leads to a screen that can only report it is turned off.
+          if (context.watch<SettingsProvider>().smsImportEnabled)
+            ListTile(
+              leading: const Icon(Icons.sms),
+              title: const Text('Import from SMS'),
+              subtitle: const Text('Find transactions in bank alerts'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SmsReviewScreen()),
+                );
+              },
+            ),
           ListTile(
             leading: const Icon(Icons.summarize),
             title: const Text('Monthly Summary'),
@@ -181,6 +200,16 @@ class _MoreScreenState extends State<MoreScreen> {
             subtitle: const Text('Require biometrics or device PIN on launch'),
             value: _biometricEnabled,
             onChanged: _setBiometricEnabled,
+          ),
+          // Visible without digging into Settings > About, so "which build am
+          // I running" is answerable at a glance.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              'Finance Tracker ${BuildInfo.label}',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
           ),
         ],
       ),

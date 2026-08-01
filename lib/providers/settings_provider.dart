@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/sms_service.dart';
 import '../utils/currency_format.dart';
 
 /// User preferences persisted in SharedPreferences: currency, theme,
@@ -11,6 +12,7 @@ class SettingsProvider extends ChangeNotifier {
   static const _kDefaultAccount = 'defaultAccountId';
   static const _kAlertsEnabled = 'alertsEnabled';
   static const _kNotificationsEnabled = 'notificationsEnabled';
+  static const _kSmsImportEnabled = 'smsImportEnabled';
 
   String _currencySymbol = '₹';
   ThemeMode _themeMode = ThemeMode.system;
@@ -18,6 +20,10 @@ class SettingsProvider extends ChangeNotifier {
   int? _defaultAccountId;
   bool _alertsEnabled = true;
   bool _notificationsEnabled = true;
+
+  /// Off by default: reading the SMS inbox is the app's most intrusive
+  /// permission, so it stays inert until the user turns it on.
+  bool _smsImportEnabled = false;
 
   String get currencySymbol => _currencySymbol;
   ThemeMode get themeMode => _themeMode;
@@ -31,6 +37,8 @@ class SettingsProvider extends ChangeNotifier {
   /// Whether OS notifications for bills/budgets are enabled.
   bool get notificationsEnabled => _notificationsEnabled;
 
+  bool get smsImportEnabled => _smsImportEnabled;
+
   static const currencyOptions = ['₹', '\$', '€', '£', '¥', '₨', 'A\$', 'C\$'];
 
   Future<void> load() async {
@@ -41,6 +49,8 @@ class SettingsProvider extends ChangeNotifier {
     _defaultAccountId = prefs.getInt(_kDefaultAccount);
     _alertsEnabled = prefs.getBool(_kAlertsEnabled) ?? true;
     _notificationsEnabled = prefs.getBool(_kNotificationsEnabled) ?? true;
+    _smsImportEnabled = prefs.getBool(_kSmsImportEnabled) ?? false;
+    SmsService.enabled = _smsImportEnabled;
     CurrencyFormat.symbol = _currencySymbol;
     notifyListeners();
   }
@@ -56,6 +66,15 @@ class SettingsProvider extends ChangeNotifier {
     _notificationsEnabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kNotificationsEnabled, value);
+    notifyListeners();
+  }
+
+  Future<void> setSmsImportEnabled(bool value) async {
+    _smsImportEnabled = value;
+    // Mirror it onto the service, which refuses to touch the inbox when off.
+    SmsService.enabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kSmsImportEnabled, value);
     notifyListeners();
   }
 

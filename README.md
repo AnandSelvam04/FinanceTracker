@@ -9,20 +9,22 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 - Alerts: dashboard warnings when a budget category reaches 90%/over its cap or a recurring bill is due within three days (toggle in Settings).
 - Notifications: optional local push notifications reminding you a day before a bill is due and when a budget limit is hit (rescheduled on each launch; toggle in Settings).
 - Recurring: set daily/weekly/monthly/yearly rules that auto-post due transactions on launch (with catch-up); pause or edit any rule.
-- Insights: monthly summary (income, expense, net, savings rate, top categories with month-over-month deltas), cash-flow chart, and category trend comparisons.
+- Insights: monthly summary (income, expense, net, savings rate, spend split per account with each one's share, top categories with month-over-month deltas), cash-flow chart, and category trend comparisons.
 - Investments: add/list/edit investments with per-type totals.
 - Budgets: set monthly budgets per category and see spent vs. budget with progress bars (income and transfers excluded from spend).
+- SMS import: off by default; enable **Read SMS for transactions** in Settings. Scans the last 2 days of the SMS inbox for bank transaction alerts, parses out amount, direction, merchant, and date, and routes each one to the account whose last-4 digits the message names. Money moving between your own accounts (a card bill paid from a bank, an NEFT between banks) is detected from the from/to pair and recorded as a transfer rather than as spending, and the two alerts one movement sends are collapsed into a single row. Candidates that match a transaction you already entered by hand are flagged and left unchecked. Categories are recalled from how the same merchant was filed before, so a familiar one arrives ready to import. Everything lands in a review queue — nothing posts to the ledger without confirmation. Imported and dismissed messages are remembered, so a rescan never offers the same one twice.
 - Filter & download: filter the Transactions list by search, year/month, type, category, account, amount range, or a custom date range — then download exactly that set as CSV.
 - Backup / Export / Import: Drive backup/restore, versioned local JSON backup/restore, optional passphrase-encrypted backups (AES-256-GCM, PBKDF2), CSV/JSON download via the share sheet, a PDF monthly statement, and CSV import with column mapping and a preview.
-- Settings: currency symbol, theme (light/dark/system), budget/bill alerts toggle, auto-lock timeout, and a default account for new transactions.
+- Settings: currency symbol, theme (light/dark/system), budget/bill alerts toggle, SMS-import toggle (off by default), auto-lock timeout, and a default account for new transactions.
 - Security & onboarding: optional app lock (biometrics or device PIN) that re-locks on resume after a configurable grace period; optional at-rest database encryption (SQLCipher, key held in the device keystore via `flutter_secure_storage`) toggled in Settings with a verify-and-rollback migration; plus a first-run tutorial/onboarding flow. Automatic Android backup is disabled and `FLAG_SECURE` is set, so the database never syncs off-device on its own and balances stay out of the recents thumbnail.
 - Multi-currency: accounts can be held in a currency other than the base one, with a per-account exchange rate. Amounts are stored in their source account's currency; every base-currency total (dashboard, budgets, net worth, PDF statement) converts at that rate.
 
 ## Tech stack
 - Flutter 3, Provider, `sqflite_sqlcipher`, path/path_provider
 - fl_chart for charts
-- shared_preferences, local_auth
+- shared_preferences, local_auth, package_info_plus
 - file_picker, csv
+- another_telephony (SMS inbox reading, Android only)
 - google_sign_in, googleapis, googleapis_auth (Drive backup/restore)
 - Test support: flutter_test, sqflite_common_ffi (file-backed SQLite for unit tests)
 
@@ -32,7 +34,7 @@ lib/
   main.dart                 # App entry, providers, theming, AuthGate, onboarding wrapper
   models/                   # Expense (expense/income/transfer), account, investment, budget, recurring rule, template
   providers/                # Expense, Investment, Budget, Account, Recurring, Template providers
-  services/                 # DB (schema v9, migrations), backup + crypto, auth, notifications, recurring, CSV import, PDF statement
+  services/                 # DB (schema v10, migrations), backup + crypto, auth, notifications, recurring, CSV + SMS import, PDF statement
   screens/                  # UI screens (home, add expense/transfer, accounts, budgets, recurring, insights, backups, list)
   widgets/                  # Charts (pie, trends, cash flow, category trend), month selector
   utils/                    # DbConstants, category colors, currency format, logger
@@ -56,5 +58,16 @@ Both jobs are gated on `github.event.repository.private == false`, so GitHub Act
 - App lock: toggle "App lock" in the More tab (persists `biometricEnabled` in SharedPreferences); falls back to device PIN and shows a retry lock screen instead of exiting on failure.
 - Backups to Drive: create OAuth credentials and configure the consent screen before shipping; current packages are present but require proper credentials.
 - Budgets: budgets are month- and category-scoped; adjust DB versioning if schema changes further.
+- Version: shown at the foot of the More tab and under Settings > About (tap to copy). Read from the installed package via `package_info_plus`, so it is correct for any build; CI additionally injects the commit SHA via `--dart-define`, which is appended only when known.
 - Release signing: `android/key.properties` and the keystore are committed on purpose, so the Drive OAuth SHA-1 stays stable across rebuilds. See the comment in `android/app/build.gradle.kts` for what that trades away — do not copy the pattern for a Play Store release.
-- SMS parsing is intentionally not included; telephony dependency is removed to avoid Play Store permission issues.
+- SMS import: needs the `READ_SMS` runtime permission, granted on first use of **More > Import from SMS**. Messages are parsed entirely on-device and never leave it.
+
+  Declaring `READ_SMS` makes the app ineligible for Play Store distribution — store policy restricts that permission to apps whose core function is SMS handling. This build is signed and sideloaded (see the release-signing note above), so that is a deliberate trade rather than an oversight. Removing the permission from `AndroidManifest.xml` and the `another_telephony` dependency from `pubspec.yaml` reverts it; the rest of the app is unaffected.
+
+  Parsing quality depends on templates banks change without notice, which is why nothing auto-posts. `lib/services/sms_import.dart` holds the patterns and is pure Dart — add a bank's wording there and cover it in `test/sms_import_test.dart`. Accuracy against the current formats is pinned down by those tests; the plugin layer in `lib/services/sms_service.dart` is thin and can only be verified on a real device.
+
+  The scan window is 2 days (`SmsService.defaultWindow`). That keeps the first run from dumping months of history into the queue, but it also means a message older than that is never offered — go more than a couple of days without opening the screen and those transactions have to be entered by hand. Widen the constant if you would rather check less often.
+
+  The toggle gates both the permission request and the inbox read, so the app cannot touch SMS while it is off. Turning it off does not delete anything already imported.
+
+  Account routing needs each account's last four digits filled in (Accounts > tap an account > *Last 4 digits*). Without them a parsed message still imports, but with no account attached, so it will not move any balance.

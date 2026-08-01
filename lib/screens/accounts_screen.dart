@@ -21,6 +21,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
   int _openingBalance = 0; // minor units
   String? _currency; // null = base currency
   double _rate = 1.0;
+  String? _last4;
 
   @override
   void initState() {
@@ -51,6 +52,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
     _openingBalance = account?.openingBalance ?? 0;
     _currency = account?.currency;
     _rate = account?.rate ?? 1.0;
+    _last4 = account?.last4;
 
     final base = context.read<SettingsProvider>().currencySymbol;
     // Offer the base symbol plus the standard options, de-duplicated.
@@ -144,6 +146,27 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         onSaved: (value) =>
                             _openingBalance = parseMinor(value ?? '') ?? 0,
                       ),
+                      TextFormField(
+                        initialValue: _last4 ?? '',
+                        decoration: const InputDecoration(
+                          labelText: 'Last 4 digits (optional)',
+                          helperText: 'Routes bank SMS alerts to this account',
+                          counterText: '',
+                        ),
+                        keyboardType: TextInputType.number,
+                        maxLength: 4,
+                        validator: (value) {
+                          final text = value?.trim() ?? '';
+                          if (text.isEmpty) return null;
+                          return RegExp(r'^\d{4}$').hasMatch(text)
+                              ? null
+                              : 'Enter exactly 4 digits';
+                        },
+                        onSaved: (value) {
+                          final text = value?.trim() ?? '';
+                          _last4 = text.isEmpty ? null : text;
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -165,6 +188,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         color: account?.color,
                         currency: _currency,
                         rate: _currency == null ? 1.0 : _rate,
+                        last4: _last4,
                       );
                       final provider = context.read<AccountProvider>();
                       if (account == null) {
@@ -296,9 +320,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         title: Text(account.name,
                             style:
                                 const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text(account.isForeign
-                            ? '${Account.typeLabel(account.type)} · ${account.currency}'
-                            : Account.typeLabel(account.type)),
+                        subtitle: Text([
+                          Account.typeLabel(account.type),
+                          if (account.isForeign) account.currency!,
+                          // Visible at a glance so it is obvious which
+                          // accounts SMS import can route to.
+                          if (account.last4 != null) '••${account.last4}',
+                        ].join(' · ')),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
