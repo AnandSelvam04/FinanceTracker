@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/settings_provider.dart';
 import '../services/backup_service.dart';
+import '../utils/build_info.dart';
 import '../utils/insets.dart';
 import 'accounts_screen.dart';
 import 'backups_screen.dart';
@@ -199,6 +200,16 @@ class _MoreScreenState extends State<MoreScreen> {
             subtitle: const Text('Require biometrics or device PIN on launch'),
             value: _biometricEnabled,
             onChanged: _setBiometricEnabled,
+          ),
+          // Visible without digging into Settings > About, so "which build am
+          // I running" is answerable at a glance.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              'Finance Tracker ${BuildInfo.label}',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
           ),
         ],
       ),

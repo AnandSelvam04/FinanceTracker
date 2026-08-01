@@ -22,7 +22,7 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 ## Tech stack
 - Flutter 3, Provider, `sqflite_sqlcipher`, path/path_provider
 - fl_chart for charts
-- shared_preferences, local_auth
+- shared_preferences, local_auth, package_info_plus
 - file_picker, csv
 - another_telephony (SMS inbox reading, Android only)
 - google_sign_in, googleapis, googleapis_auth (Drive backup/restore)
@@ -58,6 +58,7 @@ Both jobs are gated on `github.event.repository.private == false`, so GitHub Act
 - App lock: toggle "App lock" in the More tab (persists `biometricEnabled` in SharedPreferences); falls back to device PIN and shows a retry lock screen instead of exiting on failure.
 - Backups to Drive: create OAuth credentials and configure the consent screen before shipping; current packages are present but require proper credentials.
 - Budgets: budgets are month- and category-scoped; adjust DB versioning if schema changes further.
+- Version: shown at the foot of the More tab and under Settings > About (tap to copy). Read from the installed package via `package_info_plus`, so it is correct for any build; CI additionally injects the commit SHA via `--dart-define`, which is appended only when known.
 - Release signing: `android/key.properties` and the keystore are committed on purpose, so the Drive OAuth SHA-1 stays stable across rebuilds. See the comment in `android/app/build.gradle.kts` for what that trades away — do not copy the pattern for a Play Store release.
 - SMS import: needs the `READ_SMS` runtime permission, granted on first use of **More > Import from SMS**. Messages are parsed entirely on-device and never leave it.
 
