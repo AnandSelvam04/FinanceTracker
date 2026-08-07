@@ -16,6 +16,7 @@ import '../services/recurring_service.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/insets.dart';
 import '../widgets/alerts_banner.dart';
 import '../widgets/animated_money.dart';
 import '../widgets/empty_state.dart';
@@ -261,11 +262,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // IndexedStack keeps every tab mounted, so the Transactions screen's
       // search, filters, and scroll position survive tab switches.
       body: IndexedStack(index: _selectedIndex, children: _screens),
-      floatingActionButton: FloatingActionButton.extended(
+      // Compact circular FAB: an extended (labelled) FAB is wide enough to sit
+      // over the trailing amount column on the Transactions tab and hide it.
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddOptions(context),
         tooltip: 'Add transaction',
-        icon: const Icon(Icons.add),
-        label: const Text('Add'),
+        child: const Icon(Icons.add),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
@@ -334,7 +336,9 @@ class _DashboardView extends StatelessWidget {
             // is short enough not to overflow.
             physics: const AlwaysScrollableScrollPhysics(),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              // fab: leave room so the last chart/total clears the FAB and the
+              // system nav bar instead of being hidden behind them.
+              padding: scrollPadding(context, all: 16, fab: true),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
