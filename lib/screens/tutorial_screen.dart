@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/insets.dart';
+import '../widgets/fade_slide_in.dart';
 
 class TutorialScreen extends StatelessWidget {
   const TutorialScreen({super.key});
@@ -52,11 +53,19 @@ class TutorialScreen extends StatelessWidget {
         padding: scrollPadding(context),
         itemBuilder: (context, index) {
           final step = steps[index];
-          return Card(
-            child: ListTile(
-              leading: Icon(step.icon),
-              title: Text(step.title),
-              subtitle: Text(step.body),
+          final scheme = Theme.of(context).colorScheme;
+          return FadeSlideIn(
+            delay: Duration(milliseconds: 60 * index),
+            child: Card(
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: scheme.secondaryContainer,
+                  child: Icon(step.icon, color: scheme.onSecondaryContainer),
+                ),
+                title: Text(step.title,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(step.body),
+              ),
             ),
           );
         },

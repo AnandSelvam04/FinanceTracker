@@ -14,6 +14,7 @@ import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../utils/transaction_filter.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/fade_slide_in.dart';
 import '../widgets/skeleton.dart';
 
 class ExpenseListScreen extends StatefulWidget {
@@ -28,6 +29,11 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   int _selectedYear = DateTime.now().year;
   int? _selectedMonth = DateTime.now().month;
   String? _typeFilter;
+
+  /// Rows already given their entrance animation, keyed by transaction id.
+  /// Recycled `ListView` rows rebuild on scroll, so this guards against the
+  /// fade-in replaying every time a row scrolls back into view.
+  final Set<Object> _animatedRows = {};
 
   /// Year of the earliest recorded transaction, so the year filter reaches
   /// all data instead of a hardcoded last-10-years window.
@@ -793,13 +799,19 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                     padding: scrollPadding(context, all: 12, fab: true),
                     itemBuilder: (context, index) {
                     final expense = expenses[index];
+                    final rowKey =
+                        expense.id ?? '${expense.description}-$index';
+                    // Set.add returns true only the first time this row is
+                    // built, so each row fades in once and does not replay when
+                    // it scrolls back into view.
+                    final firstAppearance = _animatedRows.add(rowKey);
                     // Swiping is the only way to delete here, and a
                     // Dismissible exposes no action to TalkBack or switch
                     // access — so those users could not delete a transaction
                     // at all. Publish a custom semantics action and a
                     // long-press, matching the explicit delete buttons the
                     // budgets/accounts/recurring screens already have.
-                    return Semantics(
+                    final Widget row = Semantics(
                         customSemanticsActions: {
                           const CustomSemanticsAction(label: 'Delete'): () =>
                               _confirmDelete(expense),
@@ -872,6 +884,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                             ),
                           ),
                         ));
+                    return firstAppearance
+                        ? FadeSlideIn(child: row)
+                        : row;
                     },
                   ),
                 );

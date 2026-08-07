@@ -9,6 +9,7 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
+  final PageController _controller = PageController();
   int _page = 0;
 
   static const List<_OnboardPage> _pages = [
@@ -30,46 +31,154 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
   ];
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _finish() {
+    if (widget.onFinish != null) {
+      widget.onFinish!();
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
   void _next() {
     if (_page < _pages.length - 1) {
-      setState(() => _page++);
+      _controller.nextPage(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
     } else {
-      if (widget.onFinish != null) {
-        widget.onFinish!();
-      } else {
-        Navigator.of(context).pop();
-      }
+      _finish();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final page = _pages[_page];
+    final isLast = _page == _pages.length - 1;
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(page.icon, size: 80, color: Colors.green),
-              const SizedBox(height: 32),
-              Text(page.title,
-                  style: const TextStyle(
-                      fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              Text(page.description,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16)),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _next,
-                child: Text(_page < _pages.length - 1 ? 'Next' : 'Get Started'),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: AnimatedOpacity(
+                opacity: isLast ? 0 : 1,
+                duration: const Duration(milliseconds: 200),
+                child: TextButton(
+                  onPressed: isLast ? null : _finish,
+                  child: const Text('Skip'),
+                ),
               ),
-            ],
-          ),
+            ),
+            Expanded(
+              child: PageView.builder(
+                controller: _controller,
+                itemCount: _pages.length,
+                onPageChanged: (i) => setState(() => _page = i),
+                itemBuilder: (context, index) => _OnboardPageView(
+                  page: _pages[index],
+                ),
+              ),
+            ),
+            _PageDots(count: _pages.length, active: _page),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _next,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: Text(isLast ? 'Get Started' : 'Next'),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _OnboardPageView extends StatelessWidget {
+  final _OnboardPage page;
+  const _OnboardPageView({required this.page});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 140,
+            height: 140,
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(page.icon, size: 68, color: scheme.onPrimaryContainer),
+          ),
+          const SizedBox(height: 40),
+          Text(
+            page.title,
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            page.description,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              height: 1.4,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Animated page indicator: the active dot stretches into a pill.
+class _PageDots extends StatelessWidget {
+  final int count;
+  final int active;
+  const _PageDots({required this.count, required this.active});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (int i = 0; i < count; i++)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            width: i == active ? 24 : 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: i == active
+                  ? scheme.primary
+                  : scheme.primary.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+      ],
     );
   }
 }
