@@ -63,7 +63,7 @@ class _CashflowScreenState extends State<CashflowScreen> {
                 ),
                 const SizedBox(height: 16),
                 Card(
-                  elevation: 2,
+                  margin: EdgeInsets.zero,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(

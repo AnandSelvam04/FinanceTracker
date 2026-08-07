@@ -299,8 +299,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         }
                       },
                 child: _isSaving
-                    ? const CircularProgressIndicator(
-                        color: Colors.white,
+                    ? SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
                       )
                     : Text(_isIncome ? 'Add Income' : 'Add Expense'),
               ),

@@ -4,6 +4,7 @@ import '../providers/expense_provider.dart';
 import '../utils/category_colors.dart';
 import '../utils/insets.dart';
 import '../widgets/category_trend_chart.dart';
+import '../widgets/empty_state.dart';
 
 class CategoryTrendsScreen extends StatefulWidget {
   const CategoryTrendsScreen({super.key});
@@ -55,11 +56,10 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
           }
 
           if (categories.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: const Text('No expenses in the last 12 months.'),
-              ),
+            return const EmptyState(
+              icon: Icons.show_chart,
+              title: 'Nothing to chart yet',
+              message: 'No expenses recorded in the last 12 months.',
             );
           }
 

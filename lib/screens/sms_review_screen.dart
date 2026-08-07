@@ -316,7 +316,6 @@ class _DraftCard extends StatelessWidget {
     final unmatchedLast4 = parsed.last4 != null && draft.accountId == null;
 
     return Card(
-      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(4, 8, 12, 12),
         child: Column(

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
+import '../widgets/empty_state.dart';
 import 'add_investment_screen.dart';
 import 'investment_type_screen.dart';
 import '../utils/date_format.dart';
@@ -35,14 +36,14 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
           final all = provider.investments;
 
           if (all.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.trending_up, size: 48, color: Colors.grey),
-                  const SizedBox(height: 8),
-                  const Text('No investments yet. Add one to start tracking.'),
-                ],
+            return EmptyState(
+              icon: Icons.trending_up,
+              title: 'No investments yet',
+              message: 'Record a contribution to start tracking your holdings.',
+              actionLabel: 'Add investment',
+              onAction: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AddInvestmentScreen()),
               ),
             );
           }
@@ -56,18 +57,27 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Card(
-                  elevation: 2,
+                  margin: EdgeInsets.zero,
+                  color: Theme.of(context).colorScheme.primaryContainer,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Total Invested',
-                            style: const TextStyle(fontSize: 16)),
+                            style: TextStyle(
+                                fontSize: 16,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer)),
                         Text(
                           formatMoney(provider.totalInvested),
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer),
                         ),
                       ],
                     ),
@@ -87,12 +97,15 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                     final latest = items.first.date;
                     final count = items.length;
                     return Card(
-                      elevation: 2,
+                      margin: EdgeInsets.zero,
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Colors.green.shade100,
-                          child: const Icon(Icons.trending_up,
-                              color: Colors.green),
+                          backgroundColor:
+                              Theme.of(context).colorScheme.secondaryContainer,
+                          child: Icon(Icons.trending_up,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSecondaryContainer),
                         ),
                         title: Text(type,
                             style:
@@ -109,8 +122,11 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                             Text(formatMoney(entry.value),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold)),
-                            const Icon(Icons.chevron_right,
-                                size: 18, color: Colors.grey),
+                            Icon(Icons.chevron_right,
+                                size: 18,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant),
                           ],
                         ),
                         onTap: () {
