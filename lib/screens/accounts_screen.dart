@@ -5,6 +5,7 @@ import '../providers/account_provider.dart';
 import '../providers/settings_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
+import '../widgets/empty_state.dart';
 import 'add_transfer_screen.dart';
 
 class AccountsScreen extends StatefulWidget {
@@ -257,20 +258,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
         builder: (context, provider, _) {
           final accounts = provider.accounts;
           if (accounts.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.account_balance_wallet_outlined,
-                        size: 48, color: Colors.grey),
-                    const SizedBox(height: 8),
-                    const Text(
-                        'No accounts yet. Add cash, bank, UPI, or card accounts to track balances.'),
-                  ],
-                ),
-              ),
+            return EmptyState(
+              icon: Icons.account_balance_wallet_outlined,
+              title: 'No accounts yet',
+              message:
+                  'Add cash, bank, UPI, or card accounts to track balances.',
+              actionLabel: 'Add account',
+              onAction: () => _showAccountDialog(),
             );
           }
 
@@ -283,20 +277,29 @@ class _AccountsScreenState extends State<AccountsScreen> {
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Card(
-                  elevation: 2,
+                  margin: EdgeInsets.zero,
+                  color: Theme.of(context).colorScheme.primaryContainer,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Total Balance',
-                            style: const TextStyle(fontSize: 16)),
+                            style: TextStyle(
+                                fontSize: 16,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer)),
                         Text(
                           // Signed: credit-card balances are negative, and
                           // enough of them can take the total negative too.
                           formatMoneySigned(totalBalance),
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer),
                         ),
                       ],
                     ),
@@ -312,12 +315,15 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     final account = accounts[index];
                     final balance = provider.balanceOf(account);
                     return Card(
-                      elevation: 2,
+                      margin: EdgeInsets.zero,
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Colors.green.shade100,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.secondaryContainer,
                           child: Icon(_iconForType(account.type),
-                              color: Colors.green),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSecondaryContainer),
                         ),
                         title: Text(account.name,
                             style:

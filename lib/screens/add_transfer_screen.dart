@@ -170,8 +170,15 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                       child: ElevatedButton(
                         onPressed: _isSaving ? null : () => _save(context),
                         child: _isSaving
-                            ? const CircularProgressIndicator(
-                                color: Colors.white)
+                            ? SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color:
+                                      Theme.of(context).colorScheme.onPrimary,
+                                ),
+                              )
                             : const Text('Record Transfer'),
                       ),
                     ),

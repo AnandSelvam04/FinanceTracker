@@ -7,6 +7,7 @@ import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
+import '../widgets/empty_state.dart';
 
 class BudgetsScreen extends StatefulWidget {
   const BudgetsScreen({super.key});
@@ -154,19 +155,12 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         builder: (context, budgetProvider, expenseProvider, _) {
           final budgets = budgetProvider.budgets;
           if (budgets.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.account_balance_wallet_outlined,
-                        size: 48, color: Colors.grey),
-                    const SizedBox(height: 8),
-                    const Text('No budgets yet. Add one to start tracking.'),
-                  ],
-                ),
-              ),
+            return EmptyState(
+              icon: Icons.account_balance_wallet_outlined,
+              title: 'No budgets yet',
+              message: 'Set a monthly cap on a category to start tracking.',
+              actionLabel: 'Add budget',
+              onAction: () => _showBudgetDialog(),
             );
           }
 
@@ -197,7 +191,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               final spent = spentForBudget(budget);
               final progress = budget.amount == 0 ? 0.0 : spent / budget.amount;
               return Card(
-                elevation: 2,
+                margin: EdgeInsets.zero,
                 child: ListTile(
                   title: Text(
                       '${budget.category} · ${budget.year}/${budget.month.toString().padLeft(2, '0')}'),
@@ -207,10 +201,15 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                       Text('Budget: ${formatMoneyRounded(budget.amount)}'),
                       Text('Spent: ${formatMoney(spent)}'),
                       const SizedBox(height: 4),
-                      LinearProgressIndicator(
-                        value: progress.clamp(0.0, 1.0).toDouble(),
-                        color: progressColor(progress),
-                        backgroundColor: Colors.grey.shade200,
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: progress.clamp(0.0, 1.0).toDouble(),
+                          minHeight: 8,
+                          color: progressColor(progress),
+                          backgroundColor:
+                              Theme.of(context).colorScheme.surfaceContainerHighest,
+                        ),
                       ),
                     ],
                   ),

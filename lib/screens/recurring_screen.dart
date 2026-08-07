@@ -7,6 +7,7 @@ import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../utils/date_format.dart';
+import '../widgets/empty_state.dart';
 
 class RecurringScreen extends StatefulWidget {
   const RecurringScreen({super.key});
@@ -199,19 +200,13 @@ class _RecurringScreenState extends State<RecurringScreen> {
         builder: (context, provider, _) {
           final rules = provider.rules;
           if (rules.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.repeat, size: 48, color: Colors.grey),
-                    const SizedBox(height: 8),
-                    const Text(
-                        'No recurring transactions. Add rent, salary, bills, and they post automatically.'),
-                  ],
-                ),
-              ),
+            return EmptyState(
+              icon: Icons.repeat,
+              title: 'No recurring transactions',
+              message:
+                  'Add rent, salary, or bills and they post automatically.',
+              actionLabel: 'Add recurring',
+              onAction: () => _showRuleDialog(),
             );
           }
           return ListView.separated(
@@ -221,7 +216,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
             itemBuilder: (context, index) {
               final rule = rules[index];
               return Card(
-                elevation: 2,
+                margin: EdgeInsets.zero,
                 child: ListTile(
                   leading: CircleAvatar(
                     backgroundColor: rule.type == DbConstants.txIncome

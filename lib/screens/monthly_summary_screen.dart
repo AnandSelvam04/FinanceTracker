@@ -118,7 +118,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                 ),
                 const SizedBox(height: 12),
                 Card(
-                  elevation: 2,
+                  margin: EdgeInsets.zero,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -275,7 +275,7 @@ class _SpendByAccount extends StatelessWidget {
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Card(
-          elevation: 2,
+          margin: EdgeInsets.zero,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(

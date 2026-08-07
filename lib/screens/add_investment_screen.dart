@@ -212,7 +212,14 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                         }
                       },
                 child: _isSaving
-                    ? const CircularProgressIndicator(color: Colors.white)
+                    ? SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
+                      )
                     : const Text('Add Investment'),
               ),
             ],

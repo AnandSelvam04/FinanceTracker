@@ -66,18 +66,27 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Card(
-                  elevation: 2,
+                  margin: EdgeInsets.zero,
+                  color: Theme.of(context).colorScheme.primaryContainer,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Total in $type',
-                            style: const TextStyle(fontSize: 16)),
+                            style: TextStyle(
+                                fontSize: 16,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer)),
                         Text(
                           formatMoney(total),
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer),
                         ),
                       ],
                     ),
@@ -188,7 +197,6 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
           ),
           confirmDismiss: (_) => _confirmDelete(context, investment),
           child: Card(
-            elevation: 1,
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: ListTile(
               leading: CircleAvatar(
