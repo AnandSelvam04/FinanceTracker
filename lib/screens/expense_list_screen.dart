@@ -13,6 +13,8 @@ import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../utils/transaction_filter.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/skeleton.dart';
 
 class ExpenseListScreen extends StatefulWidget {
   const ExpenseListScreen({super.key});
@@ -759,25 +761,37 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 // a cold start shows "No expenses found." for a few frames,
                 // which reads as data loss.
                 if (expenses.isEmpty && provider.isLoading) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const ListSkeleton();
                 }
                 if (expenses.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.inbox, size: 48, color: Colors.grey),
-                        const SizedBox(height: 8),
-                        const Text('No expenses found.'),
+                  // Wrapped in a scrollable so pull-to-refresh still works from
+                  // the empty state.
+                  return RefreshIndicator(
+                    onRefresh: () =>
+                        context.read<ExpenseProvider>().reloadLoadedYears(),
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 80),
+                        EmptyState(
+                          icon: Icons.receipt_long_outlined,
+                          title: 'No transactions found',
+                          message:
+                              'Try a different period or clear your filters.',
+                        ),
                       ],
                     ),
                   );
                 }
-                return ListView.separated(
-                  itemCount: expenses.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  padding: scrollPadding(context, all: 12, fab: true),
-                  itemBuilder: (context, index) {
+                return RefreshIndicator(
+                  onRefresh: () =>
+                      context.read<ExpenseProvider>().reloadLoadedYears(),
+                  child: ListView.separated(
+                    itemCount: expenses.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: scrollPadding(context, all: 12, fab: true),
+                    itemBuilder: (context, index) {
                     final expense = expenses[index];
                     // Swiping is the only way to delete here, and a
                     // Dismissible exposes no action to TalkBack or switch
@@ -803,7 +817,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                           ),
                           confirmDismiss: (_) => _confirmDelete(expense),
                           child: Card(
-                            elevation: 2,
+                            margin: EdgeInsets.zero,
                             child: ListTile(
                               leading: CircleAvatar(
                                 backgroundColor: expense.isIncome
@@ -858,7 +872,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                             ),
                           ),
                         ));
-                  },
+                    },
+                  ),
                 );
               },
             ),

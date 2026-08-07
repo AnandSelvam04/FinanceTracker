@@ -12,6 +12,7 @@ import 'package:finance_tracker/screens/home_screen.dart';
 import 'package:finance_tracker/screens/onboarding_screen.dart';
 import 'package:finance_tracker/services/auth_service.dart';
 import 'package:finance_tracker/services/notification_service.dart';
+import 'package:finance_tracker/utils/app_theme.dart';
 import 'package:finance_tracker/utils/build_info.dart';
 
 void main() async {
@@ -68,18 +69,10 @@ class FinanceTrackerApp extends StatelessWidget {
         builder: (context, settings, _) => MaterialApp(
           title: 'Finance Tracker',
           // Material 3 with the same green seed in both modes, so dark mode
-          // keeps the brand color instead of falling back to grey.
-          theme: ThemeData(
-            useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-          ),
-          darkTheme: ThemeData(
-            useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: Colors.green,
-              brightness: Brightness.dark,
-            ),
-          ),
+          // keeps the brand color instead of falling back to grey. Component
+          // theming (cards, nav bar, inputs, transitions) lives in AppTheme.
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
           themeMode: settings.themeMode,
           home: requireAuth
               ? AuthGate(lockAfter: settings.lockTimeout, child: home)

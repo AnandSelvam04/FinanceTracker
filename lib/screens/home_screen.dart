@@ -17,10 +17,13 @@ import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../widgets/alerts_banner.dart';
+import '../widgets/animated_money.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/expense_chart.dart';
 import '../widgets/expense_trends_chart.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/net_worth_card.dart';
+import '../widgets/skeleton.dart';
 import 'add_expense_screen.dart';
 import 'add_investment_screen.dart';
 import 'expense_list_screen.dart';
@@ -101,6 +104,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Pull-to-refresh handler for the dashboard: re-reads everything the
+  /// dashboard renders so a swipe reconciles the view with the database.
+  Future<void> _refreshDashboard() async {
+    final expenses = context.read<ExpenseProvider>();
+    final accounts = context.read<AccountProvider>();
+    final investments = context.read<InvestmentProvider>();
+    final templates = context.read<TemplateProvider>();
+    await Future.wait([
+      expenses.reloadLoadedYears(),
+      accounts.fetchAccounts(),
+      investments.fetchInvestments(),
+      templates.fetchTemplates(),
+    ]);
+    if (mounted) await accounts.refreshBalances();
+  }
+
   /// Re-arms bill reminders and fires any new budget notifications, honoring
   /// the user's notifications setting.
   Future<void> _syncNotifications() async {
@@ -160,6 +179,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           selectedMonth: _selectedMonth,
           yearView: _yearView,
           onQuickAdd: _quickAddTemplate,
+          onRefresh: _refreshDashboard,
+          onAddExpense: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
+          ),
           onMonthChanged: (y, m) {
             setState(() {
               _selectedYear = y;
@@ -237,21 +261,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // IndexedStack keeps every tab mounted, so the Transactions screen's
       // search, filters, and scroll position survive tab switches.
       body: IndexedStack(index: _selectedIndex, children: _screens),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddOptions(context),
         tooltip: 'Add transaction',
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Add'),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: (i) => setState(() => _selectedIndex = i),
-        items: [
-          BottomNavigationBarItem(icon: const Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-              icon: const Icon(Icons.list), label: 'Expenses'),
-          BottomNavigationBarItem(
-              icon: const Icon(Icons.more_horiz), label: 'More'),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'Expenses',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.more_horiz),
+            selectedIcon: Icon(Icons.more_horiz),
+            label: 'More',
+          ),
         ],
       ),
     );
@@ -265,6 +299,8 @@ class _DashboardView extends StatelessWidget {
   final void Function(int year, int month) onMonthChanged;
   final void Function(bool isYear) onViewToggle;
   final Future<void> Function(TxTemplate template) onQuickAdd;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onAddExpense;
 
   const _DashboardView({
     required this.selectedYear,
@@ -273,6 +309,8 @@ class _DashboardView extends StatelessWidget {
     required this.onMonthChanged,
     required this.onViewToggle,
     required this.onQuickAdd,
+    required this.onRefresh,
+    required this.onAddExpense,
   });
 
   @override
@@ -289,120 +327,203 @@ class _DashboardView extends StatelessWidget {
             provider.incomeForMonth(selectedYear, selectedMonth);
         final yearlyIncome = provider.incomeForYear(selectedYear);
 
-        return SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text('Dashboard & Charts',
-                    style: const TextStyle(fontSize: 20)),
-                const SizedBox(height: 12),
-                const AlertsBanner(),
-                const NetWorthCard(),
-                _QuickAddRow(onQuickAdd: onQuickAdd),
-                MonthSelector(
-                  initialYear: selectedYear,
-                  initialMonth: selectedMonth,
-                  onChanged: onMonthChanged,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('View:'),
-                    const SizedBox(width: 8),
-                    ToggleButtons(
-                      isSelected: [!yearView, yearView],
-                      onPressed: (i) => onViewToggle(i == 1),
-                      children: [const Text('Month'), const Text('Year')],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (yearView) ...[
-                  // Tell "still loading" apart from "nothing recorded"; the
-                  // empty text otherwise flashes on every cold start.
-                  if (yearlyExpenses.isEmpty && provider.isLoading)
-                    const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (yearlyExpenses.isEmpty)
-                    const Text('No expenses this year.')
-                  else ...[
-                    SizedBox(
-                      height: 250,
-                      child: ExpenseChart(
-                          totals: provider.categoryTotalsForYear(selectedYear)),
-                    ),
-                    Text(
-                      'Year Total: ${formatMoney(provider.totalForYear(selectedYear))}',
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    if (yearlyIncome > 0)
-                      Text(
-                        'Income: ${formatMoney(yearlyIncome)}',
-                        style: TextStyle(
-                            fontSize: 14, color: incomeColor(context)),
+        return RefreshIndicator(
+          onRefresh: onRefresh,
+          child: SingleChildScrollView(
+            // AlwaysScrollable so pull-to-refresh works even when the content
+            // is short enough not to overflow.
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const AlertsBanner(),
+                  const NetWorthCard(),
+                  _QuickAddRow(onQuickAdd: onQuickAdd),
+                  MonthSelector(
+                    initialYear: selectedYear,
+                    initialMonth: selectedMonth,
+                    onChanged: onMonthChanged,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('View:'),
+                      const SizedBox(width: 8),
+                      ToggleButtons(
+                        borderRadius: BorderRadius.circular(12),
+                        isSelected: [!yearView, yearView],
+                        onPressed: (i) => onViewToggle(i == 1),
+                        children: const [
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text('Month'),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text('Year'),
+                          ),
+                        ],
                       ),
-                    const SizedBox(height: 16),
-                    Text('Category Breakdown (Year)',
-                        style: const TextStyle(fontSize: 16)),
-                    SizedBox(
-                      height: 180,
-                      child: ListView(
-                        shrinkWrap: true,
-                        children: provider
-                            .categoryTotalsForYear(selectedYear)
-                            .entries
-                            .map((e) => ListTile(
-                                  dense: true,
-                                  title: Text(e.key),
-                                  trailing: Text(formatMoney(e.value)),
-                                ))
-                            .toList(),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (yearView) ...[
+                    // Tell "still loading" apart from "nothing recorded"; the
+                    // empty text otherwise flashes on every cold start.
+                    if (yearlyExpenses.isEmpty && provider.isLoading)
+                      const DashboardSkeleton()
+                    else if (yearlyExpenses.isEmpty)
+                      EmptyState(
+                        icon: Icons.savings_outlined,
+                        title: 'Nothing recorded in $selectedYear yet',
+                        message:
+                            'Add a transaction to see your yearly breakdown.',
+                        actionLabel: 'Add expense',
+                        onAction: onAddExpense,
+                      )
+                    else ...[
+                      _TotalHeadline(
+                        label: 'Year total',
+                        amount: provider.totalForYear(selectedYear),
+                        income: yearlyIncome,
                       ),
-                    ),
-                  ],
-                ] else ...[
-                  if (monthlyExpenses.isEmpty && provider.isLoading)
-                    const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (monthlyExpenses.isEmpty)
-                    const Text('No expenses this month.')
-                  else ...[
-                    SizedBox(
-                      height: 250,
-                      child: ExpenseChart(
-                          totals: provider.categoryTotalsForMonth(
-                              selectedYear, selectedMonth)),
-                    ),
-                    Text(
-                      'Total: ${formatMoney(provider.totalForMonth(selectedYear, selectedMonth))}',
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    if (monthlyIncome > 0)
-                      Text(
-                        'Income: ${formatMoney(monthlyIncome)}',
-                        style: TextStyle(
-                            fontSize: 14, color: incomeColor(context)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 250,
+                        child: ExpenseChart(
+                            totals:
+                                provider.categoryTotalsForYear(selectedYear)),
                       ),
-                    const SizedBox(height: 16),
-                    Text('Trends (Last 12 Months)',
-                        style: const TextStyle(fontSize: 16)),
-                    ExpenseTrendsChart(provider: provider),
+                      const SizedBox(height: 16),
+                      _SectionHeader('Category breakdown (year)'),
+                      SizedBox(
+                        height: 180,
+                        child: ListView(
+                          shrinkWrap: true,
+                          children: provider
+                              .categoryTotalsForYear(selectedYear)
+                              .entries
+                              .map((e) => ListTile(
+                                    dense: true,
+                                    title: Text(e.key),
+                                    trailing: Text(formatMoney(e.value)),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                    ],
+                  ] else ...[
+                    if (monthlyExpenses.isEmpty && provider.isLoading)
+                      const DashboardSkeleton()
+                    else if (monthlyExpenses.isEmpty)
+                      EmptyState(
+                        icon: Icons.account_balance_wallet_outlined,
+                        title: 'No expenses this month',
+                        message:
+                            'Track your first expense to see charts and trends.',
+                        actionLabel: 'Add expense',
+                        onAction: onAddExpense,
+                      )
+                    else ...[
+                      _TotalHeadline(
+                        label: 'This month',
+                        amount: provider.totalForMonth(
+                            selectedYear, selectedMonth),
+                        income: monthlyIncome,
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 250,
+                        child: ExpenseChart(
+                            totals: provider.categoryTotalsForMonth(
+                                selectedYear, selectedMonth)),
+                      ),
+                      const SizedBox(height: 16),
+                      _SectionHeader('Trends (last 12 months)'),
+                      ExpenseTrendsChart(provider: provider),
+                    ],
                   ],
                 ],
-              ],
+              ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+/// A section label styled from the theme's text scale, replacing the old
+/// hardcoded `Text(..., fontSize: 16)` headers.
+class _SectionHeader extends StatelessWidget {
+  final String text;
+  const _SectionHeader(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(
+          text,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Headline total with an animated count-up, plus an optional income line.
+class _TotalHeadline extends StatelessWidget {
+  final String label;
+  final int amount;
+  final int income;
+  const _TotalHeadline({
+    required this.label,
+    required this.amount,
+    required this.income,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 12,
+            letterSpacing: 0.8,
+            fontWeight: FontWeight.w600,
+            color: mutedTextColor(context),
+          ),
+        ),
+        const SizedBox(height: 2),
+        AnimatedMoney(
+          value: amount,
+          format: formatMoney,
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: scheme.onSurface,
+          ),
+        ),
+        if (income > 0)
+          Text(
+            'Income ${formatMoney(income)}',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: incomeColor(context),
+            ),
+          ),
+      ],
     );
   }
 }

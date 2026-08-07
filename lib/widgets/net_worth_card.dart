@@ -9,6 +9,7 @@ import '../providers/investment_provider.dart';
 import '../services/db_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
+import 'animated_money.dart';
 
 /// Dashboard card showing current net worth (liquid account balances plus
 /// recorded investments) and a 12-month month-end trend line.
@@ -29,8 +30,6 @@ class NetWorthCard extends StatelessWidget {
         final netWorth = liquid + invested;
 
         return Card(
-          elevation: 2,
-          margin: const EdgeInsets.symmetric(vertical: 8),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -38,16 +37,19 @@ class NetWorthCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.account_balance, size: 20),
+                    Icon(Icons.account_balance,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary),
                     const SizedBox(width: 8),
                     Text('Net Worth',
                         style: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.bold)),
                     const Spacer(),
-                    Text(
-                      formatMoneySigned(netWorth),
+                    AnimatedMoney(
+                      value: netWorth,
+                      format: formatMoneySigned,
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: netWorth < 0
                             ? Colors.red.shade400
