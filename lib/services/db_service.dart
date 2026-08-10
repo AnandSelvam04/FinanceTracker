@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart';
 import '../models/account.dart';
 import '../models/expense.dart';
+import '../models/goal.dart';
 import '../models/investment.dart';
 import '../models/budget.dart';
 import '../models/net_worth_point.dart';
@@ -188,6 +189,7 @@ class DBService {
         ''');
     await _createAccountsTable(db);
     await _createRecurringTables(db);
+    await _createGoalsTable(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -280,6 +282,10 @@ class DBService {
           'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN ${DbConstants.colLast4} TEXT');
       await _createSourceRefIndex(db);
       await _createSmsIgnoredTable(db);
+    }
+    if (oldVersion < 11) {
+      // Savings goals.
+      await _createGoalsTable(db);
     }
   }
 
@@ -502,6 +508,18 @@ class DBService {
     ''');
   }
 
+  static Future<void> _createGoalsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DbConstants.tableGoals}(
+        ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.colName} TEXT NOT NULL,
+        ${DbConstants.colTargetAmount} INTEGER NOT NULL,
+        ${DbConstants.colSavedAmount} INTEGER NOT NULL DEFAULT 0,
+        ${DbConstants.colTargetDate} TEXT
+      )
+    ''');
+  }
+
   static Future<void> _createRecurringTables(Database db) async {
     await db.execute('''
       CREATE TABLE ${DbConstants.tableRecurringRules}(
@@ -701,6 +719,7 @@ class DBService {
     await clearAccounts();
     await clearRecurringRules();
     await clearTemplates();
+    await clearGoals();
     // Wiping the ledger has to drop the dismissal list too, or messages the
     // user rejected stay suppressed against a database that no longer has the
     // transactions they were rejected next to.
@@ -756,6 +775,7 @@ class DBService {
     DbConstants.tableBudgets,
     DbConstants.tableRecurringRules,
     DbConstants.tableTemplates,
+    DbConstants.tableGoals,
     // Included so toggling at-rest encryption (which copies every table into a
     // fresh database) carries the dismissal list across. A restore-with-clear
     // does empty it, since a backup carries no rows for it — the only cost is
@@ -1056,6 +1076,44 @@ class DBService {
   Future<void> clearTemplates() async {
     final db = await database;
     await db.delete(DbConstants.tableTemplates);
+  }
+
+  // Savings goal CRUD
+  Future<int> insertGoal(Goal goal) async {
+    final db = await database;
+    return await db.insert(DbConstants.tableGoals, goal.toMap());
+  }
+
+  Future<List<Goal>> getGoals() async {
+    final db = await database;
+    final maps = await db.query(DbConstants.tableGoals,
+        orderBy: '${DbConstants.colId} DESC');
+    final goals = <Goal>[];
+    for (final map in maps) {
+      try {
+        goals.add(Goal.fromMap(map));
+      } catch (e, st) {
+        AppLogger.error('Failed to parse goal row', e, st);
+      }
+    }
+    return goals;
+  }
+
+  Future<int> updateGoal(Goal goal) async {
+    final db = await database;
+    return await db.update(DbConstants.tableGoals, goal.toMap(),
+        where: '${DbConstants.colId} = ?', whereArgs: [goal.id]);
+  }
+
+  Future<int> deleteGoal(int id) async {
+    final db = await database;
+    return await db.delete(DbConstants.tableGoals,
+        where: '${DbConstants.colId} = ?', whereArgs: [id]);
+  }
+
+  Future<void> clearGoals() async {
+    final db = await database;
+    await db.delete(DbConstants.tableGoals);
   }
 
   Future<void> clearSmsIgnored() async {

@@ -10,6 +10,7 @@ import 'backups_screen.dart';
 import 'budgets_screen.dart';
 import 'cashflow_screen.dart';
 import 'category_trends_screen.dart';
+import 'goals_screen.dart';
 import 'investments_screen.dart';
 import 'monthly_summary_screen.dart';
 import 'recurring_screen.dart';
@@ -161,6 +162,17 @@ class _MoreScreenState extends State<MoreScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const BudgetsScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.savings),
+            title: const Text('Goals'),
+            subtitle: const Text('Track progress toward savings targets'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const GoalsScreen()),
               );
             },
           ),

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_tracker/models/account.dart';
 import 'package:finance_tracker/models/budget.dart';
 import 'package:finance_tracker/models/expense.dart';
+import 'package:finance_tracker/models/goal.dart';
 import 'package:finance_tracker/services/backup_service.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
@@ -331,6 +332,34 @@ void main() {
       final restored = (await db.getExpenses()).single;
       expect(restored.toAmount, 10000);
       expect(restored.receivedAmount, 10000);
+    });
+
+    test('savings goals survive a backup round-trip', () async {
+      final db = DBService();
+      await db.insertGoal(Goal(
+        name: 'Emergency Fund',
+        targetAmount: 500000,
+        savedAmount: 120000,
+        targetDate: DateTime(2027, 3, 1),
+      ));
+      // A second goal with no deadline, to cover the null targetDate path.
+      await db.insertGoal(Goal(name: 'New Phone', targetAmount: 90000));
+
+      final service = BackupService();
+      await service.backupToJson();
+      await db.clearAll();
+      expect(await db.getGoals(), isEmpty);
+
+      await service.restoreFromJson();
+      final goals = await db.getGoals();
+      expect(goals.length, 2);
+      final fund = goals.firstWhere((g) => g.name == 'Emergency Fund');
+      expect(fund.targetAmount, 500000);
+      expect(fund.savedAmount, 120000);
+      expect(fund.targetDate, DateTime(2027, 3, 1));
+      final phone = goals.firstWhere((g) => g.name == 'New Phone');
+      expect(phone.targetDate, isNull);
+      expect(phone.savedAmount, 0);
     });
 
     test('writeExpensesCsvFile writes only the rows it is given', () async {

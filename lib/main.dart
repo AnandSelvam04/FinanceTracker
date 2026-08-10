@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finance_tracker/providers/account_provider.dart';
 import 'package:finance_tracker/providers/budget_provider.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
+import 'package:finance_tracker/providers/goal_provider.dart';
 import 'package:finance_tracker/providers/investment_provider.dart';
 import 'package:finance_tracker/providers/recurring_provider.dart';
 import 'package:finance_tracker/providers/settings_provider.dart';
@@ -63,6 +64,7 @@ class FinanceTrackerApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => RecurringProvider()),
         ChangeNotifierProvider(create: (_) => TemplateProvider()),
+        ChangeNotifierProvider(create: (_) => GoalProvider()),
         ChangeNotifierProvider.value(value: settings),
       ],
       child: Consumer<SettingsProvider>(
