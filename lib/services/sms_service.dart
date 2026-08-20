@@ -178,6 +178,14 @@ class SmsDraft {
   /// than from the default. Shown on the card so a wrong recall is obvious.
   final String? recalledCategory;
 
+  /// Set when this merchant+amount has recurred monthly in the history, so the
+  /// card can offer to create a recurring rule from it.
+  final bool recurringSuggested;
+
+  /// Whether the user accepted that offer — a monthly recurring rule is created
+  /// alongside the transaction on import.
+  bool createRecurring;
+
   SmsDraft({
     required this.parsed,
     required this.accountId,
@@ -189,6 +197,8 @@ class SmsDraft {
     this.recalledCategory,
     this.asInvestment = false,
     this.investmentType = Investment.defaultType,
+    this.recurringSuggested = false,
+    this.createRecurring = false,
   }) : description = description ?? parsed.description;
 
   bool get isTransfer => parsed.isTransfer;
@@ -210,6 +220,7 @@ class SmsDraft {
     List<Account> accounts, {
     List<Expense> existing = const [],
     CategoryMemory memory = const CategoryMemory.empty(),
+    bool recurringSuggested = false,
   }) {
     final accountId = parsed.matchAccount(accounts)?.id;
     final duplicate = SmsImport.findDuplicate(parsed, accountId, existing);
@@ -225,6 +236,7 @@ class SmsDraft {
       recalledCategory: remembered,
       selected: duplicate == null,
       duplicateOf: duplicate,
+      recurringSuggested: recurringSuggested,
     );
   }
 

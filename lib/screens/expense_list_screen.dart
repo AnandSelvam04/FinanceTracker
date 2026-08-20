@@ -144,9 +144,22 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Edit Expense',
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        Text('Edit Expense',
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        TextButton.icon(
+                          icon: const Icon(Icons.call_split, size: 18),
+                          label: const Text('Split'),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _splitExpense(expense);
+                          },
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: descController,
@@ -419,6 +432,37 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       amountController.dispose();
       toAmountController.dispose();
       noteController.dispose();
+    }
+  }
+
+  /// Splits one transaction into several categorized parts that sum to it —
+  /// e.g. one card charge that was really groceries plus a gift. The parts
+  /// inherit the original's date, account, type, and (for an imported row) its
+  /// sourceRef, so balances and dedup are unaffected.
+  Future<void> _splitExpense(Expense original) async {
+    if (original.id == null) return;
+    final parts = await showModalBottomSheet<List<Expense>>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => _SplitSheet(original: original),
+    );
+    if (parts == null || parts.isEmpty || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final provider = context.read<ExpenseProvider>();
+    final accountProvider = context.read<AccountProvider>();
+    try {
+      await DBService().splitExpense(original.id!, parts);
+      await provider.reloadLoadedYears();
+      await accountProvider.refreshBalances();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Split into ${parts.length} transactions.')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -896,5 +940,188 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         ],
       ),
     );
+  }
+}
+
+/// Bottom sheet that divides one transaction into several categorized parts.
+/// Save is only enabled once the parts sum exactly to the original amount, so
+/// a split can never change the total that hit the account.
+class _SplitSheet extends StatefulWidget {
+  final Expense original;
+  const _SplitSheet({required this.original});
+
+  @override
+  State<_SplitSheet> createState() => _SplitSheetState();
+}
+
+class _SplitSheetState extends State<_SplitSheet> {
+  late final List<_PartCtrl> _parts;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start with the whole amount on the original category plus one empty part,
+    // so the common "carve a piece off" split is one edit away.
+    _parts = [
+      _PartCtrl(
+        amount: minorToEditString(widget.original.amount),
+        category: widget.original.category,
+      ),
+      _PartCtrl(amount: '', category: ''),
+    ];
+  }
+
+  @override
+  void dispose() {
+    for (final p in _parts) {
+      p.dispose();
+    }
+    super.dispose();
+  }
+
+  int get _sum => _parts.fold<int>(
+      0, (s, p) => s + (parseMinor(p.amount.text.trim()) ?? 0));
+
+  int get _remaining => widget.original.amount - _sum;
+
+  bool get _valid {
+    if (_remaining != 0) return false;
+    for (final p in _parts) {
+      final amt = parseMinor(p.amount.text.trim());
+      if (amt == null || amt <= 0) return false;
+      if (p.category.text.trim().isEmpty) return false;
+    }
+    return true;
+  }
+
+  void _save() {
+    final o = widget.original;
+    final parts = <Expense>[
+      for (final p in _parts)
+        Expense(
+          description: o.description,
+          amount: parseMinor(p.amount.text.trim())!,
+          date: o.date,
+          category: p.category.text.trim(),
+          paymentMode: o.paymentMode,
+          type: o.type,
+          accountId: o.accountId,
+          toAccountId: o.toAccountId,
+          // Keep the import link on every part so a rescan still treats the
+          // message as handled.
+          sourceRef: o.sourceRef,
+        ),
+    ];
+    Navigator.pop(context, parts);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: bottomSheetPadding(context),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Text('Split transaction',
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 4),
+            Center(
+              child: Text(
+                '${widget.original.description} · '
+                '${formatMoney(widget.original.amount)}',
+                style: TextStyle(color: mutedTextColor(context)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (var i = 0; i < _parts.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        controller: _parts[i].category,
+                        decoration: const InputDecoration(
+                            labelText: 'Category', isDense: true),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: _parts[i].amount,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: const InputDecoration(
+                            labelText: 'Amount', isDense: true),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      tooltip: 'Remove part',
+                      onPressed: _parts.length <= 2
+                          ? null
+                          : () => setState(() => _parts.removeAt(i).dispose()),
+                    ),
+                  ],
+                ),
+              ),
+            Row(
+              children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add part'),
+                  onPressed: () =>
+                      setState(() => _parts.add(_PartCtrl(amount: '', category: ''))),
+                ),
+                const Spacer(),
+                Text(
+                  _remaining == 0
+                      ? 'Balanced'
+                      : 'Remaining ${formatMoneySigned(_remaining)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: _remaining == 0
+                        ? incomeColor(context)
+                        : expenseColor(context),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: kSheetActionHeight,
+              child: ElevatedButton(
+                onPressed: _valid ? _save : null,
+                child: const Text('Save split'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One row of the split sheet: a category and an amount.
+class _PartCtrl {
+  final TextEditingController amount;
+  final TextEditingController category;
+  _PartCtrl({required String amount, required String category})
+      : amount = TextEditingController(text: amount),
+        category = TextEditingController(text: category);
+
+  void dispose() {
+    amount.dispose();
+    category.dispose();
   }
 }
