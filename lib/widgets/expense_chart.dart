@@ -10,32 +10,69 @@ import '../utils/currency_format.dart';
 /// currency, so aggregating them here would have counted a $100 expense as
 /// ₹100. `ExpenseProvider.categoryTotalsForMonth`/`ForYear` already do the
 /// conversion, so the callers pass those straight through.
-class ExpenseChart extends StatelessWidget {
+///
+/// When [onCategoryTap] is given, tapping a slice highlights it and reports the
+/// category, so the caller can show that category's transactions.
+class ExpenseChart extends StatefulWidget {
   final Map<String, int> totals;
-  const ExpenseChart({super.key, required this.totals});
+  final ValueChanged<String>? onCategoryTap;
+  const ExpenseChart({super.key, required this.totals, this.onCategoryTap});
+
+  @override
+  State<ExpenseChart> createState() => _ExpenseChartState();
+}
+
+class _ExpenseChartState extends State<ExpenseChart> {
+  /// The slice currently under the finger, drawn slightly larger. -1 = none.
+  int _touchedIndex = -1;
 
   @override
   Widget build(BuildContext context) {
-    final sections = totals.entries
-        .map((e) => PieChartSectionData(
-              value: e.value.toDouble(),
-              title: e.key,
-              color: CategoryColors.forCategory(e.key),
-              radius: 60,
-              titleStyle: const TextStyle(fontSize: 12, color: Colors.white),
-            ))
-        .toList();
-    final summary = totals.entries
-        .map((e) => '${e.key} ${formatMoney(e.value)}')
-        .join(', ');
+    final entries = widget.totals.entries.toList();
+    final sections = [
+      for (var i = 0; i < entries.length; i++)
+        PieChartSectionData(
+          value: entries[i].value.toDouble(),
+          title: entries[i].key,
+          color: CategoryColors.forCategory(entries[i].key),
+          radius: i == _touchedIndex ? 70 : 60,
+          titleStyle: TextStyle(
+            fontSize: i == _touchedIndex ? 13 : 12,
+            color: Colors.white,
+            fontWeight:
+                i == _touchedIndex ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+    ];
+    final tappable = widget.onCategoryTap != null;
+    final summary =
+        entries.map((e) => '${e.key} ${formatMoney(e.value)}').join(', ');
     return Semantics(
-      label: 'Expense breakdown by category: $summary',
+      label: 'Expense breakdown by category: $summary'
+          '${tappable ? '. Tap a slice for its transactions.' : ''}',
       child: ExcludeSemantics(
         child: PieChart(
           PieChartData(
             sections: sections,
             centerSpaceRadius: 40,
             sectionsSpace: 2,
+            pieTouchData: PieTouchData(
+              enabled: tappable,
+              touchCallback: (event, response) {
+                if (!tappable) return;
+                final idx =
+                    response?.touchedSection?.touchedSectionIndex ?? -1;
+                if (idx != _touchedIndex) {
+                  setState(() => _touchedIndex = idx);
+                }
+                // Fire once, on release, over a real slice.
+                if (event is FlTapUpEvent &&
+                    idx >= 0 &&
+                    idx < entries.length) {
+                  widget.onCategoryTap!(entries[idx].key);
+                }
+              },
+            ),
           ),
         ),
       ),

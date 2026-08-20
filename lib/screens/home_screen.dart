@@ -15,7 +15,9 @@ import '../services/notification_service.dart';
 import '../services/recurring_service.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
+import '../utils/category_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/date_format.dart';
 import '../utils/insets.dart';
 import '../widgets/alerts_banner.dart';
 import '../widgets/animated_money.dart';
@@ -315,6 +317,39 @@ class _DashboardView extends StatelessWidget {
     required this.onAddExpense,
   });
 
+  /// Opens the transactions that make up one category's slice for the current
+  /// period, so tapping the pie answers "what's actually in this?".
+  void _showCategoryDetail(
+      BuildContext context, ExpenseProvider provider, String category,
+      {required bool isYear}) {
+    final rows = (isYear
+            ? provider
+                .expensesForYear(selectedYear)
+                .where((e) => e.isExpense)
+            : provider.spendingForMonth(selectedYear, selectedMonth))
+        .where((e) => e.category == category)
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    final total = rows.fold<int>(0, (s, e) => s + provider.baseAmountOf(e));
+    final period = isYear
+        ? '$selectedYear'
+        : '$selectedYear-${selectedMonth.toString().padLeft(2, '0')}';
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => _CategoryDetailSheet(
+        category: category,
+        period: period,
+        total: total,
+        rows: rows,
+        baseAmountOf: provider.baseAmountOf,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ExpenseProvider>(
@@ -398,8 +433,12 @@ class _DashboardView extends StatelessWidget {
                       SizedBox(
                         height: 250,
                         child: ExpenseChart(
-                            totals:
-                                provider.categoryTotalsForYear(selectedYear)),
+                          totals:
+                              provider.categoryTotalsForYear(selectedYear),
+                          onCategoryTap: (c) => _showCategoryDetail(
+                              context, provider, c,
+                              isYear: true),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       _SectionHeader('Category breakdown (year)'),
@@ -442,8 +481,12 @@ class _DashboardView extends StatelessWidget {
                       SizedBox(
                         height: 250,
                         child: ExpenseChart(
-                            totals: provider.categoryTotalsForMonth(
-                                selectedYear, selectedMonth)),
+                          totals: provider.categoryTotalsForMonth(
+                              selectedYear, selectedMonth),
+                          onCategoryTap: (c) => _showCategoryDetail(
+                              context, provider, c,
+                              isYear: false),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       _SectionHeader('Trends (last 12 months)'),
@@ -456,6 +499,89 @@ class _DashboardView extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// The transactions behind one pie slice: a total plus the rows that make it
+/// up, shown when the user taps a category on the dashboard chart.
+class _CategoryDetailSheet extends StatelessWidget {
+  final String category;
+  final String period;
+  final int total;
+  final List<Expense> rows;
+  final int Function(Expense) baseAmountOf;
+
+  const _CategoryDetailSheet({
+    required this.category,
+    required this.period,
+    required this.total,
+    required this.rows,
+    required this.baseAmountOf,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: bottomSheetPadding(context),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 7,
+                backgroundColor: CategoryColors.forCategory(category),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(category,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis),
+              ),
+              Text(formatMoney(total),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$period · ${rows.length} transaction'
+            '${rows.length == 1 ? '' : 's'}',
+            style: TextStyle(color: mutedTextColor(context), fontSize: 13),
+          ),
+          const Divider(height: 20),
+          // Flexible + shrinkWrap keeps a short list compact but lets a long one
+          // scroll inside the sheet rather than overflow.
+          Flexible(
+            child: rows.isEmpty
+                ? Text('No transactions in this category.',
+                    style: TextStyle(color: mutedTextColor(context)))
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: rows.length,
+                    itemBuilder: (context, i) {
+                      final e = rows[i];
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                            e.description.isEmpty
+                                ? '(no description)'
+                                : e.description,
+                            overflow: TextOverflow.ellipsis),
+                        subtitle: Text(formatIsoDate(e.date)),
+                        trailing: Text(formatMoney(baseAmountOf(e)),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600)),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
