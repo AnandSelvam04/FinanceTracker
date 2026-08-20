@@ -3,15 +3,20 @@ import 'package:provider/provider.dart';
 
 import '../models/account.dart';
 import '../models/investment.dart';
+import '../models/recurring_rule.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
+import '../providers/recurring_provider.dart';
 import '../services/category_memory.dart';
 import '../services/db_service.dart';
+import '../services/recurring_detector.dart';
+import '../services/recurring_service.dart';
 import '../services/sms_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
+import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 
 /// The dropdown/segmented value that stands for "let me type my own", shared by
@@ -157,13 +162,23 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     // with its category already set.
     final memory =
         CategoryMemory.fromRows(await DBService().merchantCategoryCounts());
+    // Just over a year of history, so a monthly charge can be recognised across
+    // enough prior months to suggest turning it into a recurring rule.
+    final history = await DBService().getExpensesByDateRange(
+      now.subtract(const Duration(days: 400)),
+      now.add(const Duration(days: 1)),
+    );
     if (!mounted) return;
     setState(() {
       _permissionDenied = false;
       _drafts = [
         for (final p in found)
           SmsDraft.from(p, accountProvider.accounts,
-              existing: existing, memory: memory)
+              existing: existing,
+              memory: memory,
+              recurringSuggested: p.isExpense &&
+                  RecurringDetector.looksMonthly(
+                      p.description, p.amount, history, asOf: now))
       ];
       _loading = false;
     });
@@ -218,11 +233,17 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
     final investmentProvider = context.read<InvestmentProvider>();
+    final recurringProvider = context.read<RecurringProvider>();
 
     final investmentDrafts =
         chosen.where((d) => d.asInvestment).toList(growable: false);
     final txDrafts =
         chosen.where((d) => !d.asInvestment).toList(growable: false);
+    // A recurring rule only makes sense for a plain expense the user opted in
+    // on; an investment or transfer is excluded.
+    final recurringDrafts = chosen
+        .where((d) => d.createRecurring && !d.asInvestment && d.parsed.isExpense)
+        .toList(growable: false);
 
     setState(() => _importing = true);
     try {
@@ -236,6 +257,21 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
       // as seen instead, so a rescan does not offer it again.
       for (final d in investmentDrafts) {
         await investmentProvider.addInvestment(d.toInvestment());
+      }
+      // Create a monthly rule for each opted-in draft, due next month — this
+      // month's charge is the transaction just imported, so the rule must not
+      // post it a second time.
+      for (final d in recurringDrafts) {
+        await recurringProvider.addRule(RecurringRule(
+          description: d.description,
+          amount: d.parsed.amount,
+          category: d.category,
+          type: DbConstants.txExpense,
+          accountId: d.accountId,
+          frequency: DbConstants.freqMonthly,
+          nextDue: RecurringService.nextDate(
+              d.parsed.date, DbConstants.freqMonthly, d.parsed.date.day),
+        ));
       }
       // A collapsed pair posts one row but consumes two messages; the absorbed
       // one has to be marked seen or the next scan offers it on its own. An
@@ -255,9 +291,13 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
       await accountProvider.refreshBalances();
       if (!mounted) return;
       setState(() => _drafts.removeWhere((d) => d.selected));
+      final ruleNote = recurringDrafts.isEmpty
+          ? ''
+          : ' Added ${recurringDrafts.length} recurring '
+              'rule${recurringDrafts.length == 1 ? '' : 's'}.';
       messenger.showSnackBar(
         SnackBar(content: Text('Imported ${chosen.length} transaction'
-            '${chosen.length == 1 ? '' : 's'}.')),
+            '${chosen.length == 1 ? '' : 's'}.$ruleNote')),
       );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -267,8 +307,60 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
   }
 
   Future<void> _dismiss(SmsDraft draft) async {
+    final messenger = ScaffoldMessenger.of(context);
+    // Remember where it was so Undo can drop it back in place rather than at
+    // the end of the list.
+    final index = _drafts.indexOf(draft);
     setState(() => _drafts.remove(draft));
     await DBService().ignoreSourceRefs([draft.parsed.sourceRef]);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(SnackBar(
+      content: Text('Dismissed "${draft.description}".'),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          await DBService().unignoreSourceRefs([draft.parsed.sourceRef]);
+          if (!mounted) return;
+          setState(() => _drafts.insert(index.clamp(0, _drafts.length), draft));
+        },
+      ),
+    ));
+  }
+
+  /// Selects or clears every draft at once.
+  void _setAllSelected(bool selected) {
+    setState(() {
+      for (final d in _drafts) {
+        d.selected = selected;
+      }
+    });
+  }
+
+  /// Applies one account to every draft that has an account field (its source
+  /// account), so a queue of alerts from the same card doesn't need the
+  /// account picked row by row. Investments carry no account and are skipped.
+  Future<void> _applyAccountToAll() async {
+    final accounts = context.read<AccountProvider>().accounts;
+    if (accounts.isEmpty) return;
+    final chosen = await showDialog<int?>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Set account for all'),
+        children: [
+          for (final a in accounts)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, a.id),
+              child: Text(a.name),
+            ),
+        ],
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    setState(() {
+      for (final d in _drafts) {
+        if (!d.asInvestment) d.accountId = chosen;
+      }
+    });
   }
 
   Future<void> _showRawMessage(SmsDraft draft) async {
@@ -338,6 +430,18 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
                   onRetry: _scan)
               : Column(
                   children: [
+                    _BulkActionBar(
+                      total: _drafts.length,
+                      selected: selectedCount,
+                      onSelectAll: () => _setAllSelected(true),
+                      onSelectNone: () => _setAllSelected(false),
+                      onSetAccount: context
+                              .watch<AccountProvider>()
+                              .accounts
+                              .isEmpty
+                          ? null
+                          : _applyAccountToAll,
+                    ),
                     Expanded(
                       child: ListView.separated(
                         itemCount: _drafts.length,
@@ -693,6 +797,40 @@ class _DraftCardState extends State<_DraftCard> {
                   },
                 ),
               ),
+            // Offered only when the history says this charge repeats monthly and
+            // the draft is still a plain expense (an investment isn't modelled
+            // as a recurring rule).
+            if (draft.recurringSuggested &&
+                parsed.isExpense &&
+                !draft.asInvestment)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, top: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Checkbox(
+                        value: draft.createRecurring,
+                        onChanged: (v) {
+                          setState(() => draft.createRecurring = v ?? false);
+                          widget.onChanged();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Looks like a monthly subscription — also create a '
+                        'recurring rule.',
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.blueGrey),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 4),
             Padding(
               padding: const EdgeInsets.only(left: 8),
@@ -779,6 +917,53 @@ class _DraftCardState extends State<_DraftCard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The row above the queue that acts on every draft at once: select/clear all
+/// and apply one account to the whole batch.
+class _BulkActionBar extends StatelessWidget {
+  final int total;
+  final int selected;
+  final VoidCallback onSelectAll;
+  final VoidCallback onSelectNone;
+
+  /// Null disables the button (no accounts to choose from).
+  final VoidCallback? onSetAccount;
+
+  const _BulkActionBar({
+    required this.total,
+    required this.selected,
+    required this.onSelectAll,
+    required this.onSelectNone,
+    required this.onSetAccount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final allSelected = selected == total && total > 0;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 4, 0),
+      child: Row(
+        children: [
+          TextButton.icon(
+            icon: Icon(allSelected
+                ? Icons.check_box_outline_blank
+                : Icons.select_all),
+            label: Text(allSelected ? 'Clear all' : 'Select all'),
+            onPressed: allSelected ? onSelectNone : onSelectAll,
+          ),
+          Text('$selected of $total',
+              style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const Spacer(),
+          TextButton.icon(
+            icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
+            label: const Text('Set account'),
+            onPressed: onSetAccount,
+          ),
+        ],
       ),
     );
   }

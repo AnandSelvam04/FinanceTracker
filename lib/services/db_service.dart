@@ -559,6 +559,24 @@ class DBService {
     }
   }
 
+  /// Replaces one transaction with several that sum to it, in a single
+  /// transaction so a split can't leave the original deleted with no parts (or
+  /// the parts inserted with the original still there). The caller guarantees
+  /// the parts add up to the original amount.
+  Future<void> splitExpense(int originalId, List<Expense> parts) async {
+    if (parts.isEmpty) return;
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete(DbConstants.tableExpenses,
+          where: '${DbConstants.colId} = ?', whereArgs: [originalId]);
+      final batch = txn.batch();
+      for (final e in parts) {
+        batch.insert(DbConstants.tableExpenses, e.toMap());
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
   Future<List<Expense>> getExpenses() async {
     final db = await database;
     try {
