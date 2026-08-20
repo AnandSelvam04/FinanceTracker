@@ -18,6 +18,9 @@ class Investment {
   /// Sentinel value for the dropdown entry that reveals the custom-type field.
   static const String otherType = 'Other';
 
+  /// The type a new contribution starts on when none is chosen.
+  static const String defaultType = 'Stocks';
+
   final int? id;
   final String name;
 

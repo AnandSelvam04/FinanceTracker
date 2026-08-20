@@ -4,6 +4,7 @@ import 'package:another_telephony/telephony.dart';
 
 import '../models/account.dart';
 import '../models/expense.dart';
+import '../models/investment.dart';
 import '../services/db_service.dart';
 import '../utils/app_logger.dart';
 import 'category_memory.dart';
@@ -63,19 +64,30 @@ class SmsService {
   ///
   /// Drops anything already imported or previously dismissed, so calling this
   /// repeatedly never re-offers the same message. Newest first.
+  ///
+  /// The scanned window is the last [window] by default. Pass [from] (and
+  /// optionally [to]) to scan an explicit date range instead — the review
+  /// screen uses this so a user who missed the two-day default can still pull
+  /// in older messages. Pass [includeDismissed] to surface messages the user
+  /// rejected earlier, so a wrongly dismissed one can be recovered.
   static Future<List<ParsedSms>> scan({
     Duration window = defaultWindow,
     DateTime? now,
+    DateTime? from,
+    DateTime? to,
+    bool includeDismissed = false,
   }) async {
     // Checked here as well as at the permission gate, so no code path can read
     // the inbox while the setting is off.
     if (!isSupported || !enabled) return const [];
-    final cutoff = (now ?? DateTime.now()).subtract(window);
-    final seen = await DBService().existingSourceRefs();
+    final lower = from ?? (now ?? DateTime.now()).subtract(window);
+    final seen =
+        await DBService().existingSourceRefs(includeIgnored: !includeDismissed);
 
     final parsed = <ParsedSms>[];
     for (final sms in await _inbox()) {
-      if (sms.receivedAt.isBefore(cutoff)) continue;
+      if (sms.receivedAt.isBefore(lower)) continue;
+      if (to != null && sms.receivedAt.isAfter(to)) continue;
       final candidate = SmsImport.parse(
         sender: sms.sender,
         body: sms.body,
@@ -143,6 +155,15 @@ class SmsDraft {
   String category;
   bool selected;
 
+  /// When true, this debit is recorded as a contribution to the investments
+  /// ledger (a SIP, a stock purchase) instead of as spending. Only offered for
+  /// plain expense drafts — see [canBeInvestment].
+  bool asInvestment;
+
+  /// The instrument an investment draft is filed under (Stocks, Mutual Funds,
+  /// …). Ignored unless [asInvestment] is set.
+  String investmentType;
+
   /// A hand-entered transaction this message appears to duplicate. Set means
   /// the draft starts unselected — importing it would record the same spend
   /// twice.
@@ -160,9 +181,16 @@ class SmsDraft {
     this.selected = true,
     this.duplicateOf,
     this.recalledCategory,
+    this.asInvestment = false,
+    this.investmentType = Investment.defaultType,
   });
 
   bool get isTransfer => parsed.isTransfer;
+
+  /// Whether the user may reclassify this draft as an investment. Only a plain
+  /// debit qualifies — an incoming credit or a transfer between accounts is not
+  /// money being invested.
+  bool get canBeInvestment => parsed.isExpense;
 
   /// A transfer needs both ends to post correctly; without a destination it
   /// would debit the source and credit nothing.
@@ -198,5 +226,15 @@ class SmsDraft {
         accountId: accountId,
         category: category,
         toAccountId: toAccountId,
+      );
+
+  /// The draft as a contribution ready to insert into the investments ledger.
+  /// The message's merchant/description names the holding, the parsed amount
+  /// and date carry over, and [investmentType] picks the instrument.
+  Investment toInvestment() => Investment(
+        name: parsed.description,
+        amount: parsed.amount,
+        date: parsed.date,
+        type: investmentType,
       );
 }

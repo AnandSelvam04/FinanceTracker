@@ -597,6 +597,105 @@ void main() {
     });
   });
 
+  group('custom scan range', () {
+    test('an explicit from/to window bounds what is offered', () async {
+      SmsService.inboxOverride = () async => [
+            sms('Rs.100 debited from A/c XX4821 to INRANGE', daysAgo: 5),
+            sms('Rs.200 debited from A/c XX4821 to TOONEW', daysAgo: 1),
+            sms('Rs.300 debited from A/c XX4821 to TOOOLD', daysAgo: 20),
+          ];
+
+      final found = await SmsService.scan(
+        now: now,
+        from: now.subtract(const Duration(days: 7)),
+        to: now.subtract(const Duration(days: 3)),
+      );
+      expect(found.map((f) => f.description), ['INRANGE']);
+    });
+
+    test('a from earlier than the default window reaches older messages',
+        () async {
+      SmsService.inboxOverride = () async =>
+          [sms('Rs.100 debited from A/c XX4821 to LASTWEEK', daysAgo: 6)];
+
+      // The two-day default misses it...
+      expect(await SmsService.scan(now: now), isEmpty);
+      // ...but a wider explicit start pulls it in.
+      final found = await SmsService.scan(
+          now: now, from: now.subtract(const Duration(days: 10)));
+      expect(found.map((f) => f.description), ['LASTWEEK']);
+    });
+  });
+
+  group('recovering dismissed messages', () {
+    test('a dismissed message returns only when asked for', () async {
+      SmsService.inboxOverride =
+          () async => [sms('Rs.499 debited from A/c XX4821 to SWIGGY')];
+
+      final first = await SmsService.scan(now: now);
+      await DBService().ignoreSourceRefs([first.single.sourceRef]);
+
+      // The normal scan still hides it.
+      expect(await SmsService.scan(now: now), isEmpty);
+      // Opting in surfaces it again so it can be imported.
+      final recovered =
+          await SmsService.scan(now: now, includeDismissed: true);
+      expect(recovered.map((f) => f.description), ['SWIGGY']);
+    });
+
+    test('an already-imported message stays hidden even with dismissed shown',
+        () async {
+      SmsService.inboxOverride =
+          () async => [sms('Rs.499 debited from A/c XX4821 to SWIGGY')];
+      final parsed = (await SmsService.scan(now: now)).single;
+      await DBService()
+          .insertExpenses([parsed.toExpense(accountId: null, category: 'Food')]);
+
+      expect(
+          await SmsService.scan(now: now, includeDismissed: true), isEmpty);
+    });
+
+    test('unignoreSourceRefs clears a rejection', () async {
+      SmsService.inboxOverride =
+          () async => [sms('Rs.499 debited from A/c XX4821 to SWIGGY')];
+      final ref = (await SmsService.scan(now: now)).single.sourceRef;
+
+      await DBService().ignoreSourceRefs([ref]);
+      expect(await DBService().existingSourceRefs(), contains(ref));
+
+      await DBService().unignoreSourceRefs([ref]);
+      expect(await DBService().existingSourceRefs(), isNot(contains(ref)));
+      // With the rejection gone, an ordinary scan offers it once more.
+      expect((await SmsService.scan(now: now)).length, 1);
+    });
+  });
+
+  group('importing as an investment', () {
+    test('a debit draft can be filed as a contribution', () async {
+      SmsService.inboxOverride = () async =>
+          [sms('Rs.5,000 debited from A/c XX4821 to GROWW', daysAgo: 1)];
+      final parsed = (await SmsService.scan(now: now)).single;
+      final draft = SmsDraft.from(parsed, const [])
+        ..asInvestment = true
+        ..investmentType = 'Mutual Funds';
+
+      expect(draft.canBeInvestment, isTrue);
+      final investment = draft.toInvestment();
+      expect(investment.amount, 500000);
+      expect(investment.type, 'Mutual Funds');
+      expect(investment.name, 'GROWW');
+      expect(investment.date, parsed.date);
+    });
+
+    test('an income draft cannot be reclassified as an investment', () async {
+      SmsService.inboxOverride =
+          () async => [sms('INR 45,000 credited to A/c XX4821. Info: SALARY')];
+      final draft =
+          SmsDraft.from((await SmsService.scan(now: now)).single, const []);
+      expect(draft.canBeInvestment, isFalse);
+    });
+  });
+
   group('the two-day window', () {
     test('yesterday is in range', () async {
       SmsService.inboxOverride = () async =>
