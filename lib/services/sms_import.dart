@@ -504,14 +504,16 @@ class ParsedSms {
     return matches.length == 1 ? matches.first : null;
   }
 
-  /// The draft as a transaction ready to insert.
+  /// The draft as a transaction ready to insert. [description] overrides the
+  /// parsed merchant/sender when the user edited it on the review screen.
   Expense toExpense({
     required int? accountId,
     required String category,
     int? toAccountId,
+    String? description,
   }) =>
       Expense(
-        description: description,
+        description: description ?? this.description,
         amount: amount,
         date: date,
         category: category,

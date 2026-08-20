@@ -482,11 +482,19 @@ class _DraftCardState extends State<_DraftCard> {
 
   final _customCategory = TextEditingController();
   final _customInvestType = TextEditingController();
+  final _description = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _description.text = widget.draft.description;
+  }
 
   @override
   void dispose() {
     _customCategory.dispose();
     _customInvestType.dispose();
+    _description.dispose();
     super.dispose();
   }
 
@@ -599,10 +607,20 @@ class _DraftCardState extends State<_DraftCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(parsed.description,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 15),
-                          overflow: TextOverflow.ellipsis),
+                      // Editable: the parsed merchant/sender is only a guess,
+                      // so the user can give the row a name they recognise
+                      // before it is posted.
+                      TextField(
+                        controller: _description,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.only(bottom: 2),
+                          hintText: 'Description',
+                        ),
+                        onChanged: (v) => draft.description = v,
+                      ),
                       Text(
                         '${formatIsoDate(parsed.date)} · ${parsed.sender}'
                         '${parsed.last4 != null ? ' · ••${parsed.last4}' : ''}',

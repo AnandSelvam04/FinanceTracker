@@ -696,6 +696,36 @@ void main() {
     });
   });
 
+  group('editing the description', () {
+    test('defaults to the parsed merchant', () async {
+      SmsService.inboxOverride =
+          () async => [sms('Rs.499 debited from A/c XX4821 to SWIGGY')];
+      final draft =
+          SmsDraft.from((await SmsService.scan(now: now)).single, const []);
+      expect(draft.description, 'SWIGGY');
+    });
+
+    test('an edited description is what gets saved on an expense', () async {
+      SmsService.inboxOverride =
+          () async => [sms('Rs.499 debited from A/c XX4821 to SWIGGY')];
+      final draft =
+          SmsDraft.from((await SmsService.scan(now: now)).single, const [])
+            ..description = 'Team lunch';
+      expect(draft.toExpense().description, 'Team lunch');
+    });
+
+    test('an edited description names the investment holding', () async {
+      SmsService.inboxOverride =
+          () async => [sms('Rs.5,000 debited from A/c XX4821 to GROWW')];
+      final draft =
+          SmsDraft.from((await SmsService.scan(now: now)).single, const [])
+            ..asInvestment = true
+            ..investmentType = 'Mutual Funds'
+            ..description = 'Nifty index SIP';
+      expect(draft.toInvestment().name, 'Nifty index SIP');
+    });
+  });
+
   group('the two-day window', () {
     test('yesterday is in range', () async {
       SmsService.inboxOverride = () async =>

@@ -155,6 +155,11 @@ class SmsDraft {
   String category;
   bool selected;
 
+  /// The label this row is saved under. Starts from the parsed merchant/sender
+  /// but is editable on the review screen, so a cryptic "UPI/..." can be given
+  /// a name the user recognises before it is posted.
+  String description;
+
   /// When true, this debit is recorded as a contribution to the investments
   /// ledger (a SIP, a stock purchase) instead of as spending. Only offered for
   /// plain expense drafts — see [canBeInvestment].
@@ -178,12 +183,13 @@ class SmsDraft {
     required this.accountId,
     this.toAccountId,
     required this.category,
+    String? description,
     this.selected = true,
     this.duplicateOf,
     this.recalledCategory,
     this.asInvestment = false,
     this.investmentType = Investment.defaultType,
-  });
+  }) : description = description ?? parsed.description;
 
   bool get isTransfer => parsed.isTransfer;
 
@@ -226,13 +232,14 @@ class SmsDraft {
         accountId: accountId,
         category: category,
         toAccountId: toAccountId,
+        description: description,
       );
 
   /// The draft as a contribution ready to insert into the investments ledger.
-  /// The message's merchant/description names the holding, the parsed amount
-  /// and date carry over, and [investmentType] picks the instrument.
+  /// The (possibly edited) description names the holding, the parsed amount and
+  /// date carry over, and [investmentType] picks the instrument.
   Investment toInvestment() => Investment(
-        name: parsed.description,
+        name: description,
         amount: parsed.amount,
         date: parsed.date,
         type: investmentType,
