@@ -537,6 +537,37 @@ class _QuickAddRow extends StatelessWidget {
   final Future<void> Function(TxTemplate template) onQuickAdd;
   const _QuickAddRow({required this.onQuickAdd});
 
+  /// Confirms before dropping a saved quick-add shortcut. Deleting the
+  /// template only removes the one-tap shortcut — transactions already added
+  /// from it are untouched.
+  Future<void> _confirmDelete(
+      BuildContext context, TemplateProvider provider, TxTemplate template) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete quick add?'),
+        content: Text('Remove "${template.name}" from your quick-add '
+            'shortcuts? Transactions you already added are not affected.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await provider.deleteTemplate(template.id!);
+    messenger.showSnackBar(
+      SnackBar(content: Text('Deleted quick add "${template.name}"')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<TemplateProvider>(
@@ -558,11 +589,19 @@ class _QuickAddRow extends StatelessWidget {
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (context, index) {
                     final template = templates[index];
-                    return ActionChip(
+                    // Tap the chip to add; the delete "x" removes the shortcut
+                    // (after a confirm), so a quick-add saved by mistake or no
+                    // longer used can be cleared.
+                    return InputChip(
                       avatar: const Icon(Icons.bolt, size: 18),
                       label: Text(
                           '${template.name} · ${formatMoneyRounded(template.amount)}'),
                       onPressed: () => onQuickAdd(template),
+                      onDeleted: template.id == null
+                          ? null
+                          : () => _confirmDelete(context, provider, template),
+                      deleteIcon: const Icon(Icons.close, size: 18),
+                      deleteButtonTooltipMessage: 'Delete quick add',
                     );
                   },
                 ),
