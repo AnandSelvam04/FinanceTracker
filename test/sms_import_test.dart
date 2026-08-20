@@ -171,6 +171,60 @@ void main() {
     test('an empty body is rejected', () => expect(parse('   '), isNull));
   });
 
+  group('more real-world templates', () {
+    test('ATM withdrawal is an expense on the account', () {
+      final r = parse('Rs.3,000 withdrawn from A/c XX4821 at ATM on '
+          '01-Aug-25. Avl Bal Rs.5,000')!;
+      expect(r.type, DbConstants.txExpense);
+      expect(r.amount, 300000);
+      expect(r.last4, '4821');
+    });
+
+    test('a UPI debit with a "UPI:" handle names the payee', () {
+      final r = parse('Rs.199 debited from A/c XX4821 UPI:netflix@ybl')!;
+      expect(r.type, DbConstants.txExpense);
+      expect(r.amount, 19900);
+      expect(r.description, 'netflix@ybl');
+      expect(r.last4, '4821');
+    });
+
+    test('a refund credited back is income', () {
+      final r = parse('Rs.750 refunded to A/c XX4821 by AMAZON on 01-Aug-25')!;
+      expect(r.type, DbConstants.txIncome);
+      expect(r.amount, 75000);
+      expect(r.last4, '4821');
+    });
+
+    test('a deposit is income', () {
+      final r = parse('INR 10,000 deposited to A/c XX4821 on 01-Aug-25')!;
+      expect(r.type, DbConstants.txIncome);
+      expect(r.amount, 1000000);
+      expect(r.last4, '4821');
+    });
+
+    test('a "Dear Customer" preamble does not swallow the transaction', () {
+      final r = parse('Dear Customer, Rs.1,200 debited from your A/c XX3344 '
+          'on 02-Aug-25. -SBI')!;
+      expect(r.type, DbConstants.txExpense);
+      expect(r.amount, 120000);
+      expect(r.last4, '3344');
+    });
+
+    test('a SIP debit parses as an expense (user can mark it investment)', () {
+      final r = parse('Rs.5,000 debited from A/c XX4821 towards SIP GROWW '
+          'on 01-Aug-25')!;
+      expect(r.type, DbConstants.txExpense);
+      expect(r.amount, 500000);
+      expect(r.description, 'SIP GROWW');
+    });
+
+    test('a deducted charge is an expense', () {
+      final r = parse('Rs.590 deducted from A/c XX4821 for ANNUAL FEE')!;
+      expect(r.type, DbConstants.txExpense);
+      expect(r.amount, 59000);
+    });
+  });
+
   group('sourceRef', () {
     test('is stable for the same message', () {
       final a = SmsImport.sourceRefFor('VM-HDFCBK', received, 'Rs.10 debited');

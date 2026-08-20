@@ -267,8 +267,60 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
   }
 
   Future<void> _dismiss(SmsDraft draft) async {
+    final messenger = ScaffoldMessenger.of(context);
+    // Remember where it was so Undo can drop it back in place rather than at
+    // the end of the list.
+    final index = _drafts.indexOf(draft);
     setState(() => _drafts.remove(draft));
     await DBService().ignoreSourceRefs([draft.parsed.sourceRef]);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(SnackBar(
+      content: Text('Dismissed "${draft.description}".'),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          await DBService().unignoreSourceRefs([draft.parsed.sourceRef]);
+          if (!mounted) return;
+          setState(() => _drafts.insert(index.clamp(0, _drafts.length), draft));
+        },
+      ),
+    ));
+  }
+
+  /// Selects or clears every draft at once.
+  void _setAllSelected(bool selected) {
+    setState(() {
+      for (final d in _drafts) {
+        d.selected = selected;
+      }
+    });
+  }
+
+  /// Applies one account to every draft that has an account field (its source
+  /// account), so a queue of alerts from the same card doesn't need the
+  /// account picked row by row. Investments carry no account and are skipped.
+  Future<void> _applyAccountToAll() async {
+    final accounts = context.read<AccountProvider>().accounts;
+    if (accounts.isEmpty) return;
+    final chosen = await showDialog<int?>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Set account for all'),
+        children: [
+          for (final a in accounts)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, a.id),
+              child: Text(a.name),
+            ),
+        ],
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    setState(() {
+      for (final d in _drafts) {
+        if (!d.asInvestment) d.accountId = chosen;
+      }
+    });
   }
 
   Future<void> _showRawMessage(SmsDraft draft) async {
@@ -338,6 +390,18 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
                   onRetry: _scan)
               : Column(
                   children: [
+                    _BulkActionBar(
+                      total: _drafts.length,
+                      selected: selectedCount,
+                      onSelectAll: () => _setAllSelected(true),
+                      onSelectNone: () => _setAllSelected(false),
+                      onSetAccount: context
+                              .watch<AccountProvider>()
+                              .accounts
+                              .isEmpty
+                          ? null
+                          : _applyAccountToAll,
+                    ),
                     Expanded(
                       child: ListView.separated(
                         itemCount: _drafts.length,
@@ -779,6 +843,53 @@ class _DraftCardState extends State<_DraftCard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The row above the queue that acts on every draft at once: select/clear all
+/// and apply one account to the whole batch.
+class _BulkActionBar extends StatelessWidget {
+  final int total;
+  final int selected;
+  final VoidCallback onSelectAll;
+  final VoidCallback onSelectNone;
+
+  /// Null disables the button (no accounts to choose from).
+  final VoidCallback? onSetAccount;
+
+  const _BulkActionBar({
+    required this.total,
+    required this.selected,
+    required this.onSelectAll,
+    required this.onSelectNone,
+    required this.onSetAccount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final allSelected = selected == total && total > 0;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 4, 0),
+      child: Row(
+        children: [
+          TextButton.icon(
+            icon: Icon(allSelected
+                ? Icons.check_box_outline_blank
+                : Icons.select_all),
+            label: Text(allSelected ? 'Clear all' : 'Select all'),
+            onPressed: allSelected ? onSelectNone : onSelectAll,
+          ),
+          Text('$selected of $total',
+              style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const Spacer(),
+          TextButton.icon(
+            icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
+            label: const Text('Set account'),
+            onPressed: onSetAccount,
+          ),
+        ],
       ),
     );
   }
