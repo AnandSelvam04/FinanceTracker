@@ -29,11 +29,15 @@ class _ExpenseChartState extends State<ExpenseChart> {
   @override
   Widget build(BuildContext context) {
     final entries = widget.totals.entries.toList();
+    final total = entries.fold<int>(0, (s, e) => s + e.value);
+    // A slice smaller than this shows no on-slice label — the text would spill
+    // over its neighbours. It's still coloured, tappable, and named on touch.
+    bool labelled(int value) => total > 0 && value / total >= 0.06;
     final sections = [
       for (var i = 0; i < entries.length; i++)
         PieChartSectionData(
           value: entries[i].value.toDouble(),
-          title: entries[i].key,
+          title: labelled(entries[i].value) ? entries[i].key : '',
           color: CategoryColors.forCategory(entries[i].key),
           // Wide slices with a small hole, so most of the pie is a tap target
           // rather than a thin ring around a big empty centre.

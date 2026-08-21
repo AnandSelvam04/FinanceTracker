@@ -1,6 +1,15 @@
 import '../utils/db_constants.dart';
 
 class Budget {
+  /// Sentinel [category] for the single overall monthly budget — a cap on all
+  /// spending for a month, not tied to one category. Stored in the same table
+  /// as category budgets; the double-underscore keeps it from colliding with a
+  /// real category name.
+  static const String overallCategory = '__overall__';
+
+  /// Label shown for the overall budget in the UI.
+  static const String overallLabel = 'Total (all categories)';
+
   int? id;
   String category;
 
@@ -8,6 +17,9 @@ class Budget {
   int amount;
   int year;
   int month;
+
+  /// Whether this is the overall monthly cap rather than a per-category one.
+  bool get isOverall => category == overallCategory;
 
   Budget({
     this.id,

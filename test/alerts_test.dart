@@ -33,6 +33,24 @@ void main() {
       expect(alerts.last.isOver, isFalse);
     });
 
+    test('never surfaces the overall cap as a category alert', () {
+      // The overall monthly budget is shown on its own, so even when it is
+      // well over it must not appear in the per-category alert list.
+      final alerts = budgetAlerts(
+        budgets: [
+          Budget(
+              category: Budget.overallCategory,
+              amount: 10000,
+              year: 2026,
+              month: 7),
+        ],
+        year: 2026,
+        month: 7,
+        spentForCategory: (_) => 99999,
+      );
+      expect(alerts, isEmpty);
+    });
+
     test('ignores budgets with a zero cap', () {
       final alerts = budgetAlerts(
         budgets: [Budget(category: 'X', amount: 0, year: 2026, month: 7)],
