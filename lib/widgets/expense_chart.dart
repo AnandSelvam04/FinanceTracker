@@ -35,7 +35,9 @@ class _ExpenseChartState extends State<ExpenseChart> {
           value: entries[i].value.toDouble(),
           title: entries[i].key,
           color: CategoryColors.forCategory(entries[i].key),
-          radius: i == _touchedIndex ? 70 : 60,
+          // Wide slices with a small hole, so most of the pie is a tap target
+          // rather than a thin ring around a big empty centre.
+          radius: i == _touchedIndex ? 100 : 90,
           titleStyle: TextStyle(
             fontSize: i == _touchedIndex ? 13 : 12,
             color: Colors.white,
@@ -54,7 +56,7 @@ class _ExpenseChartState extends State<ExpenseChart> {
         child: PieChart(
           PieChartData(
             sections: sections,
-            centerSpaceRadius: 40,
+            centerSpaceRadius: 24,
             sectionsSpace: 2,
             pieTouchData: PieTouchData(
               enabled: tappable,
