@@ -40,15 +40,37 @@ class _BackupsScreenState extends State<BackupsScreen> {
   bool _isWorking = false;
   DateTime? _lastBackup;
 
+  /// Email of the Google account signed in for Drive, or null when nobody is.
+  String? _driveEmail;
+
   @override
   void initState() {
     super.initState();
     _loadLastBackup();
+    _loadDriveAccount();
   }
 
   Future<void> _loadLastBackup() async {
     final t = await _backupService.lastBackupTime();
     if (mounted) setState(() => _lastBackup = t);
+  }
+
+  Future<void> _loadDriveAccount() async {
+    final email = await _backupService.currentDriveAccountEmail();
+    if (mounted) setState(() => _driveEmail = email);
+  }
+
+  Future<void> _switchDriveAccount() async {
+    await _backupService.signOutDrive();
+    if (mounted) setState(() => _driveEmail = null);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Signed out of Google Drive. The next backup will ask which '
+                'account to use.')),
+      );
+    }
   }
 
   /// A restore that turned out to contain nothing, which the user then
@@ -338,6 +360,9 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         }
                         await _runTask(
                             _backupService.backupToDrive, 'Backed up to Drive');
+                        // Signing in during the backup may have established the
+                        // account — show it.
+                        await _loadDriveAccount();
                       } finally {
                         if (mounted) setState(() => _isWorking = false);
                       }
@@ -348,12 +373,42 @@ class _BackupsScreenState extends State<BackupsScreen> {
               label: const Text('Restore from Google Drive'),
               onPressed: _isWorking
                   ? null
-                  : () => _restore(
-                      _backupService.restoreFromDrive, 'Restored from Drive'),
+                  : () async {
+                      await _restore(_backupService.restoreFromDrive,
+                          'Restored from Drive');
+                      await _loadDriveAccount();
+                    },
             ),
             const SizedBox(height: 4),
+            // Which Google account holds the backup, and where it lives.
+            if (_driveEmail != null)
+              Row(
+                children: [
+                  const Icon(Icons.account_circle, size: 18, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text('Backs up to $_driveEmail',
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey)),
+                  ),
+                  TextButton(
+                    onPressed: _isWorking ? null : _switchDriveAccount,
+                    child: const Text('Switch account'),
+                  ),
+                ],
+              )
+            else
+              Text(
+                'Not signed in to Google Drive yet — the first backup will ask '
+                'which account to use.',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            const SizedBox(height: 4),
             Text(
-              'Google Drive requires a one-time sign-in setup in the build. If it fails, your data is still safe in local backups below.',
+              'The backup is stored privately in that account\'s Google Drive '
+              '(app data) — it is not visible in "My Drive", and only this app '
+              'can read it. Drive needs a one-time sign-in setup in the build; '
+              'if it fails, your data is still safe in local backups below.',
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const Divider(height: 32),
