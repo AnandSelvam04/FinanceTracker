@@ -17,6 +17,10 @@ class RecurringRule {
   final int anchorDay;
   final bool enabled;
 
+  /// Last date the rule posts on (inclusive), or null to repeat indefinitely.
+  /// Once nextDue passes this, the rule stops and is disabled.
+  final DateTime? endDate;
+
   RecurringRule({
     this.id,
     required this.description,
@@ -28,6 +32,7 @@ class RecurringRule {
     required this.nextDue,
     int? anchorDay,
     this.enabled = true,
+    this.endDate,
   }) : anchorDay = anchorDay ?? nextDue.day;
 
   static const frequencies = [
@@ -48,6 +53,7 @@ class RecurringRule {
         nextDue: nextDue ?? this.nextDue,
         anchorDay: anchorDay,
         enabled: enabled ?? this.enabled,
+        endDate: endDate,
       );
 
   Map<String, dynamic> toMap() => {
@@ -61,6 +67,7 @@ class RecurringRule {
         DbConstants.colNextDue: nextDue.toIso8601String(),
         DbConstants.colAnchorDay: anchorDay,
         DbConstants.colEnabled: enabled ? 1 : 0,
+        DbConstants.colEndDate: endDate?.toIso8601String(),
       };
 
   factory RecurringRule.fromMap(Map<String, dynamic> map) => RecurringRule(
@@ -74,5 +81,9 @@ class RecurringRule {
         nextDue: DateTime.parse(map[DbConstants.colNextDue]),
         anchorDay: map[DbConstants.colAnchorDay],
         enabled: (map[DbConstants.colEnabled] ?? 1) == 1,
+        // Rows/backups from before schema v11 have no endDate column.
+        endDate: map[DbConstants.colEndDate] == null
+            ? null
+            : DateTime.tryParse(map[DbConstants.colEndDate] as String),
       );
 }

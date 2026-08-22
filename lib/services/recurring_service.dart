@@ -47,6 +47,13 @@ class RecurringService {
         date.microsecond,
       );
 
+  /// The last instant of [d]'s calendar day, so an end date is inclusive of
+  /// occurrences scheduled at any time on that day.
+  static DateTime _endOfDay(DateTime d) =>
+      DateTime(d.year, d.month, d.day, 23, 59, 59);
+
+  static DateTime _minDate(DateTime a, DateTime b) => a.isBefore(b) ? a : b;
+
   static DateTime _addMonths(DateTime date, int months, int anchorDay) {
     final targetMonthIndex = date.year * 12 + (date.month - 1) + months;
     final year = targetMonthIndex ~/ 12;
@@ -81,10 +88,14 @@ class RecurringService {
 
       for (final rule in rules) {
         if (!rule.enabled) continue;
+        // Never post past the rule's end date (inclusive of that whole day).
+        final endLimit = rule.endDate == null
+            ? endOfToday
+            : _minDate(_endOfDay(rule.endDate!), endOfToday);
         var due = rule.nextDue;
         // Catch-up: materialize one transaction per elapsed period.
         final occurrences = <Expense>[];
-        while (!due.isAfter(endOfToday) &&
+        while (!due.isAfter(endLimit) &&
             occurrences.length < maxOccurrencesPerRun) {
           occurrences.add(Expense(
             description: rule.description,
@@ -97,11 +108,21 @@ class RecurringService {
           ));
           due = nextDate(due, rule.frequency, rule.anchorDay);
         }
-        if (occurrences.isEmpty) continue;
+        // The rule is done once its next occurrence would fall past the end
+        // date; disable it so it stops being considered on later launches.
+        final finished = rule.endDate != null &&
+            due.isAfter(_endOfDay(rule.endDate!));
+        if (occurrences.isEmpty) {
+          if (finished) {
+            await db.postRecurringOccurrences(
+                const [], rule.copyWith(nextDue: due, enabled: false));
+          }
+          continue;
+        }
         // Insert the occurrences and advance nextDue in one transaction so a
         // crash in between can't double-post them on the next launch.
-        await db.postRecurringOccurrences(
-            occurrences, rule.copyWith(nextDue: due));
+        await db.postRecurringOccurrences(occurrences,
+            rule.copyWith(nextDue: due, enabled: finished ? false : null));
         posted += occurrences.length;
       }
       return posted;

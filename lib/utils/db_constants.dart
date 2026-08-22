@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 10;
+  static const int dbVersion = 11;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -68,6 +68,9 @@ class DbConstants {
   static const String colNextDue = 'nextDue';
   static const String colAnchorDay = 'anchorDay';
   static const String colEnabled = 'enabled';
+  // Optional last date a recurring rule posts on. Null = no end (repeats
+  // indefinitely). Added in schema v11.
+  static const String colEndDate = 'endDate';
 
   // Templates Table
   static const String tableTemplates = 'templates';
