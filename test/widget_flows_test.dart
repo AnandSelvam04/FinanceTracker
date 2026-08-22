@@ -65,6 +65,16 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+    // A screen's initState re-loads from the database (e.g. RecurringScreen
+    // calls fetchAccounts). That call is started during the fake-zone pump
+    // above, so the ffi background-isolate reply never lands and sqflite's
+    // 10s lock-timeout timer stays pending — which fails the test at teardown
+    // with "A Timer is still pending". Give the real event loop a moment to
+    // deliver the reply, then pump so the fake-zone continuation runs and the
+    // timer is cancelled before the tree is disposed.
+    await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pump();
   }
 
   // Unmounts whatever is on screen so the widget (and its providers'
