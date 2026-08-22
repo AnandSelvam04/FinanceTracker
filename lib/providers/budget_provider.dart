@@ -35,4 +35,21 @@ class BudgetProvider extends ChangeNotifier {
     );
     return budget.amount;
   }
+
+  /// The overall monthly cap (all categories) for [year]/[month] in minor
+  /// units, or 0 when none is set.
+  int overallBudget(int year, int month) =>
+      getBudgetForCategory(year, month, Budget.overallCategory);
+
+  /// The stored overall-budget row for [year]/[month], or null when unset.
+  Budget? overallBudgetRow(int year, int month) {
+    for (final b in _budgets) {
+      if (b.year == year && b.month == month && b.isOverall) return b;
+    }
+    return null;
+  }
+
+  /// Per-category budgets only (excludes the overall cap), for list rendering.
+  List<Budget> get categoryBudgets =>
+      _budgets.where((b) => !b.isOverall).toList();
 }

@@ -477,6 +477,13 @@ class _DashboardView extends StatelessWidget {
                             selectedYear, selectedMonth),
                         income: monthlyIncome,
                       ),
+                      _LeftToSpend(
+                        cap: context
+                            .watch<BudgetProvider>()
+                            .overallBudget(selectedYear, selectedMonth),
+                        spent: provider.totalForMonth(
+                            selectedYear, selectedMonth),
+                      ),
                       const SizedBox(height: 12),
                       SizedBox(
                         height: 250,
@@ -654,6 +661,36 @@ class _TotalHeadline extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// One line under the month total showing how much of the overall monthly
+/// budget is left (or how far over it is). Renders nothing when no overall
+/// budget is set for the month.
+class _LeftToSpend extends StatelessWidget {
+  /// Overall cap and spend for the month, in base-currency minor units.
+  final int cap;
+  final int spent;
+  const _LeftToSpend({required this.cap, required this.spent});
+
+  @override
+  Widget build(BuildContext context) {
+    if (cap <= 0) return const SizedBox.shrink();
+    final left = cap - spent;
+    final over = left < 0;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        over
+            ? 'Over budget by ${formatMoney(-left)}'
+            : '${formatMoney(left)} left to spend',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: over ? expenseColor(context) : incomeColor(context),
+        ),
+      ),
     );
   }
 }

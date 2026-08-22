@@ -66,6 +66,8 @@ List<BudgetAlert> budgetAlerts({
 }) {
   final alerts = <BudgetAlert>[];
   for (final b in budgets) {
+    // The overall monthly cap is surfaced on its own, not as a category alert.
+    if (b.isOverall) continue;
     if (b.year != year || b.month != month || b.amount <= 0) continue;
     final spent = spentForCategory(b.category);
     if (spent / b.amount >= warnAt) {
