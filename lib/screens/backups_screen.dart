@@ -302,6 +302,53 @@ class _BackupsScreenState extends State<BackupsScreen> {
     }
   }
 
+  /// Verifies the local backup is restorable and shows the row counts (or the
+  /// reason it isn't), without touching the live database.
+  Future<void> _verifyBackup() async {
+    setState(() => _isWorking = true);
+    final result = await _backupService.verifyLocalBackup();
+    if (!mounted) return;
+    setState(() => _isWorking = false);
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(result.ok ? 'Backup looks good' : 'Backup problem'),
+        content: result.ok
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Your local backup opened and every row is intact — '
+                      '${result.total} row${result.total == 1 ? '' : 's'} '
+                      'total:'),
+                  const SizedBox(height: 8),
+                  for (final e in result.counts.entries)
+                    if (e.value > 0)
+                      Text('• ${_prettyTable(e.key)}: ${e.value}'),
+                ],
+              )
+            : Text(result.error ?? 'Could not verify the backup.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _prettyTable(String table) {
+    switch (table) {
+      case 'expenses':
+        return 'Transactions';
+      case 'recurring_rules':
+        return 'Recurring rules';
+      default:
+        return '${table[0].toUpperCase()}${table.substring(1)}';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -432,6 +479,17 @@ class _BackupsScreenState extends State<BackupsScreen> {
                       ({bool allowEmpty = false}) => _backupService
                           .restoreFromJson(allowEmpty: allowEmpty),
                       'Restored from local JSON'),
+            ),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.fact_check_outlined),
+              label: const Text('Verify last backup'),
+              onPressed: _isWorking ? null : _verifyBackup,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Checks the local backup opens, decrypts, and every row is intact '
+              '— so you know it would actually restore.',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const Divider(height: 32),
             Text(
