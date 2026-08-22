@@ -284,9 +284,17 @@ class DBService {
     if (oldVersion < 11) {
       // Optional end date for recurring rules. Added after the v9 rebuild (see
       // _migrateAmountsToInteger, which recreates recurring_rules without this
-      // column) so the ALTER never hits a duplicate column.
-      await db.execute(
-          'ALTER TABLE ${DbConstants.tableRecurringRules} ADD COLUMN ${DbConstants.colEndDate} TEXT');
+      // column) so the ALTER never hits a duplicate column. Guarded on the
+      // table existing: some databases reached this point without it (a v9
+      // rebuild skips a table it doesn't have), and the ALTER must not fail
+      // the whole upgrade in that case.
+      final hasRecurring = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableRecurringRules]);
+      if (hasRecurring.isNotEmpty) {
+        await db.execute(
+            'ALTER TABLE ${DbConstants.tableRecurringRules} ADD COLUMN ${DbConstants.colEndDate} TEXT');
+      }
     }
   }
 
