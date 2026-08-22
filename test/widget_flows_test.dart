@@ -30,12 +30,16 @@ void main() {
 
   final now = DateTime.now();
 
+  // Clear only in setUp, never in a tearDown. A tearDown runs while the
+  // screen from the just-finished test is still mounted (disposal happens
+  // afterwards), so clearing the database there can race the screen's own
+  // in-flight initState load and leave the test never completing. Clearing
+  // in setUp is safe: the previous test's widgets are already disposed by
+  // then. This mirrors the working pattern in widget_test.dart.
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await DBService().clearAll();
   });
-
-  tearDown(() async => DBService().clearAll());
 
   // Pumps a screen with the given already-populated providers, so the test
   // doesn't race the screen's own initState loads.
@@ -43,9 +47,8 @@ void main() {
   // Deliberately NOT pumpAndSettle: these screens keep scheduling frames
   // (entrance animations, and screens whose providers keep a spinner/ticker
   // alive), so pumpAndSettle never returns — see widget_test.dart. The data
-  // is already in the providers, so a few fixed pumps render it. A one-second
-  // pump also lets any finite entrance animation finish so no ticker is left
-  // active at teardown.
+  // is already in the providers, so a couple of fixed pumps render it, and
+  // the short duration lets the finite entrance animation finish.
   Future<void> pumpScreen(
       WidgetTester tester, Widget screen, List<ChangeNotifierProvider> ps) async {
     await tester.pumpWidget(
@@ -55,8 +58,19 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 300));
   }
+
+  // Unmounts whatever is on screen so the widget (and its providers'
+  // listeners / any open database handle) is disposed before the test ends.
+  Future<void> teardownTree(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  }
+
+  // A hard safety net: no matter what a screen does under the test binding,
+  // a single test can never again stall the whole suite for minutes.
+  const testTimeout = Timeout(Duration(seconds: 45));
 
   testWidgets('Budgets screen shows the overall "left to spend"',
       (tester) async {
@@ -86,7 +100,8 @@ void main() {
     expect(find.textContaining('Total monthly budget'), findsOneWidget);
     // ₹1000 cap − ₹300 spent = ₹700 left.
     expect(find.textContaining('left'), findsWidgets);
-  });
+    await teardownTree(tester);
+  }, timeout: testTimeout);
 
   testWidgets('Transactions list renders a seeded transaction', (tester) async {
     await DBService().insertExpense(Expense(
@@ -108,7 +123,8 @@ void main() {
     ]);
 
     expect(find.text('Groceries'), findsOneWidget);
-  });
+    await teardownTree(tester);
+  }, timeout: testTimeout);
 
   testWidgets('Recurring screen shows a rule and its end date', (tester) async {
     await DBService().insertRecurringRule(RecurringRule(
@@ -132,5 +148,6 @@ void main() {
 
     expect(find.text('Netflix'), findsOneWidget);
     expect(find.textContaining('ends'), findsWidgets);
-  });
+    await teardownTree(tester);
+  }, timeout: testTimeout);
 }
