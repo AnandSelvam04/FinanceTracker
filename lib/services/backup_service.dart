@@ -438,6 +438,32 @@ class BackupService {
         .replaceAllData(rowsByTable, clearFirst: clearBeforeRestore);
   }
 
+  /// The Google account currently signed in for Drive, resolved silently (no
+  /// prompt), or null when nobody is signed in / sign-in isn't set up. Used to
+  /// show "Backed up as you@gmail.com" without forcing a sign-in.
+  Future<String?> currentDriveAccountEmail() async {
+    try {
+      final account =
+          _googleSignIn.currentUser ?? await _googleSignIn.signInSilently();
+      return account?.email;
+    } catch (e) {
+      // A silent sign-in can fail (no cached session, Drive not set up); that
+      // just means "not signed in" for display purposes.
+      AppLogger.error('Could not resolve the signed-in Drive account', e);
+      return null;
+    }
+  }
+
+  /// Signs out of Drive so the next backup/restore prompts for an account —
+  /// lets the user switch which Google account the backup uses.
+  Future<void> signOutDrive() async {
+    try {
+      await _googleSignIn.signOut();
+    } catch (e) {
+      AppLogger.error('Drive sign-out failed', e);
+    }
+  }
+
   Future<drive.DriveApi> _getDriveApi() async {
     gsi.GoogleSignInAccount? account;
     try {
