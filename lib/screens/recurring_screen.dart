@@ -25,6 +25,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
   String _frequency = DbConstants.freqMonthly;
   int? _accountId;
   DateTime _nextDue = DateTime.now();
+  DateTime? _endDate;
 
   @override
   void initState() {
@@ -58,6 +59,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
     _frequency = rule?.frequency ?? DbConstants.freqMonthly;
     _accountId = rule?.accountId;
     _nextDue = rule?.nextDue ?? DateTime.now();
+    _endDate = rule?.endDate;
 
     final accounts = context.read<AccountProvider>().accounts;
 
@@ -151,6 +153,35 @@ class _RecurringScreenState extends State<RecurringScreen> {
                       ),
                     ],
                   ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(_endDate == null
+                            ? 'Ends: never'
+                            : 'Ends: ${formatDateWithDay(_endDate!)}'),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _endDate ?? _nextDue,
+                            firstDate: _nextDue,
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setDialogState(() => _endDate = picked);
+                          }
+                        },
+                        child: const Text('Set end'),
+                      ),
+                      if (_endDate != null)
+                        TextButton(
+                          onPressed: () =>
+                              setDialogState(() => _endDate = null),
+                          child: const Text('Clear'),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -174,6 +205,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     frequency: _frequency,
                     nextDue: _nextDue,
                     enabled: rule?.enabled ?? true,
+                    endDate: _endDate,
                   );
                   final provider = context.read<RecurringProvider>();
                   if (rule == null) {
@@ -230,7 +262,8 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   title: Text(rule.description,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(
-                      '${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatDateWithDay(rule.nextDue)}'),
+                      '${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatDateWithDay(rule.nextDue)}'
+                      '${rule.endDate != null ? ' · ends ${formatDateWithDay(rule.endDate!)}' : ''}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

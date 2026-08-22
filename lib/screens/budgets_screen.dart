@@ -206,10 +206,32 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     controller.dispose();
   }
 
+  Future<void> _copyLastMonth() async {
+    final now = DateTime.now();
+    final messenger = ScaffoldMessenger.of(context);
+    final provider = context.read<BudgetProvider>();
+    final copied =
+        await provider.copyBudgetsFromPreviousMonth(now.year, now.month);
+    messenger.showSnackBar(SnackBar(
+      content: Text(copied == 0
+          ? 'Nothing to copy — last month has no budgets this month is missing.'
+          : 'Copied $copied budget${copied == 1 ? '' : 's'} from last month.'),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Budgets')),
+      appBar: AppBar(
+        title: const Text('Budgets'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.copy_all),
+            tooltip: 'Copy last month\'s budgets',
+            onPressed: _copyLastMonth,
+          ),
+        ],
+      ),
       body: Consumer2<BudgetProvider, ExpenseProvider>(
         builder: (context, budgetProvider, expenseProvider, _) {
           final now = DateTime.now();

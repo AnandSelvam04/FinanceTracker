@@ -281,6 +281,21 @@ class DBService {
       await _createSourceRefIndex(db);
       await _createSmsIgnoredTable(db);
     }
+    if (oldVersion < 11) {
+      // Optional end date for recurring rules. Added after the v9 rebuild (see
+      // _migrateAmountsToInteger, which recreates recurring_rules without this
+      // column) so the ALTER never hits a duplicate column. Guarded on the
+      // table existing: some databases reached this point without it (a v9
+      // rebuild skips a table it doesn't have), and the ALTER must not fail
+      // the whole upgrade in that case.
+      final hasRecurring = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableRecurringRules]);
+      if (hasRecurring.isNotEmpty) {
+        await db.execute(
+            'ALTER TABLE ${DbConstants.tableRecurringRules} ADD COLUMN ${DbConstants.colEndDate} TEXT');
+      }
+    }
   }
 
   /// v9: give every money column INTEGER affinity.
@@ -514,7 +529,8 @@ class DBService {
         ${DbConstants.colFrequency} TEXT NOT NULL,
         ${DbConstants.colNextDue} TEXT NOT NULL,
         ${DbConstants.colAnchorDay} INTEGER NOT NULL DEFAULT 1,
-        ${DbConstants.colEnabled} INTEGER NOT NULL DEFAULT 1
+        ${DbConstants.colEnabled} INTEGER NOT NULL DEFAULT 1,
+        ${DbConstants.colEndDate} TEXT
       )
     ''');
     await db.execute('''
@@ -938,6 +954,32 @@ class DBService {
   Future<int> insertBudget(Budget budget) async {
     final db = await database;
     return await db.insert(DbConstants.tableBudgets, budget.toMap());
+  }
+
+  /// Inserts a budget, or updates the amount of the existing one for the same
+  /// category+year+month. Keeps a category from having two budget rows in one
+  /// month (the plain insert path allowed silent duplicates that lookups then
+  /// resolved arbitrarily).
+  Future<void> upsertBudget(Budget budget) async {
+    final db = await database;
+    final existing = await db.query(
+      DbConstants.tableBudgets,
+      columns: [DbConstants.colId],
+      where:
+          '${DbConstants.colCategory} = ? AND ${DbConstants.colYear} = ? AND ${DbConstants.colMonth} = ?',
+      whereArgs: [budget.category, budget.year, budget.month],
+      limit: 1,
+    );
+    if (existing.isEmpty) {
+      await db.insert(DbConstants.tableBudgets, budget.toMap());
+    } else {
+      await db.update(
+        DbConstants.tableBudgets,
+        {DbConstants.colAmount: budget.amount},
+        where: '${DbConstants.colId} = ?',
+        whereArgs: [existing.first[DbConstants.colId]],
+      );
+    }
   }
 
   Future<List<Budget>> getBudgets() async {

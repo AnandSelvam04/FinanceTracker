@@ -87,6 +87,48 @@ void main() {
       expect((await db.getExpenses()).length, 4);
     });
 
+    test('stops at the end date and disables the finished rule', () async {
+      final db = DBService();
+      final now = DateTime(2026, 4, 15);
+      // Monthly rule due Jan 15, ending Mar 20: should post Jan/Feb/Mar only.
+      await db.insertRecurringRule(RecurringRule(
+        description: 'EMI',
+        amount: 1000,
+        category: 'Bills',
+        frequency: DbConstants.freqMonthly,
+        nextDue: DateTime(2026, 1, 15),
+        endDate: DateTime(2026, 3, 20),
+      ));
+
+      final posted =
+          await RecurringService.instance.postDueTransactions(now: now);
+      expect(posted, 3); // Jan, Feb, Mar — not Apr (past end date)
+      expect((await db.getExpenses()).length, 3);
+
+      // The rule is finished, so it is disabled and posts nothing more.
+      final rule = (await db.getRecurringRules()).single;
+      expect(rule.enabled, isFalse);
+      final again =
+          await RecurringService.instance.postDueTransactions(now: now);
+      expect(again, 0);
+    });
+
+    test('an occurrence exactly on the end date still posts', () async {
+      final db = DBService();
+      await db.insertRecurringRule(RecurringRule(
+        description: 'Weekly',
+        amount: 100,
+        category: 'Other',
+        frequency: DbConstants.freqWeekly,
+        nextDue: DateTime(2026, 1, 1),
+        endDate: DateTime(2026, 1, 15), // Jan 1, 8, 15 fall on/before this
+      ));
+      final posted = await RecurringService.instance
+          .postDueTransactions(now: DateTime(2026, 2, 1));
+      expect(posted, 3);
+      expect((await db.getRecurringRules()).single.enabled, isFalse);
+    });
+
     test('disabled rules are not posted', () async {
       final db = DBService();
       await db.insertRecurringRule(RecurringRule(

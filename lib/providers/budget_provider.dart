@@ -13,8 +13,31 @@ class BudgetProvider extends ChangeNotifier {
   }
 
   Future<void> addBudget(Budget budget) async {
-    await DBService().insertBudget(budget);
+    // Upsert, so setting a budget for a category+month that already has one
+    // replaces it rather than creating a duplicate row.
+    await DBService().upsertBudget(budget);
     await fetchBudgets();
+  }
+
+  /// Copies the previous month's budgets (category caps and the overall cap)
+  /// into [year]/[month], skipping any the target month already has. Returns
+  /// how many were copied. Saves re-entering the same caps every month.
+  Future<int> copyBudgetsFromPreviousMonth(int year, int month) async {
+    final prevYear = month == 1 ? year - 1 : year;
+    final prevMonth = month == 1 ? 12 : month - 1;
+    final source =
+        _budgets.where((b) => b.year == prevYear && b.month == prevMonth);
+    var copied = 0;
+    for (final b in source) {
+      final exists = _budgets.any((x) =>
+          x.year == year && x.month == month && x.category == b.category);
+      if (exists) continue;
+      await DBService().upsertBudget(Budget(
+          category: b.category, amount: b.amount, year: year, month: month));
+      copied++;
+    }
+    if (copied > 0) await fetchBudgets();
+    return copied;
   }
 
   Future<void> updateBudget(Budget budget) async {

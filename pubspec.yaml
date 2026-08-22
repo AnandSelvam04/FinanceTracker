@@ -1,6 +1,6 @@
 name: finance_tracker
 description: A new Flutter project for tracking finances.
-version: 1.7.1+12
+version: 1.8.0+13
 environment:
   sdk: ">=3.0.0 <4.0.0"
 dependencies:

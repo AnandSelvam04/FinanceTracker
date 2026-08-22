@@ -129,6 +129,13 @@ void main() {
         'TEXT');
     expect(names, contains(DbConstants.idxExpensesSourceRef));
 
+    // v11 added the recurring end-date column, also after the v9 rebuild (which
+    // recreates recurring_rules without it), so the ALTER can't hit a duplicate.
+    expect(
+        await affinityOf(
+            DbConstants.tableRecurringRules, DbConstants.colEndDate),
+        'TEXT');
+
     final tables = await db.rawQuery(
         "SELECT name FROM sqlite_master WHERE type = 'table'");
     expect(tables.map((r) => r['name']), contains(DbConstants.tableSmsIgnored));
