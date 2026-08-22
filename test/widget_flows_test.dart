@@ -39,6 +39,13 @@ void main() {
 
   // Pumps a screen with the given already-populated providers, so the test
   // doesn't race the screen's own initState loads.
+  //
+  // Deliberately NOT pumpAndSettle: these screens keep scheduling frames
+  // (entrance animations, and screens whose providers keep a spinner/ticker
+  // alive), so pumpAndSettle never returns — see widget_test.dart. The data
+  // is already in the providers, so a few fixed pumps render it. A one-second
+  // pump also lets any finite entrance animation finish so no ticker is left
+  // active at teardown.
   Future<void> pumpScreen(
       WidgetTester tester, Widget screen, List<ChangeNotifierProvider> ps) async {
     await tester.pumpWidget(
@@ -47,7 +54,8 @@ void main() {
         child: MaterialApp(home: screen),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
   }
 
   testWidgets('Budgets screen shows the overall "left to spend"',
