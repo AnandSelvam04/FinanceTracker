@@ -224,6 +224,27 @@ class _RecurringScreenState extends State<RecurringScreen> {
     );
   }
 
+  Future<void> _confirmDeleteRule(RecurringRule rule) async {
+    final provider = context.read<RecurringProvider>();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete recurring rule?'),
+        content: Text('Stop and remove "${rule.description}"? Transactions it '
+            'has already posted are kept.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok == true) await provider.deleteRule(rule.id!);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -276,7 +297,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                       IconButton(
                         icon: const Icon(Icons.delete),
                         tooltip: 'Delete rule',
-                        onPressed: () => provider.deleteRule(rule.id!),
+                        onPressed: () => _confirmDeleteRule(rule),
                       ),
                     ],
                   ),

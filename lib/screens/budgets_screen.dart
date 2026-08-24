@@ -206,6 +206,27 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     controller.dispose();
   }
 
+  Future<void> _confirmDeleteBudget(int id, String label) async {
+    final provider = context.read<BudgetProvider>();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete budget?'),
+        content: Text('Remove the $label budget? This only removes the cap; '
+            'your transactions are unaffected.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok == true) await provider.deleteBudget(id);
+  }
+
   Future<void> _copyLastMonth() async {
     final now = DateTime.now();
     final messenger = ScaffoldMessenger.of(context);
@@ -268,7 +289,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 onSet: () => _showOverallDialog(existing: overall),
                 onClear: overall == null
                     ? null
-                    : () => budgetProvider.deleteBudget(overall.id!),
+                    : () => _confirmDeleteBudget(
+                        overall.id!, 'total monthly'),
               ),
               const SizedBox(height: 16),
               if (categoryBudgets.isEmpty)
@@ -324,8 +346,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                           IconButton(
                             icon: const Icon(Icons.delete),
                             tooltip: 'Delete budget',
-                            onPressed: () =>
-                                budgetProvider.deleteBudget(budget.id!),
+                            onPressed: () => _confirmDeleteBudget(
+                                budget.id!, budget.category),
                           ),
                         ],
                       ),

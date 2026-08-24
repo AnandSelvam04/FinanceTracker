@@ -112,6 +112,51 @@ void main() {
       expect(await DBService().getBudgets(), isEmpty);
     });
 
+    test('verifyLocalBackup reports row counts for a good backup', () async {
+      final db = DBService();
+      await db.insertExpense(Expense(
+        description: 'Lunch',
+        amount: 12000,
+        date: DateTime(2026, 5, 10),
+        category: 'Food',
+        paymentMode: 'UPI',
+      ));
+      await db.insertBudget(
+          Budget(category: 'Food', amount: 300000, year: 2026, month: 5));
+
+      final service = BackupService();
+      await service.backupToJson();
+
+      final result = await service.verifyLocalBackup();
+      expect(result.ok, isTrue);
+      expect(result.counts['expenses'], 1);
+      expect(result.counts['budgets'], 1);
+      expect(result.total, 2);
+      // Verifying must not have altered the live data.
+      expect((await db.getExpenses()).length, 1);
+    });
+
+    test('verifyLocalBackup fails cleanly when no backup exists', () async {
+      final result = await BackupService().verifyLocalBackup();
+      expect(result.ok, isFalse);
+      expect(result.error, isNotNull);
+    });
+
+    test('verifyLocalBackup fails on a corrupt backup file', () async {
+      final file = File('${tempDir.path}/finance_backup.json');
+      await file.writeAsString('{ this is not valid json');
+      final result = await BackupService().verifyLocalBackup();
+      expect(result.ok, isFalse);
+    });
+
+    test('verifyLocalBackup rejects a JSON file that is not a backup', () async {
+      final file = File('${tempDir.path}/finance_backup.json');
+      // A list, not the expected object shape.
+      await file.writeAsString(jsonEncode([1, 2, 3]));
+      final result = await BackupService().verifyLocalBackup();
+      expect(result.ok, isFalse);
+    });
+
     test('clearAll clears budgets too', () async {
       final db = DBService();
       await db.insertBudget(

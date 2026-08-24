@@ -48,6 +48,22 @@ void main() {
       expect(r.last4, '4821');
       expect(r.toLast4, '9999');
     });
+
+    test('a successful card txn with no debit verb is a spend', () {
+      // Scapia / Federal RuPay: announces the spend with "txn ... successful"
+      // and never a debit verb, so it used to be dropped entirely.
+      final r = parse('Hi! Your txn of ₹45.00 at R Muthukumar on your Scapia '
+          'Federal RuPay credit card was successful. Not you? Go to Scapia '
+          'support on the app.- Federal Bank')!;
+      expect(r.type, DbConstants.txExpense);
+      expect(r.amount, 4500);
+      expect(r.description, 'R Muthukumar');
+    });
+
+    test('a bare "successful" with neither a txn word nor a verb is not a row',
+        () {
+      expect(parse('Your request was successful. Thank you.'), isNull);
+    });
   });
 
   group('amount', () {

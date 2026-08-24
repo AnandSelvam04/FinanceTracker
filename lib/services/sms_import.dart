@@ -23,6 +23,15 @@ class SmsImport {
   static final _creditWords =
       RegExp(r'\b(credited|credit|received|deposited|refund(?:ed)?)\b');
 
+  /// A completed card spend announced without any debit verb, e.g. Scapia /
+  /// Federal RuPay: "Your txn of ₹45.00 at R Muthukumar ... was successful".
+  /// Used only as a last resort when neither a debit nor a credit word is
+  /// present: a genuine credit always names itself ("credited"/"received"),
+  /// so a bare "txn ... successful" is a purchase. Failed/declined alerts are
+  /// already dropped by [_notATransaction] before this is consulted.
+  static final _txnSuccess = RegExp(
+      r'\b(?:txn|transaction)\b.*\bsuccess(?:ful|fully)?\b');
+
   /// Phrases that settle the direction on their own, checked before the
   /// positional rule below.
   ///
@@ -196,7 +205,11 @@ class SmsImport {
     if (_strongCredit.hasMatch(lower)) return DbConstants.txIncome;
     final debit = _debitWords.firstMatch(lower)?.start;
     final credit = _creditWords.firstMatch(lower)?.start;
-    if (debit == null && credit == null) return null;
+    if (debit == null && credit == null) {
+      // No direction verb at all — accept a "txn ... successful" card spend,
+      // otherwise it is not a transaction alert we can place.
+      return _txnSuccess.hasMatch(lower) ? DbConstants.txExpense : null;
+    }
     if (debit == null) return DbConstants.txIncome;
     if (credit == null) return DbConstants.txExpense;
     return debit < credit ? DbConstants.txExpense : DbConstants.txIncome;

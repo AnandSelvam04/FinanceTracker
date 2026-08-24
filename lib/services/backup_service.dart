@@ -138,6 +138,29 @@ class EmptyBackupException implements Exception {
   String toString() => message;
 }
 
+/// The outcome of [BackupService.verifyLocalBackup]: whether the local backup
+/// would actually restore, and how many rows it holds per table.
+class BackupVerification {
+  final bool ok;
+
+  /// Row count per table when [ok]; empty otherwise.
+  final Map<String, int> counts;
+
+  /// A user-facing reason when not [ok]; null when it verified.
+  final String? error;
+
+  const BackupVerification._(this.ok, this.counts, this.error);
+
+  factory BackupVerification.success(Map<String, int> counts) =>
+      BackupVerification._(true, counts, null);
+
+  factory BackupVerification.failure(String error) =>
+      BackupVerification._(false, const {}, error);
+
+  /// Total rows across every table.
+  int get total => counts.values.fold(0, (a, b) => a + b);
+}
+
 class BackupService {
   final gsi.GoogleSignIn _googleSignIn = gsi.GoogleSignIn(
     scopes: [
@@ -388,6 +411,16 @@ class BackupService {
       }
     }
 
+    final rowsByTable = _rowsFromBackup(data);
+
+    await DBService()
+        .replaceAllData(rowsByTable, clearFirst: clearBeforeRestore);
+  }
+
+  /// Parses a validated backup payload into per-table row maps, running every
+  /// row through its model so a corrupt row throws here rather than reaching
+  /// the database. Shared by restore and [verifyLocalBackup].
+  Map<String, List<Map<String, Object?>>> _rowsFromBackup(dynamic data) {
     // Backups before v4 stored amounts as major-unit doubles; convert them
     // to integer minor units so they match the current storage.
     final legacyAmounts = ((data['version'] ?? 0) as num) < 4;
@@ -403,11 +436,10 @@ class BackupService {
       return map;
     }
 
-    // Parse every row through its model BEFORE touching the database, so a
-    // corrupt backup fails cleanly. Older backups lack some keys (accounts,
-    // budgets, …); those tables simply restore empty. Ids are preserved
-    // because toMap includes them, keeping account links intact.
-    final rowsByTable = <String, List<Map<String, Object?>>>{
+    // Older backups lack some keys (accounts, budgets, …); those tables simply
+    // restore empty. Ids are preserved because toMap includes them, keeping
+    // account links intact.
+    return <String, List<Map<String, Object?>>>{
       DbConstants.tableAccounts: [
         for (final a in data['accounts'] ?? [])
           Account.fromMap(fix(a, [DbConstants.colOpeningBalance])).toMap(),
@@ -433,9 +465,40 @@ class BackupService {
           TxTemplate.fromMap(fix(t, [DbConstants.colAmount])).toMap(),
       ],
     };
+  }
 
-    await DBService()
-        .replaceAllData(rowsByTable, clearFirst: clearBeforeRestore);
+  /// Checks that the local backup file is actually restorable — it exists,
+  /// decrypts (if it's a device-key envelope), has a valid shape, and every
+  /// row parses through its model — without touching the live database. This
+  /// turns "a backup exists" into "a backup that would actually restore".
+  Future<BackupVerification> verifyLocalBackup() async {
+    try {
+      final file = await _backupFile;
+      if (!await file.exists()) {
+        return BackupVerification.failure(
+            'No local backup found yet. Tap "Backup locally" first.');
+      }
+      var content = await file.readAsString();
+      if (BackupCrypto.isEncrypted(content)) {
+        final deviceKey = await DBService().deviceKeyIfEncrypted();
+        if (deviceKey == null) {
+          return BackupVerification.failure(
+              'The backup is encrypted with this device\'s key, which isn\'t '
+              'available, so it can\'t be verified here.');
+        }
+        content = await BackupCrypto.decryptString(content, deviceKey);
+      }
+      final data = jsonDecode(content);
+      _validateBackupPayload(data);
+      // Parsing every row is the real test: a corrupt value throws here.
+      final rows = _rowsFromBackup(data);
+      final counts = {
+        for (final e in rows.entries) e.key: e.value.length,
+      };
+      return BackupVerification.success(counts);
+    } catch (e) {
+      return BackupVerification.failure('$e');
+    }
   }
 
   /// The Google account currently signed in for Drive, resolved silently (no
