@@ -22,7 +22,7 @@ import '../utils/insets.dart';
 import '../widgets/alerts_banner.dart';
 import '../widgets/animated_money.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/expense_chart.dart';
+import '../widgets/category_bar_chart.dart';
 import '../widgets/expense_trends_chart.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/net_worth_card.dart';
@@ -364,6 +364,16 @@ class _DashboardView extends StatelessWidget {
             provider.incomeForMonth(selectedYear, selectedMonth);
         final yearlyIncome = provider.incomeForYear(selectedYear);
 
+        // Compute the aggregates once per build and reuse them — each of these
+        // scans every loaded expense, and the chart, the headline, and the
+        // left-to-spend row would otherwise recompute the same numbers.
+        final monthTotal = provider.totalForMonth(selectedYear, selectedMonth);
+        final yearTotal = provider.totalForYear(selectedYear);
+        final monthCategoryTotals =
+            provider.categoryTotalsForMonth(selectedYear, selectedMonth);
+        final yearCategoryTotals =
+            provider.categoryTotalsForYear(selectedYear);
+
         return RefreshIndicator(
           onRefresh: onRefresh,
           child: SingleChildScrollView(
@@ -386,27 +396,14 @@ class _DashboardView extends StatelessWidget {
                     onChanged: onMonthChanged,
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('View:'),
-                      const SizedBox(width: 8),
-                      ToggleButtons(
-                        borderRadius: BorderRadius.circular(12),
-                        isSelected: [!yearView, yearView],
-                        onPressed: (i) => onViewToggle(i == 1),
-                        children: const [
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Text('Month'),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Text('Year'),
-                          ),
-                        ],
-                      ),
+                  SegmentedButton<bool>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('Month')),
+                      ButtonSegment(value: true, label: Text('Year')),
                     ],
+                    selected: {yearView},
+                    onSelectionChanged: (s) => onViewToggle(s.first),
                   ),
                   const SizedBox(height: 16),
                   if (yearView) ...[
@@ -426,36 +423,17 @@ class _DashboardView extends StatelessWidget {
                     else ...[
                       _TotalHeadline(
                         label: 'Year total',
-                        amount: provider.totalForYear(selectedYear),
+                        amount: yearTotal,
                         income: yearlyIncome,
                       ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 250,
-                        child: ExpenseChart(
-                          totals:
-                              provider.categoryTotalsForYear(selectedYear),
-                          onCategoryTap: (c) => _showCategoryDetail(
-                              context, provider, c,
-                              isYear: true),
-                        ),
-                      ),
                       const SizedBox(height: 16),
-                      _SectionHeader('Category breakdown (year)'),
-                      SizedBox(
-                        height: 180,
-                        child: ListView(
-                          shrinkWrap: true,
-                          children: provider
-                              .categoryTotalsForYear(selectedYear)
-                              .entries
-                              .map((e) => ListTile(
-                                    dense: true,
-                                    title: Text(e.key),
-                                    trailing: Text(formatMoney(e.value)),
-                                  ))
-                              .toList(),
-                        ),
+                      _SectionHeader('Spending by category (year)'),
+                      const SizedBox(height: 4),
+                      CategoryBarChart(
+                        totals: yearCategoryTotals,
+                        onCategoryTap: (c) => _showCategoryDetail(
+                            context, provider, c,
+                            isYear: true),
                       ),
                     ],
                   ] else ...[
@@ -473,27 +451,23 @@ class _DashboardView extends StatelessWidget {
                     else ...[
                       _TotalHeadline(
                         label: 'This month',
-                        amount: provider.totalForMonth(
-                            selectedYear, selectedMonth),
+                        amount: monthTotal,
                         income: monthlyIncome,
                       ),
                       _LeftToSpend(
                         cap: context
                             .watch<BudgetProvider>()
                             .overallBudget(selectedYear, selectedMonth),
-                        spent: provider.totalForMonth(
-                            selectedYear, selectedMonth),
+                        spent: monthTotal,
                       ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 250,
-                        child: ExpenseChart(
-                          totals: provider.categoryTotalsForMonth(
-                              selectedYear, selectedMonth),
-                          onCategoryTap: (c) => _showCategoryDetail(
-                              context, provider, c,
-                              isYear: false),
-                        ),
+                      const SizedBox(height: 16),
+                      _SectionHeader('Spending by category'),
+                      const SizedBox(height: 4),
+                      CategoryBarChart(
+                        totals: monthCategoryTotals,
+                        onCategoryTap: (c) => _showCategoryDetail(
+                            context, provider, c,
+                            isYear: false),
                       ),
                       const SizedBox(height: 16),
                       _SectionHeader('Trends (last 12 months)'),
