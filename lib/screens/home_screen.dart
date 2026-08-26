@@ -26,6 +26,7 @@ import '../widgets/category_bar_chart.dart';
 import '../widgets/expense_trends_chart.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/net_worth_card.dart';
+import '../widgets/section_header.dart';
 import '../widgets/skeleton.dart';
 import 'add_expense_screen.dart';
 import 'add_investment_screen.dart';
@@ -420,7 +421,7 @@ class _DashboardView extends StatelessWidget {
                         income: yearlyIncome,
                       ),
                       const SizedBox(height: 16),
-                      _SectionHeader('Spending by category (year)'),
+                      const SectionHeader('Spending by category (year)'),
                       const SizedBox(height: 4),
                       CategoryBarChart(
                         totals:
@@ -457,7 +458,7 @@ class _DashboardView extends StatelessWidget {
                             provider.totalForMonth(selectedYear, selectedMonth),
                       ),
                       const SizedBox(height: 16),
-                      _SectionHeader('Spending by category'),
+                      const SectionHeader('Spending by category'),
                       const SizedBox(height: 4),
                       CategoryBarChart(
                         totals: provider.categoryTotalsForMonth(
@@ -467,7 +468,7 @@ class _DashboardView extends StatelessWidget {
                             isYear: false),
                       ),
                       const SizedBox(height: 16),
-                      _SectionHeader('Trends (last 12 months)'),
+                      const SectionHeader('Trends (last 12 months)'),
                       ExpenseTrendsChart(provider: provider),
                     ],
                   ],
@@ -559,29 +560,6 @@ class _CategoryDetailSheet extends StatelessWidget {
                   ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// A section label styled from the theme's text scale, replacing the old
-/// hardcoded `Text(..., fontSize: 16)` headers.
-class _SectionHeader extends StatelessWidget {
-  final String text;
-  const _SectionHeader(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
       ),
     );
   }
