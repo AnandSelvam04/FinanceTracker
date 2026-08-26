@@ -26,6 +26,7 @@ import '../widgets/category_bar_chart.dart';
 import '../widgets/expense_trends_chart.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/net_worth_card.dart';
+import '../widgets/section_header.dart';
 import '../widgets/skeleton.dart';
 import 'add_expense_screen.dart';
 import 'add_investment_screen.dart';
@@ -363,16 +364,9 @@ class _DashboardView extends StatelessWidget {
         final monthlyIncome =
             provider.incomeForMonth(selectedYear, selectedMonth);
         final yearlyIncome = provider.incomeForYear(selectedYear);
-
-        // Compute the aggregates once per build and reuse them — each of these
-        // scans every loaded expense, and the chart, the headline, and the
-        // left-to-spend row would otherwise recompute the same numbers.
-        final monthTotal = provider.totalForMonth(selectedYear, selectedMonth);
-        final yearTotal = provider.totalForYear(selectedYear);
-        final monthCategoryTotals =
-            provider.categoryTotalsForMonth(selectedYear, selectedMonth);
-        final yearCategoryTotals =
-            provider.categoryTotalsForYear(selectedYear);
+        // The per-period totals below are read straight from the provider; it
+        // memoizes each aggregate until the data changes, so repeated calls in
+        // one build (and across the other screens) are free.
 
         return RefreshIndicator(
           onRefresh: onRefresh,
@@ -423,14 +417,15 @@ class _DashboardView extends StatelessWidget {
                     else ...[
                       _TotalHeadline(
                         label: 'Year total',
-                        amount: yearTotal,
+                        amount: provider.totalForYear(selectedYear),
                         income: yearlyIncome,
                       ),
                       const SizedBox(height: 16),
-                      _SectionHeader('Spending by category (year)'),
+                      const SectionHeader('Spending by category (year)'),
                       const SizedBox(height: 4),
                       CategoryBarChart(
-                        totals: yearCategoryTotals,
+                        totals:
+                            provider.categoryTotalsForYear(selectedYear),
                         onCategoryTap: (c) => _showCategoryDetail(
                             context, provider, c,
                             isYear: true),
@@ -451,26 +446,29 @@ class _DashboardView extends StatelessWidget {
                     else ...[
                       _TotalHeadline(
                         label: 'This month',
-                        amount: monthTotal,
+                        amount:
+                            provider.totalForMonth(selectedYear, selectedMonth),
                         income: monthlyIncome,
                       ),
                       _LeftToSpend(
                         cap: context
                             .watch<BudgetProvider>()
                             .overallBudget(selectedYear, selectedMonth),
-                        spent: monthTotal,
+                        spent:
+                            provider.totalForMonth(selectedYear, selectedMonth),
                       ),
                       const SizedBox(height: 16),
-                      _SectionHeader('Spending by category'),
+                      const SectionHeader('Spending by category'),
                       const SizedBox(height: 4),
                       CategoryBarChart(
-                        totals: monthCategoryTotals,
+                        totals: provider.categoryTotalsForMonth(
+                            selectedYear, selectedMonth),
                         onCategoryTap: (c) => _showCategoryDetail(
                             context, provider, c,
                             isYear: false),
                       ),
                       const SizedBox(height: 16),
-                      _SectionHeader('Trends (last 12 months)'),
+                      const SectionHeader('Trends (last 12 months)'),
                       ExpenseTrendsChart(provider: provider),
                     ],
                   ],
@@ -562,29 +560,6 @@ class _CategoryDetailSheet extends StatelessWidget {
                   ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// A section label styled from the theme's text scale, replacing the old
-/// hardcoded `Text(..., fontSize: 16)` headers.
-class _SectionHeader extends StatelessWidget {
-  final String text;
-  const _SectionHeader(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:provider/provider.dart';
 import '../models/investment.dart';
+import '../utils/app_colors.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
@@ -200,8 +201,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: Colors.green.shade100,
-                child: const Icon(Icons.trending_up, color: Colors.green),
+                backgroundColor: incomeAvatarColor(context),
+                child: Icon(Icons.trending_up, color: incomeColor(context)),
               ),
               title: Text(investment.name,
                   style: const TextStyle(fontWeight: FontWeight.w600)),

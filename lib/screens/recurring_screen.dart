@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/recurring_rule.dart';
 import '../providers/account_provider.dart';
 import '../providers/recurring_provider.dart';
+import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
@@ -273,12 +274,12 @@ class _RecurringScreenState extends State<RecurringScreen> {
                 child: ListTile(
                   leading: CircleAvatar(
                     backgroundColor: rule.type == DbConstants.txIncome
-                        ? Colors.green.shade100
-                        : Colors.red.shade50,
+                        ? incomeAvatarColor(context)
+                        : expenseAvatarColor(context),
                     child: Icon(Icons.repeat,
                         color: rule.type == DbConstants.txIncome
-                            ? Colors.green
-                            : Colors.red),
+                            ? incomeColor(context)
+                            : expenseColor(context)),
                   ),
                   title: Text(rule.description,
                       style: const TextStyle(fontWeight: FontWeight.w600)),

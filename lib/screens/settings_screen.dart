@@ -10,6 +10,7 @@ import '../services/sms_service.dart';
 import '../utils/build_info.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
+import '../widgets/section_header.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -134,7 +135,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           return ListView(
             padding: scrollPadding(context, all: 0),
             children: [
-              _SectionHeader('General'),
+              const SectionHeader('General',
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 4)),
               ListTile(
                 leading: const Icon(Icons.currency_exchange),
                 title: const Text('Currency symbol'),
@@ -227,7 +229,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
               const Divider(),
-              _SectionHeader('Security'),
+              const SectionHeader('Security',
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 4)),
               ListTile(
                 leading: const Icon(Icons.timer_outlined),
                 title: const Text('Auto-lock'),
@@ -265,7 +268,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: _encryptionBusy ? null : (v) => _toggleEncryption(v),
               ),
               const Divider(),
-              _SectionHeader('About'),
+              const SectionHeader('About',
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 4)),
               ListTile(
                 leading: const Icon(Icons.info_outline),
                 title: const Text('Version'),
@@ -282,26 +286,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader(this.title);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.primary,
-        ),
       ),
     );
   }
