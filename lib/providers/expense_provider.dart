@@ -21,7 +21,7 @@ class ExpenseProvider extends ChangeNotifier {
   /// invalidation. Keys are namespaced per method + arguments.
   final Map<String, Object> _aggCache = {};
 
-  T _memo<T>(String key, T Function() compute) =>
+  T _memo<T extends Object>(String key, T Function() compute) =>
       _aggCache.putIfAbsent(key, compute) as T;
 
   @override
