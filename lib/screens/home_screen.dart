@@ -363,16 +363,9 @@ class _DashboardView extends StatelessWidget {
         final monthlyIncome =
             provider.incomeForMonth(selectedYear, selectedMonth);
         final yearlyIncome = provider.incomeForYear(selectedYear);
-
-        // Compute the aggregates once per build and reuse them — each of these
-        // scans every loaded expense, and the chart, the headline, and the
-        // left-to-spend row would otherwise recompute the same numbers.
-        final monthTotal = provider.totalForMonth(selectedYear, selectedMonth);
-        final yearTotal = provider.totalForYear(selectedYear);
-        final monthCategoryTotals =
-            provider.categoryTotalsForMonth(selectedYear, selectedMonth);
-        final yearCategoryTotals =
-            provider.categoryTotalsForYear(selectedYear);
+        // The per-period totals below are read straight from the provider; it
+        // memoizes each aggregate until the data changes, so repeated calls in
+        // one build (and across the other screens) are free.
 
         return RefreshIndicator(
           onRefresh: onRefresh,
@@ -423,14 +416,15 @@ class _DashboardView extends StatelessWidget {
                     else ...[
                       _TotalHeadline(
                         label: 'Year total',
-                        amount: yearTotal,
+                        amount: provider.totalForYear(selectedYear),
                         income: yearlyIncome,
                       ),
                       const SizedBox(height: 16),
                       _SectionHeader('Spending by category (year)'),
                       const SizedBox(height: 4),
                       CategoryBarChart(
-                        totals: yearCategoryTotals,
+                        totals:
+                            provider.categoryTotalsForYear(selectedYear),
                         onCategoryTap: (c) => _showCategoryDetail(
                             context, provider, c,
                             isYear: true),
@@ -451,20 +445,23 @@ class _DashboardView extends StatelessWidget {
                     else ...[
                       _TotalHeadline(
                         label: 'This month',
-                        amount: monthTotal,
+                        amount:
+                            provider.totalForMonth(selectedYear, selectedMonth),
                         income: monthlyIncome,
                       ),
                       _LeftToSpend(
                         cap: context
                             .watch<BudgetProvider>()
                             .overallBudget(selectedYear, selectedMonth),
-                        spent: monthTotal,
+                        spent:
+                            provider.totalForMonth(selectedYear, selectedMonth),
                       ),
                       const SizedBox(height: 16),
                       _SectionHeader('Spending by category'),
                       const SizedBox(height: 4),
                       CategoryBarChart(
-                        totals: monthCategoryTotals,
+                        totals: provider.categoryTotalsForMonth(
+                            selectedYear, selectedMonth),
                         onCategoryTap: (c) => _showCategoryDetail(
                             context, provider, c,
                             isYear: false),

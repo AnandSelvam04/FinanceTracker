@@ -9,6 +9,27 @@ class ExpenseProvider extends ChangeNotifier {
   final List<Expense> _expenses = [];
   final Set<int> _loadedYears = {};
 
+  /// Memoized results of the per-period aggregates (totals, category maps,
+  /// spend-by-account). Each one is an O(n) scan over every loaded row, and the
+  /// dashboard, budgets, cashflow, monthly-summary, and category-trends screens
+  /// all ask for the same figures — often more than once — on every rebuild.
+  ///
+  /// The cache is cleared in [notifyListeners], which every path that changes
+  /// the underlying data (a load, an add/update/delete, a restore, an exchange-
+  /// rate change) already calls. Clearing there rather than at each mutation
+  /// site means a new aggregate can never be added and silently miss an
+  /// invalidation. Keys are namespaced per method + arguments.
+  final Map<String, Object> _aggCache = {};
+
+  T _memo<T>(String key, T Function() compute) =>
+      _aggCache.putIfAbsent(key, compute) as T;
+
+  @override
+  void notifyListeners() {
+    _aggCache.clear();
+    super.notifyListeners();
+  }
+
   /// Exchange rate per account id (base-currency units per 1 unit of the
   /// account's currency), mirrored from `AccountProvider` by the
   /// `ChangeNotifierProxyProvider` in main.dart.
@@ -126,16 +147,19 @@ class ExpenseProvider extends ChangeNotifier {
 
   /// Returns the total amount spent in a given year (expenses only), in
   /// base-currency minor units.
-  int totalForYear(int year) => _sumBase(_byYear(year, DbConstants.txExpense));
+  int totalForYear(int year) => _memo(
+      'ty:$year', () => _sumBase(_byYear(year, DbConstants.txExpense)));
 
   /// Returns the total income received in a given year, in base-currency
   /// minor units.
-  int incomeForYear(int year) => _sumBase(_byYear(year, DbConstants.txIncome));
+  int incomeForYear(int year) => _memo(
+      'iy:$year', () => _sumBase(_byYear(year, DbConstants.txIncome)));
 
   /// Returns category totals (base-currency minor units) for a given year
-  /// (expenses only).
-  Map<String, int> categoryTotalsForYear(int year) =>
-      _categoryTotals(_byYear(year, DbConstants.txExpense));
+  /// (expenses only). The returned map is cached and shared — treat it as
+  /// read-only.
+  Map<String, int> categoryTotalsForYear(int year) => _memo(
+      'cty:$year', () => _categoryTotals(_byYear(year, DbConstants.txExpense)));
 
   /// Returns all transaction rows for a given year.
   List<Expense> expensesForYear(int year) =>
@@ -188,26 +212,29 @@ class ExpenseProvider extends ChangeNotifier {
   /// balance on the Accounts screen cannot show — a balance is a position, not
   /// a period. Transfers are excluded along with income, so paying a card bill
   /// does not read as spending on the bank it came from.
-  Map<int?, int> spendByAccountForMonth(int year, int month) {
-    final totals = <int?, int>{};
-    for (final e in _byMonth(year, month, DbConstants.txExpense)) {
-      totals[e.accountId] = (totals[e.accountId] ?? 0) + baseAmountOf(e);
-    }
-    return totals;
-  }
+  Map<int?, int> spendByAccountForMonth(int year, int month) =>
+      _memo('sba:$year-$month', () {
+        final totals = <int?, int>{};
+        for (final e in _byMonth(year, month, DbConstants.txExpense)) {
+          totals[e.accountId] = (totals[e.accountId] ?? 0) + baseAmountOf(e);
+        }
+        return totals;
+      });
 
   /// Returns the total amount spent in a given month and year (expenses
   /// only), in base-currency minor units.
-  int totalForMonth(int year, int month) =>
-      _sumBase(_byMonth(year, month, DbConstants.txExpense));
+  int totalForMonth(int year, int month) => _memo('tm:$year-$month',
+      () => _sumBase(_byMonth(year, month, DbConstants.txExpense)));
 
   /// Returns the total income received in a given month and year, in
   /// base-currency minor units.
-  int incomeForMonth(int year, int month) =>
-      _sumBase(_byMonth(year, month, DbConstants.txIncome));
+  int incomeForMonth(int year, int month) => _memo('im:$year-$month',
+      () => _sumBase(_byMonth(year, month, DbConstants.txIncome)));
 
   /// Returns a map of category to total (base-currency minor units) for a
-  /// given month and year (expenses only).
-  Map<String, int> categoryTotalsForMonth(int year, int month) =>
-      _categoryTotals(_byMonth(year, month, DbConstants.txExpense));
+  /// given month and year (expenses only). The returned map is cached and
+  /// shared — treat it as read-only.
+  Map<String, int> categoryTotalsForMonth(int year, int month) => _memo(
+      'ctm:$year-$month',
+      () => _categoryTotals(_byMonth(year, month, DbConstants.txExpense)));
 }
