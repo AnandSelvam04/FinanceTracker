@@ -171,6 +171,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               ListTile(
+                leading: const Icon(Icons.palette_outlined),
+                title: const Text('Accent color'),
+                subtitle: Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    for (final c in SettingsProvider.seedOptions)
+                      _AccentSwatch(
+                        color: c,
+                        selected: settings.seedColor.toARGB32() == c.toARGB32(),
+                        onTap: () => settings.setSeedColor(c),
+                      ),
+                  ],
+                ),
+              ),
+              ListTile(
                 leading: const Icon(Icons.account_balance_wallet),
                 title: const Text('Default account'),
                 subtitle: const Text('Preselected for new transactions'),
@@ -286,6 +302,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// A tappable colour dot for the accent-colour picker, with a ring and check
+/// when it is the active accent.
+class _AccentSwatch extends StatelessWidget {
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _AccentSwatch({
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkResponse(
+      onTap: onTap,
+      radius: 22,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: selected
+              ? Border.all(
+                  color: Theme.of(context).colorScheme.onSurface, width: 2)
+              : null,
+        ),
+        child: selected
+            ? const Icon(Icons.check, size: 18, color: Colors.white)
+            : null,
       ),
     );
   }

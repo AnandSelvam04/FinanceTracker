@@ -87,6 +87,38 @@ void main() {
       expect((await db.getExpenses()).length, 4);
     });
 
+    test('a SIP rule posts to the investments ledger, not expenses', () async {
+      final db = DBService();
+      final now = DateTime(2026, 3, 15);
+      // Monthly SIP first due two months before "now".
+      await db.insertRecurringRule(RecurringRule(
+        description: 'Index Fund SIP',
+        amount: 500000,
+        category: 'Mutual Funds',
+        frequency: DbConstants.freqMonthly,
+        nextDue: DateTime(2026, 1, 15),
+        isInvestment: true,
+      ));
+
+      final posted =
+          await RecurringService.instance.postDueTransactions(now: now);
+      expect(posted, 3); // Jan, Feb, Mar
+
+      // Filed as investment contributions, and nothing hit the expenses table.
+      final investments = await db.getInvestments();
+      expect(investments.length, 3);
+      expect(investments.every((i) => i.type == 'Mutual Funds'), isTrue);
+      expect(investments.every((i) => i.name == 'Index Fund SIP'), isTrue);
+      expect(investments.every((i) => i.amount == 500000), isTrue);
+      expect((await db.getExpenses()), isEmpty);
+
+      // Idempotent: a second run adds nothing.
+      final again =
+          await RecurringService.instance.postDueTransactions(now: now);
+      expect(again, 0);
+      expect((await db.getInvestments()).length, 3);
+    });
+
     test('stops at the end date and disables the finished rule', () async {
       final db = DBService();
       final now = DateTime(2026, 4, 15);

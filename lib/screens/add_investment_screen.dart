@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:provider/provider.dart';
 import '../providers/investment_provider.dart';
+import '../providers/recurring_provider.dart';
 import '../models/investment.dart';
+import '../models/recurring_rule.dart';
 import '../utils/currency_format.dart';
+import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../utils/date_format.dart';
 
@@ -26,6 +30,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   DateTime _selectedDate = DateTime.now();
   late String _selectedType;
   bool _isSaving = false;
+  bool _repeatMonthly = false;
 
   /// Built-in types plus any custom types the user has already used, with
   /// "Other" always last. Built via [_buildTypes] in initState.
@@ -121,9 +126,20 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                 // Name is optional: blank falls back to an auto-generated
                 // label like "Silver Jul 2026".
               ),
+              const SizedBox(height: 8),
               TextFormField(
                 controller: _amountController,
-                decoration: const InputDecoration(labelText: 'Amount'),
+                decoration: InputDecoration(
+                  labelText: 'Amount',
+                  prefixText: '${CurrencyFormat.symbol} ',
+                  prefixStyle: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                style: const TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 validator: (value) => value!.isEmpty ? 'Enter an amount' : null,
@@ -173,7 +189,15 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                           ? 'Enter a type or pick one above'
                           : null,
                 ),
-              const SizedBox(height: 20),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Repeat monthly (SIP)'),
+                subtitle: const Text(
+                    'Automatically log this contribution every month'),
+                value: _repeatMonthly,
+                onChanged: (v) => setState(() => _repeatMonthly = v),
+              ),
+              const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: _isSaving
                     ? null
@@ -192,8 +216,24 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                             type: type,
                           );
                           final provider = context.read<InvestmentProvider>();
+                          final recurring = context.read<RecurringProvider>();
                           try {
                             await provider.addInvestment(investment);
+                            if (_repeatMonthly) {
+                              // Start next month so this contribution — already
+                              // logged above — isn't posted a second time.
+                              final next = DateTime(_selectedDate.year,
+                                  _selectedDate.month + 1, _selectedDate.day);
+                              await recurring.addRule(RecurringRule(
+                                description: investment.name,
+                                amount: investment.amount,
+                                category: type,
+                                frequency: DbConstants.freqMonthly,
+                                nextDue: next,
+                                isInvestment: true,
+                              ));
+                            }
+                            HapticFeedback.lightImpact();
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

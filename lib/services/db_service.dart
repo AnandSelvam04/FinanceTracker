@@ -296,6 +296,20 @@ class DBService {
             'ALTER TABLE ${DbConstants.tableRecurringRules} ADD COLUMN ${DbConstants.colEndDate} TEXT');
       }
     }
+    if (oldVersion < 12) {
+      // Flag marking a recurring rule as an investment contribution (SIP).
+      // Same defensive pattern as the v11 endDate column: added after the v9
+      // rebuild, and skipped when the table is absent so the upgrade can't
+      // fail on a database that never had recurring_rules.
+      final hasRecurring = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableRecurringRules]);
+      if (hasRecurring.isNotEmpty) {
+        await db.execute(
+            'ALTER TABLE ${DbConstants.tableRecurringRules} ADD COLUMN '
+            '${DbConstants.colIsInvestment} INTEGER NOT NULL DEFAULT 0');
+      }
+    }
   }
 
   /// v9: give every money column INTEGER affinity.
@@ -530,7 +544,8 @@ class DBService {
         ${DbConstants.colNextDue} TEXT NOT NULL,
         ${DbConstants.colAnchorDay} INTEGER NOT NULL DEFAULT 1,
         ${DbConstants.colEnabled} INTEGER NOT NULL DEFAULT 1,
-        ${DbConstants.colEndDate} TEXT
+        ${DbConstants.colEndDate} TEXT,
+        ${DbConstants.colIsInvestment} INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''
@@ -775,6 +790,20 @@ class DBService {
     await db.transaction((txn) async {
       for (final e in occurrences) {
         await txn.insert(DbConstants.tableExpenses, e.toMap());
+      }
+      await txn.update(DbConstants.tableRecurringRules, advancedRule.toMap(),
+          where: '${DbConstants.colId} = ?', whereArgs: [advancedRule.id]);
+    });
+  }
+
+  /// The investment-ledger counterpart to [postRecurringOccurrences]: inserts a
+  /// SIP rule's due contributions and advances the rule in one transaction.
+  Future<void> postRecurringInvestments(
+      List<Investment> contributions, RecurringRule advancedRule) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      for (final inv in contributions) {
+        await txn.insert(DbConstants.tableInvestments, inv.toMap());
       }
       await txn.update(DbConstants.tableRecurringRules, advancedRule.toMap(),
           where: '${DbConstants.colId} = ?', whereArgs: [advancedRule.id]);

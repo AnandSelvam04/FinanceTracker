@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/expense_provider.dart';
 import '../utils/category_colors.dart';
+import '../utils/category_icons.dart';
 import '../utils/insets.dart';
 import '../widgets/category_trend_chart.dart';
 import '../widgets/empty_state.dart';
@@ -85,10 +86,8 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
                     return FilterChip(
                       label: Text(category),
                       selected: selected,
-                      avatar: CircleAvatar(
-                        backgroundColor: CategoryColors.forCategory(category),
-                        radius: 8,
-                      ),
+                      avatar: Icon(categoryIcon(category),
+                          size: 18, color: CategoryColors.forCategory(category)),
                       onSelected: (value) {
                         setState(() {
                           if (value) {

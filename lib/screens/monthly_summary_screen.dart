@@ -4,7 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../services/statement_pdf.dart';
-import '../utils/category_colors.dart';
+import '../widgets/category_avatar.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
@@ -177,11 +177,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     final prevValue = prevCategoryTotals[entry.key] ?? 0;
                     return Card(
                       child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor:
-                              CategoryColors.forCategory(entry.key),
-                          radius: 10,
-                        ),
+                        leading: CategoryAvatar(category: entry.key),
                         title: Text(entry.key),
                         subtitle: _DeltaLabel(
                             current: entry.value, previous: prevValue),

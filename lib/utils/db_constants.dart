@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 11;
+  static const int dbVersion = 12;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -71,6 +71,10 @@ class DbConstants {
   // Optional last date a recurring rule posts on. Null = no end (repeats
   // indefinitely). Added in schema v11.
   static const String colEndDate = 'endDate';
+
+  /// 1 when a recurring rule contributes to the investments ledger (a SIP)
+  /// instead of posting an expense/income transaction. Added in schema v12.
+  static const String colIsInvestment = 'isInvestment';
 
   // Templates Table
   static const String tableTemplates = 'templates';
