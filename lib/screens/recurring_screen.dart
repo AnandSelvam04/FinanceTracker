@@ -207,6 +207,9 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     nextDue: _nextDue,
                     enabled: rule?.enabled ?? true,
                     endDate: _endDate,
+                    // Preserve the SIP flag; this dialog only edits the common
+                    // fields, so an investment rule must stay an investment.
+                    isInvestment: rule?.isInvestment ?? false,
                   );
                   final provider = context.read<RecurringProvider>();
                   if (rule == null) {
@@ -273,18 +276,22 @@ class _RecurringScreenState extends State<RecurringScreen> {
                 margin: EdgeInsets.zero,
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: rule.type == DbConstants.txIncome
+                    backgroundColor: rule.isInvestment
                         ? incomeAvatarColor(context)
-                        : expenseAvatarColor(context),
-                    child: Icon(Icons.repeat,
-                        color: rule.type == DbConstants.txIncome
+                        : rule.type == DbConstants.txIncome
+                            ? incomeAvatarColor(context)
+                            : expenseAvatarColor(context),
+                    child: Icon(
+                        rule.isInvestment ? Icons.trending_up : Icons.repeat,
+                        color: rule.type == DbConstants.txIncome ||
+                                rule.isInvestment
                             ? incomeColor(context)
                             : expenseColor(context)),
                   ),
                   title: Text(rule.description,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(
-                      '${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatDateWithDay(rule.nextDue)}'
+                      '${rule.isInvestment ? 'SIP · ' : ''}${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatDateWithDay(rule.nextDue)}'
                       '${rule.endDate != null ? ' · ends ${formatDateWithDay(rule.endDate!)}' : ''}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,

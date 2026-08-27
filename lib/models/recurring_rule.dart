@@ -21,6 +21,10 @@ class RecurringRule {
   /// Once nextDue passes this, the rule stops and is disabled.
   final DateTime? endDate;
 
+  /// When true, each occurrence is logged as an investment contribution (a
+  /// SIP) — [category] names the instrument type — instead of an expense.
+  final bool isInvestment;
+
   RecurringRule({
     this.id,
     required this.description,
@@ -33,6 +37,7 @@ class RecurringRule {
     int? anchorDay,
     this.enabled = true,
     this.endDate,
+    this.isInvestment = false,
   }) : anchorDay = anchorDay ?? nextDue.day;
 
   static const frequencies = [
@@ -54,6 +59,7 @@ class RecurringRule {
         anchorDay: anchorDay,
         enabled: enabled ?? this.enabled,
         endDate: endDate,
+        isInvestment: isInvestment,
       );
 
   Map<String, dynamic> toMap() => {
@@ -68,6 +74,7 @@ class RecurringRule {
         DbConstants.colAnchorDay: anchorDay,
         DbConstants.colEnabled: enabled ? 1 : 0,
         DbConstants.colEndDate: endDate?.toIso8601String(),
+        DbConstants.colIsInvestment: isInvestment ? 1 : 0,
       };
 
   factory RecurringRule.fromMap(Map<String, dynamic> map) => RecurringRule(
@@ -85,5 +92,7 @@ class RecurringRule {
         endDate: map[DbConstants.colEndDate] == null
             ? null
             : DateTime.tryParse(map[DbConstants.colEndDate] as String),
+        // Absent before schema v12; treat as a plain transaction rule.
+        isInvestment: (map[DbConstants.colIsInvestment] ?? 0) == 1,
       );
 }

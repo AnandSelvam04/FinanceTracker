@@ -136,6 +136,12 @@ void main() {
             DbConstants.tableRecurringRules, DbConstants.colEndDate),
         'TEXT');
 
+    // v12 added the SIP flag on recurring rules, again after the v9 rebuild.
+    expect(
+        await affinityOf(
+            DbConstants.tableRecurringRules, DbConstants.colIsInvestment),
+        'INTEGER');
+
     final tables = await db.rawQuery(
         "SELECT name FROM sqlite_master WHERE type = 'table'");
     expect(tables.map((r) => r['name']), contains(DbConstants.tableSmsIgnored));

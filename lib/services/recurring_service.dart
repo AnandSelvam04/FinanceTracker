@@ -1,4 +1,5 @@
 import '../models/expense.dart';
+import '../models/investment.dart';
 import '../utils/db_constants.dart';
 import 'db_service.dart';
 
@@ -93,37 +94,55 @@ class RecurringService {
             ? endOfToday
             : _minDate(_endOfDay(rule.endDate!), endOfToday);
         var due = rule.nextDue;
-        // Catch-up: materialize one transaction per elapsed period.
-        final occurrences = <Expense>[];
+        // Catch-up: one due date per elapsed period.
+        final dueDates = <DateTime>[];
         while (!due.isAfter(endLimit) &&
-            occurrences.length < maxOccurrencesPerRun) {
-          occurrences.add(Expense(
-            description: rule.description,
-            amount: rule.amount,
-            date: due,
-            category: rule.category,
-            paymentMode: 'Other',
-            type: rule.type,
-            accountId: rule.accountId,
-          ));
+            dueDates.length < maxOccurrencesPerRun) {
+          dueDates.add(due);
           due = nextDate(due, rule.frequency, rule.anchorDay);
         }
         // The rule is done once its next occurrence would fall past the end
         // date; disable it so it stops being considered on later launches.
         final finished = rule.endDate != null &&
             due.isAfter(_endOfDay(rule.endDate!));
-        if (occurrences.isEmpty) {
+        if (dueDates.isEmpty) {
           if (finished) {
             await db.postRecurringOccurrences(
                 const [], rule.copyWith(nextDue: due, enabled: false));
           }
           continue;
         }
+        final advanced =
+            rule.copyWith(nextDue: due, enabled: finished ? false : null);
         // Insert the occurrences and advance nextDue in one transaction so a
-        // crash in between can't double-post them on the next launch.
-        await db.postRecurringOccurrences(occurrences,
-            rule.copyWith(nextDue: due, enabled: finished ? false : null));
-        posted += occurrences.length;
+        // crash in between can't double-post them on the next launch. A SIP
+        // rule files into the investments ledger; every other rule posts a
+        // transaction.
+        if (rule.isInvestment) {
+          await db.postRecurringInvestments([
+            for (final d in dueDates)
+              Investment(
+                name: rule.description,
+                amount: rule.amount,
+                date: d,
+                type: rule.category,
+              ),
+          ], advanced);
+        } else {
+          await db.postRecurringOccurrences([
+            for (final d in dueDates)
+              Expense(
+                description: rule.description,
+                amount: rule.amount,
+                date: d,
+                category: rule.category,
+                paymentMode: 'Other',
+                type: rule.type,
+                accountId: rule.accountId,
+              ),
+          ], advanced);
+        }
+        posted += dueDates.length;
       }
       return posted;
     } finally {
