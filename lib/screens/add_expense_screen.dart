@@ -7,8 +7,11 @@ import '../providers/template_provider.dart';
 import '../models/expense.dart';
 import '../models/tx_template.dart';
 import '../services/db_service.dart';
+import '../utils/app_colors.dart';
 import '../utils/app_logger.dart';
+import '../utils/category_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 
@@ -99,6 +102,21 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   bool get _isIncome => _txType == DbConstants.txIncome;
 
+  static IconData _paymentIcon(String mode) {
+    switch (mode) {
+      case 'Cash':
+        return Icons.payments_outlined;
+      case 'Credit Card':
+        return Icons.credit_card;
+      case 'Debit Card':
+        return Icons.credit_card_outlined;
+      case 'UPI':
+        return Icons.qr_code_2;
+      default:
+        return Icons.account_balance_wallet_outlined;
+    }
+  }
+
   /// Recent categories first, then built-in defaults, de-duplicated.
   List<String> get _suggestions {
     final frequent =
@@ -152,37 +170,53 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 validator: (value) =>
                     value!.isEmpty ? 'Enter a description' : null,
               ),
+              const SizedBox(height: 8),
+              // The amount is the focal input, so it is enlarged and carries
+              // the configured currency symbol as a prefix.
               TextFormField(
                 controller: _amountController,
-                decoration: const InputDecoration(labelText: 'Amount'),
+                decoration: InputDecoration(
+                  labelText: 'Amount',
+                  prefixText: '${CurrencyFormat.symbol} ',
+                  prefixStyle: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                style: const TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.next,
                 validator: validateAmountField,
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child:
-                        Text('Date: ${_selectedDate.toString().split(' ')[0]}'),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedDate,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime.now(),
-                      );
-                      if (picked != null) {
-                        setState(() {
-                          _selectedDate = picked;
-                        });
-                      }
-                    },
-                    child: const Text('Select Date'),
-                  ),
-                ],
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.event,
+                        size: 20, color: mutedTextColor(context)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(formatDateWithDay(_selectedDate))),
+                    TextButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            _selectedDate = picked;
+                          });
+                        }
+                      },
+                      child: const Text('Change'),
+                    ),
+                  ],
+                ),
               ),
               TextFormField(
                 controller: _categoryController,
@@ -197,17 +231,20 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
-                children: categorySuggestions
-                    .map((c) => ChoiceChip(
-                          label: Text(c),
-                          selected: _categoryController.text == c,
-                          onSelected: (_) {
-                            setState(() {
-                              _categoryController.text = c;
-                            });
-                          },
-                        ))
-                    .toList(),
+                children: categorySuggestions.map((c) {
+                  final color = CategoryColors.forCategory(c);
+                  return ChoiceChip(
+                    avatar: CircleAvatar(radius: 6, backgroundColor: color),
+                    label: Text(c),
+                    selected: _categoryController.text == c,
+                    selectedColor: color.withValues(alpha: 0.22),
+                    onSelected: (_) {
+                      setState(() {
+                        _categoryController.text = c;
+                      });
+                    },
+                  );
+                }).toList(),
               ),
               if (accounts.isNotEmpty)
                 DropdownButtonFormField<int?>(
@@ -221,16 +258,27 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   ],
                   onChanged: (value) => setState(() => _accountId = value),
                 ),
-              if (!_isIncome)
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedPaymentMode,
-                  decoration: const InputDecoration(labelText: 'Payment Mode'),
-                  items: _paymentModes
-                      .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-                      .toList(),
-                  onChanged: (value) =>
-                      setState(() => _selectedPaymentMode = value!),
+              if (!_isIncome) ...[
+                const SizedBox(height: 12),
+                Text('Payment mode',
+                    style: TextStyle(
+                        fontSize: 12, color: mutedTextColor(context))),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: _paymentModes.map((p) {
+                    return ChoiceChip(
+                      avatar: Icon(_paymentIcon(p), size: 18),
+                      label: Text(p),
+                      selected: _selectedPaymentMode == p,
+                      onSelected: (_) =>
+                          setState(() => _selectedPaymentMode = p),
+                    );
+                  }).toList(),
                 ),
+                const SizedBox(height: 4),
+              ],
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,

@@ -121,9 +121,20 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                 // Name is optional: blank falls back to an auto-generated
                 // label like "Silver Jul 2026".
               ),
+              const SizedBox(height: 8),
               TextFormField(
                 controller: _amountController,
-                decoration: const InputDecoration(labelText: 'Amount'),
+                decoration: InputDecoration(
+                  labelText: 'Amount',
+                  prefixText: '${CurrencyFormat.symbol} ',
+                  prefixStyle: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                style: const TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 validator: (value) => value!.isEmpty ? 'Enter an amount' : null,
