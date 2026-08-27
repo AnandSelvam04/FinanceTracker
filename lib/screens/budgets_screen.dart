@@ -7,6 +7,7 @@ import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
+import '../widgets/category_avatar.dart';
 
 class BudgetsScreen extends StatefulWidget {
   const BudgetsScreen({super.key});
@@ -308,6 +309,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                   Card(
                     margin: EdgeInsets.zero,
                     child: ListTile(
+                      leading: CategoryAvatar(category: budget.category),
                       title: Text(
                           '${budget.category} · ${budget.year}/${budget.month.toString().padLeft(2, '0')}'),
                       subtitle: Builder(builder: (context) {

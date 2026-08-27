@@ -8,13 +8,13 @@ import '../providers/expense_provider.dart';
 import '../services/backup_service.dart';
 import '../services/db_service.dart';
 import '../utils/app_colors.dart';
-import '../utils/category_colors.dart';
 import '../utils/category_icons.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../utils/transaction_filter.dart';
+import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/fade_slide_in.dart';
 import '../widgets/skeleton.dart';
@@ -1137,11 +1137,6 @@ class _CategoryAvatar extends StatelessWidget {
         child: Icon(categoryIcon(expense.category), color: incomeColor(context)),
       );
     }
-    final color = CategoryColors.forCategory(expense.category);
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return CircleAvatar(
-      backgroundColor: color.withValues(alpha: dark ? 0.28 : 0.15),
-      child: Icon(categoryIcon(expense.category), color: color),
-    );
+    return CategoryAvatar(category: expense.category);
   }
 }

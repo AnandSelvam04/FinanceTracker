@@ -15,13 +15,13 @@ import '../services/notification_service.dart';
 import '../services/recurring_service.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
-import '../utils/category_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
 import '../widgets/alerts_banner.dart';
 import '../widgets/animated_money.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/category_avatar.dart';
 import '../widgets/category_bar_chart.dart';
 import '../widgets/expense_trends_chart.dart';
 import '../widgets/month_selector.dart';
@@ -509,11 +509,8 @@ class _CategoryDetailSheet extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 7,
-                backgroundColor: CategoryColors.forCategory(category),
-              ),
-              const SizedBox(width: 8),
+              CategoryAvatar(category: category, radius: 16),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(category,
                     style: const TextStyle(
