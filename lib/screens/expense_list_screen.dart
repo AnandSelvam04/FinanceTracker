@@ -8,6 +8,8 @@ import '../providers/expense_provider.dart';
 import '../services/backup_service.dart';
 import '../services/db_service.dart';
 import '../utils/app_colors.dart';
+import '../utils/category_colors.dart';
+import '../utils/category_icons.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
@@ -875,19 +877,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                           child: Card(
                             margin: EdgeInsets.zero,
                             child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: expense.isIncome
-                                    ? incomeAvatarColor(context)
-                                    : expense.isTransfer
-                                        ? transferAvatarColor(context)
-                                        : expenseAvatarColor(context),
-                                child: expense.isTransfer
-                                    ? Icon(Icons.swap_horiz,
-                                        color: transferColor(context))
-                                    : Text(expense.category.isNotEmpty
-                                        ? expense.category[0].toUpperCase()
-                                        : '?'),
-                              ),
+                              leading: _CategoryAvatar(expense: expense),
                               title: Text(expense.description,
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w600)),
@@ -1123,5 +1113,35 @@ class _PartCtrl {
   void dispose() {
     amount.dispose();
     category.dispose();
+  }
+}
+
+/// Leading avatar for a transaction row: a category icon on the category's
+/// colour for spends, keeping the green/blue-grey semantics for income and
+/// transfers.
+class _CategoryAvatar extends StatelessWidget {
+  final Expense expense;
+  const _CategoryAvatar({required this.expense});
+
+  @override
+  Widget build(BuildContext context) {
+    if (expense.isTransfer) {
+      return CircleAvatar(
+        backgroundColor: transferAvatarColor(context),
+        child: Icon(Icons.swap_horiz, color: transferColor(context)),
+      );
+    }
+    if (expense.isIncome) {
+      return CircleAvatar(
+        backgroundColor: incomeAvatarColor(context),
+        child: Icon(categoryIcon(expense.category), color: incomeColor(context)),
+      );
+    }
+    final color = CategoryColors.forCategory(expense.category);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return CircleAvatar(
+      backgroundColor: color.withValues(alpha: dark ? 0.28 : 0.15),
+      child: Icon(categoryIcon(expense.category), color: color),
+    );
   }
 }

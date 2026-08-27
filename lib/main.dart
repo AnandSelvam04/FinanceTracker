@@ -71,8 +71,8 @@ class FinanceTrackerApp extends StatelessWidget {
           // Material 3 with the same green seed in both modes, so dark mode
           // keeps the brand color instead of falling back to grey. Component
           // theming (cards, nav bar, inputs, transitions) lives in AppTheme.
-          theme: AppTheme.light(),
-          darkTheme: AppTheme.dark(),
+          theme: AppTheme.light(settings.seedColor),
+          darkTheme: AppTheme.dark(settings.seedColor),
           themeMode: settings.themeMode,
           home: requireAuth
               ? AuthGate(lockAfter: settings.lockTimeout, child: home)

@@ -14,12 +14,14 @@ class AppTheme {
   /// instead of falling back to grey.
   static const Color seed = Color(0xFF2E7D32); // green.shade800
 
-  static ThemeData light() => _build(Brightness.light);
-  static ThemeData dark() => _build(Brightness.dark);
+  static ThemeData light([Color? seedColor]) =>
+      _build(Brightness.light, seedColor ?? seed);
+  static ThemeData dark([Color? seedColor]) =>
+      _build(Brightness.dark, seedColor ?? seed);
 
-  static ThemeData _build(Brightness brightness) {
+  static ThemeData _build(Brightness brightness, Color seedColor) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: seed,
+      seedColor: seedColor,
       brightness: brightness,
     );
     final isDark = brightness == Brightness.dark;

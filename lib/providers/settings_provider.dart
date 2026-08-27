@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/sms_service.dart';
+import '../utils/app_theme.dart';
 import '../utils/currency_format.dart';
 
 /// User preferences persisted in SharedPreferences: currency, theme,
@@ -13,9 +14,22 @@ class SettingsProvider extends ChangeNotifier {
   static const _kAlertsEnabled = 'alertsEnabled';
   static const _kNotificationsEnabled = 'notificationsEnabled';
   static const _kSmsImportEnabled = 'smsImportEnabled';
+  static const _kSeedColor = 'seedColorValue';
+
+  /// Accent colours the user can choose from; the first is the app default.
+  static const List<Color> seedOptions = [
+    AppTheme.seed, // green (default)
+    Color(0xFF1565C0), // blue
+    Color(0xFF6A1B9A), // purple
+    Color(0xFFAD1457), // pink
+    Color(0xFFEF6C00), // orange
+    Color(0xFF00838F), // teal
+    Color(0xFF37474F), // slate
+  ];
 
   String _currencySymbol = '₹';
   ThemeMode _themeMode = ThemeMode.system;
+  Color _seedColor = AppTheme.seed;
   int _lockTimeoutSeconds = 15;
   int? _defaultAccountId;
   bool _alertsEnabled = true;
@@ -27,6 +41,7 @@ class SettingsProvider extends ChangeNotifier {
 
   String get currencySymbol => _currencySymbol;
   ThemeMode get themeMode => _themeMode;
+  Color get seedColor => _seedColor;
   int get lockTimeoutSeconds => _lockTimeoutSeconds;
   Duration get lockTimeout => Duration(seconds: _lockTimeoutSeconds);
   int? get defaultAccountId => _defaultAccountId;
@@ -50,6 +65,8 @@ class SettingsProvider extends ChangeNotifier {
     _alertsEnabled = prefs.getBool(_kAlertsEnabled) ?? true;
     _notificationsEnabled = prefs.getBool(_kNotificationsEnabled) ?? true;
     _smsImportEnabled = prefs.getBool(_kSmsImportEnabled) ?? false;
+    final storedSeed = prefs.getInt(_kSeedColor);
+    _seedColor = storedSeed != null ? Color(storedSeed) : AppTheme.seed;
     SmsService.enabled = _smsImportEnabled;
     CurrencyFormat.symbol = _currencySymbol;
     notifyListeners();
@@ -90,6 +107,13 @@ class SettingsProvider extends ChangeNotifier {
     _themeMode = mode;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kThemeMode, mode.name);
+    notifyListeners();
+  }
+
+  Future<void> setSeedColor(Color color) async {
+    _seedColor = color;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kSeedColor, color.toARGB32());
     notifyListeners();
   }
 

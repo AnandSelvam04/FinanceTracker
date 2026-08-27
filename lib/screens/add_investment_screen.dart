@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:provider/provider.dart';
 import '../providers/investment_provider.dart';
@@ -205,6 +206,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                           final provider = context.read<InvestmentProvider>();
                           try {
                             await provider.addInvestment(investment);
+                            HapticFeedback.lightImpact();
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

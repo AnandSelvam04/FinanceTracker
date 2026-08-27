@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 import '../utils/category_colors.dart';
+import '../utils/category_icons.dart';
 import '../utils/currency_format.dart';
 
 /// Spending by category as a sorted horizontal bar list.
@@ -98,6 +99,8 @@ class _CategoryBar extends StatelessWidget {
           children: [
             Row(
               children: [
+                Icon(categoryIcon(label), size: 16, color: color),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     label,

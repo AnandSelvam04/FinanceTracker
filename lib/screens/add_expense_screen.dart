@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
@@ -10,6 +11,7 @@ import '../services/db_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_logger.dart';
 import '../utils/category_colors.dart';
+import '../utils/category_icons.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
@@ -234,7 +236,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 children: categorySuggestions.map((c) {
                   final color = CategoryColors.forCategory(c);
                   return ChoiceChip(
-                    avatar: CircleAvatar(radius: 6, backgroundColor: color),
+                    avatar: Icon(categoryIcon(c), size: 18, color: color),
                     label: Text(c),
                     selected: _categoryController.text == c,
                     selectedColor: color.withValues(alpha: 0.22),
@@ -323,6 +325,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                 accountId: _accountId,
                               ));
                             }
+                            HapticFeedback.lightImpact();
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
