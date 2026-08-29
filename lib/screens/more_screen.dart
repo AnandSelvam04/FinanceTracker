@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/settings_provider.dart';
 import '../services/backup_service.dart';
+import '../utils/app_colors.dart';
 import '../utils/build_info.dart';
 import '../utils/insets.dart';
 import 'accounts_screen.dart';
@@ -208,7 +209,7 @@ class _MoreScreenState extends State<MoreScreen> {
             child: Text(
               'Finance Tracker ${BuildInfo.label}',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
             ),
           ),
         ],

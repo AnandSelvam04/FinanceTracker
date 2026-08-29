@@ -5,6 +5,7 @@ import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import '../widgets/cashflow_chart.dart';
+import '../widgets/section_header.dart';
 
 class CashflowScreen extends StatefulWidget {
   const CashflowScreen({super.key});
@@ -47,18 +48,16 @@ class _CashflowScreenState extends State<CashflowScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Income vs Expense (Last 12 Months)',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
+                const SectionHeader('Income vs Expense (last 12 months)'),
+                const SizedBox(height: 8),
                 CashflowChart(provider: provider),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _LegendDot(color: Colors.green.shade600, label: 'Income'),
+                    _LegendDot(color: incomeColor(context), label: 'Income'),
                     const SizedBox(width: 16),
-                    _LegendDot(color: Colors.red.shade400, label: 'Expense'),
+                    _LegendDot(color: expenseColor(context), label: 'Expense'),
                   ],
                 ),
                 const SizedBox(height: 16),

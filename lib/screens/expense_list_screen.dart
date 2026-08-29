@@ -133,9 +133,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       await showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
         builder: (context) {
           return StatefulBuilder(builder: (context, setModalState) {
             return Padding(
@@ -296,9 +293,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       await showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
         builder: (context) => StatefulBuilder(
           builder: (context, setSheet) => Padding(
             padding: bottomSheetPadding(context),
@@ -446,9 +440,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     final parts = await showModalBottomSheet<List<Expense>>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
       builder: (context) => _SplitSheet(original: original),
     );
     if (parts == null || parts.isEmpty || !mounted) return;
@@ -510,9 +501,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       await showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
         builder: (context) => StatefulBuilder(
           builder: (context, setSheet) => Padding(
             padding: bottomSheetPadding(context),
@@ -775,7 +763,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       12,
                       (i) => DropdownMenuItem(
                             value: i + 1,
-                            child: Text('${i + 1}'),
+                            child: Text(monthName(i + 1)),
                           ))
                 ],
                 onChanged: (m) => setState(() => _selectedMonth = m),

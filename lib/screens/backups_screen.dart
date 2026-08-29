@@ -12,7 +12,9 @@ import '../providers/recurring_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 import 'import_screen.dart';
+import '../utils/app_colors.dart';
 import '../utils/insets.dart';
+import '../widgets/section_header.dart';
 
 /// A restore, parameterised by whether the user has already agreed to apply a
 /// backup that contains no rows.
@@ -273,7 +275,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       'If you forget this passphrase, the backup cannot be recovered.',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
                     ),
                   ),
               ],
@@ -360,11 +362,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
           children: [
             _LastBackupBanner(time: _lastBackup),
             const SizedBox(height: 12),
-            Text(
-              'Backup & Restore',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
+            const SectionHeader('Backup & Restore'),
+            const SizedBox(height: 4),
             ElevatedButton.icon(
               icon: const Icon(Icons.cloud_upload),
               label: const Text('Backup to Google Drive'),
@@ -431,12 +430,13 @@ class _BackupsScreenState extends State<BackupsScreen> {
             if (_driveEmail != null)
               Row(
                 children: [
-                  const Icon(Icons.account_circle, size: 18, color: Colors.grey),
+                  Icon(Icons.account_circle,
+                      size: 18, color: mutedTextColor(context)),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text('Backs up to $_driveEmail',
                         style:
-                            const TextStyle(fontSize: 12, color: Colors.grey)),
+                            TextStyle(fontSize: 12, color: mutedTextColor(context))),
                   ),
                   TextButton(
                     onPressed: _isWorking ? null : _switchDriveAccount,
@@ -448,7 +448,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
               Text(
                 'Not signed in to Google Drive yet — the first backup will ask '
                 'which account to use.',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
               ),
             const SizedBox(height: 4),
             Text(
@@ -456,7 +456,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
               '(app data) — it is not visible in "My Drive", and only this app '
               'can read it. Drive needs a one-time sign-in setup in the build; '
               'if it fails, your data is still safe in local backups below.',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
             ),
             const Divider(height: 32),
             ElevatedButton.icon(
@@ -489,17 +489,14 @@ class _BackupsScreenState extends State<BackupsScreen> {
             Text(
               'Checks the local backup opens, decrypts, and every row is intact '
               '— so you know it would actually restore.',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
             ),
             const Divider(height: 32),
-            Text(
-              'Encrypted backup',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const SectionHeader('Encrypted backup'),
             const SizedBox(height: 4),
             Text(
               'Protect an exported backup with a passphrase (AES-256). Keep the passphrase safe — it is required to restore and cannot be reset.',
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
+              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
@@ -559,14 +556,11 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     },
             ),
             const Divider(height: 32),
-            Text(
-              'Download & Share',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const SectionHeader('Download & Share'),
             const SizedBox(height: 4),
             Text(
               'Save your data to Files/Downloads, email it, or send it to another app.',
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
+              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(

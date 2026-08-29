@@ -156,15 +156,16 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     if (_unlocked) return widget.child;
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lock_outline, size: 64, color: Colors.green),
+            Icon(Icons.lock_outline, size: 64, color: scheme.primary),
             const SizedBox(height: 16),
             Text('Finance Tracker is locked',
-                style: const TextStyle(fontSize: 18)),
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 24),
             if (_checking)
               const CircularProgressIndicator()
