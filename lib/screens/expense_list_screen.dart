@@ -27,6 +27,7 @@ class ExpenseListScreen extends StatefulWidget {
 }
 
 class _ExpenseListScreenState extends State<ExpenseListScreen> {
+  final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   int _selectedYear = DateTime.now().year;
   int? _selectedMonth = DateTime.now().month;
@@ -55,6 +56,83 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         setState(() => _earliestYear = bounds.$1);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Human label for the current period chip, e.g. "2026 · August" or
+  /// "2026 · All months".
+  String get _periodLabel =>
+      '$_selectedYear · ${_selectedMonth == null ? 'All months' : monthName(_selectedMonth!)}';
+
+  /// Compact period picker (year + month) opened from the toolbar chip, so the
+  /// two bare dropdowns no longer sit permanently across the top of the list.
+  Future<void> _showPeriodPicker() async {
+    final currentYear = DateTime.now().year;
+    final firstYear = _earliestYear < currentYear ? _earliestYear : currentYear;
+    final years = [for (var y = currentYear; y >= firstYear; y--) y];
+    await showModalBottomSheet(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) => Padding(
+          padding: bottomSheetPadding(context),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Period',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      initialValue: _selectedYear,
+                      decoration: const InputDecoration(labelText: 'Year'),
+                      items: years
+                          .map((y) => DropdownMenuItem(
+                              value: y, child: Text(y.toString())))
+                          .toList(),
+                      onChanged: (y) {
+                        if (y == null) return;
+                        setSheet(() => _selectedYear = y);
+                        _selectYear(y);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<int?>(
+                      initialValue: _selectedMonth,
+                      decoration: const InputDecoration(labelText: 'Month'),
+                      items: [
+                        DropdownMenuItem<int?>(
+                            value: null, child: const Text('All months')),
+                        ...List.generate(
+                            12,
+                            (i) => DropdownMenuItem<int?>(
+                                value: i + 1, child: Text(monthName(i + 1)))),
+                      ],
+                      onChanged: (m) {
+                        setSheet(() => _selectedMonth = m);
+                        setState(() => _selectedMonth = m);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// Loads the data needed to show [year] (the provider only holds the years
@@ -690,14 +768,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentYear = DateTime.now().year;
-    // Every year from the earliest transaction to now, newest first, so old
-    // data stays reachable (the list used to stop at 10 years back).
-    final firstYear = _earliestYear < currentYear ? _earliestYear : currentYear;
-    final years = [
-      for (var y = currentYear; y >= firstYear; y--) y,
-    ];
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Transactions'),
@@ -719,11 +789,24 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: TextField(
+              controller: _searchController,
               decoration: InputDecoration(
-                labelText: 'Search Expenses',
+                hintText: 'Search transactions',
                 prefixIcon: const Icon(Icons.search),
+                // A clear button so a stale query doesn't hide everything with
+                // no obvious way to reset it.
+                suffixIcon: _searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Clear search',
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      ),
               ),
               onChanged: (value) {
                 setState(() {
@@ -732,50 +815,23 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               },
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('Year:'),
-              const SizedBox(width: 8),
-              DropdownButton<int>(
-                value: _selectedYear,
-                items: years
-                    .map((y) => DropdownMenuItem(
-                          value: y,
-                          child: Text(y.toString()),
-                        ))
-                    .toList(),
-                onChanged: (y) {
-                  if (y != null) _selectYear(y);
-                },
-              ),
-              const SizedBox(width: 16),
-              const Text('Month:'),
-              const SizedBox(width: 8),
-              DropdownButton<int?>(
-                value: _selectedMonth,
-                items: [
-                  DropdownMenuItem(
-                    value: null,
-                    child: const Text('All'),
-                  ),
-                  ...List.generate(
-                      12,
-                      (i) => DropdownMenuItem(
-                            value: i + 1,
-                            child: Text(monthName(i + 1)),
-                          ))
-                ],
-                onChanged: (m) => setState(() => _selectedMonth = m),
-              ),
-            ],
-          ),
+          // One compact toolbar row: the period opens a picker, and the type
+          // chips sit beside it — instead of two bare dropdowns plus a
+          // separate chip strip stacked down the screen.
           SizedBox(
-            height: 40,
+            height: 44,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
+                ActionChip(
+                  avatar: const Icon(Icons.calendar_month, size: 18),
+                  label: Text(_periodLabel),
+                  onPressed: _showPeriodPicker,
+                ),
+                const SizedBox(width: 8),
+                const _ToolbarDivider(),
+                const SizedBox(width: 8),
                 for (final entry in [
                   (null, 'All'),
                   (DbConstants.txExpense, 'Expenses'),
@@ -793,6 +849,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 4),
           Expanded(
             child: Consumer<ExpenseProvider>(
               builder: (context, provider, _) {
@@ -1126,5 +1183,22 @@ class _CategoryAvatar extends StatelessWidget {
       );
     }
     return CategoryAvatar(category: expense.category);
+  }
+}
+
+/// A short vertical rule separating the period chip from the type chips in the
+/// transactions toolbar.
+class _ToolbarDivider extends StatelessWidget {
+  const _ToolbarDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 1,
+        height: 24,
+        color: Theme.of(context).colorScheme.outlineVariant,
+      ),
+    );
   }
 }
