@@ -91,18 +91,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _postRecurring() async {
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
+    final investmentProvider = context.read<InvestmentProvider>();
     final recurringProvider = context.read<RecurringProvider>();
     final messenger = ScaffoldMessenger.of(context);
     final posted = await RecurringService.instance.postDueTransactions();
     if (posted > 0) {
       await expenseProvider.reloadLoadedYears();
       await accountProvider.refreshBalances();
+      // SIP rules file into the investments ledger, so refresh it too —
+      // otherwise newly posted contributions (and the net-worth total) stay
+      // stale until a manual pull-to-refresh.
+      await investmentProvider.fetchInvestments();
       await recurringProvider.fetchRules();
       if (mounted) {
+        // "item" rather than "transaction": the count can include SIP
+        // investment contributions, which aren't expense/income transactions.
         messenger.showSnackBar(SnackBar(
           content: Text((posted == 1
-              ? '1 recurring transaction posted'
-              : '$posted recurring transactions posted')),
+              ? '1 recurring item posted'
+              : '$posted recurring items posted')),
         ));
       }
     }

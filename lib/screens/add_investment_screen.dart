@@ -6,6 +6,7 @@ import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../models/investment.dart';
 import '../models/recurring_rule.dart';
+import '../services/recurring_service.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
@@ -220,16 +221,30 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                           try {
                             await provider.addInvestment(investment);
                             if (_repeatMonthly) {
-                              // Start next month so this contribution — already
-                              // logged above — isn't posted a second time.
-                              final next = DateTime(_selectedDate.year,
-                                  _selectedDate.month + 1, _selectedDate.day);
+                              // Anchor to the chosen day-of-month and advance
+                              // one month with the same clamping the service
+                              // uses when posting, so a 31st start lands on the
+                              // last day of a short month instead of overflowing
+                              // into the next one (DateTime(y, 2, 31) → Mar 3).
+                              final anchorDay = _selectedDate.day;
+                              final next = RecurringService.nextDate(
+                                  _selectedDate,
+                                  DbConstants.freqMonthly,
+                                  anchorDay);
+                              // A blank name falls back to the instrument type,
+                              // not the month-stamped default — otherwise every
+                              // future contribution would carry the first
+                              // month's label (e.g. "Silver Jul 2026").
+                              final ruleName = enteredName.isEmpty
+                                  ? (type.isEmpty ? 'Investment' : type)
+                                  : enteredName;
                               await recurring.addRule(RecurringRule(
-                                description: investment.name,
+                                description: ruleName,
                                 amount: investment.amount,
                                 category: type,
                                 frequency: DbConstants.freqMonthly,
                                 nextDue: next,
+                                anchorDay: anchorDay,
                                 isInvestment: true,
                               ));
                             }
