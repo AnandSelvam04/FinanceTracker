@@ -61,7 +61,6 @@ class ExpenseTrendsChart extends StatelessWidget {
                 handleBuiltInTouches: true,
                 touchTooltipData: LineTouchTooltipData(
                   getTooltipColor: (_) => scheme.inverseSurface,
-                  tooltipRoundedRadius: 8,
                   getTooltipItems: (touchedSpots) => [
                     for (final s in touchedSpots)
                       LineTooltipItem(
