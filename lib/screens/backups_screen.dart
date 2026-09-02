@@ -12,7 +12,9 @@ import '../providers/recurring_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 import 'import_screen.dart';
+import '../utils/app_colors.dart';
 import '../utils/insets.dart';
+import '../widgets/section_header.dart';
 
 /// A restore, parameterised by whether the user has already agreed to apply a
 /// backup that contains no rows.
@@ -273,7 +275,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       'If you forget this passphrase, the backup cannot be recovered.',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
                     ),
                   ),
               ],
@@ -360,17 +362,20 @@ class _BackupsScreenState extends State<BackupsScreen> {
           children: [
             _LastBackupBanner(time: _lastBackup),
             const SizedBox(height: 12),
-            Text(
-              'Backup & Restore',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.cloud_upload),
-              label: const Text('Backup to Google Drive'),
-              onPressed: _isWorking
-                  ? null
-                  : () async {
+            const SectionHeader('Backup & Restore'),
+            const SizedBox(height: 4),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.cloud_upload),
+                    title: const Text('Back up to Google Drive'),
+                    subtitle: const Text(
+                        'Stored privately in the app-data folder; only this '
+                        'app can read it'),
+                    enabled: !_isWorking,
+                    onTap: () async {
                       setState(() => _isWorking = true);
                       try {
                         final isNewer =
@@ -414,100 +419,88 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         if (mounted) setState(() => _isWorking = false);
                       }
                     },
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.cloud_download),
-              label: const Text('Restore from Google Drive'),
-              onPressed: _isWorking
-                  ? null
-                  : () async {
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.cloud_download),
+                    title: const Text('Restore from Google Drive'),
+                    enabled: !_isWorking,
+                    onTap: () async {
                       await _restore(_backupService.restoreFromDrive,
                           'Restored from Drive');
                       await _loadDriveAccount();
                     },
-            ),
-            const SizedBox(height: 4),
-            // Which Google account holds the backup, and where it lives.
-            if (_driveEmail != null)
-              Row(
-                children: [
-                  const Icon(Icons.account_circle, size: 18, color: Colors.grey),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text('Backs up to $_driveEmail',
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey)),
                   ),
-                  TextButton(
-                    onPressed: _isWorking ? null : _switchDriveAccount,
-                    child: const Text('Switch account'),
+                  // Which Google account holds the backup, and where it lives.
+                  if (_driveEmail != null)
+                    ListTile(
+                      dense: true,
+                      leading: Icon(Icons.account_circle,
+                          color: mutedTextColor(context)),
+                      title: Text('Backs up to $_driveEmail',
+                          style: TextStyle(
+                              fontSize: 13, color: mutedTextColor(context))),
+                      trailing: TextButton(
+                        onPressed: _isWorking ? null : _switchDriveAccount,
+                        child: const Text('Switch'),
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Text(
+                        'Not signed in to Google Drive yet — the first backup '
+                        'will ask which account to use.',
+                        style: TextStyle(
+                            fontSize: 12, color: mutedTextColor(context)),
+                      ),
+                    ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.save_alt),
+                    title: const Text('Back up locally (JSON)'),
+                    enabled: !_isWorking,
+                    // writeJsonBackupFile, not backupToJson: it applies the
+                    // device key when at-rest encryption is on, so this can't
+                    // leave a readable copy of everything on disk.
+                    onTap: () => _runTask(_backupService.writeJsonBackupFile,
+                        'Local JSON backup created'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.restore),
+                    title: const Text('Restore from local JSON'),
+                    enabled: !_isWorking,
+                    onTap: () => _restore(
+                        ({bool allowEmpty = false}) => _backupService
+                            .restoreFromJson(allowEmpty: allowEmpty),
+                        'Restored from local JSON'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.fact_check_outlined),
+                    title: const Text('Verify last backup'),
+                    subtitle: const Text(
+                        'Checks it opens, decrypts, and every row is intact'),
+                    enabled: !_isWorking,
+                    onTap: _verifyBackup,
                   ),
                 ],
-              )
-            else
-              Text(
-                'Not signed in to Google Drive yet — the first backup will ask '
-                'which account to use.',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
-            const SizedBox(height: 4),
-            Text(
-              'The backup is stored privately in that account\'s Google Drive '
-              '(app data) — it is not visible in "My Drive", and only this app '
-              'can read it. Drive needs a one-time sign-in setup in the build; '
-              'if it fails, your data is still safe in local backups below.',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
-            const Divider(height: 32),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.save_alt),
-              label: const Text('Backup locally (JSON)'),
-              onPressed: _isWorking
-                  ? null
-                  // writeJsonBackupFile, not backupToJson: it applies the
-                  // device key when at-rest encryption is on, so this button
-                  // can't leave a readable copy of everything on disk.
-                  : () => _runTask(_backupService.writeJsonBackupFile,
-                      'Local JSON backup created'),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.restore),
-              label: const Text('Restore from local JSON'),
-              onPressed: _isWorking
-                  ? null
-                  : () => _restore(
-                      ({bool allowEmpty = false}) => _backupService
-                          .restoreFromJson(allowEmpty: allowEmpty),
-                      'Restored from local JSON'),
-            ),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.fact_check_outlined),
-              label: const Text('Verify last backup'),
-              onPressed: _isWorking ? null : _verifyBackup,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Checks the local backup opens, decrypts, and every row is intact '
-              '— so you know it would actually restore.',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const Divider(height: 32),
-            Text(
-              'Encrypted backup',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
+            const SectionHeader('Encrypted backup',
+                padding: EdgeInsets.fromLTRB(0, 20, 0, 4)),
             Text(
               'Protect an exported backup with a passphrase (AES-256). Keep the passphrase safe — it is required to restore and cannot be reset.',
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
+              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
             ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.lock),
-              label: const Text('Encrypted backup (JSON)'),
-              onPressed: _isWorking
-                  ? null
-                  : () async {
+            const SizedBox(height: 8),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.lock),
+                    title: const Text('Create encrypted backup (JSON)'),
+                    enabled: !_isWorking,
+                    onTap: () async {
                       final pass = await _promptPassphrase(
                           title: 'Encrypt backup',
                           action: 'Encrypt',
@@ -517,13 +510,12 @@ class _BackupsScreenState extends State<BackupsScreen> {
                           () => _backupService.writeEncryptedBackup(pass),
                           'Encrypted backup created');
                     },
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.lock_open),
-              label: const Text('Restore encrypted backup'),
-              onPressed: _isWorking
-                  ? null
-                  : () async {
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.lock_open),
+                    title: const Text('Restore encrypted backup'),
+                    enabled: !_isWorking,
+                    onTap: () async {
                       if (!await _confirmRestore()) return;
                       final pass = await _promptPassphrase(
                           title: 'Restore encrypted backup', action: 'Restore');
@@ -541,13 +533,12 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         }
                       }, 'Restored from encrypted backup');
                     },
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.ios_share),
-              label: const Text('Download encrypted backup'),
-              onPressed: _isWorking
-                  ? null
-                  : () async {
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.ios_share),
+                    title: const Text('Download encrypted backup'),
+                    enabled: !_isWorking,
+                    onTap: () async {
                       final pass = await _promptPassphrase(
                           title: 'Encrypt backup',
                           action: 'Encrypt',
@@ -557,52 +548,55 @@ class _BackupsScreenState extends State<BackupsScreen> {
                           () => _backupService.writeEncryptedBackup(pass),
                           'Finance Tracker — Encrypted Backup');
                     },
+                  ),
+                ],
+              ),
             ),
-            const Divider(height: 32),
-            Text(
-              'Download & Share',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
+            const SectionHeader('Download & Share',
+                padding: EdgeInsets.fromLTRB(0, 20, 0, 4)),
             Text(
               'Save your data to Files/Downloads, email it, or send it to another app.',
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
+              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
             ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.download),
-              label: const Text('Download expenses (CSV)'),
-              onPressed: _isWorking
-                  ? null
-                  : () => _exportAndShare(
-                      exportExpensesToCsv, 'Finance Tracker — Expenses'),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.download),
-              label: const Text('Download investments (CSV)'),
-              onPressed: _isWorking
-                  ? null
-                  : () => _exportAndShare(
-                      exportInvestmentsToCsv, 'Finance Tracker — Investments'),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.download),
-              label: const Text('Download full data (JSON)'),
-              onPressed: _isWorking
-                  ? null
-                  : () => _exportAndShare(_backupService.writeJsonBackupFile,
-                      'Finance Tracker — Full Backup'),
-            ),
-            const Divider(height: 32),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Import from CSV'),
-              onPressed: _isWorking
-                  ? null
-                  : () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ImportScreen()),
-                      ),
+            const SizedBox(height: 8),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.download),
+                    title: const Text('Download expenses (CSV)'),
+                    enabled: !_isWorking,
+                    onTap: () => _exportAndShare(
+                        exportExpensesToCsv, 'Finance Tracker — Expenses'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.download),
+                    title: const Text('Download investments (CSV)'),
+                    enabled: !_isWorking,
+                    onTap: () => _exportAndShare(exportInvestmentsToCsv,
+                        'Finance Tracker — Investments'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.download),
+                    title: const Text('Download full data (JSON)'),
+                    enabled: !_isWorking,
+                    onTap: () => _exportAndShare(
+                        _backupService.writeJsonBackupFile,
+                        'Finance Tracker — Full Backup'),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.upload_file),
+                    title: const Text('Import from CSV'),
+                    enabled: !_isWorking,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ImportScreen()),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             if (_isWorking) const Center(child: CircularProgressIndicator()),

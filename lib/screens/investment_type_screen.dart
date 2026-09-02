@@ -261,9 +261,6 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
       await showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
         builder: (context) {
           return StatefulBuilder(builder: (context, setModalState) {
             return Padding(

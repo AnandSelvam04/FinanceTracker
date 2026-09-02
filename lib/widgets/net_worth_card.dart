@@ -52,7 +52,7 @@ class NetWorthCard extends StatelessWidget {
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: netWorth < 0
-                            ? Colors.red.shade400
+                            ? expenseColor(context)
                             : Theme.of(context).colorScheme.primary,
                       ),
                     ),

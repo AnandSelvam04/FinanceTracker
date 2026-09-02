@@ -53,6 +53,31 @@ class ExpenseTrendsChart extends StatelessWidget {
               // for anyone — sighted or not.
               gridData: FlGridData(show: true, drawVerticalLine: false),
               borderData: FlBorderData(show: false),
+              // Dragging along the line shows the exact figure at each month.
+              // Without this the framework default renders a bare decimal
+              // (e.g. "1234.0") with weak contrast, so per-point values were
+              // hard to read.
+              lineTouchData: LineTouchData(
+                handleBuiltInTouches: true,
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipColor: (_) => scheme.inverseSurface,
+                  getTooltipItems: (touchedSpots) => [
+                    for (final s in touchedSpots)
+                      LineTooltipItem(
+                        (s.x.round() >= 0 && s.x.round() < months.length
+                                ? '${_monthInitials[months[s.x.round()].month - 1]}'
+                                    '${months[s.x.round()].year % 100}\n'
+                                : '') +
+                            formatMoney((s.y * 100).round()),
+                        TextStyle(
+                          color: scheme.onInverseSurface,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
               titlesData: FlTitlesData(
                 topTitles:
                     const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -92,6 +117,18 @@ class ExpenseTrendsChart extends StatelessWidget {
                   isCurved: true,
                   color: scheme.primary,
                   barWidth: 3,
+                  // A dot at each month makes the individual data points
+                  // visible and easy to target when reading their values.
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, bar, index) =>
+                        FlDotCirclePainter(
+                      radius: 3,
+                      color: scheme.primary,
+                      strokeWidth: 0,
+                      strokeColor: Colors.transparent,
+                    ),
+                  ),
                   belowBarData: BarAreaData(show: false),
                 ),
               ],

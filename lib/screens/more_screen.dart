@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/settings_provider.dart';
 import '../services/backup_service.dart';
+import '../utils/app_colors.dart';
 import '../utils/build_info.dart';
 import '../utils/insets.dart';
+import '../widgets/section_header.dart';
 import 'accounts_screen.dart';
 import 'backups_screen.dart';
 import 'budgets_screen.dart';
@@ -75,31 +77,10 @@ class _MoreScreenState extends State<MoreScreen> {
         // Leaves room under the dashboard FAB so the last tile stays tappable.
         padding: scrollPadding(context, all: 0, fab: true),
         children: [
-          ListTile(
-            leading: const Icon(Icons.account_balance),
-            title: const Text('Accounts'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AccountsScreen()),
-              );
-            },
-          ),
-          // Hidden until SMS reading is switched on in Settings, so the entry
-          // never leads to a screen that can only report it is turned off.
-          if (context.watch<SettingsProvider>().smsImportEnabled)
-            ListTile(
-              leading: const Icon(Icons.sms),
-              title: const Text('Import from SMS'),
-              subtitle: const Text('Find transactions in bank alerts'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const SmsReviewScreen()),
-                );
-              },
-            ),
+          // Grouped into sections so a growing list of destinations stays
+          // scannable instead of reading as one long undifferentiated column.
+          const SectionHeader('Insights',
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 4)),
           ListTile(
             leading: const Icon(Icons.summarize),
             title: const Text('Monthly Summary'),
@@ -132,14 +113,25 @@ class _MoreScreenState extends State<MoreScreen> {
               );
             },
           ),
+          const SectionHeader('Manage',
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 4)),
           ListTile(
-            leading: const Icon(Icons.trending_up),
-            title: const Text('Investments'),
+            leading: const Icon(Icons.account_balance),
+            title: const Text('Accounts'),
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (context) => const InvestmentsScreen()),
+                MaterialPageRoute(builder: (context) => const AccountsScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.account_balance_wallet),
+            title: const Text('Budgets'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BudgetsScreen()),
               );
             },
           ),
@@ -155,15 +147,33 @@ class _MoreScreenState extends State<MoreScreen> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.account_balance_wallet),
-            title: const Text('Budgets'),
+            leading: const Icon(Icons.trending_up),
+            title: const Text('Investments'),
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const BudgetsScreen()),
+                MaterialPageRoute(
+                    builder: (context) => const InvestmentsScreen()),
               );
             },
           ),
+          const SectionHeader('Data',
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 4)),
+          // Hidden until SMS reading is switched on in Settings, so the entry
+          // never leads to a screen that can only report it is turned off.
+          if (context.watch<SettingsProvider>().smsImportEnabled)
+            ListTile(
+              leading: const Icon(Icons.sms),
+              title: const Text('Import from SMS'),
+              subtitle: const Text('Find transactions in bank alerts'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SmsReviewScreen()),
+                );
+              },
+            ),
           Builder(builder: (context) {
             final stale = _lastBackup == null ||
                 DateTime.now().difference(_lastBackup!) >
@@ -183,7 +193,8 @@ class _MoreScreenState extends State<MoreScreen> {
               },
             );
           }),
-          const Divider(),
+          const SectionHeader('App',
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 4)),
           ListTile(
             leading: const Icon(Icons.settings),
             title: const Text('Settings'),
@@ -208,7 +219,7 @@ class _MoreScreenState extends State<MoreScreen> {
             child: Text(
               'Finance Tracker ${BuildInfo.label}',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
             ),
           ),
         ],
