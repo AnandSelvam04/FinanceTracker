@@ -259,6 +259,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Finance Tracker'),
+        // A gradient header on the landing screen; inner screens keep the
+        // solid accent app bar from the theme.
+        flexibleSpace: DecoratedBox(
+          decoration: BoxDecoration(gradient: brandGradient(context)),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),

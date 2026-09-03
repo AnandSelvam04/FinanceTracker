@@ -47,13 +47,18 @@ class AppTheme {
       visualDensity: VisualDensity.adaptivePlatformDensity,
       appBarTheme: AppBarThemeData(
         centerTitle: false,
-        scrolledUnderElevation: 2,
-        backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
+        scrolledUnderElevation: 0,
+        // Accent-colored app bars (instead of plain surface) give every screen
+        // a consistent splash of the brand color at the top.
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
+        surfaceTintColor: Colors.transparent,
+        iconTheme: IconThemeData(color: scheme.onPrimary),
+        actionsIconTheme: IconThemeData(color: scheme.onPrimary),
         titleTextStyle: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: scheme.onSurface,
+          color: scheme.onPrimary,
         ),
       ),
       cardTheme: CardThemeData(
