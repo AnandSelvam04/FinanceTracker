@@ -234,6 +234,42 @@ void main() {
       expect(byName.keys.toList(), ['Alpha Fund', 'Zebra Fund']);
     });
 
+    test(
+        'usedNames scopes to a type, ranks by frequency then alphabetically',
+        () async {
+      // Nifty 50 twice, Nifty Midcap once, all under Mutual Funds. A Gold
+      // holding must not leak into the Mutual Funds suggestions.
+      await provider.addInvestment(Investment(
+          name: 'Nifty 50',
+          amount: 1000,
+          date: DateTime(2026, 1, 1),
+          type: 'Mutual Funds'));
+      await provider.addInvestment(Investment(
+          name: 'Nifty Midcap',
+          amount: 1000,
+          date: DateTime(2026, 1, 2),
+          type: 'Mutual Funds'));
+      await provider.addInvestment(Investment(
+          name: 'Nifty 50',
+          amount: 1000,
+          date: DateTime(2026, 1, 3),
+          type: 'Mutual Funds'));
+      await provider.addInvestment(Investment(
+          name: 'Sovereign Gold Bond',
+          amount: 1000,
+          date: DateTime(2026, 1, 4),
+          type: 'Gold'));
+
+      // Scoped: most-used first (Nifty 50, 2×) then the rest; no Gold name.
+      expect(provider.usedNames(type: 'Mutual Funds'),
+          ['Nifty 50', 'Nifty Midcap']);
+      expect(provider.usedNames(type: 'Gold'), ['Sovereign Gold Bond']);
+
+      // Unscoped: every distinct name across all types.
+      expect(provider.usedNames(),
+          ['Nifty 50', 'Nifty Midcap', 'Sovereign Gold Bond']);
+    });
+
     test('reassignType moves every contribution to the new type', () async {
       await provider.addInvestment(Investment(
           name: 'a',

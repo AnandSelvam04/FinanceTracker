@@ -25,7 +25,10 @@ class AddInvestmentScreen extends StatefulWidget {
 
 class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
+  // Assigned in the name field's builder and owned by that Autocomplete, which
+  // disposes it — so this state must not. Late because the first read only
+  // happens after the first build (on save or a rebuild).
+  late TextEditingController _nameController;
   final _amountController = TextEditingController();
   final _customTypeController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
@@ -107,7 +110,8 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
+    // _nameController belongs to the name field's Autocomplete, which disposes
+    // it; disposing it here would double-dispose.
     _amountController.dispose();
     _customTypeController.dispose();
     super.dispose();
@@ -153,14 +157,38 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: 'Name (optional)',
-                  hintText: _defaultName(),
-                ),
-                // Name is optional: blank falls back to an auto-generated
-                // label like "Silver Jul 2026".
+              // Suggest names already saved under this type — for Mutual Funds
+              // that means the funds you already track (e.g. "Nifty 50",
+              // "Nifty Midcap") — so a recurring holding is picked from the
+              // list instead of retyped each time. Still fully free-text; the
+              // name is optional and a blank one falls back to an
+              // auto-generated label like "Silver Jul 2026".
+              Autocomplete<String>(
+                optionsBuilder: (value) {
+                  final names = context
+                      .read<InvestmentProvider>()
+                      .usedNames(type: _resolvedType);
+                  final query = value.text.trim().toLowerCase();
+                  if (query.isEmpty) return names;
+                  return names.where((n) => n.toLowerCase().contains(query));
+                },
+                fieldViewBuilder:
+                    (context, controller, focusNode, onFieldSubmitted) {
+                  // Autocomplete owns this controller for its lifetime; hold a
+                  // reference so save (and the recurring-rule name) can read
+                  // the entered text. Don't dispose it here.
+                  _nameController = controller;
+                  return TextFormField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(
+                      labelText: 'Name (optional)',
+                      hintText: _defaultName(),
+                      suffixIcon: const Icon(Icons.arrow_drop_down),
+                    ),
+                    onFieldSubmitted: (_) => onFieldSubmitted(),
+                  );
+                },
               ),
               const SizedBox(height: 8),
               TextFormField(
