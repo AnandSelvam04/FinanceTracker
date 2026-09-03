@@ -259,6 +259,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Finance Tracker'),
+        // A gradient header on the landing screen; inner screens keep the
+        // solid accent app bar from the theme.
+        flexibleSpace: DecoratedBox(
+          decoration: BoxDecoration(gradient: brandGradient(context)),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
@@ -582,7 +587,6 @@ class _TotalHeadline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
         Text(
@@ -595,13 +599,20 @@ class _TotalHeadline extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 2),
-        AnimatedMoney(
-          value: amount,
-          format: formatMoney,
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: scheme.onSurface,
+        // ShaderMask paints the count-up total with the brand gradient. The
+        // white base color is what the srcIn blend replaces with the gradient.
+        ShaderMask(
+          shaderCallback: (bounds) =>
+              brandGradient(context).createShader(bounds),
+          blendMode: BlendMode.srcIn,
+          child: AnimatedMoney(
+            value: amount,
+            format: formatMoney,
+            style: const TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ),
         if (income > 0)
@@ -667,6 +678,9 @@ class _ShortcutsRow extends StatelessWidget {
             child: _ShortcutButton(
               icon: Icons.trending_up,
               label: 'Investments',
+              // Distinct accents (not one shared container) so the shortcuts
+              // read as separate destinations at a glance.
+              accent: const Color(0xFF00897B), // teal
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -680,6 +694,7 @@ class _ShortcutsRow extends StatelessWidget {
               child: _ShortcutButton(
                 icon: Icons.sms,
                 label: 'Import SMS',
+                accent: const Color(0xFF6A3DE8), // violet
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -698,20 +713,30 @@ class _ShortcutsRow extends StatelessWidget {
 class _ShortcutButton extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color accent;
   final VoidCallback onTap;
   const _ShortcutButton({
     required this.icon,
     required this.label,
+    required this.accent,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    // A soft tint of the accent as fill, the accent itself for icon and text,
+    // so each shortcut carries its own color without shouting.
+    final fill = accent.withValues(alpha: dark ? 0.24 : 0.14);
+    final foreground = dark ? Color.lerp(accent, Colors.white, 0.4)! : accent;
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
-      color: scheme.secondaryContainer,
+      color: fill,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: accent.withValues(alpha: 0.35)),
+      ),
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -719,7 +744,7 @@ class _ShortcutButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 20, color: scheme.onSecondaryContainer),
+              Icon(icon, size: 20, color: foreground),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -727,7 +752,7 @@ class _ShortcutButton extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: scheme.onSecondaryContainer,
+                    color: foreground,
                   ),
                 ),
               ),

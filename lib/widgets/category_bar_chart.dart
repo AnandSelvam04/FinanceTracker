@@ -131,7 +131,20 @@ class _CategoryBar extends StatelessWidget {
                       child: FractionallySizedBox(
                         widthFactor: fraction.clamp(0.02, 1.0),
                         heightFactor: 1,
-                        child: ColoredBox(color: color),
+                        // A gradient along the bar (bright to deep) gives the
+                        // fill some depth instead of a flat block of color.
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [
+                                Color.lerp(color, Colors.white, 0.28) ?? color,
+                                color,
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
