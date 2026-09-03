@@ -67,6 +67,30 @@ class InvestmentProvider extends ChangeNotifier {
     return {for (final k in ordered) k: byKey[k]!};
   }
 
+  /// Contributions of [type] grouped by name — e.g. the individual funds
+  /// within "Mutual Funds", so each fund's total surfaces on its own instead
+  /// of being lumped into the type. Groups are ordered by total invested
+  /// (largest first) and each group keeps its entries newest first (the fetch
+  /// order).
+  Map<String, List<Investment>> breakdownByName(String type) {
+    final byName = <String, List<Investment>>{};
+    for (final i in ofType(type)) {
+      byName.putIfAbsent(i.name, () => []).add(i);
+    }
+    final totalOf = <String, int>{
+      for (final e in byName.entries)
+        e.key: e.value.fold<int>(0, (sum, i) => sum + i.amount),
+    };
+    final ordered = byName.keys.toList()
+      ..sort((a, b) {
+        final byTotal = totalOf[b]!.compareTo(totalOf[a]!);
+        // Fall back to name so ties (and equal-total funds) stay stable and
+        // alphabetical rather than jumping around between rebuilds.
+        return byTotal != 0 ? byTotal : a.toLowerCase().compareTo(b.toLowerCase());
+      });
+    return {for (final k in ordered) k: byName[k]!};
+  }
+
   /// Contributions of [type] grouped by calendar month keyed as `YYYY-MM`,
   /// newest month first, with each month's entries newest first. This powers
   /// the "how much did I invest in this month/year" breakdown.

@@ -9,10 +9,17 @@ import '../utils/insets.dart';
 import 'add_investment_screen.dart';
 import '../utils/date_format.dart';
 
+/// How the contributions on the type screen are grouped: into time buckets
+/// (how much went in each period) or by name (how much each individual fund
+/// holds — the natural view for "Mutual Funds", where every contribution
+/// carries a fund name).
+enum _GroupBy { period, name }
+
 /// Shows every contribution for a single investment [type], with the running
 /// total and a breakdown that can be grouped by week, month, or year ("how
-/// much did I put into Silver in each period"). Adding here appends a new
-/// contribution instead of forcing the user to edit an existing one.
+/// much did I put into Silver in each period") or by name ("how much is in
+/// each mutual fund"). Adding here appends a new contribution instead of
+/// forcing the user to edit an existing one.
 class InvestmentTypeScreen extends StatefulWidget {
   final String type;
 
@@ -24,6 +31,7 @@ class InvestmentTypeScreen extends StatefulWidget {
 
 class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
   InvestmentPeriod _period = InvestmentPeriod.monthly;
+  _GroupBy _groupBy = _GroupBy.period;
 
   String get type => widget.type;
 
@@ -149,7 +157,6 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
       ),
       body: Consumer<InvestmentProvider>(
         builder: (context, provider, _) {
-          final breakdown = provider.breakdownByPeriod(type, _period);
           final entries = provider.ofType(type);
           final total = entries.fold<int>(0, (sum, i) => sum + i.amount);
 
@@ -161,8 +168,6 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
             });
             return const SizedBox.shrink();
           }
-
-          final periods = breakdown.keys.toList();
 
           return Column(
             children: [
@@ -200,65 +205,51 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: SizedBox(
                   width: double.infinity,
-                  child: SegmentedButton<InvestmentPeriod>(
-                    segments: [
+                  child: SegmentedButton<_GroupBy>(
+                    segments: const [
                       ButtonSegment(
-                          value: InvestmentPeriod.weekly,
-                          label: const Text('Weekly')),
+                          value: _GroupBy.period, label: Text('By period')),
                       ButtonSegment(
-                          value: InvestmentPeriod.monthly,
-                          label: const Text('Monthly')),
-                      ButtonSegment(
-                          value: InvestmentPeriod.yearly,
-                          label: const Text('Yearly')),
+                          value: _GroupBy.name, label: Text('By name')),
                     ],
-                    selected: {_period},
+                    selected: {_groupBy},
                     onSelectionChanged: (s) =>
-                        setState(() => _period = s.first),
+                        setState(() => _groupBy = s.first),
                     showSelectedIcon: false,
                   ),
                 ),
               ),
+              if (_groupBy == _GroupBy.period) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<InvestmentPeriod>(
+                      segments: [
+                        ButtonSegment(
+                            value: InvestmentPeriod.weekly,
+                            label: const Text('Weekly')),
+                        ButtonSegment(
+                            value: InvestmentPeriod.monthly,
+                            label: const Text('Monthly')),
+                        ButtonSegment(
+                            value: InvestmentPeriod.yearly,
+                            label: const Text('Yearly')),
+                      ],
+                      selected: {_period},
+                      onSelectionChanged: (s) =>
+                          setState(() => _period = s.first),
+                      showSelectedIcon: false,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 4),
               Expanded(
-                child: ListView.builder(
-                  padding: scrollPadding(context, all: 12, top: 0, fab: true),
-                  itemCount: periods.length,
-                  itemBuilder: (context, index) {
-                    final ym = periods[index];
-                    final periodItems = breakdown[ym]!;
-                    final periodTotal =
-                        periodItems.fold<int>(0, (sum, i) => sum + i.amount);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _periodLabel(ym),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                              Text(
-                                formatMoneySigned(periodTotal),
-                                style: const TextStyle(
-                                    fontSize: 13, fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
-                        ),
-                        ...periodItems
-                            .map((i) => _contributionTile(context, i)),
-                      ],
-                    );
-                  },
-                ),
+                child: _groupBy == _GroupBy.period
+                    ? _periodList(context, provider)
+                    : _nameList(context, provider),
               ),
             ],
           );
@@ -276,6 +267,89 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
         },
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  /// The time-bucketed view: contributions grouped into the selected
+  /// weekly/monthly/yearly period, each period with its own total.
+  Widget _periodList(BuildContext context, InvestmentProvider provider) {
+    final breakdown = provider.breakdownByPeriod(type, _period);
+    final periods = breakdown.keys.toList();
+    return ListView.builder(
+      padding: scrollPadding(context, all: 12, top: 0, fab: true),
+      itemCount: periods.length,
+      itemBuilder: (context, index) {
+        final ym = periods[index];
+        final periodItems = breakdown[ym]!;
+        final periodTotal =
+            periodItems.fold<int>(0, (sum, i) => sum + i.amount);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _periodLabel(ym),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  Text(
+                    formatMoneySigned(periodTotal),
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            ...periodItems.map((i) => _contributionTile(context, i)),
+          ],
+        );
+      },
+    );
+  }
+
+  /// The by-name view: one expandable card per distinct name (e.g. each mutual
+  /// fund), showing that name's total and contribution count. Expanding a card
+  /// reveals its individual contributions — the same tiles as the period view,
+  /// so edit and delete work identically.
+  Widget _nameList(BuildContext context, InvestmentProvider provider) {
+    final breakdown = provider.breakdownByName(type);
+    final names = breakdown.keys.toList();
+    return ListView.builder(
+      padding: scrollPadding(context, all: 12, top: 0, fab: true),
+      itemCount: names.length,
+      itemBuilder: (context, index) {
+        final name = names[index];
+        final items = breakdown[name]!;
+        final nameTotal = items.fold<int>(0, (sum, i) => sum + i.amount);
+        final count = items.length;
+        // Fetch order is newest-first, so the first item is the latest.
+        final latest = items.first.date;
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          clipBehavior: Clip.antiAlias,
+          child: ExpansionTile(
+            title: Text(name,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(
+              '$count ${count == 1 ? 'contribution' : 'contributions'}'
+              ' · latest ${formatDateWithDay(latest)}',
+            ),
+            trailing: Text(
+              formatMoneySigned(nameTotal),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            children: items.map((i) => _contributionTile(context, i)).toList(),
+          ),
+        );
+      },
     );
   }
 
