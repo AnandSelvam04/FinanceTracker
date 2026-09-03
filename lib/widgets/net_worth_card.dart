@@ -28,32 +28,44 @@ class NetWorthCard extends StatelessWidget {
         final invested =
             investments.investments.fold<int>(0, (sum, i) => sum + i.amount);
         final netWorth = liquid + invested;
+        final onGradient = onBrandGradient(context);
+        final subtle = onGradient.withValues(alpha: 0.82);
 
         return Card(
-          child: Padding(
+          // The gradient supplies the fill, so drop the card's own surface color
+          // and border and let the container paint edge to edge.
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          clipBehavior: Clip.antiAlias,
+          color: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: brandGradient(context),
+              borderRadius: BorderRadius.circular(18),
+            ),
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.account_balance,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.primary),
+                    Icon(Icons.account_balance, size: 20, color: onGradient),
                     const SizedBox(width: 8),
                     Text('Net Worth',
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: onGradient)),
                     const Spacer(),
                     AnimatedMoney(
                       value: netWorth,
                       format: formatMoneySigned,
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: netWorth < 0
-                            ? expenseColor(context)
-                            : Theme.of(context).colorScheme.primary,
+                        color: onGradient,
                       ),
                     ),
                   ],
@@ -62,14 +74,15 @@ class NetWorthCard extends StatelessWidget {
                 Text(
                   'Accounts ${formatMoneySigned(liquid)} · '
                   'Investments ${formatMoneySigned(invested)}',
-                  style:
-                      TextStyle(fontSize: 12, color: mutedTextColor(context)),
+                  style: TextStyle(fontSize: 12, color: subtle),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: 120,
                   // key forces the FutureBuilder to refetch when totals change.
                   child: _NetWorthTrend(
+                    lineColor: onGradient,
+                    mutedColor: subtle,
                     key:
                         ValueKey('$netWorth-${investments.investments.length}'),
                   ),
@@ -84,7 +97,16 @@ class NetWorthCard extends StatelessWidget {
 }
 
 class _NetWorthTrend extends StatelessWidget {
-  const _NetWorthTrend({super.key});
+  /// Colors are passed in so the trend line reads clearly on the card's
+  /// gradient fill instead of using the scheme's primary (which the gradient
+  /// is built from and would blend into).
+  final Color lineColor;
+  final Color mutedColor;
+  const _NetWorthTrend({
+    super.key,
+    required this.lineColor,
+    required this.mutedColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -100,14 +122,14 @@ class _NetWorthTrend extends StatelessWidget {
         if (series.every((p) => p.value == 0)) {
           return Center(
             child: Text('No history yet',
-                style: TextStyle(fontSize: 12, color: mutedTextColor(context))),
+                style: TextStyle(fontSize: 12, color: mutedColor)),
           );
         }
         final spots = <FlSpot>[
           for (int i = 0; i < series.length; i++)
             FlSpot(i.toDouble(), series[i].value / 100),
         ];
-        final color = Theme.of(context).colorScheme.primary;
+        final color = lineColor;
         return Semantics(
           label: 'Net worth trend over the last 12 months',
           child: LineChart(

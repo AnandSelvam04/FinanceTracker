@@ -92,10 +92,12 @@ class AppTheme {
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        elevation: 2,
-        highlightElevation: 4,
-        backgroundColor: scheme.primaryContainer,
-        foregroundColor: scheme.onPrimaryContainer,
+        elevation: 3,
+        highlightElevation: 6,
+        // The full accent (not the muted container) makes the primary action
+        // pop against the dashboard's soft surfaces.
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
         ),

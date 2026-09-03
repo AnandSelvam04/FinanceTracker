@@ -30,3 +30,23 @@ Color transferAvatarColor(BuildContext context) =>
 /// grey shades).
 Color mutedTextColor(BuildContext context) =>
     Theme.of(context).colorScheme.onSurfaceVariant;
+
+/// A brand gradient blended from the active color scheme, so it follows the
+/// user's chosen accent (and both light/dark modes) instead of hard-coding
+/// colors. Used for hero surfaces like the net-worth card, where a flat fill
+/// looks plainer than the rest of a Material 3 app can.
+LinearGradient brandGradient(BuildContext context) {
+  final scheme = Theme.of(context).colorScheme;
+  return LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      scheme.primary,
+      Color.lerp(scheme.primary, scheme.tertiary, 0.55) ?? scheme.primary,
+    ],
+  );
+}
+
+/// Foreground color that stays legible on top of [brandGradient].
+Color onBrandGradient(BuildContext context) =>
+    Theme.of(context).colorScheme.onPrimary;
