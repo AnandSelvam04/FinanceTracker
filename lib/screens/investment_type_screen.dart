@@ -49,13 +49,11 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     }
   }
 
-  /// Lets the user re-file every contribution of this type under a different
-  /// one — for a category picked wrongly. Reassigns the whole bucket, then pops
-  /// back to the list since this type no longer exists.
-  Future<void> _moveToAnotherType(BuildContext context) async {
+  /// Types a bucket or a single contribution can move to: the built-in types
+  /// plus any the user already uses, minus the current [type], with "Other"
+  /// last so a brand-new type can be typed.
+  List<String> _moveTargetOptions() {
     final provider = context.read<InvestmentProvider>();
-    // Built-in types plus any the user already uses, minus the current one,
-    // with "Other" last so a brand-new type can be typed.
     final options = <String>[
       for (final t in Investment.builtInTypes)
         if (t != Investment.otherType && t != type) t,
@@ -64,20 +62,29 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
       if (t != type && !options.contains(t)) options.add(t);
     }
     options.add(Investment.otherType);
+    return options;
+  }
 
+  /// Shows a type picker (with an "Other" free-text fallback) and returns the
+  /// chosen target type, or null if the user cancels or picks the current one.
+  /// Shared by the whole-bucket move and the single-contribution move so both
+  /// offer the same destinations (Mutual Funds, Gold, FD, …).
+  Future<String?> _pickMoveTarget({
+    required String title,
+    required String description,
+  }) async {
+    final options = _moveTargetOptions();
     String selected = options.first;
     final customController = TextEditingController();
-
     final target = await showDialog<String>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Move "$type" to'),
+          title: Text(title),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Re-file every contribution filed under "$type" under '
-                  'another type.'),
+              Text(description),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: selected,
@@ -120,6 +127,19 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
       ),
     );
     customController.dispose();
+    return target;
+  }
+
+  /// Lets the user re-file every contribution of this type under a different
+  /// one — for a category picked wrongly. Reassigns the whole bucket, then pops
+  /// back to the list since this type no longer exists.
+  Future<void> _moveToAnotherType(BuildContext context) async {
+    final provider = context.read<InvestmentProvider>();
+    final target = await _pickMoveTarget(
+      title: 'Move "$type" to',
+      description:
+          'Re-file every contribution filed under "$type" under another type.',
+    );
     if (target == null || !context.mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
@@ -130,6 +150,33 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     ));
     // No explicit pop: reassigning empties this type, and the builder below
     // returns to the list once [entries] is empty.
+  }
+
+  /// Moves just one contribution to another type — for a single entry filed
+  /// under the wrong instrument (e.g. added to NPS but it belongs in Mutual
+  /// Funds, Gold, or FD). The other contributions of this type stay put.
+  Future<void> _moveContribution(
+      BuildContext context, Investment investment) async {
+    final provider = context.read<InvestmentProvider>();
+    final target = await _pickMoveTarget(
+      title: 'Move contribution to',
+      description: 'Move "${investment.name}" '
+          '(${formatMoney(investment.amount.abs())}) from "$type" to another '
+          'type. Only this contribution moves.',
+    );
+    if (target == null || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    await provider.updateInvestment(Investment(
+      id: investment.id,
+      name: investment.name,
+      amount: investment.amount,
+      date: investment.date,
+      type: target,
+    ));
+    messenger.showSnackBar(
+      SnackBar(content: Text('Moved "${investment.name}" to "$target".')),
+    );
   }
 
   @override
@@ -393,12 +440,45 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
               subtitle: Text(investment.isWithdrawal
                   ? 'Withdrawal · ${formatDateWithDay(investment.date)}'
                   : formatDateWithDay(investment.date)),
-              trailing: Text(formatMoneySigned(investment.amount),
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: investment.isWithdrawal
-                          ? expenseColor(context)
-                          : null)),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(formatMoneySigned(investment.amount),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: investment.isWithdrawal
+                              ? expenseColor(context)
+                              : null)),
+                  PopupMenuButton<String>(
+                    tooltip: 'More actions',
+                    onSelected: (value) {
+                      if (value == 'move') {
+                        _moveContribution(context, investment);
+                      } else if (value == 'delete') {
+                        _confirmDelete(context, investment);
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'move',
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.drive_file_move_outline),
+                          title: Text('Move to another type'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.delete_outline),
+                          title: Text('Delete'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
               onTap: () => _editInvestment(context, investment),
               onLongPress: () => _confirmDelete(context, investment),
             ),
