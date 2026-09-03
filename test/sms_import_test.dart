@@ -197,6 +197,11 @@ void main() {
       'Get 10% cashback offer up to Rs.500 at AMAZON. Click here to apply now.',
       'Payment of Rs.999 to NETFLIX has failed. Please retry.',
       'Rs.500 transaction on card XX5678 was declined.',
+      // Loyalty-wallet marketing that borrows "credited" wording and quotes an
+      // amount, but is store scrip pushing a first order — not real money.
+      'Rs. 125 Free Cash is credited! Use it on your first order on bigbasket '
+          'and enjoy your first 4 FREE deliveries. Shop now: '
+          'https://gs.im/BIGBKT/e/pgGLCitCIFt Team bigbasket',
     ]) {
       test('"${body.substring(0, 32)}..."', () {
         expect(parse(body), isNull);
