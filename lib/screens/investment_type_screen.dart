@@ -9,10 +9,17 @@ import '../utils/insets.dart';
 import 'add_investment_screen.dart';
 import '../utils/date_format.dart';
 
+/// How the contributions on the type screen are grouped: into time buckets
+/// (how much went in each period) or by name (how much each individual fund
+/// holds — the natural view for "Mutual Funds", where every contribution
+/// carries a fund name).
+enum _GroupBy { period, name }
+
 /// Shows every contribution for a single investment [type], with the running
 /// total and a breakdown that can be grouped by week, month, or year ("how
-/// much did I put into Silver in each period"). Adding here appends a new
-/// contribution instead of forcing the user to edit an existing one.
+/// much did I put into Silver in each period") or by name ("how much is in
+/// each mutual fund"). Adding here appends a new contribution instead of
+/// forcing the user to edit an existing one.
 class InvestmentTypeScreen extends StatefulWidget {
   final String type;
 
@@ -24,6 +31,7 @@ class InvestmentTypeScreen extends StatefulWidget {
 
 class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
   InvestmentPeriod _period = InvestmentPeriod.monthly;
+  _GroupBy _groupBy = _GroupBy.period;
 
   String get type => widget.type;
 
@@ -41,13 +49,11 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     }
   }
 
-  /// Lets the user re-file every contribution of this type under a different
-  /// one — for a category picked wrongly. Reassigns the whole bucket, then pops
-  /// back to the list since this type no longer exists.
-  Future<void> _moveToAnotherType(BuildContext context) async {
+  /// Types a bucket or a single contribution can move to: the built-in types
+  /// plus any the user already uses, minus the current [type], with "Other"
+  /// last so a brand-new type can be typed.
+  List<String> _moveTargetOptions() {
     final provider = context.read<InvestmentProvider>();
-    // Built-in types plus any the user already uses, minus the current one,
-    // with "Other" last so a brand-new type can be typed.
     final options = <String>[
       for (final t in Investment.builtInTypes)
         if (t != Investment.otherType && t != type) t,
@@ -56,20 +62,29 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
       if (t != type && !options.contains(t)) options.add(t);
     }
     options.add(Investment.otherType);
+    return options;
+  }
 
+  /// Shows a type picker (with an "Other" free-text fallback) and returns the
+  /// chosen target type, or null if the user cancels or picks the current one.
+  /// Shared by the whole-bucket move and the single-contribution move so both
+  /// offer the same destinations (Mutual Funds, Gold, FD, …).
+  Future<String?> _pickMoveTarget({
+    required String title,
+    required String description,
+  }) async {
+    final options = _moveTargetOptions();
     String selected = options.first;
     final customController = TextEditingController();
-
     final target = await showDialog<String>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Move "$type" to'),
+          title: Text(title),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Re-file every contribution filed under "$type" under '
-                  'another type.'),
+              Text(description),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: selected,
@@ -112,6 +127,19 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
       ),
     );
     customController.dispose();
+    return target;
+  }
+
+  /// Lets the user re-file every contribution of this type under a different
+  /// one — for a category picked wrongly. Reassigns the whole bucket, then pops
+  /// back to the list since this type no longer exists.
+  Future<void> _moveToAnotherType(BuildContext context) async {
+    final provider = context.read<InvestmentProvider>();
+    final target = await _pickMoveTarget(
+      title: 'Move "$type" to',
+      description:
+          'Re-file every contribution filed under "$type" under another type.',
+    );
     if (target == null || !context.mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
@@ -122,6 +150,33 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     ));
     // No explicit pop: reassigning empties this type, and the builder below
     // returns to the list once [entries] is empty.
+  }
+
+  /// Moves just one contribution to another type — for a single entry filed
+  /// under the wrong instrument (e.g. added to NPS but it belongs in Mutual
+  /// Funds, Gold, or FD). The other contributions of this type stay put.
+  Future<void> _moveContribution(
+      BuildContext context, Investment investment) async {
+    final provider = context.read<InvestmentProvider>();
+    final target = await _pickMoveTarget(
+      title: 'Move contribution to',
+      description: 'Move "${investment.name}" '
+          '(${formatMoney(investment.amount.abs())}) from "$type" to another '
+          'type. Only this contribution moves.',
+    );
+    if (target == null || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    await provider.updateInvestment(Investment(
+      id: investment.id,
+      name: investment.name,
+      amount: investment.amount,
+      date: investment.date,
+      type: target,
+    ));
+    messenger.showSnackBar(
+      SnackBar(content: Text('Moved "${investment.name}" to "$target".')),
+    );
   }
 
   @override
@@ -149,7 +204,6 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
       ),
       body: Consumer<InvestmentProvider>(
         builder: (context, provider, _) {
-          final breakdown = provider.breakdownByPeriod(type, _period);
           final entries = provider.ofType(type);
           final total = entries.fold<int>(0, (sum, i) => sum + i.amount);
 
@@ -161,8 +215,6 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
             });
             return const SizedBox.shrink();
           }
-
-          final periods = breakdown.keys.toList();
 
           return Column(
             children: [
@@ -200,65 +252,51 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: SizedBox(
                   width: double.infinity,
-                  child: SegmentedButton<InvestmentPeriod>(
-                    segments: [
+                  child: SegmentedButton<_GroupBy>(
+                    segments: const [
                       ButtonSegment(
-                          value: InvestmentPeriod.weekly,
-                          label: const Text('Weekly')),
+                          value: _GroupBy.period, label: Text('By period')),
                       ButtonSegment(
-                          value: InvestmentPeriod.monthly,
-                          label: const Text('Monthly')),
-                      ButtonSegment(
-                          value: InvestmentPeriod.yearly,
-                          label: const Text('Yearly')),
+                          value: _GroupBy.name, label: Text('By name')),
                     ],
-                    selected: {_period},
+                    selected: {_groupBy},
                     onSelectionChanged: (s) =>
-                        setState(() => _period = s.first),
+                        setState(() => _groupBy = s.first),
                     showSelectedIcon: false,
                   ),
                 ),
               ),
+              if (_groupBy == _GroupBy.period) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<InvestmentPeriod>(
+                      segments: [
+                        ButtonSegment(
+                            value: InvestmentPeriod.weekly,
+                            label: const Text('Weekly')),
+                        ButtonSegment(
+                            value: InvestmentPeriod.monthly,
+                            label: const Text('Monthly')),
+                        ButtonSegment(
+                            value: InvestmentPeriod.yearly,
+                            label: const Text('Yearly')),
+                      ],
+                      selected: {_period},
+                      onSelectionChanged: (s) =>
+                          setState(() => _period = s.first),
+                      showSelectedIcon: false,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 4),
               Expanded(
-                child: ListView.builder(
-                  padding: scrollPadding(context, all: 12, top: 0, fab: true),
-                  itemCount: periods.length,
-                  itemBuilder: (context, index) {
-                    final ym = periods[index];
-                    final periodItems = breakdown[ym]!;
-                    final periodTotal =
-                        periodItems.fold<int>(0, (sum, i) => sum + i.amount);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _periodLabel(ym),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                              Text(
-                                formatMoneySigned(periodTotal),
-                                style: const TextStyle(
-                                    fontSize: 13, fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
-                        ),
-                        ...periodItems
-                            .map((i) => _contributionTile(context, i)),
-                      ],
-                    );
-                  },
-                ),
+                child: _groupBy == _GroupBy.period
+                    ? _periodList(context, provider)
+                    : _nameList(context, provider),
               ),
             ],
           );
@@ -276,6 +314,89 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
         },
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  /// The time-bucketed view: contributions grouped into the selected
+  /// weekly/monthly/yearly period, each period with its own total.
+  Widget _periodList(BuildContext context, InvestmentProvider provider) {
+    final breakdown = provider.breakdownByPeriod(type, _period);
+    final periods = breakdown.keys.toList();
+    return ListView.builder(
+      padding: scrollPadding(context, all: 12, top: 0, fab: true),
+      itemCount: periods.length,
+      itemBuilder: (context, index) {
+        final ym = periods[index];
+        final periodItems = breakdown[ym]!;
+        final periodTotal =
+            periodItems.fold<int>(0, (sum, i) => sum + i.amount);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _periodLabel(ym),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  Text(
+                    formatMoneySigned(periodTotal),
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            ...periodItems.map((i) => _contributionTile(context, i)),
+          ],
+        );
+      },
+    );
+  }
+
+  /// The by-name view: one expandable card per distinct name (e.g. each mutual
+  /// fund), showing that name's total and contribution count. Expanding a card
+  /// reveals its individual contributions — the same tiles as the period view,
+  /// so edit and delete work identically.
+  Widget _nameList(BuildContext context, InvestmentProvider provider) {
+    final breakdown = provider.breakdownByName(type);
+    final names = breakdown.keys.toList();
+    return ListView.builder(
+      padding: scrollPadding(context, all: 12, top: 0, fab: true),
+      itemCount: names.length,
+      itemBuilder: (context, index) {
+        final name = names[index];
+        final items = breakdown[name]!;
+        final nameTotal = items.fold<int>(0, (sum, i) => sum + i.amount);
+        final count = items.length;
+        // Fetch order is newest-first, so the first item is the latest.
+        final latest = items.first.date;
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          clipBehavior: Clip.antiAlias,
+          child: ExpansionTile(
+            title: Text(name,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(
+              '$count ${count == 1 ? 'contribution' : 'contributions'}'
+              ' · latest ${formatDateWithDay(latest)}',
+            ),
+            trailing: Text(
+              formatMoneySigned(nameTotal),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            children: items.map((i) => _contributionTile(context, i)).toList(),
+          ),
+        );
+      },
     );
   }
 
@@ -319,12 +440,45 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
               subtitle: Text(investment.isWithdrawal
                   ? 'Withdrawal · ${formatDateWithDay(investment.date)}'
                   : formatDateWithDay(investment.date)),
-              trailing: Text(formatMoneySigned(investment.amount),
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: investment.isWithdrawal
-                          ? expenseColor(context)
-                          : null)),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(formatMoneySigned(investment.amount),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: investment.isWithdrawal
+                              ? expenseColor(context)
+                              : null)),
+                  PopupMenuButton<String>(
+                    tooltip: 'More actions',
+                    onSelected: (value) {
+                      if (value == 'move') {
+                        _moveContribution(context, investment);
+                      } else if (value == 'delete') {
+                        _confirmDelete(context, investment);
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'move',
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.drive_file_move_outline),
+                          title: Text('Move to another type'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.delete_outline),
+                          title: Text('Delete'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
               onTap: () => _editInvestment(context, investment),
               onLongPress: () => _confirmDelete(context, investment),
             ),

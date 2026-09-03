@@ -173,6 +173,103 @@ void main() {
       expect(yearly['2025']!.length, 1);
     });
 
+    test(
+        'breakdownByName groups a type by fund name, largest total first',
+        () async {
+      // Two contributions to one fund, one to another, plus a fund in a
+      // different type that must not leak into the Mutual Funds breakdown.
+      await provider.addInvestment(Investment(
+        name: 'Bluechip Fund',
+        amount: 100000,
+        date: DateTime(2026, 6, 10),
+        type: 'Mutual Funds',
+      ));
+      await provider.addInvestment(Investment(
+        name: 'Bluechip Fund',
+        amount: 150000,
+        date: DateTime(2026, 7, 5),
+        type: 'Mutual Funds',
+      ));
+      await provider.addInvestment(Investment(
+        name: 'Small Cap Fund',
+        amount: 500000,
+        date: DateTime(2026, 7, 6),
+        type: 'Mutual Funds',
+      ));
+      await provider.addInvestment(Investment(
+        name: 'Bluechip Fund',
+        amount: 999999,
+        date: DateTime(2026, 7, 7),
+        type: 'Stocks',
+      ));
+
+      final byName = provider.breakdownByName('Mutual Funds');
+      // Ordered by total invested: Small Cap (5000) before Bluechip (2500).
+      expect(byName.keys.toList(), ['Small Cap Fund', 'Bluechip Fund']);
+      expect(byName['Bluechip Fund']!.length, 2);
+      expect(byName['Small Cap Fund']!.length, 1);
+
+      final bluechipTotal =
+          byName['Bluechip Fund']!.fold<int>(0, (s, i) => s + i.amount);
+      expect(bluechipTotal, 250000);
+      // Each group keeps entries newest first (the fetch order).
+      expect(byName['Bluechip Fund']!.first.date, DateTime(2026, 7, 5));
+    });
+
+    test('breakdownByName breaks equal totals alphabetically', () async {
+      await provider.addInvestment(Investment(
+        name: 'Zebra Fund',
+        amount: 100000,
+        date: DateTime(2026, 1, 2),
+        type: 'Mutual Funds',
+      ));
+      await provider.addInvestment(Investment(
+        name: 'Alpha Fund',
+        amount: 100000,
+        date: DateTime(2026, 1, 1),
+        type: 'Mutual Funds',
+      ));
+
+      final byName = provider.breakdownByName('Mutual Funds');
+      expect(byName.keys.toList(), ['Alpha Fund', 'Zebra Fund']);
+    });
+
+    test(
+        'usedNames scopes to a type, ranks by frequency then alphabetically',
+        () async {
+      // Nifty 50 twice, Nifty Midcap once, all under Mutual Funds. A Gold
+      // holding must not leak into the Mutual Funds suggestions.
+      await provider.addInvestment(Investment(
+          name: 'Nifty 50',
+          amount: 1000,
+          date: DateTime(2026, 1, 1),
+          type: 'Mutual Funds'));
+      await provider.addInvestment(Investment(
+          name: 'Nifty Midcap',
+          amount: 1000,
+          date: DateTime(2026, 1, 2),
+          type: 'Mutual Funds'));
+      await provider.addInvestment(Investment(
+          name: 'Nifty 50',
+          amount: 1000,
+          date: DateTime(2026, 1, 3),
+          type: 'Mutual Funds'));
+      await provider.addInvestment(Investment(
+          name: 'Sovereign Gold Bond',
+          amount: 1000,
+          date: DateTime(2026, 1, 4),
+          type: 'Gold'));
+
+      // Scoped: most-used first (Nifty 50, 2×) then the rest; no Gold name.
+      expect(provider.usedNames(type: 'Mutual Funds'),
+          ['Nifty 50', 'Nifty Midcap']);
+      expect(provider.usedNames(type: 'Gold'), ['Sovereign Gold Bond']);
+
+      // Unscoped: every distinct name across all types.
+      expect(provider.usedNames(),
+          ['Nifty 50', 'Nifty Midcap', 'Sovereign Gold Bond']);
+    });
+
     test('reassignType moves every contribution to the new type', () async {
       await provider.addInvestment(Investment(
           name: 'a',

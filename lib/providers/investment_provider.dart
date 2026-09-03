@@ -36,6 +36,28 @@ class InvestmentProvider extends ChangeNotifier {
   List<String> usedTypes() =>
       (_investments.map((i) => i.type).toSet().toList())..sort();
 
+  /// Distinct contribution names already saved, most-used first then
+  /// alphabetical. When [type] is non-empty the list is scoped to that type,
+  /// so the Add screen can suggest the mutual funds you already track (e.g.
+  /// "Nifty 50", "Nifty Midcap") instead of making you retype the name for
+  /// every new contribution.
+  List<String> usedNames({String type = ''}) {
+    final counts = <String, int>{};
+    for (final i in _investments) {
+      if (type.isNotEmpty && i.type != type) continue;
+      final name = i.name.trim();
+      if (name.isEmpty) continue;
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+    return counts.keys.toList()
+      ..sort((a, b) {
+        final byCount = counts[b]!.compareTo(counts[a]!);
+        return byCount != 0
+            ? byCount
+            : a.toLowerCase().compareTo(b.toLowerCase());
+      });
+  }
+
   /// The group key for [date] under [period]. Weekly buckets by the Monday of
   /// the week (ISO date), so keys sort chronologically as plain strings.
   static String periodKey(DateTime date, InvestmentPeriod period) {
@@ -65,6 +87,30 @@ class InvestmentProvider extends ChangeNotifier {
     }
     final ordered = byKey.keys.toList()..sort((a, b) => b.compareTo(a));
     return {for (final k in ordered) k: byKey[k]!};
+  }
+
+  /// Contributions of [type] grouped by name — e.g. the individual funds
+  /// within "Mutual Funds", so each fund's total surfaces on its own instead
+  /// of being lumped into the type. Groups are ordered by total invested
+  /// (largest first) and each group keeps its entries newest first (the fetch
+  /// order).
+  Map<String, List<Investment>> breakdownByName(String type) {
+    final byName = <String, List<Investment>>{};
+    for (final i in ofType(type)) {
+      byName.putIfAbsent(i.name, () => []).add(i);
+    }
+    final totalOf = <String, int>{
+      for (final e in byName.entries)
+        e.key: e.value.fold<int>(0, (sum, i) => sum + i.amount),
+    };
+    final ordered = byName.keys.toList()
+      ..sort((a, b) {
+        final byTotal = totalOf[b]!.compareTo(totalOf[a]!);
+        // Fall back to name so ties (and equal-total funds) stay stable and
+        // alphabetical rather than jumping around between rebuilds.
+        return byTotal != 0 ? byTotal : a.toLowerCase().compareTo(b.toLowerCase());
+      });
+    return {for (final k in ordered) k: byName[k]!};
   }
 
   /// Contributions of [type] grouped by calendar month keyed as `YYYY-MM`,

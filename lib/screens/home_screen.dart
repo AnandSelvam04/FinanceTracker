@@ -31,7 +31,9 @@ import '../widgets/skeleton.dart';
 import 'add_expense_screen.dart';
 import 'add_investment_screen.dart';
 import 'expense_list_screen.dart';
+import 'investments_screen.dart';
 import 'more_screen.dart';
+import 'sms_review_screen.dart';
 import 'tutorial_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -387,6 +389,7 @@ class _DashboardView extends StatelessWidget {
                 children: [
                   const AlertsBanner(),
                   const NetWorthCard(),
+                  const _ShortcutsRow(),
                   _QuickAddRow(onQuickAdd: onQuickAdd),
                   MonthSelector(
                     initialYear: selectedYear,
@@ -639,6 +642,97 @@ class _LeftToSpend extends StatelessWidget {
           fontSize: 13,
           fontWeight: FontWeight.w600,
           color: over ? expenseColor(context) : incomeColor(context),
+        ),
+      ),
+    );
+  }
+}
+
+/// Quick navigation shortcuts on the dashboard for destinations otherwise a
+/// couple of taps away under More: Investments always, and Import from SMS
+/// when SMS reading is switched on (so the shortcut never leads to a screen
+/// that can only report it is off). Both stay listed under More as well; this
+/// is just a faster path from the home screen.
+class _ShortcutsRow extends StatelessWidget {
+  const _ShortcutsRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final smsEnabled = context.watch<SettingsProvider>().smsImportEnabled;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: _ShortcutButton(
+              icon: Icons.trending_up,
+              label: 'Investments',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const InvestmentsScreen()),
+              ),
+            ),
+          ),
+          if (smsEnabled) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ShortcutButton(
+                icon: Icons.sms,
+                label: 'Import SMS',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SmsReviewScreen()),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One tappable shortcut chip used in [_ShortcutsRow].
+class _ShortcutButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _ShortcutButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      color: scheme.secondaryContainer,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 20, color: scheme.onSecondaryContainer),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSecondaryContainer,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
