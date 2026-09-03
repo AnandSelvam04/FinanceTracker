@@ -41,10 +41,112 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     }
   }
 
+  /// Lets the user re-file every contribution of this type under a different
+  /// one — for a category picked wrongly. Reassigns the whole bucket, then pops
+  /// back to the list since this type no longer exists.
+  Future<void> _moveToAnotherType(BuildContext context) async {
+    final provider = context.read<InvestmentProvider>();
+    // Built-in types plus any the user already uses, minus the current one,
+    // with "Other" last so a brand-new type can be typed.
+    final options = <String>[
+      for (final t in Investment.builtInTypes)
+        if (t != Investment.otherType && t != type) t,
+    ];
+    for (final t in provider.usedTypes()) {
+      if (t != type && !options.contains(t)) options.add(t);
+    }
+    options.add(Investment.otherType);
+
+    String selected = options.first;
+    final customController = TextEditingController();
+
+    final target = await showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Move "$type" to'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Re-file every contribution filed under "$type" under '
+                  'another type.'),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: selected,
+                decoration: const InputDecoration(labelText: 'Move to'),
+                items: options
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .toList(),
+                onChanged: (v) =>
+                    setDialogState(() => selected = v ?? selected),
+              ),
+              if (selected == Investment.otherType)
+                TextField(
+                  controller: customController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration:
+                      const InputDecoration(labelText: 'Enter investment type'),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final resolved = selected == Investment.otherType
+                    ? customController.text.trim()
+                    : selected;
+                if (resolved.isEmpty || resolved == type) {
+                  Navigator.pop(context);
+                  return;
+                }
+                Navigator.pop(context, resolved);
+              },
+              child: const Text('Move'),
+            ),
+          ],
+        ),
+      ),
+    );
+    customController.dispose();
+    if (target == null || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final moved = await provider.reassignType(type, target);
+    messenger.showSnackBar(SnackBar(
+      content: Text('Moved $moved '
+          '${moved == 1 ? 'contribution' : 'contributions'} to "$target".'),
+    ));
+    // No explicit pop: reassigning empties this type, and the builder below
+    // returns to the list once [entries] is empty.
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(type)),
+      appBar: AppBar(
+        title: Text(type),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'move') _moveToAnotherType(context);
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'move',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.drive_file_move_outline),
+                  title: Text('Move to another type'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: Consumer<InvestmentProvider>(
         builder: (context, provider, _) {
           final breakdown = provider.breakdownByPeriod(type, _period);
@@ -81,7 +183,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                                     .colorScheme
                                     .onPrimaryContainer)),
                         Text(
-                          formatMoney(total),
+                          formatMoneySigned(total),
                           style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -144,7 +246,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                                 ),
                               ),
                               Text(
-                                formatMoney(periodTotal),
+                                formatMoneySigned(periodTotal),
                                 style: const TextStyle(
                                     fontSize: 13, fontWeight: FontWeight.w600),
                               ),
@@ -201,14 +303,28 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: incomeAvatarColor(context),
-                child: Icon(Icons.trending_up, color: incomeColor(context)),
+                backgroundColor: investment.isWithdrawal
+                    ? expenseAvatarColor(context)
+                    : incomeAvatarColor(context),
+                child: Icon(
+                    investment.isWithdrawal
+                        ? Icons.trending_down
+                        : Icons.trending_up,
+                    color: investment.isWithdrawal
+                        ? expenseColor(context)
+                        : incomeColor(context)),
               ),
               title: Text(investment.name,
                   style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(formatDateWithDay(investment.date)),
-              trailing: Text(formatMoney(investment.amount),
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(investment.isWithdrawal
+                  ? 'Withdrawal · ${formatDateWithDay(investment.date)}'
+                  : formatDateWithDay(investment.date)),
+              trailing: Text(formatMoneySigned(investment.amount),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: investment.isWithdrawal
+                          ? expenseColor(context)
+                          : null)),
               onTap: () => _editInvestment(context, investment),
               onLongPress: () => _confirmDelete(context, investment),
             ),
@@ -245,9 +361,11 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
   Future<void> _editInvestment(
       BuildContext context, Investment investment) async {
     final nameController = TextEditingController(text: investment.name);
-    final amountController =
-        TextEditingController(text: minorToEditString(investment.amount));
+    // Edit the magnitude; the Contribution/Withdrawal toggle carries the sign.
+    final amountController = TextEditingController(
+        text: minorToEditString(investment.amount.abs()));
     DateTime selectedDate = investment.date;
+    bool isWithdrawal = investment.isWithdrawal;
 
     const types = Investment.builtInTypes;
     final isBuiltIn = types.contains(investment.type);
@@ -275,6 +393,26 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                         style: const TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<bool>(
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment(
+                              value: false,
+                              label: Text('Contribution'),
+                              icon: Icon(Icons.add, size: 16)),
+                          ButtonSegment(
+                              value: true,
+                              label: Text('Withdrawal'),
+                              icon: Icon(Icons.remove, size: 16)),
+                        ],
+                        selected: {isWithdrawal},
+                        onSelectionChanged: (s) =>
+                            setModalState(() => isWithdrawal = s.first),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     TextField(
                       controller: nameController,
                       decoration: const InputDecoration(labelText: 'Name'),
@@ -282,7 +420,10 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                     TextField(
                       controller: amountController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Amount'),
+                      decoration: InputDecoration(
+                          labelText: isWithdrawal
+                              ? 'Amount to withdraw'
+                              : 'Amount'),
                     ),
                     DropdownButtonFormField<String>(
                       initialValue: type,
@@ -326,9 +467,13 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                       height: kSheetActionHeight,
                       child: ElevatedButton(
                         onPressed: () async {
-                          final amount =
+                          final magnitude =
                               parseMinor(amountController.text.trim());
-                          if (amount == null) return;
+                          if (magnitude == null) return;
+                          // The field holds a positive magnitude; the toggle
+                          // decides the sign.
+                          final amount =
+                              isWithdrawal ? -magnitude.abs() : magnitude.abs();
                           final resolvedType = type == Investment.otherType
                               ? customTypeController.text.trim()
                               : type;

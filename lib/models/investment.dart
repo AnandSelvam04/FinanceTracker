@@ -24,10 +24,16 @@ class Investment {
   final int? id;
   final String name;
 
-  /// Amount in minor units (paise/cents).
+  /// Amount in minor units (paise/cents). Positive for a contribution, negative
+  /// for a withdrawal — so a type's running total falls when money is taken
+  /// back out.
   final int amount;
   final DateTime date;
   final String type;
+
+  /// A negative amount records money pulled back out of the holding rather than
+  /// put in.
+  bool get isWithdrawal => amount < 0;
 
   Investment({
     this.id,

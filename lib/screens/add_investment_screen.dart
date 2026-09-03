@@ -33,6 +33,11 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   bool _isSaving = false;
   bool _repeatMonthly = false;
 
+  /// Whether this entry takes money back out of the holding (a withdrawal /
+  /// redemption) rather than adding to it. A withdrawal is stored as a negative
+  /// amount so the type's running total falls.
+  bool _isWithdrawal = false;
+
   /// Built-in types plus any custom types the user has already used, with
   /// "Other" always last. Built via [_buildTypes] in initState.
   late final List<String> _types;
@@ -96,7 +101,8 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   /// forcing the user to name it.
   String _defaultName() {
     final type = _resolvedType.isEmpty ? 'Investment' : _resolvedType;
-    return '$type ${_monthAbbr[_selectedDate.month - 1]} ${_selectedDate.year}';
+    final kind = _isWithdrawal ? 'Withdrawal ' : '';
+    return '$type $kind${_monthAbbr[_selectedDate.month - 1]} ${_selectedDate.year}';
   }
 
   @override
@@ -118,6 +124,35 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Contribution adds to the holding; withdrawal takes money back
+              // out and is stored as a negative amount, so the type's total
+              // falls (e.g. redeeming part of a mutual fund).
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<bool>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: false,
+                      label: Text('Contribution'),
+                      icon: Icon(Icons.add, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: true,
+                      label: Text('Withdrawal'),
+                      icon: Icon(Icons.remove, size: 16),
+                    ),
+                  ],
+                  selected: {_isWithdrawal},
+                  onSelectionChanged: (s) => setState(() {
+                    _isWithdrawal = s.first;
+                    // A withdrawal that repeats is a separate feature; keep the
+                    // recurring toggle to contributions (SIPs).
+                    if (_isWithdrawal) _repeatMonthly = false;
+                  }),
+                ),
+              ),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(
@@ -131,7 +166,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
               TextFormField(
                 controller: _amountController,
                 decoration: InputDecoration(
-                  labelText: 'Amount',
+                  labelText: _isWithdrawal ? 'Amount to withdraw' : 'Amount',
                   prefixText: '${CurrencyFormat.symbol} ',
                   prefixStyle: TextStyle(
                     fontSize: 22,
@@ -143,7 +178,9 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                     fontSize: 22, fontWeight: FontWeight.bold),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                validator: (value) => value!.isEmpty ? 'Enter an amount' : null,
+                // Always a positive magnitude here; the Contribution/Withdrawal
+                // toggle decides the sign on save.
+                validator: (value) => validateAmountField(value),
               ),
               const SizedBox(height: 16),
               Row(
@@ -190,14 +227,17 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                           ? 'Enter a type or pick one above'
                           : null,
                 ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Repeat monthly (SIP)'),
-                subtitle: const Text(
-                    'Automatically log this contribution every month'),
-                value: _repeatMonthly,
-                onChanged: (v) => setState(() => _repeatMonthly = v),
-              ),
+              // Only a contribution can repeat as a SIP; a withdrawal is a
+              // one-off correction/redemption.
+              if (!_isWithdrawal)
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Repeat monthly (SIP)'),
+                  subtitle: const Text(
+                      'Automatically log this contribution every month'),
+                  value: _repeatMonthly,
+                  onChanged: (v) => setState(() => _repeatMonthly = v),
+                ),
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: _isSaving
@@ -207,12 +247,17 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                           setState(() => _isSaving = true);
                           final type = _resolvedType;
                           final enteredName = _nameController.text.trim();
+                          // The field holds a positive magnitude; a withdrawal
+                          // is stored negative so the type total drops.
+                          final magnitude = rupeesToMinor(
+                              double.parse(_amountController.text));
+                          final signedAmount =
+                              _isWithdrawal ? -magnitude : magnitude;
                           final investment = Investment(
                             name: enteredName.isEmpty
                                 ? _defaultName()
                                 : enteredName,
-                            amount: rupeesToMinor(
-                                double.parse(_amountController.text)),
+                            amount: signedAmount,
                             date: _selectedDate,
                             type: type,
                           );
@@ -252,7 +297,9 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                    content: const Text('Investment added')),
+                                    content: Text(_isWithdrawal
+                                        ? 'Withdrawal recorded'
+                                        : 'Investment added')),
                               );
                               Navigator.pop(context);
                             }
@@ -275,7 +322,9 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                           color: Theme.of(context).colorScheme.onPrimary,
                         ),
                       )
-                    : const Text('Add Investment'),
+                    : Text(_isWithdrawal
+                        ? 'Record Withdrawal'
+                        : 'Add Investment'),
               ),
             ],
           ),

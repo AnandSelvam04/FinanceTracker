@@ -327,6 +327,41 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     ));
   }
 
+  /// Dismisses every selected draft at once, remembering each one's ref so a
+  /// later scan doesn't re-offer it. A single Undo restores the whole batch to
+  /// where each row was.
+  Future<void> _dismissSelected() async {
+    final chosen = _selected;
+    if (chosen.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    // Capture each dismissed draft with its original index (lowest first) so
+    // Undo can drop the batch back in place rather than at the end.
+    final removed = [
+      for (final d in chosen) (index: _drafts.indexOf(d), draft: d),
+    ]..sort((a, b) => a.index.compareTo(b.index));
+    setState(() => _drafts.removeWhere((d) => d.selected));
+    await DBService()
+        .ignoreSourceRefs([for (final d in chosen) d.parsed.sourceRef]);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(SnackBar(
+      content: Text('Dismissed ${chosen.length} '
+          'message${chosen.length == 1 ? '' : 's'}.'),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          await DBService()
+              .unignoreSourceRefs([for (final d in chosen) d.parsed.sourceRef]);
+          if (!mounted) return;
+          setState(() {
+            for (final r in removed) {
+              _drafts.insert(r.index.clamp(0, _drafts.length), r.draft);
+            }
+          });
+        },
+      ),
+    ));
+  }
+
   /// Selects or clears every draft at once.
   void _setAllSelected(bool selected) {
     setState(() {
@@ -441,6 +476,8 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
                               .isEmpty
                           ? null
                           : _applyAccountToAll,
+                      onDismissSelected:
+                          selectedCount == 0 || _importing ? null : _dismissSelected,
                     ),
                     Expanded(
                       child: ListView.separated(
@@ -933,22 +970,33 @@ class _BulkActionBar extends StatelessWidget {
   /// Null disables the button (no accounts to choose from).
   final VoidCallback? onSetAccount;
 
+  /// Null disables the button (nothing selected, or an import is running).
+  final VoidCallback? onDismissSelected;
+
   const _BulkActionBar({
     required this.total,
     required this.selected,
     required this.onSelectAll,
     required this.onSelectNone,
     required this.onSetAccount,
+    required this.onDismissSelected,
   });
 
   @override
   Widget build(BuildContext context) {
     final allSelected = selected == total && total > 0;
+    // Compact density and a scrollable action row keep the bar from
+    // overflowing on a narrow screen once a third action is added.
+    const compact = ButtonStyle(
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 4, 4, 0),
       child: Row(
         children: [
           TextButton.icon(
+            style: compact,
             icon: Icon(allSelected
                 ? Icons.check_box_outline_blank
                 : Icons.select_all),
@@ -957,11 +1005,28 @@ class _BulkActionBar extends StatelessWidget {
           ),
           Text('$selected of $total',
               style: TextStyle(fontSize: 12, color: Colors.grey)),
-          const Spacer(),
-          TextButton.icon(
-            icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
-            label: const Text('Set account'),
-            onPressed: onSetAccount,
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              reverse: true,
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    style: compact,
+                    icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                    label: const Text('Dismiss'),
+                    onPressed: onDismissSelected,
+                  ),
+                  TextButton.icon(
+                    style: compact,
+                    icon: const Icon(Icons.account_balance_wallet_outlined,
+                        size: 18),
+                    label: const Text('Set account'),
+                    onPressed: onSetAccount,
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
