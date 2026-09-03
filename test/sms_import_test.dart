@@ -64,6 +64,29 @@ void main() {
         () {
       expect(parse('Your request was successful. Thank you.'), isNull);
     });
+
+    test('an HDFC card+UPI "Txn ... On Card ... by UPI" alert is a spend', () {
+      // No debit verb and no "successful"; the only signal it is a spend is
+      // "txn" naming a card and a UPI handle.
+      final r = parse('Txn Rs.72.00 On HDFC Bank Card 6955 At q233098266@ybl '
+          'by UPI 661212699667 On 03-09 Not You? Call 18002586161/SMS BLOCK '
+          'CC 6955 to 7308080808')!;
+      expect(r.type, DbConstants.txExpense);
+      expect(r.amount, 7200);
+      expect(r.last4, '6955');
+      // The bare UPI handle names the payee even without a "UPI:" label.
+      expect(r.description, 'q233098266@ybl');
+    });
+
+    test('a Federal "txn ... at MERCHANT on ... card" reward alert is a spend',
+        () {
+      final r = parse('Your txn of ₹842.00 at Flipkart on your Scapia Federal '
+          'Visa credit card earned you 10% rewards! Not you? Call 18002961199. '
+          '- Federal Bank')!;
+      expect(r.type, DbConstants.txExpense);
+      expect(r.amount, 84200);
+      expect(r.description, 'Flipkart');
+    });
   });
 
   group('amount', () {

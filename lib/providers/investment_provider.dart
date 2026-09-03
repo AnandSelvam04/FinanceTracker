@@ -99,4 +99,12 @@ class InvestmentProvider extends ChangeNotifier {
     await DBService().deleteInvestment(id);
     await fetchInvestments();
   }
+
+  /// Moves every contribution of [from] to [to] — for fixing a contribution
+  /// filed under the wrong type. Returns the number of contributions moved.
+  Future<int> reassignType(String from, String to) async {
+    final moved = await DBService().reassignInvestmentType(from, to);
+    if (moved > 0) await fetchInvestments();
+    return moved;
+  }
 }

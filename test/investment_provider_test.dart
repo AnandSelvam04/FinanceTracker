@@ -173,6 +173,67 @@ void main() {
       expect(yearly['2025']!.length, 1);
     });
 
+    test('reassignType moves every contribution to the new type', () async {
+      await provider.addInvestment(Investment(
+          name: 'a',
+          amount: 100000,
+          date: DateTime(2026, 1, 1),
+          type: 'Gold'));
+      await provider.addInvestment(Investment(
+          name: 'b',
+          amount: 250000,
+          date: DateTime(2026, 1, 2),
+          type: 'Gold'));
+      await provider.addInvestment(Investment(
+          name: 'c',
+          amount: 50000,
+          date: DateTime(2026, 1, 3),
+          type: 'Silver'));
+
+      final moved = await provider.reassignType('Gold', 'Mutual Funds');
+
+      expect(moved, 2);
+      expect(provider.ofType('Gold'), isEmpty);
+      expect(provider.ofType('Mutual Funds').length, 2);
+      // Silver is untouched, and the grand total is unchanged by a re-file.
+      expect(provider.ofType('Silver').length, 1);
+      expect(provider.totalInvested, 400000);
+    });
+
+    test('reassignType with the same source and target moves nothing',
+        () async {
+      await provider.addInvestment(Investment(
+          name: 'a',
+          amount: 100000,
+          date: DateTime(2026, 1, 1),
+          type: 'Gold'));
+
+      final moved = await provider.reassignType('Gold', 'Gold');
+
+      expect(moved, 0);
+      expect(provider.ofType('Gold').length, 1);
+    });
+
+    test('a withdrawal (negative amount) lowers the type total', () async {
+      await provider.addInvestment(Investment(
+        name: 'Buy',
+        amount: 500000, // +5000.00
+        date: DateTime(2026, 4, 1),
+        type: 'Stocks',
+      ));
+      await provider.addInvestment(Investment(
+        name: 'Redeem',
+        amount: -200000, // −2000.00 withdrawal
+        date: DateTime(2026, 5, 1),
+        type: 'Stocks',
+      ));
+
+      expect(provider.totalInvested, 300000);
+      final stocks = provider.totalsByType().firstWhere((e) => e.key == 'Stocks');
+      expect(stocks.value, 300000);
+      expect(provider.ofType('Stocks').any((i) => i.isWithdrawal), isTrue);
+    });
+
     test('usedTypes returns distinct types sorted', () async {
       await provider.addInvestment(Investment(
           name: 'a',

@@ -23,14 +23,24 @@ class SmsImport {
   static final _creditWords =
       RegExp(r'\b(credited|credit|received|deposited|refund(?:ed)?)\b');
 
-  /// A completed card spend announced without any debit verb, e.g. Scapia /
-  /// Federal RuPay: "Your txn of ₹45.00 at R Muthukumar ... was successful".
+  /// A completed card or UPI spend announced without any debit verb. Two banks
+  /// do this:
+  ///
+  ///  * Scapia / Federal RuPay: "Your txn of ₹45.00 at R Muthukumar ... was
+  ///    successful" — a "txn ... successful" with no verb.
+  ///  * HDFC's UPI-on-card alert: "Txn Rs.72.00 On HDFC Bank Card 6955 At
+  ///    q@ybl by UPI ..." and Federal's "Your txn of ₹842 at Flipkart on your
+  ///    ... card ..." — a "txn" naming a card/UPI but no verb and no
+  ///    "successful".
+  ///
   /// Used only as a last resort when neither a debit nor a credit word is
-  /// present: a genuine credit always names itself ("credited"/"received"),
-  /// so a bare "txn ... successful" is a purchase. Failed/declined alerts are
-  /// already dropped by [_notATransaction] before this is consulted.
-  static final _txnSuccess = RegExp(
-      r'\b(?:txn|transaction)\b.*\bsuccess(?:ful|fully)?\b');
+  /// present: a genuine credit always names itself ("credited"/"received"), so
+  /// a bare "txn" tied to a card/UPI/POS or a "successful" is a purchase.
+  /// OTP, failed, and declined alerts also match "txn ... card", but they are
+  /// dropped by [_notATransaction] before this is ever consulted.
+  static final _cardOrUpiTxn = RegExp(
+      r'\b(?:txn|transaction)\b.*\b(?:card|upi|vpa|pos|success(?:ful|fully)?)\b'
+      r'|\b(?:card|upi|vpa|pos)\b.*\b(?:txn|transaction)\b');
 
   /// Phrases that settle the direction on their own, checked before the
   /// positional rule below.
@@ -99,6 +109,15 @@ class SmsImport {
   static final _vpa =
       RegExp(r'\b(?:vpa|upi(?:/| id)?)\s*:?\s*([\w.\-]{2,}@[a-z]{2,})',
           caseSensitive: false);
+
+  /// A bare UPI handle with no "UPI:"/"VPA:" label in front of it, e.g. the
+  /// "At q233098266@ybl" in an HDFC card+UPI alert. Distinguished from an email
+  /// address by requiring the part after '@' to be letters only and not be
+  /// followed by a dot, so "shop@okhdfcbank" matches but "user@gmail.com" does
+  /// not (an email's domain has a dot).
+  static final _bareVpa = RegExp(
+      r'\b([\w.\-]{2,}@[a-z]{2,})(?![\w.])',
+      caseSensitive: false);
 
   /// "01-Aug-25", "01/08/2025", "01-08-25".
   static final _date = RegExp(
@@ -206,9 +225,10 @@ class SmsImport {
     final debit = _debitWords.firstMatch(lower)?.start;
     final credit = _creditWords.firstMatch(lower)?.start;
     if (debit == null && credit == null) {
-      // No direction verb at all — accept a "txn ... successful" card spend,
+      // No direction verb at all — accept a card/UPI spend that names itself
+      // only as a "txn" (HDFC card+UPI alerts, Scapia/Federal "successful"),
       // otherwise it is not a transaction alert we can place.
-      return _txnSuccess.hasMatch(lower) ? DbConstants.txExpense : null;
+      return _cardOrUpiTxn.hasMatch(lower) ? DbConstants.txExpense : null;
     }
     if (debit == null) return DbConstants.txIncome;
     if (credit == null) return DbConstants.txExpense;
@@ -285,13 +305,22 @@ class SmsImport {
     final vpa = _vpa.firstMatch(text);
     if (vpa != null) return vpa.group(1);
 
-    final match = _merchant.firstMatch(text);
-    if (match == null) return null;
-    var name = match.group(1)!.trim();
-    // Strip a trailing "on"/"on 01-Aug-25" the greedy word run may have taken.
-    name = name.replaceFirst(RegExp(r'\s+(on|dated)$', caseSensitive: false), '');
-    if (name.isEmpty || name.length < 2) return null;
-    return name;
+    // A bare UPI handle ("At q@ybl") is a reliable payee even without a label,
+    // and is preferred over the generic word run below — which can otherwise
+    // latch onto a trailing shortcode ("... to 7308080808").
+    final bare = _bareVpa.firstMatch(text);
+    if (bare != null) return bare.group(1);
+
+    for (final match in _merchant.allMatches(text)) {
+      var name = match.group(1)!.trim();
+      // Strip a trailing "on"/"on 01-Aug-25" the greedy word run may have taken.
+      name =
+          name.replaceFirst(RegExp(r'\s+(on|dated)$', caseSensitive: false), '');
+      // Skip an all-digit run: "to 7308080808" is a shortcode or phone number,
+      // not a payee. A real merchant name carries at least one letter.
+      if (name.length >= 2 && RegExp(r'[A-Za-z]').hasMatch(name)) return name;
+    }
+    return null;
   }
 
   static DateTime? _dateOf(String text) {

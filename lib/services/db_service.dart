@@ -738,6 +738,20 @@ class DBService {
         where: '${DbConstants.colId} = ?', whereArgs: [id]);
   }
 
+  /// Reassigns every contribution filed under [from] to [to], for correcting a
+  /// mis-typed category. Returns the number of rows moved. A no-op (0 rows) if
+  /// the type has no contributions or [from] equals [to].
+  Future<int> reassignInvestmentType(String from, String to) async {
+    if (from == to) return 0;
+    final db = await database;
+    return await db.update(
+      DbConstants.tableInvestments,
+      {DbConstants.colType: to},
+      where: '${DbConstants.colType} = ?',
+      whereArgs: [from],
+    );
+  }
+
   Future<void> clearInvestments() async {
     final db = await database;
     await db.delete(DbConstants.tableInvestments);

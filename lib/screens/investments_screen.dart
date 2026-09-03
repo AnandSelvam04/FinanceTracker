@@ -71,7 +71,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                                     .colorScheme
                                     .onPrimaryContainer)),
                         Text(
-                          formatMoney(provider.totalInvested),
+                          formatMoneySigned(provider.totalInvested),
                           style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -119,7 +119,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text(formatMoney(entry.value),
+                            Text(formatMoneySigned(entry.value),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold)),
                             Icon(Icons.chevron_right,
