@@ -59,8 +59,14 @@ class SmsImport {
 
   /// Messages that mention money but record no transaction. Checked first, so
   /// an OTP quoting an amount ("OTP for txn of Rs.500") never becomes a row.
+  ///
+  /// The promotional tail (offer, sale, "free cash", "shop now", …) catches
+  /// marketing that borrows transaction wording — a loyalty wallet advertising
+  /// "Rs.125 Free Cash is credited! ... Shop now" reads as a credit and quotes
+  /// an amount, but it is store scrip pushing a first order, not money that
+  /// reached an account.
   static final _notATransaction = RegExp(
-      r'\b(otp|one[ -]?time password|password|verification code|will be debited|will be credited|has been requested|requesting|request for|failed|declined|reversed|due on|minimum amount due|statement is ready|e-?statement|offer|cashback offer|discount|sale|win|congratulations|apply now|click here|dear customer,? your bal)\b');
+      r'\b(otp|one[ -]?time password|password|verification code|will be debited|will be credited|has been requested|requesting|request for|failed|declined|reversed|due on|minimum amount due|statement is ready|e-?statement|offer|cashback offer|discount|sale|win|congratulations|apply now|click here|shop now|free\s+cash|free\s+deliver(?:y|ies)|first\s+order|dear customer,? your bal)\b');
 
   /// A currency amount: "Rs.499.00", "INR 1,234.56", "₹499", "Rs 2,150/-".
   static final _amount = RegExp(
