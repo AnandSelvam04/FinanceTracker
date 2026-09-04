@@ -623,19 +623,13 @@ class _DraftCardState extends State<_DraftCard> {
 
   final _customCategory = TextEditingController();
   final _customInvestType = TextEditingController();
-  final _description = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _description.text = widget.draft.description;
-  }
 
   @override
   void dispose() {
     _customCategory.dispose();
     _customInvestType.dispose();
-    _description.dispose();
+    // The description field's controller belongs to its Autocomplete, which
+    // disposes it — nothing to dispose here.
     super.dispose();
   }
 
@@ -750,17 +744,47 @@ class _DraftCardState extends State<_DraftCard> {
                     children: [
                       // Editable: the parsed merchant/sender is only a guess,
                       // so the user can give the row a name they recognise
-                      // before it is posted.
-                      TextField(
-                        controller: _description,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 15),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          contentPadding: EdgeInsets.only(bottom: 2),
-                          hintText: 'Description',
-                        ),
-                        onChanged: (v) => draft.description = v,
+                      // before it is posted. When this row is being recorded as
+                      // an investment the field also suggests the holdings you
+                      // already track under the chosen type — so a mutual fund
+                      // added before (e.g. "Nifty 50") is picked from the list
+                      // instead of retyped, matching the Add Investment screen.
+                      Autocomplete<String>(
+                        initialValue:
+                            TextEditingValue(text: draft.description),
+                        optionsBuilder: (value) {
+                          if (!draft.asInvestment) {
+                            return const Iterable<String>.empty();
+                          }
+                          final names = context
+                              .read<InvestmentProvider>()
+                              .usedNames(type: draft.investmentType);
+                          final query = value.text.trim().toLowerCase();
+                          if (query.isEmpty) return names;
+                          return names.where(
+                              (n) => n.toLowerCase().contains(query));
+                        },
+                        onSelected: (v) {
+                          draft.description = v;
+                          widget.onChanged();
+                        },
+                        fieldViewBuilder:
+                            (context, controller, focusNode, onSubmitted) {
+                          // The Autocomplete owns and disposes this controller.
+                          return TextField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 15),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.only(bottom: 2),
+                              hintText: 'Description',
+                            ),
+                            onChanged: (v) => draft.description = v,
+                            onSubmitted: (_) => onSubmitted(),
+                          );
+                        },
                       ),
                       Text(
                         '${formatIsoDate(parsed.date)} · ${parsed.sender}'
