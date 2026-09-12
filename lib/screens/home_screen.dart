@@ -15,6 +15,7 @@ import '../services/notification_service.dart';
 import '../services/recurring_service.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
+import '../utils/billing_cycle.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
@@ -140,6 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final recurring = context.read<RecurringProvider>();
     final budgets = context.read<BudgetProvider>();
     final expenses = context.read<ExpenseProvider>();
+    final accounts = context.read<AccountProvider>();
     final service = NotificationService.instance;
     if (!settings.notificationsEnabled) {
       await service.cancelAll();
@@ -148,6 +150,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await service.requestPermission();
     await service.scheduleBillReminders(recurring.rules);
     final now = DateTime.now();
+    // Credit-card statement reminders. A wide window so the upcoming due date
+    // is scheduled even when it is weeks out; overdueGrace 0 so a past due
+    // date is never scheduled in the past.
+    final cardReminders = creditCardReminders(
+      accounts: accounts.accounts,
+      now: now,
+      spendInRange: expenses.spendOnAccountInRange,
+      withinDays: 45,
+      overdueGrace: 0,
+    );
+    await service.scheduleCreditCardReminders(cardReminders);
     final totals = expenses.categoryTotalsForMonth(now.year, now.month);
     final alerts = budgetAlerts(
       budgets: budgets.budgets,

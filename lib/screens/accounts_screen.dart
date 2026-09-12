@@ -23,6 +23,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
   String? _currency; // null = base currency
   double _rate = 1.0;
   String? _last4;
+  int? _statementDay; // credit-card billing cycle
+  int? _dueDay;
 
   @override
   void initState() {
@@ -30,6 +32,20 @@ class _AccountsScreenState extends State<AccountsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AccountProvider>().fetchAccounts();
     });
+  }
+
+  /// Validates a billing-cycle day: blank is allowed, otherwise 1–28 (capped
+  /// at 28 so it lands in every month).
+  String? _dayValidator(String? v) {
+    final t = v?.trim() ?? '';
+    if (t.isEmpty) return null;
+    final n = int.tryParse(t);
+    return (n == null || n < 1 || n > 28) ? 'Enter a day 1–28' : null;
+  }
+
+  int? _parseDay(String? v) {
+    final t = v?.trim() ?? '';
+    return t.isEmpty ? null : int.tryParse(t);
   }
 
   IconData _iconForType(String type) {
@@ -54,6 +70,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
     _currency = account?.currency;
     _rate = account?.rate ?? 1.0;
     _last4 = account?.last4;
+    _statementDay = account?.statementDay;
+    _dueDay = account?.dueDay;
 
     final base = context.read<SettingsProvider>().currencySymbol;
     // Offer the base symbol plus the standard options, de-duplicated.
@@ -91,7 +109,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
                             .map((t) => DropdownMenuItem(
                                 value: t, child: Text(Account.typeLabel(t))))
                             .toList(),
-                        onChanged: (v) => _type = v ?? _type,
+                        // Rebuild the dialog so the billing-cycle fields show
+                        // or hide as the type changes.
+                        onChanged: (v) =>
+                            setDialogState(() => _type = v ?? _type),
                       ),
                       DropdownButtonFormField<String>(
                         initialValue: _currency ?? base,
@@ -168,6 +189,35 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           _last4 = text.isEmpty ? null : text;
                         },
                       ),
+                      // Billing cycle — only meaningful for a credit card.
+                      // Setting both a statement day and a due day turns on the
+                      // "amount owed" reminder before the payment is due.
+                      if (_type == 'credit_card') ...[
+                        TextFormField(
+                          initialValue: _statementDay?.toString() ?? '',
+                          decoration: const InputDecoration(
+                            labelText: 'Statement day (1–28)',
+                            helperText: 'Day of month your bill is generated',
+                            counterText: '',
+                          ),
+                          keyboardType: TextInputType.number,
+                          maxLength: 2,
+                          validator: _dayValidator,
+                          onSaved: (v) => _statementDay = _parseDay(v),
+                        ),
+                        TextFormField(
+                          initialValue: _dueDay?.toString() ?? '',
+                          decoration: const InputDecoration(
+                            labelText: 'Payment due day (1–28)',
+                            helperText: 'Day of month payment is due',
+                            counterText: '',
+                          ),
+                          keyboardType: TextInputType.number,
+                          maxLength: 2,
+                          validator: _dayValidator,
+                          onSaved: (v) => _dueDay = _parseDay(v),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -181,6 +231,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
                       _formKey.currentState!.save();
+                      final isCard = _type == 'credit_card';
                       final newAccount = Account(
                         id: account?.id,
                         name: _name,
@@ -190,6 +241,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         currency: _currency,
                         rate: _currency == null ? 1.0 : _rate,
                         last4: _last4,
+                        // Billing cycle only applies to credit cards.
+                        statementDay: isCard ? _statementDay : null,
+                        dueDay: isCard ? _dueDay : null,
                       );
                       final provider = context.read<AccountProvider>();
                       if (account == null) {
@@ -334,6 +388,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           // Visible at a glance so it is obvious which
                           // accounts SMS import can route to.
                           if (account.last4 != null) '••${account.last4}',
+                          // Surfaces that a card has a billing cycle set.
+                          if (account.hasBillingCycle) 'Due ${account.dueDay}',
                         ].join(' · ')),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,

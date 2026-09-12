@@ -201,6 +201,24 @@ class ExpenseProvider extends ChangeNotifier {
         .toList();
   }
 
+  /// Total expense spend on [accountId] in `[startInclusive, endExclusive)`,
+  /// in the account's own currency (minor units — no base conversion, since a
+  /// single card's amounts are all in its own currency). Powers the
+  /// credit-card billing-cycle amount.
+  int spendOnAccountInRange(
+      int accountId, DateTime startInclusive, DateTime endExclusive) {
+    var total = 0;
+    for (final e in _expenses) {
+      if (e.accountId == accountId &&
+          e.type == DbConstants.txExpense &&
+          !e.date.isBefore(startInclusive) &&
+          e.date.isBefore(endExclusive)) {
+        total += e.amount;
+      }
+    }
+    return total;
+  }
+
   /// Returns all transaction rows dated on or after [startInclusive] and
   /// strictly before [endExclusive].
   ///

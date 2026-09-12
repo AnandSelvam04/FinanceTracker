@@ -22,6 +22,13 @@ class Account {
   /// set one, which simply means SMS import cannot auto-route to this account.
   final String? last4;
 
+  /// Credit-card billing cycle. [statementDay] is the day of the month the
+  /// statement is generated (the cycle closes), [dueDay] the day payment is
+  /// due. Both null unless the user set a cycle on a credit-card account; used
+  /// to compute the amount owed and remind before the due date.
+  final int? statementDay;
+  final int? dueDay;
+
   Account({
     this.id,
     required this.name,
@@ -31,7 +38,13 @@ class Account {
     this.currency,
     this.rate = 1.0,
     this.last4,
+    this.statementDay,
+    this.dueDay,
   });
+
+  /// Whether this credit card has a billing cycle configured.
+  bool get hasBillingCycle =>
+      type == 'credit_card' && statementDay != null && dueDay != null;
 
   /// The symbol to display this account's amounts in.
   String get symbol => currency ?? CurrencyFormat.symbol;
@@ -65,6 +78,8 @@ class Account {
         DbConstants.colCurrency: currency,
         DbConstants.colRate: rate,
         DbConstants.colLast4: last4,
+        DbConstants.colStatementDay: statementDay,
+        DbConstants.colDueDay: dueDay,
       };
 
   factory Account.fromMap(Map<String, dynamic> map) => Account(
@@ -78,5 +93,8 @@ class Account {
         rate: ((map[DbConstants.colRate] ?? 1.0) as num).toDouble(),
         // Rows/backups from before schema v10 have no last4 column.
         last4: map[DbConstants.colLast4] as String?,
+        // Rows/backups from before schema v13 have no billing-cycle columns.
+        statementDay: (map[DbConstants.colStatementDay] as num?)?.toInt(),
+        dueDay: (map[DbConstants.colDueDay] as num?)?.toInt(),
       );
 }
