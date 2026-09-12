@@ -89,11 +89,12 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet> {
     });
     await _speech.listen(
       onResult: _onResult,
-      listenFor: const Duration(seconds: 30),
-      pauseFor: const Duration(seconds: 3),
+      // listenFor/pauseFor moved into SpeechListenOptions in speech_to_text 7.x.
       listenOptions: SpeechListenOptions(
         partialResults: true,
         cancelOnError: true,
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 3),
       ),
     );
   }
