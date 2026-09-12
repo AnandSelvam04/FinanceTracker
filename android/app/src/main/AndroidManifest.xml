@@ -2,6 +2,8 @@
     xmlns:tools="http://schemas.android.com/tools">
     <!-- Local notifications for budget/bill reminders (Android 13+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Voice input for the "add expense by voice" flow (speech_to_text). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!--
       Reads bank transaction alerts out of the SMS inbox (More > Import from
       SMS). Messages are parsed on-device and never leave it; nothing is
@@ -63,6 +65,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Ask Google Play services to fetch the ML Kit OCR model on install,
+             so the first receipt scan doesn't wait for a download. -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -73,6 +80,11 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Lets speech_to_text discover the device's speech recognition
+             service on Android 11+ (package visibility). -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>
