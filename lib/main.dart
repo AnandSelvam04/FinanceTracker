@@ -68,7 +68,7 @@ class FinanceTrackerApp extends StatelessWidget {
       child: Consumer<SettingsProvider>(
         builder: (context, settings, _) => MaterialApp(
           title: 'Finance Tracker',
-          // Material 3 with the same green seed in both modes, so dark mode
+          // Material 3 with the same brand seed in both modes, so dark mode
           // keeps the brand color instead of falling back to grey. Component
           // theming (cards, nav bar, inputs, transitions) lives in AppTheme.
           theme: AppTheme.light(settings.seedColor),

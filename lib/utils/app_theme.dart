@@ -10,9 +10,10 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
-  /// Brand seed. Kept identical across light/dark so dark mode stays green
+  /// Brand seed — the vivid indigo/blue of the "Expense Tracker Pro" look.
+  /// Kept identical across light/dark so dark mode keeps the brand color
   /// instead of falling back to grey.
-  static const Color seed = Color(0xFF2E7D32); // green.shade800
+  static const Color seed = Color(0xFF4B3FE4); // indigo/blue
 
   static ThemeData light([Color? seedColor]) =>
       _build(Brightness.light, seedColor ?? seed);
@@ -48,17 +49,19 @@ class AppTheme {
       appBarTheme: AppBarThemeData(
         centerTitle: false,
         scrolledUnderElevation: 0,
-        // Accent-colored app bars (instead of plain surface) give every screen
-        // a consistent splash of the brand color at the top.
-        backgroundColor: scheme.primary,
-        foregroundColor: scheme.onPrimary,
+        // A bold, saturated brand header (the vivid blue bar from the
+        // "Expense Tracker Pro" designs) rather than the muted tonal primary,
+        // so the header reads the same in both light and dark. The seed colours
+        // the app offers are all deep enough for white to stay legible on top.
+        backgroundColor: seedColor,
+        foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        iconTheme: IconThemeData(color: scheme.onPrimary),
-        actionsIconTheme: IconThemeData(color: scheme.onPrimary),
-        titleTextStyle: TextStyle(
+        iconTheme: const IconThemeData(color: Colors.white),
+        actionsIconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: const TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: scheme.onPrimary,
+          color: Colors.white,
         ),
       ),
       cardTheme: CardThemeData(
