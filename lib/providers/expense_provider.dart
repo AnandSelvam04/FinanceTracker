@@ -201,6 +201,37 @@ class ExpenseProvider extends ChangeNotifier {
         .toList();
   }
 
+  /// Total expense spend on [accountId] in `[startInclusive, endExclusive)`,
+  /// in the account's own currency (minor units — no base conversion, since a
+  /// single card's amounts are all in its own currency). Powers the
+  /// credit-card billing-cycle amount.
+  int spendOnAccountInRange(
+      int accountId, DateTime startInclusive, DateTime endExclusive) {
+    var total = 0;
+    for (final e in _expenses) {
+      if (e.accountId == accountId &&
+          e.type == DbConstants.txExpense &&
+          !e.date.isBefore(startInclusive) &&
+          e.date.isBefore(endExclusive)) {
+        total += e.amount;
+      }
+    }
+    return total;
+  }
+
+  /// Returns all transaction rows dated on or after [startInclusive] and
+  /// strictly before [endExclusive].
+  ///
+  /// Powers the weekly (and any custom-range) view on the summary screen,
+  /// which the month-keyed aggregates above cannot express. Callers must have
+  /// loaded every year the range touches (see [ensureYearsLoaded]).
+  List<Expense> expensesInRange(DateTime startInclusive, DateTime endExclusive) {
+    return _expenses
+        .where((e) =>
+            !e.date.isBefore(startInclusive) && e.date.isBefore(endExclusive))
+        .toList();
+  }
+
   /// Returns only expense rows for a given month and year.
   List<Expense> spendingForMonth(int year, int month) =>
       _byMonth(year, month, DbConstants.txExpense).toList();

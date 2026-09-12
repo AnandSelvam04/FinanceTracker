@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 12;
+  static const int dbVersion = 13;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -52,6 +52,11 @@ class DbConstants {
   // alerts ("A/c XX4821"). Null when unset; used to route a parsed message
   // to the right account.
   static const String colLast4 = 'last4';
+  // Credit-card billing cycle (added in schema v13). Day of month the
+  // statement is generated (colStatementDay) and the day payment is due
+  // (colDueDay). Null on non-card accounts, or a card with no cycle set.
+  static const String colStatementDay = 'statementDay';
+  static const String colDueDay = 'dueDay';
 
   // SMS messages the user dismissed in the import review queue, so a later
   // rescan of the inbox does not offer them again.

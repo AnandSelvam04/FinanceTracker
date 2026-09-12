@@ -15,6 +15,7 @@ import '../services/notification_service.dart';
 import '../services/recurring_service.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
+import '../utils/billing_cycle.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
@@ -140,6 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final recurring = context.read<RecurringProvider>();
     final budgets = context.read<BudgetProvider>();
     final expenses = context.read<ExpenseProvider>();
+    final accounts = context.read<AccountProvider>();
     final service = NotificationService.instance;
     if (!settings.notificationsEnabled) {
       await service.cancelAll();
@@ -148,6 +150,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await service.requestPermission();
     await service.scheduleBillReminders(recurring.rules);
     final now = DateTime.now();
+    // Credit-card statement reminders. A wide window so the upcoming due date
+    // is scheduled even when it is weeks out; overdueGrace 0 so a past due
+    // date is never scheduled in the past.
+    final cardReminders = creditCardReminders(
+      accounts: accounts.accounts,
+      now: now,
+      spendInRange: expenses.spendOnAccountInRange,
+      withinDays: 45,
+      overdueGrace: 0,
+    );
+    await service.scheduleCreditCardReminders(cardReminders);
     final totals = expenses.categoryTotalsForMonth(now.year, now.month);
     final alerts = budgetAlerts(
       budgets: budgets.budgets,
@@ -237,6 +250,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.document_scanner_outlined),
+              title: const Text('Scan Receipt'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const AddExpenseScreen(
+                          autoStart: AddExpenseAction.scan)),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.mic_none),
+              title: const Text('Add by Voice'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const AddExpenseScreen(
+                          autoStart: AddExpenseAction.voice)),
+                );
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.trending_up),
               title: const Text('Add Investment'),
               onTap: () {
@@ -259,11 +298,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Finance Tracker'),
-        // A gradient header on the landing screen; inner screens keep the
-        // solid accent app bar from the theme.
-        flexibleSpace: DecoratedBox(
-          decoration: BoxDecoration(gradient: brandGradient(context)),
-        ),
+        // Solid bold brand header from the theme (matching the "Expense
+        // Tracker Pro" look), the same as every inner screen.
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
@@ -432,6 +468,11 @@ class _DashboardView extends StatelessWidget {
                         amount: provider.totalForYear(selectedYear),
                         income: yearlyIncome,
                       ),
+                      const SizedBox(height: 12),
+                      _SummaryPills(
+                        income: yearlyIncome,
+                        expense: provider.totalForYear(selectedYear),
+                      ),
                       const SizedBox(height: 16),
                       const SectionHeader('Spending by category (year)'),
                       const SizedBox(height: 4),
@@ -462,6 +503,13 @@ class _DashboardView extends StatelessWidget {
                             provider.totalForMonth(selectedYear, selectedMonth),
                         income: monthlyIncome,
                       ),
+                      const SizedBox(height: 12),
+                      _SummaryPills(
+                        income: monthlyIncome,
+                        expense: provider.totalForMonth(
+                            selectedYear, selectedMonth),
+                      ),
+                      const SizedBox(height: 4),
                       _LeftToSpend(
                         cap: context
                             .watch<BudgetProvider>()
@@ -625,6 +673,106 @@ class _TotalHeadline extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Income and Expenses shown side by side as two summary cards under the
+/// headline total — the at-a-glance split the attached designs lead with.
+class _SummaryPills extends StatelessWidget {
+  final int income;
+  final int expense;
+  const _SummaryPills({required this.income, required this.expense});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _SummaryPill(
+            label: 'Income',
+            amount: income,
+            icon: Icons.south_west,
+            color: incomeColor(context),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _SummaryPill(
+            label: 'Expenses',
+            amount: expense,
+            icon: Icons.north_east,
+            color: expenseColor(context),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A single labelled amount card with a colored icon badge.
+class _SummaryPill extends StatelessWidget {
+  final String label;
+  final int amount;
+  final IconData icon;
+  final Color color;
+  const _SummaryPill({
+    required this.label,
+    required this.amount,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: dark ? 0.24 : 0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 20, color: color),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 11,
+                      letterSpacing: 0.6,
+                      fontWeight: FontWeight.w600,
+                      color: mutedTextColor(context),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      formatMoney(amount),
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

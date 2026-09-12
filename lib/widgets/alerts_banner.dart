@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/account_provider.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/settings_provider.dart';
 import '../utils/alerts.dart';
+import '../utils/billing_cycle.dart';
 import '../utils/currency_format.dart';
 
 /// Dashboard banner that proactively surfaces budgets nearing/over their cap
@@ -32,12 +34,22 @@ class AlertsBanner extends StatelessWidget {
         );
         final bills = upcomingBills(rules: recurring.rules, now: now);
 
-        if (budgetIssues.isEmpty && bills.isEmpty) {
+        // Credit-card statements coming due (needs the accounts and their
+        // per-card spend).
+        final accounts = context.watch<AccountProvider>();
+        final cardDue = creditCardReminders(
+          accounts: accounts.accounts,
+          now: now,
+          spendInRange: expenses.spendOnAccountInRange,
+        );
+
+        if (budgetIssues.isEmpty && bills.isEmpty && cardDue.isEmpty) {
           return const SizedBox.shrink();
         }
 
         final tiles = <Widget>[
           for (final a in budgetIssues) _budgetTile(a),
+          for (final r in cardDue) _cardTile(r),
           for (final b in bills) _billTile(b),
         ];
 
@@ -87,6 +99,37 @@ class AlertsBanner extends StatelessWidget {
               over
                   ? '${a.category}: over budget by ${formatMoney(a.spent - a.budget)}'
                   : '${a.category}: $pct% of budget used',
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cardTile(CreditCardReminder r) {
+    String whenLabel;
+    if (r.isOverdue) {
+      whenLabel = 'overdue';
+    } else if (r.isToday) {
+      whenLabel = 'due today';
+    } else if (r.daysUntilDue == 1) {
+      whenLabel = 'due tomorrow';
+    } else {
+      whenLabel = 'due in ${r.daysUntilDue} days';
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Icon(Icons.credit_card,
+              size: 16,
+              color: r.isOverdue ? Colors.red : Colors.deepPurple.shade400),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${r.accountName}: ${formatMoneyIn(r.symbol, r.statementAmount)} '
+              '$whenLabel',
               style: const TextStyle(fontSize: 13),
             ),
           ),

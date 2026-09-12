@@ -4,10 +4,12 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 
 ## Features
 - Transactions: record expenses and income with category/date/amount; transfers between accounts (including cross-currency transfers with a destination-side amount); search, type filters, and month/year rollups in the list view.
-- Accounts: cash, bank, UPI, and credit-card accounts with opening balances and live computed balances; transfers between them. Each account can be held in its own currency with an exchange rate to the base currency, so balances show in their own currency and net worth/total roll up correctly in the base currency.
+- Quick capture: scan a bill/receipt photo (camera or gallery) and read its amount, date, and merchant with on-device OCR (ML Kit), or dictate a transaction by voice ("spent 250 on food at Dominos") with on-device speech recognition. Both only pre-fill the Add Expense form — nothing is saved without review. Both run entirely on-device; the photo and audio never leave it.
+- Monthly Summary: view figures by **month or week**, and filter the whole summary to a single **category** to drill into just its transactions; top categories show a share-of-spend progress bar with a period-over-period delta.
+- Accounts: cash, bank, UPI, and credit-card accounts with opening balances and live computed balances; transfers between them. Credit cards can carry a **billing cycle** (statement day + payment due day); the app then tracks the amount billed on the last statement and reminds you before it's due. Each account can be held in its own currency with an exchange rate to the base currency, so balances show in their own currency and net worth/total roll up correctly in the base currency.
 - Dashboard: net-worth card (accounts + investments) with a 12-month trend line, proactive budget/bill alerts banner, toggle month/year views, category breakdowns, income totals, and a 12-month trend chart; one-tap quick-add template chips.
-- Alerts: dashboard warnings when a budget category reaches 90%/over its cap or a recurring bill is due within three days (toggle in Settings).
-- Notifications: optional local push notifications reminding you a day before a bill is due and when a budget limit is hit (rescheduled on each launch; toggle in Settings).
+- Alerts: dashboard warnings when a budget category reaches 90%/over its cap, a recurring bill is due within three days, or a credit-card statement is coming due (toggle in Settings).
+- Notifications: optional local push notifications reminding you a day before a bill is due, a few days before a credit-card payment is due (with the statement amount), and when a budget limit is hit (rescheduled on each launch; toggle in Settings).
 - Recurring: set daily/weekly/monthly/yearly rules that auto-post due transactions on launch (with catch-up); pause or edit any rule.
 - Insights: monthly summary (income, expense, net, savings rate, spend split per account with each one's share, top categories with month-over-month deltas), cash-flow chart, and category trend comparisons.
 - Investments: add/list/edit investments with per-type totals; record a withdrawal to take money back out of a holding (stored as a negative contribution, so the type total and net worth fall); and move a whole type's contributions to another type from the type detail screen when one was filed under the wrong category.
@@ -25,6 +27,8 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 - shared_preferences, local_auth, package_info_plus
 - file_picker, csv
 - another_telephony (SMS inbox reading, Android only)
+- image_picker, google_mlkit_text_recognition (on-device receipt OCR)
+- speech_to_text (on-device voice entry; requires the RECORD_AUDIO permission)
 - google_sign_in, googleapis, googleapis_auth (Drive backup/restore)
 - Test support: flutter_test, sqflite_common_ffi (file-backed SQLite for unit tests)
 

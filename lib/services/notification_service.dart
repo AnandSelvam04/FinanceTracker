@@ -9,6 +9,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../models/recurring_rule.dart';
 import '../utils/alerts.dart';
 import '../utils/app_logger.dart';
+import '../utils/billing_cycle.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 
@@ -26,10 +27,12 @@ class NotificationService {
 
   static const _channelId = 'finance_alerts';
 
-  // Disjoint id ranges so bill reminders and budget alerts never collide and
-  // can be cancelled independently.
-  static const _billIdBase = 100000;
+  // Disjoint id ranges so bill reminders, budget alerts, and credit-card
+  // reminders never collide and can be cancelled independently. Each occupies
+  // a 100000-wide band.
   static const _budgetIdBase = 50000;
+  static const _billIdBase = 100000;
+  static const _creditIdBase = 200000;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -104,9 +107,13 @@ class NotificationService {
       {int daysBefore = 1, int hour = 9}) async {
     if (!_initialized || !_tzReady) return;
     try {
-      // Drop any reminders scheduled on a previous run before re-arming.
+      // Drop any bill reminders scheduled on a previous run before re-arming.
+      // Bounded to the bill band so credit-card reminders (a higher band) are
+      // left intact regardless of the order these two are called in.
       for (final p in await _plugin.pendingNotificationRequests()) {
-        if (p.id >= _billIdBase) await _plugin.cancel(p.id);
+        if (p.id >= _billIdBase && p.id < _creditIdBase) {
+          await _plugin.cancel(p.id);
+        }
       }
       final now = tz.TZDateTime.now(tz.local);
       for (final rule in rules) {
@@ -131,6 +138,42 @@ class NotificationService {
       }
     } catch (e, st) {
       AppLogger.error('Scheduling bill reminders failed', e, st);
+    }
+  }
+
+  /// (Re)schedules a payment reminder for each credit-card statement in
+  /// [reminders], [daysBefore] days before the due date at [hour]:00 local
+  /// time. Rescheduled on each launch, like the bill reminders.
+  Future<void> scheduleCreditCardReminders(List<CreditCardReminder> reminders,
+      {int daysBefore = 3, int hour = 9}) async {
+    if (!_initialized || !_tzReady) return;
+    try {
+      // Clear only this band's previous reminders before re-arming.
+      for (final p in await _plugin.pendingNotificationRequests()) {
+        if (p.id >= _creditIdBase && p.id < _creditIdBase + 100000) {
+          await _plugin.cancel(p.id);
+        }
+      }
+      final now = tz.TZDateTime.now(tz.local);
+      for (final r in reminders) {
+        final due = r.dueDate;
+        final when = tz.TZDateTime(
+            tz.local, due.year, due.month, due.day - daysBefore, hour);
+        if (!when.isAfter(now)) continue;
+        await _plugin.zonedSchedule(
+          _creditIdBase + r.accountId,
+          'Credit card payment due',
+          '${r.accountName}: ${formatMoneyIn(r.symbol, r.statementAmount)} '
+              'due ${_dueLabel(daysBefore)}',
+          when,
+          _details(),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      }
+    } catch (e, st) {
+      AppLogger.error('Scheduling credit card reminders failed', e, st);
     }
   }
 

@@ -310,6 +310,20 @@ class DBService {
             '${DbConstants.colIsInvestment} INTEGER NOT NULL DEFAULT 0');
       }
     }
+    if (oldVersion < 13) {
+      // Credit-card billing cycle: statement day + payment due day. Guarded on
+      // the accounts table existing, since a database that never had accounts
+      // (created before v4) reaches this point without one.
+      final hasAccounts = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableAccounts]);
+      if (hasAccounts.isNotEmpty) {
+        await db.execute(
+            'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN ${DbConstants.colStatementDay} INTEGER');
+        await db.execute(
+            'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN ${DbConstants.colDueDay} INTEGER');
+      }
+    }
   }
 
   /// v9: give every money column INTEGER affinity.
@@ -526,7 +540,9 @@ class DBService {
         ${DbConstants.colColor} INTEGER,
         ${DbConstants.colCurrency} TEXT,
         ${DbConstants.colRate} REAL NOT NULL DEFAULT 1,
-        ${DbConstants.colLast4} TEXT
+        ${DbConstants.colLast4} TEXT,
+        ${DbConstants.colStatementDay} INTEGER,
+        ${DbConstants.colDueDay} INTEGER
       )
     ''');
   }

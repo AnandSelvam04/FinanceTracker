@@ -1,6 +1,6 @@
 name: finance_tracker
 description: A new Flutter project for tracking finances.
-version: 1.17.0+29
+version: 1.20.0+32
 environment:
   sdk: ">=3.0.0 <4.0.0"
 dependencies:
@@ -10,6 +10,15 @@ dependencies:
   fl_chart: ^1.1.1
   flutter:
     sdk: flutter
+  # Pick a receipt/bill photo from the camera or gallery for OCR scanning,
+  # and capture voice input to add an expense hands-free.
+  image_picker: ^1.1.2
+  # On-device OCR (ML Kit) that reads a bill photo into text; parsed by
+  # lib/services/receipt_parser.dart into a draft transaction. Runs locally —
+  # the image never leaves the device.
+  google_mlkit_text_recognition: ^0.13.1
+  # On-device speech recognition for the "add by voice" flow.
+  speech_to_text: ^7.0.0
   flutter_local_notifications: ^17.2.3
   flutter_timezone: ^3.0.1
   http: ^1.1.0
@@ -53,5 +62,5 @@ flutter_launcher_icons:
   ios: false
   image_path: "assets/icon/icon.png"
   min_sdk_android: 21
-  adaptive_icon_background: "#1B5E20"
+  adaptive_icon_background: "#4B3FE4"
   adaptive_icon_foreground: "assets/icon/icon_foreground.png"

@@ -18,8 +18,8 @@ class SettingsProvider extends ChangeNotifier {
 
   /// Accent colours the user can choose from; the first is the app default.
   static const List<Color> seedOptions = [
-    AppTheme.seed, // green (default)
-    Color(0xFF1565C0), // blue
+    AppTheme.seed, // indigo/blue (default)
+    Color(0xFF2E7D32), // green
     Color(0xFF6A1B9A), // purple
     Color(0xFFAD1457), // pink
     Color(0xFFEF6C00), // orange

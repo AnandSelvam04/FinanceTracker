@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
@@ -8,6 +9,9 @@ import '../providers/template_provider.dart';
 import '../models/expense.dart';
 import '../models/tx_template.dart';
 import '../services/db_service.dart';
+import '../services/receipt_parser.dart';
+import '../services/receipt_scanner.dart';
+import '../services/voice_expense_parser.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_logger.dart';
 import '../utils/category_colors.dart';
@@ -16,9 +20,15 @@ import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
+import '../widgets/voice_capture_sheet.dart';
+
+/// An optional capture flow to launch as soon as the screen opens, so the
+/// dashboard can offer "Scan receipt" / "Add by voice" as direct shortcuts.
+enum AddExpenseAction { none, scan, voice }
 
 class AddExpenseScreen extends StatefulWidget {
-  const AddExpenseScreen({super.key});
+  final AddExpenseAction autoStart;
+  const AddExpenseScreen({super.key, this.autoStart = AddExpenseAction.none});
 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -34,6 +44,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String _txType = DbConstants.txExpense;
   int? _accountId;
   bool _isSaving = false;
+  bool _isScanning = false;
   bool _saveAsTemplate = false;
   List<String> _frequentExpenseCategories = const [];
   List<String> _frequentIncomeCategories = const [];
@@ -91,6 +102,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           _frequentIncomeCategories = incomeFreq;
         });
       }
+      // Launch a requested capture flow once the form (and its category
+      // suggestions, which voice matching uses) is ready.
+      if (!mounted) return;
+      if (widget.autoStart == AddExpenseAction.scan) {
+        await _scanReceipt();
+      } else if (widget.autoStart == AddExpenseAction.voice) {
+        await _addByVoice();
+      }
     });
   }
 
@@ -125,6 +144,115 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         _isIncome ? _frequentIncomeCategories : _frequentExpenseCategories;
     final defaults = _isIncome ? _incomeCategories : _expenseCategories;
     return <String>{...frequent, ...defaults}.toList();
+  }
+
+  // --- Receipt scanning ------------------------------------------------------
+
+  /// Asks whether to use the camera or the gallery, then runs OCR and pre-fills
+  /// the form. Nothing is saved; the user still reviews and taps Add.
+  Future<void> _scanReceipt() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isScanning = true);
+    ParsedReceipt? result;
+    try {
+      result = await ReceiptScanner.scan(source);
+    } catch (e, st) {
+      AppLogger.error('Receipt scan failed', e, st);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not read the receipt.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isScanning = false);
+    }
+    if (!mounted || result == null) return;
+    _applyReceipt(result, messenger);
+  }
+
+  void _applyReceipt(ParsedReceipt r, ScaffoldMessengerState messenger) {
+    if (r.isEmpty) {
+      messenger.showSnackBar(const SnackBar(
+          content: Text("Couldn't find an amount on the receipt. "
+              'Enter the details by hand.')));
+      return;
+    }
+    setState(() {
+      // A scanned bill is always a spend.
+      _txType = DbConstants.txExpense;
+      if (r.amountMinor != null) {
+        _amountController.text = minorToEditString(r.amountMinor!);
+      }
+      if (r.merchant != null && r.merchant!.isNotEmpty) {
+        _descriptionController.text = r.merchant!;
+      }
+      if (r.date != null) {
+        // Ignore a future date read in error; the picker caps at today anyway.
+        if (!r.date!.isAfter(DateTime.now())) _selectedDate = r.date!;
+      }
+    });
+    final filled = <String>[
+      if (r.amountMinor != null) 'amount',
+      if (r.merchant != null) 'merchant',
+      if (r.date != null) 'date',
+    ];
+    messenger.showSnackBar(SnackBar(
+      content: Text('Scanned ${filled.join(', ')}. Review and add.'),
+    ));
+  }
+
+  // --- Voice entry -----------------------------------------------------------
+
+  /// Opens the mic sheet, interprets the spoken sentence, and pre-fills the
+  /// form. Nothing is saved automatically.
+  Future<void> _addByVoice() async {
+    final transcript = await showVoiceCaptureSheet(context);
+    if (!mounted || transcript == null || transcript.trim().isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final parsed = VoiceExpenseParser.parse(
+      transcript,
+      knownCategories: _suggestions,
+    );
+    if (parsed.isEmpty) {
+      messenger.showSnackBar(SnackBar(
+          content: Text('Heard "$transcript" but could not read an amount.')));
+      return;
+    }
+    setState(() {
+      _txType = parsed.type;
+      if (parsed.amountMinor != null) {
+        _amountController.text = minorToEditString(parsed.amountMinor!);
+      }
+      if (parsed.category != null) _categoryController.text = parsed.category!;
+      if (parsed.description != null && parsed.description!.isNotEmpty) {
+        _descriptionController.text = parsed.description!;
+      } else if (_descriptionController.text.isEmpty && parsed.category != null) {
+        _descriptionController.text = parsed.category!;
+      }
+    });
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Filled from voice. Review and add.')),
+    );
   }
 
   @override
@@ -163,6 +291,35 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     });
                   },
                 ),
+              ),
+              const SizedBox(height: 12),
+              // Quick-capture shortcuts: read a bill photo, or dictate the
+              // transaction. Both only pre-fill the fields below.
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isScanning ? null : _scanReceipt,
+                      icon: _isScanning
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2.5),
+                            )
+                          : const Icon(Icons.document_scanner_outlined),
+                      label: Text(_isScanning ? 'Scanning…' : 'Scan receipt'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isScanning ? null : _addByVoice,
+                      icon: const Icon(Icons.mic_none),
+                      label: const Text('Speak'),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               TextFormField(
