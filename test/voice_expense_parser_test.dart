@@ -59,4 +59,26 @@ void main() {
   test('a sentence with no number is empty', () {
     expect(VoiceExpenseParser.parse('hello there').isEmpty, isTrue);
   });
+
+  test('a leading quantity is not mistaken for the amount', () {
+    // "2" is a count of coffees; the spend is 300.
+    final r = VoiceExpenseParser.parse('2 coffees for 300',
+        knownCategories: categories);
+    expect(r.amountMinor, 30000);
+    expect(r.type, DbConstants.txExpense);
+  });
+
+  test('a number next to a currency word wins over a bare number', () {
+    final r = VoiceExpenseParser.parse('300 rupees for food',
+        knownCategories: categories);
+    expect(r.amountMinor, 30000);
+    expect(r.category, 'Food');
+  });
+
+  test('"got" no longer flips an expense to income', () {
+    final r = VoiceExpenseParser.parse('got coffee for 200',
+        knownCategories: categories);
+    expect(r.type, DbConstants.txExpense);
+    expect(r.amountMinor, 20000);
+  });
 }

@@ -25,11 +25,22 @@ class _VoiceCaptureSheet extends StatefulWidget {
   State<_VoiceCaptureSheet> createState() => _VoiceCaptureSheetState();
 }
 
-class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet> {
+class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet>
+    with SingleTickerProviderStateMixin {
   final SpeechToText _speech = SpeechToText();
   String _words = '';
   bool _listening = false;
   String? _error;
+
+  // Drives a gentle pulse of the mic while the app is listening, so it is
+  // obvious the microphone is live and picking up speech. The value is only
+  // applied to the scale when [_listening] is true; the controller runs
+  // continuously (the sheet is transient) so no state transition can leave the
+  // pulse out of sync.
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
 
   @override
   void initState() {
@@ -39,6 +50,7 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet> {
 
   @override
   void dispose() {
+    _pulse.dispose();
     // Best-effort stop; the plugin tolerates being stopped when idle.
     _speech.stop();
     super.dispose();
@@ -126,23 +138,34 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet> {
           Text('Try: “spent 250 on food at Dominos”',
               style: TextStyle(color: mutedTextColor(context), fontSize: 13)),
           const SizedBox(height: 20),
-          // Tap to restart listening; the icon fills while the mic is live.
-          GestureDetector(
-            onTap: _listening ? _stop : _startListening,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _listening
-                    ? scheme.primary
-                    : scheme.primary.withValues(alpha: 0.15),
-              ),
-              child: Icon(
-                _listening ? Icons.mic : Icons.mic_none,
-                size: 40,
-                color: _listening ? scheme.onPrimary : scheme.primary,
+          // Tap to restart listening; the icon fills and pulses while live.
+          Semantics(
+            button: true,
+            label: _listening ? 'Stop listening' : 'Start listening',
+            child: GestureDetector(
+              onTap: _listening ? _stop : _startListening,
+              child: AnimatedBuilder(
+                animation: _pulse,
+                builder: (context, child) => Transform.scale(
+                  scale: _listening ? 1.0 + _pulse.value * 0.12 : 1.0,
+                  child: child,
+                ),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _listening
+                        ? scheme.primary
+                        : scheme.primary.withValues(alpha: 0.15),
+                  ),
+                  child: Icon(
+                    _listening ? Icons.mic : Icons.mic_none,
+                    size: 40,
+                    color: _listening ? scheme.onPrimary : scheme.primary,
+                  ),
+                ),
               ),
             ),
           ),

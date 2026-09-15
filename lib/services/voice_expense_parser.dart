@@ -4,19 +4,31 @@ import 'receipt_parser.dart';
 /// Turns a spoken sentence ("spent 250 on food at dominos") into a draft
 /// transaction.
 ///
-/// Pure Dart on purpose: the speech plugin lives behind [SpeechInputService]
-/// and hands the recognized words to this file, so the interpretation logic is
-/// unit-testable without a microphone. Results only pre-fill the Add Expense
-/// form — nothing is saved without confirmation.
+/// Pure Dart on purpose: the speech plugin lives behind the voice capture
+/// sheet (see `widgets/voice_capture_sheet.dart`), which hands the recognized
+/// words to this file, so the interpretation logic is unit-testable without a
+/// microphone. Results only pre-fill the Add Expense form — nothing is saved
+/// without confirmation.
 class VoiceExpenseParser {
   VoiceExpenseParser._();
 
-  /// Wording that means money came in rather than went out.
+  /// Wording that means money came in rather than went out. Deliberately
+  /// excludes the catch-all "got"/"get": "got coffee for 200" is a spend, not
+  /// income, so those words caused far more misclassifications than they fixed.
   static final _incomeWords = RegExp(
-      r'\b(income|received?|salary|credited?|earned?|got|deposit(?:ed)?|refund(?:ed)?|bonus)\b');
+      r'\b(income|received?|salary|credited?|earned?|deposit(?:ed)?|refund(?:ed)?|bonus)\b');
 
-  /// First money-looking token in the sentence.
+  /// Any money-looking token in the sentence.
   static final _amount = RegExp(r'(\d[\d,]*(?:\.\d{1,2})?)');
+
+  /// A money token sitting right next to a currency marker — "300 rupees",
+  /// "rs 300", "₹300". When present this is a far stronger amount signal than a
+  /// bare number, which in speech is often a quantity ("2 coffees for 300").
+  static final _amountWithCurrency = RegExp(
+      r'(?:₹|\$|\brs\.?|\binr|\busd)\s*(\d[\d,]*(?:\.\d{1,2})?)'
+      r'|(\d[\d,]*(?:\.\d{1,2})?)\s*'
+      r'\b(?:rupees?|rs\.?|inr|dollars?|usd|bucks?|paise|cents?)\b',
+      caseSensitive: false);
 
   /// Command lead-ins to strip from the description ("add an expense of …").
   static final _lead = RegExp(
@@ -49,12 +61,7 @@ class VoiceExpenseParser {
     final type =
         _incomeWords.hasMatch(lower) ? DbConstants.txIncome : DbConstants.txExpense;
 
-    int? amount;
-    final am = _amount.firstMatch(text);
-    if (am != null) {
-      final parsed = ReceiptParser.parseAmountToken(am.group(1)!);
-      if (parsed != null && parsed > 0) amount = parsed;
-    }
+    final amount = _pickAmount(text);
 
     var category = _matchKnown(lower, knownCategories) ?? _categoryPhrase(lower);
     final merchant = _merchant(text);
@@ -69,6 +76,28 @@ class VoiceExpenseParser {
       description: (description == null || description.isEmpty) ? null : description,
       type: type,
     );
+  }
+
+  /// Chooses the transaction amount from a spoken sentence.
+  ///
+  /// A number next to a currency word ("300 rupees", "rs 300") is the surest
+  /// signal and wins outright. Otherwise the amount is almost always the
+  /// largest number spoken — a bare leading number is often a quantity
+  /// ("2 coffees for 300"), so taking the largest token beats taking the first.
+  static int? _pickAmount(String text) {
+    final cur = _amountWithCurrency.firstMatch(text);
+    if (cur != null) {
+      final token = cur.group(1) ?? cur.group(2);
+      final v = token == null ? null : ReceiptParser.parseAmountToken(token);
+      if (v != null && v > 0) return v;
+    }
+    int? best;
+    for (final m in _amount.allMatches(text)) {
+      final v = ReceiptParser.parseAmountToken(m.group(1)!);
+      if (v == null || v <= 0) continue;
+      if (best == null || v > best) best = v;
+    }
+    return best;
   }
 
   static String? _matchKnown(String lower, List<String> categories) {

@@ -63,8 +63,12 @@ class SmsImport {
       r'\b(otp|one[ -]?time password|password|verification code|will be debited|will be credited|has been requested|requesting|request for|failed|declined|reversed|due on|minimum amount due|statement is ready|e-?statement|offer|cashback offer|discount|sale|win|congratulations|apply now|click here|dear customer,? your bal)\b');
 
   /// A currency amount: "Rs.499.00", "INR 1,234.56", "₹499", "Rs 2,150/-".
+  ///
+  /// The `\b` before the `rs`/`inr` markers keeps the "rs" inside an ordinary
+  /// word from starting a match — without it "…for cars 5000 debited…" reads
+  /// "rs 5000" as ₹5000. `₹` is not a word character, so it needs no boundary.
   static final _amount = RegExp(
-      r'(?:rs\.?|inr|₹)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)',
+      r'(?:\brs\.?|\binr|₹)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)',
       caseSensitive: false);
 
   /// Words that mark the amount right after them as a balance or a limit
