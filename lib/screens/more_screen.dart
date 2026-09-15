@@ -178,11 +178,12 @@ class _MoreScreenState extends State<MoreScreen> {
             final stale = _lastBackup == null ||
                 DateTime.now().difference(_lastBackup!) >
                     const Duration(days: 7);
+            final warn = warningColor(context);
             return ListTile(
-              leading: Icon(Icons.cloud, color: stale ? Colors.orange : null),
+              leading: Icon(Icons.cloud, color: stale ? warn : null),
               title: const Text('Backup & Export'),
               subtitle: Text(_backupSubtitle,
-                  style: stale ? const TextStyle(color: Colors.orange) : null),
+                  style: stale ? TextStyle(color: warn) : null),
               onTap: () async {
                 await Navigator.push(
                   context,

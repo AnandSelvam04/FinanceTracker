@@ -8,6 +8,7 @@ import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import '../widgets/category_avatar.dart';
+import '../widgets/empty_state.dart';
 
 class BudgetsScreen extends StatefulWidget {
   const BudgetsScreen({super.key});
@@ -220,6 +221,10 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel')),
           ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Delete')),
         ],
@@ -264,7 +269,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
           // the point the banner and notifications fire.
           Color progressColor(double ratio) {
             if (ratio >= kBudgetWarnRatio) return expenseColor(context);
-            if (ratio >= kBudgetCautionRatio) return Colors.orange;
+            if (ratio >= kBudgetCautionRatio) return warningColor(context);
             return incomeColor(context);
           }
 
@@ -296,12 +301,11 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               const SizedBox(height: 16),
               if (categoryBudgets.isEmpty)
                 const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(
-                    child: Text(
-                      'No per-category budgets yet.\nTap + to cap a category.',
-                      textAlign: TextAlign.center,
-                    ),
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: EmptyState(
+                    icon: Icons.pie_chart_outline,
+                    title: 'No per-category budgets yet',
+                    message: 'Tap + to cap a category and track its spending.',
                   ),
                 )
               else

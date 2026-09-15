@@ -622,7 +622,7 @@ class _DeltaLabel extends StatelessWidget {
     final up = delta > 0;
     final flat = delta == 0;
     final color = flat
-        ? Colors.grey
+        ? mutedTextColor(context)
         : up
             ? expenseColor(context)
             : incomeColor(context);
@@ -695,8 +695,8 @@ class _SpendByAccount extends StatelessWidget {
                             padding: const EdgeInsets.only(right: 12),
                             child: Text(
                               '${(entry.value / periodTotal * 100).round()}%',
-                              style: const TextStyle(
-                                  fontSize: 12, color: Colors.grey),
+                              style: TextStyle(
+                                  fontSize: 12, color: mutedTextColor(context)),
                             ),
                           ),
                         Text(formatMoney(entry.value),

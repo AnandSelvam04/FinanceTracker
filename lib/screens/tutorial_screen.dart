@@ -36,7 +36,7 @@ class TutorialScreen extends StatelessWidget {
       _TutorialStep(
         title: 'Set budgets and track spending',
         body:
-            'Add monthly budgets per category in the Budgets tab to monitor progress and avoid overspending.',
+            'Open More → Budgets to add monthly caps per category, monitor progress, and avoid overspending.',
         icon: Icons.account_balance_wallet,
       ),
       _TutorialStep(

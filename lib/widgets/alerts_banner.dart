@@ -7,6 +7,7 @@ import '../providers/expense_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/settings_provider.dart';
 import '../utils/alerts.dart';
+import '../utils/app_colors.dart';
 import '../utils/billing_cycle.dart';
 import '../utils/currency_format.dart';
 
@@ -47,28 +48,30 @@ class AlertsBanner extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
+        final warn = warningColor(context);
         final tiles = <Widget>[
-          for (final a in budgetIssues) _budgetTile(a),
-          for (final r in cardDue) _cardTile(r),
-          for (final b in bills) _billTile(b),
+          for (final a in budgetIssues) _budgetTile(context, a),
+          for (final r in cardDue) _cardTile(context, r),
+          for (final b in bills) _billTile(context, b),
         ];
 
+        final dark = Theme.of(context).brightness == Brightness.dark;
         return Card(
           elevation: 0,
-          color: Colors.amber.withValues(alpha: 0.12),
+          color: warn.withValues(alpha: dark ? 0.16 : 0.12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: BorderSide(color: Colors.amber.withValues(alpha: 0.5)),
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: warn.withValues(alpha: 0.45)),
           ),
           margin: const EdgeInsets.only(bottom: 8),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.notifications_active, size: 18),
+                    Icon(Icons.notifications_active, size: 18, color: warn),
                     const SizedBox(width: 8),
                     Text('Alerts',
                         style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -84,7 +87,7 @@ class AlertsBanner extends StatelessWidget {
     );
   }
 
-  Widget _budgetTile(BudgetAlert a) {
+  Widget _budgetTile(BuildContext context, BudgetAlert a) {
     final over = a.isOver;
     final pct = (a.ratio * 100).round();
     return Padding(
@@ -92,7 +95,8 @@ class AlertsBanner extends StatelessWidget {
       child: Row(
         children: [
           Icon(over ? Icons.error : Icons.warning_amber,
-              size: 16, color: over ? Colors.red : Colors.orange),
+              size: 16,
+              color: over ? dangerColor(context) : warningColor(context)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -107,7 +111,7 @@ class AlertsBanner extends StatelessWidget {
     );
   }
 
-  Widget _cardTile(CreditCardReminder r) {
+  Widget _cardTile(BuildContext context, CreditCardReminder r) {
     String whenLabel;
     if (r.isOverdue) {
       whenLabel = 'overdue';
@@ -124,7 +128,7 @@ class AlertsBanner extends StatelessWidget {
         children: [
           Icon(Icons.credit_card,
               size: 16,
-              color: r.isOverdue ? Colors.red : Colors.deepPurple.shade400),
+              color: r.isOverdue ? dangerColor(context) : infoColor(context)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -138,7 +142,7 @@ class AlertsBanner extends StatelessWidget {
     );
   }
 
-  Widget _billTile(BillAlert b) {
+  Widget _billTile(BuildContext context, BillAlert b) {
     String whenLabel;
     if (b.isOverdue) {
       whenLabel = 'overdue';
@@ -153,7 +157,7 @@ class AlertsBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Icon(Icons.event, size: 16, color: Colors.blue.shade600),
+          Icon(Icons.event, size: 16, color: infoColor(context)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

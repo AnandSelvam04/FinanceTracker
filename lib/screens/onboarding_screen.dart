@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/app_colors.dart';
+
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback? onFinish;
   const OnboardingScreen({super.key, this.onFinish});
@@ -118,14 +120,24 @@ class _OnboardPageView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // A brand-gradient hero badge (matching the net-worth card and section
+          // accents) instead of a flat container, so onboarding sets the same
+          // look the rest of the app carries.
           Container(
             width: 140,
             height: 140,
             decoration: BoxDecoration(
-              color: scheme.primaryContainer,
+              gradient: brandGradient(context),
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: scheme.primary.withValues(alpha: 0.35),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
-            child: Icon(page.icon, size: 68, color: scheme.onPrimaryContainer),
+            child: Icon(page.icon, size: 68, color: onBrandGradient(context)),
           ),
           const SizedBox(height: 40),
           Text(
