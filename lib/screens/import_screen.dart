@@ -9,6 +9,7 @@ import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../services/csv_import.dart';
 import '../services/db_service.dart';
+import '../utils/app_colors.dart';
 import '../utils/app_logger.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
@@ -161,7 +162,8 @@ class _ImportScreenState extends State<ImportScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.upload_file, size: 48, color: Colors.grey),
+                  Icon(Icons.upload_file,
+                      size: 48, color: mutedTextColor(context)),
                   const SizedBox(height: 12),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -268,7 +270,7 @@ class _ImportScreenState extends State<ImportScreen> {
           padding: const EdgeInsets.only(top: 4),
           child: Text(
             'Will import ${result.expenses.length}, skip ${result.skipped}.',
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
+            style: TextStyle(color: mutedTextColor(context), fontSize: 12),
           ),
         ),
       ],

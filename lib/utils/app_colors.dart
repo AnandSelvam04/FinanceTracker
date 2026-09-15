@@ -15,6 +15,22 @@ Color expenseColor(BuildContext context) =>
 Color transferColor(BuildContext context) =>
     _isDark(context) ? Colors.blueGrey.shade200 : Colors.blueGrey.shade700;
 
+/// "Over the limit" / critical state (e.g. over budget, overdue bill). A
+/// slightly lighter red in dark mode so it stays legible on dark surfaces
+/// instead of the harsh full-strength `Colors.red`.
+Color dangerColor(BuildContext context) =>
+    _isDark(context) ? Colors.red.shade300 : Colors.red.shade700;
+
+/// "Approaching the limit" / needs-attention state (e.g. nearing budget,
+/// stale backup). Amber that keeps contrast in both themes — a semantic
+/// replacement for the raw `Colors.orange` scattered across the screens.
+Color warningColor(BuildContext context) =>
+    _isDark(context) ? Colors.amber.shade300 : Colors.amber.shade800;
+
+/// Neutral "informational" accent (e.g. an upcoming bill that is not yet due).
+Color infoColor(BuildContext context) =>
+    _isDark(context) ? Colors.blue.shade200 : Colors.blue.shade700;
+
 /// Pastel avatar backgrounds for transaction rows (dark, muted equivalents
 /// in dark mode).
 Color incomeAvatarColor(BuildContext context) =>

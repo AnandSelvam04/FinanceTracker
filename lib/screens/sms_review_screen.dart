@@ -573,7 +573,7 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(permissionDenied ? Icons.lock_outline : Icons.sms_outlined,
-                size: 48, color: Colors.grey),
+                size: 48, color: mutedTextColor(context)),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             if (supported) ...[
@@ -789,8 +789,8 @@ class _DraftCardState extends State<_DraftCard> {
                       Text(
                         '${formatIsoDate(parsed.date)} · ${parsed.sender}'
                         '${parsed.last4 != null ? ' · ••${parsed.last4}' : ''}',
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: TextStyle(
+                            fontSize: 12, color: mutedTextColor(context)),
                       ),
                     ],
                   ),
@@ -808,28 +808,28 @@ class _DraftCardState extends State<_DraftCard> {
             if (draft.duplicateOf != null)
               _Notice(
                 icon: Icons.content_copy,
-                color: Colors.orange,
+                color: warningColor(context),
                 text: 'Looks like "${draft.duplicateOf!.description}", which '
                     'you already entered. Left unchecked.',
               ),
             if (parsed.isTransfer)
-              const _Notice(
+              _Notice(
                 icon: Icons.swap_horiz,
-                color: Colors.blueGrey,
+                color: transferColor(context),
                 text: 'Money moved between your accounts — recorded as a '
                     'transfer, so it is not counted as spending.',
               ),
             if (draft.asInvestment)
-              const _Notice(
+              _Notice(
                 icon: Icons.trending_up,
-                color: Colors.blueGrey,
+                color: mutedTextColor(context),
                 text: 'Recorded as an investment contribution, not as '
                     'spending.',
               ),
             if (draft.recalledCategory != null && !draft.asInvestment)
               _Notice(
                 icon: Icons.history,
-                color: Colors.blueGrey,
+                color: mutedTextColor(context),
                 text: 'Filed as ${draft.recalledCategory} last time.',
               ),
             // Only a plain debit can be reclassified as an investment.
@@ -885,8 +885,8 @@ class _DraftCardState extends State<_DraftCard> {
                       child: Text(
                         'Looks like a monthly subscription — also create a '
                         'recurring rule.',
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.blueGrey),
+                        style: TextStyle(
+                            fontSize: 12, color: mutedTextColor(context)),
                       ),
                     ),
                   ],
@@ -1028,7 +1028,7 @@ class _BulkActionBar extends StatelessWidget {
             onPressed: allSelected ? onSelectNone : onSelectAll,
           ),
           Text('$selected of $total',
-              style: TextStyle(fontSize: 12, color: Colors.grey)),
+              style: TextStyle(fontSize: 12, color: mutedTextColor(context))),
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,

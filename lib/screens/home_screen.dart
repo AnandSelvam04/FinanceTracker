@@ -334,7 +334,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
-            label: 'Expenses',
+            // The screen behind this tab lists income and transfers too, and is
+            // titled "Transactions" — keep the label the same so they match.
+            label: 'Transactions',
           ),
           NavigationDestination(
             icon: Icon(Icons.more_horiz),

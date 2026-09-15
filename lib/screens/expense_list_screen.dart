@@ -181,6 +181,10 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel')),
           ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Delete')),
         ],

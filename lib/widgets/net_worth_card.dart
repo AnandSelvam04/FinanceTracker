@@ -9,6 +9,7 @@ import '../providers/investment_provider.dart';
 import '../services/db_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/date_format.dart';
 import 'animated_money.dart';
 
 /// Dashboard card showing current net worth (liquid account balances plus
@@ -130,6 +131,7 @@ class _NetWorthTrend extends StatelessWidget {
             FlSpot(i.toDouble(), series[i].value / 100),
         ];
         final color = lineColor;
+        final lastX = spots.last.x;
         return Semantics(
           label: 'Net worth trend over the last 12 months',
           child: LineChart(
@@ -137,17 +139,59 @@ class _NetWorthTrend extends StatelessWidget {
               gridData: FlGridData(show: false),
               titlesData: FlTitlesData(show: false),
               borderData: FlBorderData(show: false),
-              lineTouchData: LineTouchData(enabled: false),
+              // Tap or drag along the line to read the exact month-end figure,
+              // so the trend is inspectable instead of purely decorative.
+              lineTouchData: LineTouchData(
+                handleBuiltInTouches: true,
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipColor: (_) => Colors.black.withValues(alpha: 0.75),
+                  getTooltipItems: (touchedSpots) => [
+                    for (final s in touchedSpots)
+                      LineTooltipItem(
+                        (s.x.round() >= 0 && s.x.round() < series.length
+                                ? '${monthName(series[s.x.round()].month.month).substring(0, 3)} '
+                                    '${series[s.x.round()].month.year % 100}\n'
+                                : '') +
+                            formatMoney((s.y * 100).round()),
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
               lineBarsData: [
                 LineChartBarData(
                   spots: spots,
                   isCurved: true,
                   color: color,
                   barWidth: 3,
-                  dotData: FlDotData(show: false),
+                  // Mark only the latest point, so the current net worth reads
+                  // as the endpoint of the trend at a glance.
+                  dotData: FlDotData(
+                    show: true,
+                    checkToShowDot: (spot, _) => spot.x == lastX,
+                    getDotPainter: (spot, percent, bar, index) =>
+                        FlDotCirclePainter(
+                      radius: 3.5,
+                      color: color,
+                      strokeWidth: 0,
+                    ),
+                  ),
+                  // A soft top-down gradient fill gives the sparkline more
+                  // presence on the hero card than a flat tint.
                   belowBarData: BarAreaData(
                     show: true,
-                    color: color.withValues(alpha: 0.12),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        color.withValues(alpha: 0.28),
+                        color.withValues(alpha: 0.02),
+                      ],
+                    ),
                   ),
                 ),
               ],

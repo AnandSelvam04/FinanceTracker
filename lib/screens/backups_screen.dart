@@ -94,8 +94,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
               child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Erase everything',
-                style: TextStyle(color: Colors.red)),
+            child: Text('Erase everything',
+                style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
           ),
         ],
       ),
@@ -117,7 +117,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
               child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Replace', style: const TextStyle(color: Colors.red)),
+            child: Text('Replace',
+                style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
           ),
         ],
       ),
@@ -398,8 +399,9 @@ class _BackupsScreenState extends State<BackupsScreen> {
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, true),
                                   child: Text('Overwrite',
-                                      style:
-                                          const TextStyle(color: Colors.red)),
+                                      style: TextStyle(
+                                          color:
+                                              Theme.of(ctx).colorScheme.error)),
                                 ),
                               ],
                             ),
@@ -618,7 +620,7 @@ class _LastBackupBanner extends StatelessWidget {
     final now = DateTime.now();
     final stale =
         time == null || now.difference(time!) > const Duration(days: 7);
-    final color = stale ? Colors.orange : Colors.green;
+    final color = stale ? warningColor(context) : incomeColor(context);
 
     String label;
     if (time == null) {
