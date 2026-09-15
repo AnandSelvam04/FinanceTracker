@@ -38,6 +38,16 @@ class NetWorthCard extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: 6),
           clipBehavior: Clip.antiAlias,
           color: Colors.transparent,
+          // A soft, brand-tinted elevation shadow lifts the hero card off the
+          // dashboard surface so it reads as the primary focal point, rather
+          // than sitting flush like the plainer cards below it. The shadow is
+          // cast by the card's Material (outside the clipped fill), so it is
+          // not swallowed by clipBehavior the way an inner BoxShadow would be.
+          elevation: 8,
+          shadowColor: Theme.of(context)
+              .colorScheme
+              .primary
+              .withValues(alpha: 0.45),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
@@ -46,7 +56,7 @@ class NetWorthCard extends StatelessWidget {
               gradient: brandGradient(context),
               borderRadius: BorderRadius.circular(18),
             ),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
