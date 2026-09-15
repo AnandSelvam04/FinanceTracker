@@ -29,6 +29,7 @@ import '../widgets/month_selector.dart';
 import '../widgets/net_worth_card.dart';
 import '../widgets/section_header.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/transaction_edit_sheet.dart';
 import 'add_expense_screen.dart';
 import 'add_investment_screen.dart';
 import 'expense_list_screen.dart';
@@ -390,12 +391,19 @@ class _DashboardView extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => _CategoryDetailSheet(
+      builder: (sheetContext) => _CategoryDetailSheet(
         category: category,
         period: period,
         total: total,
         rows: rows,
         baseAmountOf: provider.baseAmountOf,
+        // Close the drill-down sheet first (with its own context), then open
+        // the editor over the dashboard using the still-mounted outer context —
+        // the sheet's context is defunct once it is popped.
+        onEdit: (e) {
+          Navigator.pop(sheetContext);
+          editTransactionSheet(context, e);
+        },
       ),
     );
   }
@@ -552,6 +560,7 @@ class _CategoryDetailSheet extends StatelessWidget {
   final int total;
   final List<Expense> rows;
   final int Function(Expense) baseAmountOf;
+  final void Function(Expense) onEdit;
 
   const _CategoryDetailSheet({
     required this.category,
@@ -559,6 +568,7 @@ class _CategoryDetailSheet extends StatelessWidget {
     required this.total,
     required this.rows,
     required this.baseAmountOf,
+    required this.onEdit,
   });
 
   @override
@@ -611,9 +621,21 @@ class _CategoryDetailSheet extends StatelessWidget {
                                 : e.description,
                             overflow: TextOverflow.ellipsis),
                         subtitle: Text(formatIsoDate(e.date)),
-                        trailing: Text(formatMoney(baseAmountOf(e)),
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600)),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(formatMoney(baseAmountOf(e)),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 4),
+                            Icon(Icons.chevron_right,
+                                size: 18, color: mutedTextColor(context)),
+                          ],
+                        ),
+                        // Tap a row to edit that transaction. onEdit closes
+                        // this sheet and opens the editor over the dashboard, so
+                        // the totals refresh with the change on save.
+                        onTap: () => onEdit(e),
                       );
                     },
                   ),
