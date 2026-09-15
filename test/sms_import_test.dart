@@ -120,6 +120,14 @@ void main() {
     test('returns null when there is no amount at all', () {
       expect(parse('Your A/c XX4821 was debited yesterday'), isNull);
     });
+
+    test('does not read "rs" inside a word as a currency amount', () {
+      // "cars 5000" contains the substring "rs 5000"; without a word boundary
+      // on the currency marker the parser used to read it as ₹5000. There is
+      // no real Rs/INR/₹ amount in this message, so it is not a transaction.
+      expect(parse('Your order for 2 cars 5000 was debited from A/c XX4821'),
+          isNull);
+    });
   });
 
   group('account last-4', () {
