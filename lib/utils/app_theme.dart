@@ -27,6 +27,38 @@ class AppTheme {
     );
     final isDark = brightness == Brightness.dark;
 
+    // A curated type scale layered over the Material 3 defaults. Tightening the
+    // tracking on the big display/headline sizes and firming up the title/label
+    // weights gives figures and section headings a more deliberate, premium
+    // feel than the framework's stock spacing — without hard-coding sizes or
+    // colours (those still come from the scheme, so the scale adapts to both
+    // themes and to text-scaling accessibility settings).
+    final baseText = Typography.material2021(
+      platform: TargetPlatform.android,
+      colorScheme: scheme,
+    );
+    final base = isDark ? baseText.white : baseText.black;
+    final textTheme = base.copyWith(
+      displayLarge: base.displayLarge
+          ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -1.0),
+      displayMedium: base.displayMedium
+          ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5),
+      displaySmall: base.displaySmall
+          ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5),
+      headlineLarge: base.headlineLarge
+          ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5),
+      headlineMedium: base.headlineMedium
+          ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.25),
+      headlineSmall: base.headlineSmall
+          ?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.25),
+      titleLarge: base.titleLarge
+          ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.2),
+      titleMedium: base.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+      titleSmall: base.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+      labelLarge: base.labelLarge
+          ?.copyWith(fontWeight: FontWeight.w600, letterSpacing: 0.2),
+    );
+
     // Smooth, modern forward/back transitions on every route without touching
     // each Navigator.push call site.
     const pageTransitions = PageTransitionsTheme(
@@ -42,6 +74,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
+      textTheme: textTheme,
       scaffoldBackgroundColor: scheme.surface,
       pageTransitionsTheme: pageTransitions,
       splashFactory: InkSparkle.splashFactory,
