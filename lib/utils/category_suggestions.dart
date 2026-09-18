@@ -1,6 +1,14 @@
 /// Category suggestion helpers, kept free of Flutter/DB dependencies so they
 /// can be unit-tested and reused by any picker.
 
+/// Canonical form of a category for equality: trimmed and lower-cased.
+///
+/// Budgets track spend by matching category strings, so a budget for
+/// "Groceries" would otherwise miss spend filed as "groceries" or " groceries "
+/// (see ExpenseProvider.spentForCategoryInMonth). Normalizing both sides makes
+/// the match forgiving of case and stray whitespace.
+String normalizeCategory(String category) => category.trim().toLowerCase();
+
 /// Ordered, de-duplicated category suggestions for the budgets picker.
 ///
 /// A budget only tracks spend when its category string matches the one on the

@@ -45,4 +45,15 @@ void main() {
       );
     });
   });
+
+  group('normalizeCategory', () {
+    test('trims and lower-cases', () {
+      expect(normalizeCategory('  Groceries '), 'groceries');
+      expect(normalizeCategory('FOOD'), 'food');
+    });
+
+    test('different casing/whitespace normalize to the same key', () {
+      expect(normalizeCategory('Food'), normalizeCategory(' food '));
+    });
+  });
 }

@@ -162,12 +162,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       overdueGrace: 0,
     );
     await service.scheduleCreditCardReminders(cardReminders);
-    final totals = expenses.categoryTotalsForMonth(now.year, now.month);
     final alerts = budgetAlerts(
       budgets: budgets.budgets,
       year: now.year,
       month: now.month,
-      spentForCategory: (c) => totals[c] ?? 0,
+      spentForCategory: (c) =>
+          expenses.spentForCategoryInMonth(now.year, now.month, c),
     );
     await service.notifyBudgetAlerts(alerts, year: now.year, month: now.month);
   }

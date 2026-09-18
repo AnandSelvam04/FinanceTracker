@@ -369,15 +369,11 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             return incomeColor(context);
           }
 
-          // baseAmountOf, not e.amount: spending on a foreign-currency account
-          // is stored in that account's currency, and the budget cap is in the
-          // base currency.
-          int spentForBudget(Budget b) {
-            return expenseProvider
-                .spendingForMonth(b.year, b.month)
-                .where((e) => e.category == b.category)
-                .fold(0, (sum, e) => sum + expenseProvider.baseAmountOf(e));
-          }
+          // Base-currency spend for the cap's category, matched leniently on
+          // case/whitespace (see spentForCategoryInMonth) so a budget still
+          // tracks spend even if the category was filed with a different case.
+          int spentForBudget(Budget b) =>
+              expenseProvider.spentForCategoryInMonth(b.year, b.month, b.category);
 
           return ListView(
             padding: scrollPadding(context, all: 12, fab: true),
