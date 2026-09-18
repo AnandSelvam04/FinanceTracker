@@ -1,5 +1,5 @@
-/// Category suggestion helpers, kept free of Flutter/DB dependencies so they
-/// can be unit-tested and reused by any picker.
+// Category suggestion helpers, kept free of Flutter/DB dependencies so they
+// can be unit-tested and reused by any picker.
 
 /// Canonical form of a category for equality: trimmed and lower-cased.
 ///
