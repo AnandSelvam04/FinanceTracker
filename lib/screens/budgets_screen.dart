@@ -3,9 +3,14 @@ import 'package:provider/provider.dart';
 import '../models/budget.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
+import '../services/db_service.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
+import '../utils/category_colors.dart';
+import '../utils/category_icons.dart';
+import '../utils/category_suggestions.dart';
 import '../utils/currency_format.dart';
+import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
@@ -24,6 +29,23 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   int _year = DateTime.now().year;
   int _month = DateTime.now().month;
 
+  /// Common expense categories offered in the picker before the user has any
+  /// spend history — kept in step with the Add Expense screen's defaults.
+  static const List<String> _defaultCategories = [
+    'Food',
+    'Transport',
+    'Shopping',
+    'Bills',
+    'Entertainment',
+    'Health',
+    'Education',
+    'Other',
+  ];
+
+  /// Real category spellings to suggest in the budget dialog, so a cap matches
+  /// the spend it tracks. Filled from actual usage in [initState].
+  List<String> _categorySuggestions = _defaultCategories;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +62,20 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       for (final year in years) {
         await expenseProvider.ensureYearLoaded(year);
       }
+      // Prefer the exact category spellings already on transactions and
+      // budgets, so a chosen cap lines up with the spend it should track.
+      final frequent =
+          await DBService().frequentCategories(DbConstants.txExpense);
+      if (!mounted) return;
+      setState(() {
+        _categorySuggestions = budgetCategorySuggestions(
+          used: [
+            ...frequent,
+            ...budgetProvider.categoryBudgets.map((b) => b.category),
+          ],
+          defaults: _defaultCategories,
+        );
+      });
     });
   }
 
@@ -56,21 +92,63 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       _month = DateTime.now().month;
     }
 
+    final categoryController = TextEditingController(text: _category);
+
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(budget == null ? 'Add Budget' : 'Edit Budget'),
-        content: Form(
+        content: SingleChildScrollView(
+          child: Form(
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextFormField(
-                initialValue: _category,
-                decoration: const InputDecoration(labelText: 'Category'),
-                validator: (value) =>
-                    (value == null || value.isEmpty) ? 'Required' : null,
-                onSaved: (value) => _category = value ?? '',
+              // Category field plus quick-pick chips. Picking a chip fills the
+              // field with the exact spelling used on transactions, so the cap
+              // matches the spend it tracks. StatefulBuilder rebuilds just this
+              // block so the selected chip highlights without a full setState.
+              StatefulBuilder(
+                builder: (context, setFieldState) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: categoryController,
+                        decoration:
+                            const InputDecoration(labelText: 'Category'),
+                        validator: (value) =>
+                            (value == null || value.trim().isEmpty)
+                                ? 'Required'
+                                : null,
+                        onChanged: (_) => setFieldState(() {}),
+                      ),
+                      if (_categorySuggestions.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: _categorySuggestions.map((c) {
+                            final color = CategoryColors.forCategory(c);
+                            final selected =
+                                categoryController.text.trim().toLowerCase() ==
+                                    c.toLowerCase();
+                            return ChoiceChip(
+                              avatar:
+                                  Icon(categoryIcon(c), size: 18, color: color),
+                              label: Text(c),
+                              selected: selected,
+                              selectedColor: color.withValues(alpha: 0.22),
+                              onSelected: (_) => setFieldState(
+                                  () => categoryController.text = c),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
               TextFormField(
                 initialValue: _amount == 0 ? '' : minorToEditString(_amount),
@@ -120,6 +198,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               ),
             ],
           ),
+          ),
         ),
         actions: [
           TextButton(
@@ -130,6 +209,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             onPressed: () async {
               if (_formKey.currentState!.validate()) {
                 _formKey.currentState!.save();
+                _category = categoryController.text.trim();
                 final newBudget = Budget(
                   id: budget?.id,
                   category: _category,
@@ -150,6 +230,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         ],
       ),
     );
+    categoryController.dispose();
   }
 
   /// Sets or edits the single overall cap for the current month (amount only —
