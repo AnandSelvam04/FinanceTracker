@@ -10,6 +10,7 @@ import '../utils/category_colors.dart';
 import '../utils/category_icons.dart';
 import '../utils/category_suggestions.dart';
 import '../utils/currency_format.dart';
+import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/category_avatar.dart';
@@ -93,6 +94,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     }
 
     final categoryController = TextEditingController(text: _category);
+    var selectedYear = _year;
+    var selectedMonth = _month;
 
     await showDialog(
       context: context,
@@ -160,41 +163,51 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 validator: validateAmountField,
                 onSaved: (value) => _amount = parseMinor(value ?? '0') ?? 0,
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      decoration: const InputDecoration(labelText: 'Year'),
-                      keyboardType: TextInputType.number,
-                      initialValue: _year.toString(),
-                      validator: (value) {
-                        final parsed = int.tryParse(value ?? '');
-                        return parsed == null ? 'Invalid year' : null;
-                      },
-                      onSaved: (value) => _year =
-                          int.tryParse(value ?? '${DateTime.now().year}') ??
-                              _year,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      decoration: const InputDecoration(labelText: 'Month'),
-                      keyboardType: TextInputType.number,
-                      initialValue: _month.toString(),
-                      validator: (value) {
-                        final parsed = int.tryParse(value ?? '');
-                        if (parsed == null || parsed < 1 || parsed > 12) {
-                          return 'Invalid month';
-                        }
-                        return null;
-                      },
-                      onSaved: (value) => _month =
-                          int.tryParse(value ?? '${DateTime.now().month}') ??
-                              _month,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 8),
+              // Month/year pickers instead of free-typed numbers: no invalid
+              // input to validate, and the month reads as a name.
+              StatefulBuilder(
+                builder: (context, setFieldState) {
+                  final now = DateTime.now();
+                  final years = <int>{
+                    for (var y = now.year - 5; y <= now.year + 1; y++) y,
+                    selectedYear,
+                  }.toList()
+                    ..sort();
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          initialValue: selectedMonth,
+                          decoration:
+                              const InputDecoration(labelText: 'Month'),
+                          items: [
+                            for (var m = 1; m <= 12; m++)
+                              DropdownMenuItem(
+                                  value: m, child: Text(monthName(m))),
+                          ],
+                          onChanged: (value) => setFieldState(
+                              () => selectedMonth = value ?? selectedMonth),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          initialValue: selectedYear,
+                          decoration:
+                              const InputDecoration(labelText: 'Year'),
+                          items: [
+                            for (final y in years)
+                              DropdownMenuItem(
+                                  value: y, child: Text(y.toString())),
+                          ],
+                          onChanged: (value) => setFieldState(
+                              () => selectedYear = value ?? selectedYear),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -210,6 +223,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               if (_formKey.currentState!.validate()) {
                 _formKey.currentState!.save();
                 _category = categoryController.text.trim();
+                _year = selectedYear;
+                _month = selectedMonth;
                 final newBudget = Budget(
                   id: budget?.id,
                   category: _category,
@@ -322,7 +337,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         await provider.copyBudgetsFromPreviousMonth(now.year, now.month);
     messenger.showSnackBar(SnackBar(
       content: Text(copied == 0
-          ? 'Nothing to copy — last month has no budgets this month is missing.'
+          ? 'Nothing to copy — no budgets from last month are missing this month.'
           : 'Copied $copied budget${copied == 1 ? '' : 's'} from last month.'),
     ));
   }
@@ -396,7 +411,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     child: ListTile(
                       leading: CategoryAvatar(category: budget.category),
                       title: Text(
-                          '${budget.category} · ${budget.year}/${budget.month.toString().padLeft(2, '0')}'),
+                          '${budget.category} · ${monthName(budget.month)} ${budget.year}'),
                       subtitle: Builder(builder: (context) {
                         final spent = spentForBudget(budget);
                         final progress =
