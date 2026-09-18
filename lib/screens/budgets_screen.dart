@@ -3,9 +3,15 @@ import 'package:provider/provider.dart';
 import '../models/budget.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
+import '../services/db_service.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
+import '../utils/category_colors.dart';
+import '../utils/category_icons.dart';
+import '../utils/category_suggestions.dart';
 import '../utils/currency_format.dart';
+import '../utils/date_format.dart';
+import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
@@ -24,6 +30,23 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   int _year = DateTime.now().year;
   int _month = DateTime.now().month;
 
+  /// Common expense categories offered in the picker before the user has any
+  /// spend history — kept in step with the Add Expense screen's defaults.
+  static const List<String> _defaultCategories = [
+    'Food',
+    'Transport',
+    'Shopping',
+    'Bills',
+    'Entertainment',
+    'Health',
+    'Education',
+    'Other',
+  ];
+
+  /// Real category spellings to suggest in the budget dialog, so a cap matches
+  /// the spend it tracks. Filled from actual usage in [initState].
+  List<String> _categorySuggestions = _defaultCategories;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +63,20 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       for (final year in years) {
         await expenseProvider.ensureYearLoaded(year);
       }
+      // Prefer the exact category spellings already on transactions and
+      // budgets, so a chosen cap lines up with the spend it should track.
+      final frequent =
+          await DBService().frequentCategories(DbConstants.txExpense);
+      if (!mounted) return;
+      setState(() {
+        _categorySuggestions = budgetCategorySuggestions(
+          used: [
+            ...frequent,
+            ...budgetProvider.categoryBudgets.map((b) => b.category),
+          ],
+          defaults: _defaultCategories,
+        );
+      });
     });
   }
 
@@ -56,21 +93,65 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       _month = DateTime.now().month;
     }
 
+    final categoryController = TextEditingController(text: _category);
+    var selectedYear = _year;
+    var selectedMonth = _month;
+
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(budget == null ? 'Add Budget' : 'Edit Budget'),
-        content: Form(
+        content: SingleChildScrollView(
+          child: Form(
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextFormField(
-                initialValue: _category,
-                decoration: const InputDecoration(labelText: 'Category'),
-                validator: (value) =>
-                    (value == null || value.isEmpty) ? 'Required' : null,
-                onSaved: (value) => _category = value ?? '',
+              // Category field plus quick-pick chips. Picking a chip fills the
+              // field with the exact spelling used on transactions, so the cap
+              // matches the spend it tracks. StatefulBuilder rebuilds just this
+              // block so the selected chip highlights without a full setState.
+              StatefulBuilder(
+                builder: (context, setFieldState) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: categoryController,
+                        decoration:
+                            const InputDecoration(labelText: 'Category'),
+                        validator: (value) =>
+                            (value == null || value.trim().isEmpty)
+                                ? 'Required'
+                                : null,
+                        onChanged: (_) => setFieldState(() {}),
+                      ),
+                      if (_categorySuggestions.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: _categorySuggestions.map((c) {
+                            final color = CategoryColors.forCategory(c);
+                            final selected =
+                                categoryController.text.trim().toLowerCase() ==
+                                    c.toLowerCase();
+                            return ChoiceChip(
+                              avatar:
+                                  Icon(categoryIcon(c), size: 18, color: color),
+                              label: Text(c),
+                              selected: selected,
+                              selectedColor: color.withValues(alpha: 0.22),
+                              onSelected: (_) => setFieldState(
+                                  () => categoryController.text = c),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
               TextFormField(
                 initialValue: _amount == 0 ? '' : minorToEditString(_amount),
@@ -82,43 +163,54 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 validator: validateAmountField,
                 onSaved: (value) => _amount = parseMinor(value ?? '0') ?? 0,
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      decoration: const InputDecoration(labelText: 'Year'),
-                      keyboardType: TextInputType.number,
-                      initialValue: _year.toString(),
-                      validator: (value) {
-                        final parsed = int.tryParse(value ?? '');
-                        return parsed == null ? 'Invalid year' : null;
-                      },
-                      onSaved: (value) => _year =
-                          int.tryParse(value ?? '${DateTime.now().year}') ??
-                              _year,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      decoration: const InputDecoration(labelText: 'Month'),
-                      keyboardType: TextInputType.number,
-                      initialValue: _month.toString(),
-                      validator: (value) {
-                        final parsed = int.tryParse(value ?? '');
-                        if (parsed == null || parsed < 1 || parsed > 12) {
-                          return 'Invalid month';
-                        }
-                        return null;
-                      },
-                      onSaved: (value) => _month =
-                          int.tryParse(value ?? '${DateTime.now().month}') ??
-                              _month,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 8),
+              // Month/year pickers instead of free-typed numbers: no invalid
+              // input to validate, and the month reads as a name.
+              StatefulBuilder(
+                builder: (context, setFieldState) {
+                  final now = DateTime.now();
+                  final years = <int>{
+                    for (var y = now.year - 5; y <= now.year + 1; y++) y,
+                    selectedYear,
+                  }.toList()
+                    ..sort();
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          initialValue: selectedMonth,
+                          decoration:
+                              const InputDecoration(labelText: 'Month'),
+                          items: [
+                            for (var m = 1; m <= 12; m++)
+                              DropdownMenuItem(
+                                  value: m, child: Text(monthName(m))),
+                          ],
+                          onChanged: (value) => setFieldState(
+                              () => selectedMonth = value ?? selectedMonth),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          initialValue: selectedYear,
+                          decoration:
+                              const InputDecoration(labelText: 'Year'),
+                          items: [
+                            for (final y in years)
+                              DropdownMenuItem(
+                                  value: y, child: Text(y.toString())),
+                          ],
+                          onChanged: (value) => setFieldState(
+                              () => selectedYear = value ?? selectedYear),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
+          ),
           ),
         ),
         actions: [
@@ -130,6 +222,9 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             onPressed: () async {
               if (_formKey.currentState!.validate()) {
                 _formKey.currentState!.save();
+                _category = categoryController.text.trim();
+                _year = selectedYear;
+                _month = selectedMonth;
                 final newBudget = Budget(
                   id: budget?.id,
                   category: _category,
@@ -150,6 +245,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         ],
       ),
     );
+    categoryController.dispose();
   }
 
   /// Sets or edits the single overall cap for the current month (amount only —
@@ -241,7 +337,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         await provider.copyBudgetsFromPreviousMonth(now.year, now.month);
     messenger.showSnackBar(SnackBar(
       content: Text(copied == 0
-          ? 'Nothing to copy — last month has no budgets this month is missing.'
+          ? 'Nothing to copy — no budgets from last month are missing this month.'
           : 'Copied $copied budget${copied == 1 ? '' : 's'} from last month.'),
     ));
   }
@@ -273,15 +369,11 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             return incomeColor(context);
           }
 
-          // baseAmountOf, not e.amount: spending on a foreign-currency account
-          // is stored in that account's currency, and the budget cap is in the
-          // base currency.
-          int spentForBudget(Budget b) {
-            return expenseProvider
-                .spendingForMonth(b.year, b.month)
-                .where((e) => e.category == b.category)
-                .fold(0, (sum, e) => sum + expenseProvider.baseAmountOf(e));
-          }
+          // Base-currency spend for the cap's category, matched leniently on
+          // case/whitespace (see spentForCategoryInMonth) so a budget still
+          // tracks spend even if the category was filed with a different case.
+          int spentForBudget(Budget b) =>
+              expenseProvider.spentForCategoryInMonth(b.year, b.month, b.category);
 
           return ListView(
             padding: scrollPadding(context, all: 12, fab: true),
@@ -315,7 +407,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     child: ListTile(
                       leading: CategoryAvatar(category: budget.category),
                       title: Text(
-                          '${budget.category} · ${budget.year}/${budget.month.toString().padLeft(2, '0')}'),
+                          '${budget.category} · ${monthName(budget.month)} ${budget.year}'),
                       subtitle: Builder(builder: (context) {
                         final spent = spentForBudget(budget);
                         final progress =
