@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import '../models/expense.dart';
 import '../services/db_service.dart';
+import '../utils/category_suggestions.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 
@@ -268,4 +269,29 @@ class ExpenseProvider extends ChangeNotifier {
   Map<String, int> categoryTotalsForMonth(int year, int month) => _memo(
       'ctm:$year-$month',
       () => _categoryTotals(_byMonth(year, month, DbConstants.txExpense)));
+
+  /// Category totals for the month keyed by [normalizeCategory] (trimmed,
+  /// lower-cased) so lookups tolerate case/whitespace differences. Cached and
+  /// shared — treat it as read-only.
+  Map<String, int> _normalizedCategoryTotalsForMonth(int year, int month) =>
+      _memo('nctm:$year-$month', () {
+        final map = <String, int>{};
+        for (final e in _byMonth(year, month, DbConstants.txExpense)) {
+          final key = normalizeCategory(e.category);
+          map[key] = (map[key] ?? 0) + baseAmountOf(e);
+        }
+        return map;
+      });
+
+  /// Base-currency minor-unit spend for [category] in [year]/[month], matching
+  /// the category case-insensitively and ignoring surrounding whitespace.
+  ///
+  /// This is the single source of truth for "how much has this budget's
+  /// category been spent", so a budget for "Groceries" still tracks spend filed
+  /// as "groceries" — the budgets screen, the dashboard alerts banner, and the
+  /// budget notifications all route through it.
+  int spentForCategoryInMonth(int year, int month, String category) =>
+      _normalizedCategoryTotalsForMonth(year, month)[
+          normalizeCategory(category)] ??
+      0;
 }

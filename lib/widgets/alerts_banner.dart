@@ -25,13 +25,12 @@ class AlertsBanner extends StatelessWidget {
       builder: (context, settings, budgets, expenses, recurring, _) {
         if (!settings.alertsEnabled) return const SizedBox.shrink();
 
-        final categoryTotals =
-            expenses.categoryTotalsForMonth(now.year, now.month);
         final budgetIssues = budgetAlerts(
           budgets: budgets.budgets,
           year: now.year,
           month: now.month,
-          spentForCategory: (c) => categoryTotals[c] ?? 0,
+          spentForCategory: (c) =>
+              expenses.spentForCategoryInMonth(now.year, now.month, c),
         );
         final bills = upcomingBills(rules: recurring.rules, now: now);
 
