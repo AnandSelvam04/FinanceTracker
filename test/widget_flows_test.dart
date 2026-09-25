@@ -7,12 +7,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:finance_tracker/models/budget.dart';
 import 'package:finance_tracker/models/expense.dart';
 import 'package:finance_tracker/models/recurring_rule.dart';
+import 'package:finance_tracker/models/savings_goal.dart';
 import 'package:finance_tracker/providers/account_provider.dart';
 import 'package:finance_tracker/providers/budget_provider.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
+import 'package:finance_tracker/providers/goal_provider.dart';
 import 'package:finance_tracker/providers/recurring_provider.dart';
 import 'package:finance_tracker/screens/budgets_screen.dart';
 import 'package:finance_tracker/screens/expense_list_screen.dart';
+import 'package:finance_tracker/screens/goals_screen.dart';
 import 'package:finance_tracker/screens/recurring_screen.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
@@ -118,6 +121,73 @@ void main() {
     expect(find.textContaining('Total monthly budget'), findsOneWidget);
     // ₹1000 cap − ₹300 spent = ₹700 left.
     expect(find.textContaining('left'), findsWidgets);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+
+  testWidgets('Budgets screen shows only the viewed month and steps months',
+      (tester) async {
+    final prev = DateTime(now.year, now.month - 1);
+    final (budgets, expenses) = (await tester.runAsync(() async {
+      await DBService().insertBudget(Budget(
+          category: 'ThisMonthCap',
+          amount: 50000,
+          year: now.year,
+          month: now.month));
+      await DBService().insertBudget(Budget(
+          category: 'LastMonthCap',
+          amount: 50000,
+          year: prev.year,
+          month: prev.month));
+      final b = BudgetProvider();
+      await b.fetchBudgets();
+      final e = ExpenseProvider();
+      await e.ensureYearLoaded(now.year);
+      await e.ensureYearLoaded(prev.year);
+      return (b, e);
+    }))!;
+
+    await pumpScreen(tester, const BudgetsScreen(), [
+      ChangeNotifierProvider<BudgetProvider>.value(value: budgets),
+      ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
+    ]);
+
+    expect(find.text('ThisMonthCap'), findsOneWidget);
+    expect(find.text('LastMonthCap'), findsNothing);
+
+    await tester.tap(find.byTooltip('Previous month'));
+    await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pump();
+
+    expect(find.text('LastMonthCap'), findsOneWidget);
+    expect(find.text('ThisMonthCap'), findsNothing);
+    // Off the current month, a shortcut back appears.
+    expect(find.text('Today'), findsOneWidget);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+
+  testWidgets('Goals screen shows a goal with its progress and monthly need',
+      (tester) async {
+    final goals = (await tester.runAsync(() async {
+      await DBService().insertGoal(SavingsGoal(
+        name: 'New laptop',
+        target: 12000000,
+        saved: 3000000,
+        targetDate: DateTime(now.year + 1, now.month, 28),
+      ));
+      final g = GoalProvider();
+      await g.fetchGoals();
+      return g;
+    }))!;
+
+    await pumpScreen(tester, const GoalsScreen(), [
+      ChangeNotifierProvider<GoalProvider>.value(value: goals),
+    ]);
+
+    expect(find.text('New laptop'), findsOneWidget);
+    expect(find.text('25%'), findsOneWidget);
+    expect(find.textContaining('/month for 13 months'), findsOneWidget);
+    expect(find.text('Add money'), findsOneWidget);
     await teardownTree(tester);
   }, timeout: testTimeout);
 

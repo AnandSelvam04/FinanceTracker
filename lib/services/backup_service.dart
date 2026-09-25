@@ -14,6 +14,7 @@ import '../models/budget.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
 import '../models/recurring_rule.dart';
+import '../models/savings_goal.dart';
 import '../models/tx_template.dart';
 import '../utils/app_logger.dart';
 import '../utils/currency_format.dart';
@@ -279,16 +280,19 @@ class BackupService {
     final accounts = await DBService().getAccounts();
     final recurringRules = await DBService().getRecurringRules();
     final templates = await DBService().getTemplates();
+    final goals = await DBService().getGoals();
     return {
       // v4: amounts are integer minor units (paise/cents).
       // v5: transfer rows may carry toAmount (destination-currency amount).
-      'version': 5,
+      // v6: adds savings goals. Older backups simply restore with none.
+      'version': 6,
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'investments': investments.map((i) => i.toMap()).toList(),
       'budgets': budgets.map((b) => b.toMap()).toList(),
       'accounts': accounts.map((a) => a.toMap()).toList(),
       'recurring_rules': recurringRules.map((r) => r.toMap()).toList(),
       'templates': templates.map((t) => t.toMap()).toList(),
+      'goals': goals.map((g) => g.toMap()).toList(),
     };
   }
 
@@ -363,6 +367,7 @@ class BackupService {
     'budgets',
     'recurring_rules',
     'templates',
+    'goals',
   ];
 
   /// Throws [BackupFormatException] unless [data] is shaped like a backup.
@@ -463,6 +468,12 @@ class BackupService {
       DbConstants.tableTemplates: [
         for (final t in data['templates'] ?? [])
           TxTemplate.fromMap(fix(t, [DbConstants.colAmount])).toMap(),
+      ],
+      // Goals arrived in backup v6, long after the minor-unit switch, so
+      // their amounts never need the legacy conversion.
+      DbConstants.tableGoals: [
+        for (final g in data['goals'] ?? [])
+          SavingsGoal.fromMap(Map<String, dynamic>.from(g)).toMap(),
       ],
     };
   }

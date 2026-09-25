@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_tracker/models/account.dart';
 import 'package:finance_tracker/models/budget.dart';
 import 'package:finance_tracker/models/expense.dart';
+import 'package:finance_tracker/models/savings_goal.dart';
 import 'package:finance_tracker/services/backup_service.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
@@ -85,6 +86,31 @@ void main() {
       expect(accounts.length, 1);
       expect(accounts.first.name, 'Wallet');
       expect(accounts.first.openingBalance, 250);
+    });
+
+    test('savings goals survive a backup round-trip', () async {
+      final db = DBService();
+      await db.insertGoal(SavingsGoal(
+        name: 'Trip',
+        target: 20000000,
+        saved: 350000,
+        targetDate: DateTime(2027, 3, 1),
+        color: 0xFF1E88E5,
+      ));
+
+      final service = BackupService();
+      await service.backupToJson();
+      await db.clearAll();
+      expect(await db.getGoals(), isEmpty);
+
+      await service.restoreFromJson();
+
+      final goal = (await db.getGoals()).single;
+      expect(goal.name, 'Trip');
+      expect(goal.target, 20000000);
+      expect(goal.saved, 350000);
+      expect(goal.targetDate, DateTime(2027, 3, 1));
+      expect(goal.color, 0xFF1E88E5);
     });
 
     test('restore of legacy backup without budgets key succeeds', () async {
