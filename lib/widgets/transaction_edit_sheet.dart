@@ -77,8 +77,7 @@ Future<void> showEditExpenseSheet(
                   const SizedBox(height: 12),
                   TextField(
                     controller: descController,
-                    decoration:
-                        const InputDecoration(labelText: 'Description'),
+                    decoration: const InputDecoration(labelText: 'Description'),
                   ),
                   TextField(
                     controller: amountController,
@@ -101,10 +100,8 @@ Future<void> showEditExpenseSheet(
                           value: 'Credit Card',
                           child: const Text('Credit Card')),
                       DropdownMenuItem(
-                          value: 'Debit Card',
-                          child: const Text('Debit Card')),
-                      DropdownMenuItem(
-                          value: 'UPI', child: const Text('UPI')),
+                          value: 'Debit Card', child: const Text('Debit Card')),
+                      DropdownMenuItem(value: 'UPI', child: const Text('UPI')),
                       DropdownMenuItem(
                           value: 'Other', child: const Text('Other')),
                     ],
@@ -135,7 +132,7 @@ Future<void> showEditExpenseSheet(
                   SizedBox(
                     width: double.infinity,
                     height: kSheetActionHeight,
-                    child: ElevatedButton(
+                    child: FilledButton(
                       onPressed: () async {
                         // Say why nothing happened. Returning silently made
                         // Save look like a dead button.
@@ -160,8 +157,7 @@ Future<void> showEditExpenseSheet(
                           toAccountId: expense.toAccountId,
                         );
                         final provider = context.read<ExpenseProvider>();
-                        final accountProvider =
-                            context.read<AccountProvider>();
+                        final accountProvider = context.read<AccountProvider>();
                         await provider.updateExpense(updated);
                         await accountProvider.refreshBalances();
                         if (!context.mounted) return;
@@ -230,8 +226,7 @@ Future<void> showEditTransferSheet(
                 DropdownButtonFormField<int?>(
                   initialValue:
                       accounts.any((a) => a.id == fromId) ? fromId : null,
-                  decoration:
-                      const InputDecoration(labelText: 'From account'),
+                  decoration: const InputDecoration(labelText: 'From account'),
                   items: accounts
                       .map((a) => DropdownMenuItem<int?>(
                           value: a.id, child: Text(a.name)))
@@ -239,8 +234,7 @@ Future<void> showEditTransferSheet(
                   onChanged: (v) => setSheet(() => fromId = v),
                 ),
                 DropdownButtonFormField<int?>(
-                  initialValue:
-                      accounts.any((a) => a.id == toId) ? toId : null,
+                  initialValue: accounts.any((a) => a.id == toId) ? toId : null,
                   decoration: const InputDecoration(labelText: 'To account'),
                   items: accounts
                       .map((a) => DropdownMenuItem<int?>(
@@ -290,28 +284,25 @@ Future<void> showEditTransferSheet(
                 SizedBox(
                   width: double.infinity,
                   height: kSheetActionHeight,
-                  child: ElevatedButton(
+                  child: FilledButton(
                     onPressed: () async {
                       // Each of these used to bail out silently, so Save did
                       // nothing and said nothing.
                       String? problem =
                           validateAmountField(amountController.text);
-                      if (problem == null &&
-                          (fromId == null || toId == null)) {
+                      if (problem == null && (fromId == null || toId == null)) {
                         problem = 'Pick both accounts';
                       } else if (problem == null && fromId == toId) {
                         problem = 'Pick two different accounts';
                       } else if (problem == null && crossCurrency()) {
-                        problem =
-                            validateAmountField(toAmountController.text);
+                        problem = validateAmountField(toAmountController.text);
                       }
                       if (problem != null) {
                         ScaffoldMessenger.of(context)
                             .showSnackBar(SnackBar(content: Text(problem)));
                         return;
                       }
-                      final amount =
-                          parseMinor(amountController.text.trim())!;
+                      final amount = parseMinor(amountController.text.trim())!;
                       final toAmount = crossCurrency()
                           ? parseMinor(toAmountController.text.trim())
                           : null;
@@ -516,8 +507,8 @@ class _SplitSheetState extends State<_SplitSheet> {
                 TextButton.icon(
                   icon: const Icon(Icons.add),
                   label: const Text('Add part'),
-                  onPressed: () =>
-                      setState(() => _parts.add(_PartCtrl(amount: '', category: ''))),
+                  onPressed: () => setState(
+                      () => _parts.add(_PartCtrl(amount: '', category: ''))),
                 ),
                 const Spacer(),
                 Text(
@@ -537,7 +528,7 @@ class _SplitSheetState extends State<_SplitSheet> {
             SizedBox(
               width: double.infinity,
               height: kSheetActionHeight,
-              child: ElevatedButton(
+              child: FilledButton(
                 onPressed: _valid ? _save : null,
                 child: const Text('Save split'),
               ),

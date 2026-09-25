@@ -172,7 +172,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
             if (_checking)
               const CircularProgressIndicator()
             else
-              ElevatedButton.icon(
+              FilledButton.icon(
                 icon: const Icon(Icons.fingerprint),
                 label: const Text('Unlock'),
                 onPressed: _tryUnlock,

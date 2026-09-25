@@ -32,4 +32,15 @@ void main() {
       expect(monthName(12), 'December');
     });
   });
+
+  group('formatCompactDate', () {
+    final now = DateTime(2026, 9, 25);
+    test('drops the year within the current year', () {
+      expect(formatCompactDate(DateTime(2026, 3, 1), now: now), '1 Mar');
+    });
+    test('keeps the year for other years', () {
+      expect(
+          formatCompactDate(DateTime(2025, 12, 31), now: now), '31 Dec 2025');
+    });
+  });
 }

@@ -17,9 +17,9 @@ import '../utils/app_logger.dart';
 import '../utils/category_colors.dart';
 import '../utils/category_icons.dart';
 import '../utils/currency_format.dart';
-import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
+import '../widgets/date_field_row.dart';
 import '../widgets/voice_capture_sheet.dart';
 
 /// An optional capture flow to launch as soon as the screen opens, so the
@@ -352,32 +352,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 validator: (value) =>
                     value!.isEmpty ? 'Enter a description' : null,
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Icon(Icons.event, size: 20, color: mutedTextColor(context)),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(formatDateWithDay(_selectedDate))),
-                    TextButton(
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedDate,
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime.now(),
-                        );
-                        if (picked != null) {
-                          setState(() {
-                            _selectedDate = picked;
-                          });
-                        }
-                      },
-                      child: const Text('Change'),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 4),
+              DateFieldRow(
+                date: _selectedDate,
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+                onChanged: (d) => setState(() => _selectedDate = d),
               ),
+              const SizedBox(height: 4),
               TextFormField(
                 controller: _categoryController,
                 decoration: InputDecoration(
@@ -450,7 +432,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               ),
               const SizedBox(height: 16),
               // Full width, filled: the screen's one primary action. As an
-              // ElevatedButton in a start-aligned column it shrank to its label
+              // FilledButton in a start-aligned column it shrank to its label
               // at the left edge, and the white saving spinner vanished on its
               // light fill.
               SizedBox(

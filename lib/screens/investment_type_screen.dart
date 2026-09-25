@@ -111,7 +111,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () {
                 final resolved = selected == Investment.otherType
                     ? customController.text.trim()
@@ -475,8 +475,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel')),
-          ElevatedButton(
-              style: ElevatedButton.styleFrom(
+          FilledButton(
+              style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.error,
                 foregroundColor: Theme.of(context).colorScheme.onError,
               ),
@@ -599,7 +599,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                     SizedBox(
                       width: double.infinity,
                       height: kSheetActionHeight,
-                      child: ElevatedButton(
+                      child: FilledButton(
                         onPressed: () async {
                           final magnitude =
                               parseMinor(amountController.text.trim());

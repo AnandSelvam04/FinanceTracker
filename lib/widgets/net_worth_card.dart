@@ -44,10 +44,8 @@ class NetWorthCard extends StatelessWidget {
           // cast by the card's Material (outside the clipped fill), so it is
           // not swallowed by clipBehavior the way an inner BoxShadow would be.
           elevation: 8,
-          shadowColor: Theme.of(context)
-              .colorScheme
-              .primary
-              .withValues(alpha: 0.45),
+          shadowColor:
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.45),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
@@ -176,6 +174,9 @@ class _NetWorthTrend extends StatelessWidget {
                 LineChartBarData(
                   spots: spots,
                   isCurved: true,
+                  // Without this the spline swings past the real month-end
+                  // values, drawing dips and peaks that never happened.
+                  preventCurveOverShooting: true,
                   color: color,
                   barWidth: 3,
                   // Mark only the latest point, so the current net worth reads

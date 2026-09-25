@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import '../utils/date_format.dart';
 import '../providers/expense_provider.dart';
 import '../utils/category_colors.dart';
 import '../utils/currency_format.dart';
@@ -41,6 +42,9 @@ class CategoryTrendChart extends StatelessWidget {
       bars.add(LineChartBarData(
         spots: spots,
         isCurved: true,
+        // Without this the spline swings below zero between a quiet month
+        // and a busy one, drawing spending that never happened.
+        preventCurveOverShooting: true,
         color: CategoryColors.forCategory(category),
         barWidth: 2,
         dotData: const FlDotData(show: false),
@@ -87,7 +91,10 @@ class CategoryTrendChart extends StatelessWidget {
                       }
                       // Label every other month to avoid crowding.
                       if (index % 2 != 0) return const SizedBox.shrink();
-                      return Text('${months[index].month}',
+                      // Short month names, as on the cash-flow chart, rather
+                      // than bare month numbers.
+                      return Text(
+                          monthName(months[index].month).substring(0, 3),
                           style: TextStyle(
                               fontSize: 10,
                               color: Theme.of(context)

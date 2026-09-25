@@ -279,7 +279,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       'If you forget this passphrase, the backup cannot be recovered.',
-                      style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
+                      style: TextStyle(
+                          fontSize: 12, color: mutedTextColor(context)),
                     ),
                   ),
               ],
@@ -289,7 +290,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Cancel')),
-            ElevatedButton(
+            FilledButton(
               onPressed: () {
                 if (formKey.currentState!.validate()) {
                   Navigator.pop(ctx, controller.text);

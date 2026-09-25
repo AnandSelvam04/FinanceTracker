@@ -115,6 +115,9 @@ class ExpenseTrendsChart extends StatelessWidget {
                 LineChartBarData(
                   spots: data,
                   isCurved: true,
+                  // Without this the spline swings below zero between a quiet month
+                  // and a busy one, drawing spending that never happened.
+                  preventCurveOverShooting: true,
                   color: scheme.primary,
                   barWidth: 3,
                   // A dot at each month makes the individual data points

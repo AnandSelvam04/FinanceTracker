@@ -7,6 +7,7 @@ import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/hero_total_card.dart';
 import 'add_transfer_screen.dart';
 
 class AccountsScreen extends StatefulWidget {
@@ -228,7 +229,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Cancel'),
                 ),
-                ElevatedButton(
+                FilledButton(
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
                       _formKey.currentState!.save();
@@ -280,8 +281,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel')),
-          ElevatedButton(
-              style: ElevatedButton.styleFrom(
+          FilledButton(
+              style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.error,
                 foregroundColor: Theme.of(context).colorScheme.onError,
               ),
@@ -335,34 +336,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.all(12),
-                child: Card(
-                  margin: EdgeInsets.zero,
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Total Balance',
-                            style: TextStyle(
-                                fontSize: 16,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onPrimaryContainer)),
-                        Text(
-                          // Signed: credit-card balances are negative, and
-                          // enough of them can take the total negative too.
-                          formatMoneySigned(totalBalance),
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onPrimaryContainer),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: HeroTotalCard(
+                  label: 'Total balance',
+                  // Signed: credit-card balances are negative, and enough of
+                  // them can take the total negative too.
+                  amount: formatMoneySigned(totalBalance),
+                  caption: '${accounts.length} '
+                      '${accounts.length == 1 ? 'account' : 'accounts'}',
                 ),
               ),
               Expanded(
@@ -384,8 +364,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           final own = account.color == null
                               ? null
                               : Color(account.color!);
-                          final dark = Theme.of(context).brightness ==
-                              Brightness.dark;
+                          final dark =
+                              Theme.of(context).brightness == Brightness.dark;
                           return CircleAvatar(
                             backgroundColor: own == null
                                 ? scheme.secondaryContainer

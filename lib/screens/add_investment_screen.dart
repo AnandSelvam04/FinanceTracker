@@ -10,7 +10,7 @@ import '../services/recurring_service.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
-import '../utils/date_format.dart';
+import '../widgets/date_field_row.dart';
 
 class AddInvestmentScreen extends StatefulWidget {
   /// Pre-selects a type so "add another contribution" from a type's detail
@@ -190,49 +190,34 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _amountController,
                 decoration: InputDecoration(
                   labelText: _isWithdrawal ? 'Amount to withdraw' : 'Amount',
                   prefixText: '${CurrencyFormat.symbol} ',
                   prefixStyle: TextStyle(
-                    fontSize: 22,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
-                style: const TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 // Always a positive magnitude here; the Contribution/Withdrawal
                 // toggle decides the sign on save.
                 validator: (value) => validateAmountField(value),
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Text('Date: ${formatDateWithDay(_selectedDate)}'),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedDate,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setState(() {
-                          _selectedDate = picked;
-                        });
-                      }
-                    },
-                    child: const Text('Select Date'),
-                  ),
-                ],
+              const SizedBox(height: 8),
+              DateFieldRow(
+                date: _selectedDate,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+                onChanged: (d) => setState(() => _selectedDate = d),
               ),
+              const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _selectedType,
                 decoration: const InputDecoration(labelText: 'Type'),
@@ -266,93 +251,97 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                   value: _repeatMonthly,
                   onChanged: (v) => setState(() => _repeatMonthly = v),
                 ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _isSaving
-                    ? null
-                    : () async {
-                        if (_formKey.currentState!.validate()) {
-                          setState(() => _isSaving = true);
-                          final type = _resolvedType;
-                          final enteredName = _nameController.text.trim();
-                          // The field holds a positive magnitude; a withdrawal
-                          // is stored negative so the type total drops.
-                          final magnitude = rupeesToMinor(
-                              double.parse(_amountController.text));
-                          final signedAmount =
-                              _isWithdrawal ? -magnitude : magnitude;
-                          final investment = Investment(
-                            name: enteredName.isEmpty
-                                ? _defaultName()
-                                : enteredName,
-                            amount: signedAmount,
-                            date: _selectedDate,
-                            type: type,
-                          );
-                          final provider = context.read<InvestmentProvider>();
-                          final recurring = context.read<RecurringProvider>();
-                          try {
-                            await provider.addInvestment(investment);
-                            if (_repeatMonthly) {
-                              // Anchor to the chosen day-of-month and advance
-                              // one month with the same clamping the service
-                              // uses when posting, so a 31st start lands on the
-                              // last day of a short month instead of overflowing
-                              // into the next one (DateTime(y, 2, 31) → Mar 3).
-                              final anchorDay = _selectedDate.day;
-                              final next = RecurringService.nextDate(
-                                  _selectedDate,
-                                  DbConstants.freqMonthly,
-                                  anchorDay);
-                              // A blank name falls back to the instrument type,
-                              // not the month-stamped default — otherwise every
-                              // future contribution would carry the first
-                              // month's label (e.g. "Silver Jul 2026").
-                              final ruleName = enteredName.isEmpty
-                                  ? (type.isEmpty ? 'Investment' : type)
-                                  : enteredName;
-                              await recurring.addRule(RecurringRule(
-                                description: ruleName,
-                                amount: investment.amount,
-                                category: type,
-                                frequency: DbConstants.freqMonthly,
-                                nextDue: next,
-                                anchorDay: anchorDay,
-                                isInvestment: true,
-                              ));
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton(
+                  onPressed: _isSaving
+                      ? null
+                      : () async {
+                          if (_formKey.currentState!.validate()) {
+                            setState(() => _isSaving = true);
+                            final type = _resolvedType;
+                            final enteredName = _nameController.text.trim();
+                            // The field holds a positive magnitude; a withdrawal
+                            // is stored negative so the type total drops.
+                            final magnitude = rupeesToMinor(
+                                double.parse(_amountController.text));
+                            final signedAmount =
+                                _isWithdrawal ? -magnitude : magnitude;
+                            final investment = Investment(
+                              name: enteredName.isEmpty
+                                  ? _defaultName()
+                                  : enteredName,
+                              amount: signedAmount,
+                              date: _selectedDate,
+                              type: type,
+                            );
+                            final provider = context.read<InvestmentProvider>();
+                            final recurring = context.read<RecurringProvider>();
+                            try {
+                              await provider.addInvestment(investment);
+                              if (_repeatMonthly) {
+                                // Anchor to the chosen day-of-month and advance
+                                // one month with the same clamping the service
+                                // uses when posting, so a 31st start lands on the
+                                // last day of a short month instead of overflowing
+                                // into the next one (DateTime(y, 2, 31) → Mar 3).
+                                final anchorDay = _selectedDate.day;
+                                final next = RecurringService.nextDate(
+                                    _selectedDate,
+                                    DbConstants.freqMonthly,
+                                    anchorDay);
+                                // A blank name falls back to the instrument type,
+                                // not the month-stamped default — otherwise every
+                                // future contribution would carry the first
+                                // month's label (e.g. "Silver Jul 2026").
+                                final ruleName = enteredName.isEmpty
+                                    ? (type.isEmpty ? 'Investment' : type)
+                                    : enteredName;
+                                await recurring.addRule(RecurringRule(
+                                  description: ruleName,
+                                  amount: investment.amount,
+                                  category: type,
+                                  frequency: DbConstants.freqMonthly,
+                                  nextDue: next,
+                                  anchorDay: anchorDay,
+                                  isInvestment: true,
+                                ));
+                              }
+                              HapticFeedback.lightImpact();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text(_isWithdrawal
+                                          ? 'Withdrawal recorded'
+                                          : 'Investment added')),
+                                );
+                                Navigator.pop(context);
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Error: $e')));
+                              }
+                            } finally {
+                              if (mounted) setState(() => _isSaving = false);
                             }
-                            HapticFeedback.lightImpact();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text(_isWithdrawal
-                                        ? 'Withdrawal recorded'
-                                        : 'Investment added')),
-                              );
-                              Navigator.pop(context);
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error: $e')));
-                            }
-                          } finally {
-                            if (mounted) setState(() => _isSaving = false);
                           }
-                        }
-                      },
-                child: _isSaving
-                    ? SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Theme.of(context).colorScheme.onPrimary,
-                        ),
-                      )
-                    : Text(_isWithdrawal
-                        ? 'Record Withdrawal'
-                        : 'Add Investment'),
+                        },
+                  child: _isSaving
+                      ? SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          ),
+                        )
+                      : Text(_isWithdrawal
+                          ? 'Record Withdrawal'
+                          : 'Add Investment'),
+                ),
               ),
             ],
           ),

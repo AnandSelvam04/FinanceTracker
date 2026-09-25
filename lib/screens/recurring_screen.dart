@@ -193,7 +193,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () async {
                 if (_formKey.currentState!.validate()) {
                   _formKey.currentState!.save();
@@ -241,8 +241,8 @@ class _RecurringScreenState extends State<RecurringScreen> {
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel')),
-          ElevatedButton(
-              style: ElevatedButton.styleFrom(
+          FilledButton(
+              style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.error,
                 foregroundColor: Theme.of(context).colorScheme.onError,
               ),
@@ -283,22 +283,22 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   // Expense rules wear their category's avatar, so "Netflix"
                   // looks the same here as on the dashboard and transaction
                   // list; income and SIP rules keep the green up-arrow.
-                  leading: !rule.isInvestment &&
-                          rule.type != DbConstants.txIncome
-                      ? CategoryAvatar(category: rule.category)
-                      : CircleAvatar(
-                          backgroundColor: incomeAvatarColor(context),
-                          child: Icon(
-                              rule.isInvestment
-                                  ? Icons.trending_up
-                                  : Icons.south_west,
-                              color: incomeColor(context)),
-                        ),
+                  leading:
+                      !rule.isInvestment && rule.type != DbConstants.txIncome
+                          ? CategoryAvatar(category: rule.category)
+                          : CircleAvatar(
+                              backgroundColor: incomeAvatarColor(context),
+                              child: Icon(
+                                  rule.isInvestment
+                                      ? Icons.trending_up
+                                      : Icons.south_west,
+                                  color: incomeColor(context)),
+                            ),
                   title: Text(rule.description,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(
-                      '${rule.isInvestment ? 'SIP · ' : ''}${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatDateWithDay(rule.nextDue)}'
-                      '${rule.endDate != null ? ' · ends ${formatDateWithDay(rule.endDate!)}' : ''}'),
+                      '${rule.isInvestment ? 'SIP · ' : ''}${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatCompactDate(rule.nextDue)}'
+                      '${rule.endDate != null ? ' · ends ${formatCompactDate(rule.endDate!)}' : ''}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

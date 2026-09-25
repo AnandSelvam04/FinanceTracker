@@ -114,7 +114,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                         style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(
                       '$count ${count == 1 ? 'contribution' : 'contributions'}'
-                      ' · latest ${_compactDate(latest)}',
+                      ' · latest ${formatCompactDate(latest)}',
                     ),
                     trailing: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -167,12 +167,6 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
 /// allocation bar indistinguishable.
 Color _typeColor(int rank) =>
     CategoryColors.palette[rank % CategoryColors.palette.length];
-
-/// "25 Sep" this year, "25 Sep 2025" otherwise — short enough that a row's
-/// subtitle stays on one line.
-String _compactDate(DateTime d) => d.year == DateTime.now().year
-    ? '${d.day} ${monthName(d.month).substring(0, 3)}'
-    : formatShortDate(d);
 
 /// A single stacked bar splitting the portfolio by type, each segment in the
 /// type's colour (the same colour as its row avatar below).

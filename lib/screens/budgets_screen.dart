@@ -125,114 +125,115 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         title: Text(budget == null ? 'Add Budget' : 'Edit Budget'),
         content: SingleChildScrollView(
           child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Category field plus quick-pick chips. Picking a chip fills the
-              // field with the exact spelling used on transactions, so the cap
-              // matches the spend it tracks. StatefulBuilder rebuilds just this
-              // block so the selected chip highlights without a full setState.
-              StatefulBuilder(
-                builder: (context, setFieldState) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextFormField(
-                        controller: categoryController,
-                        decoration:
-                            const InputDecoration(labelText: 'Category'),
-                        validator: (value) =>
-                            (value == null || value.trim().isEmpty)
-                                ? 'Required'
-                                : null,
-                        onChanged: (_) => setFieldState(() {}),
-                      ),
-                      if (_categorySuggestions.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: _categorySuggestions.map((c) {
-                            final color = CategoryColors.forCategory(c);
-                            final selected =
-                                categoryController.text.trim().toLowerCase() ==
-                                    c.toLowerCase();
-                            return ChoiceChip(
-                              avatar:
-                                  Icon(categoryIcon(c), size: 18, color: color),
-                              label: Text(c),
-                              selected: selected,
-                              selectedColor: color.withValues(alpha: 0.22),
-                              onSelected: (_) => setFieldState(
-                                  () => categoryController.text = c),
-                            );
-                          }).toList(),
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Category field plus quick-pick chips. Picking a chip fills the
+                // field with the exact spelling used on transactions, so the cap
+                // matches the spend it tracks. StatefulBuilder rebuilds just this
+                // block so the selected chip highlights without a full setState.
+                StatefulBuilder(
+                  builder: (context, setFieldState) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: categoryController,
+                          decoration:
+                              const InputDecoration(labelText: 'Category'),
+                          validator: (value) =>
+                              (value == null || value.trim().isEmpty)
+                                  ? 'Required'
+                                  : null,
+                          onChanged: (_) => setFieldState(() {}),
+                        ),
+                        if (_categorySuggestions.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: _categorySuggestions.map((c) {
+                              final color = CategoryColors.forCategory(c);
+                              final selected = categoryController.text
+                                      .trim()
+                                      .toLowerCase() ==
+                                  c.toLowerCase();
+                              return ChoiceChip(
+                                avatar: Icon(categoryIcon(c),
+                                    size: 18, color: color),
+                                label: Text(c),
+                                selected: selected,
+                                selectedColor: color.withValues(alpha: 0.22),
+                                onSelected: (_) => setFieldState(
+                                    () => categoryController.text = c),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+                TextFormField(
+                  initialValue: _amount == 0 ? '' : minorToEditString(_amount),
+                  decoration: const InputDecoration(labelText: 'Amount'),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  // A zero cap silently never alerts (see budgetAlerts), so a
+                  // budget has to be a positive amount.
+                  validator: validateAmountField,
+                  onSaved: (value) => _amount = parseMinor(value ?? '0') ?? 0,
+                ),
+                const SizedBox(height: 8),
+                // Month/year pickers instead of free-typed numbers: no invalid
+                // input to validate, and the month reads as a name.
+                StatefulBuilder(
+                  builder: (context, setFieldState) {
+                    final now = DateTime.now();
+                    final years = <int>{
+                      for (var y = now.year - 5; y <= now.year + 1; y++) y,
+                      selectedYear,
+                    }.toList()
+                      ..sort();
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            initialValue: selectedMonth,
+                            decoration:
+                                const InputDecoration(labelText: 'Month'),
+                            items: [
+                              for (var m = 1; m <= 12; m++)
+                                DropdownMenuItem(
+                                    value: m, child: Text(monthName(m))),
+                            ],
+                            onChanged: (value) => setFieldState(
+                                () => selectedMonth = value ?? selectedMonth),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            initialValue: selectedYear,
+                            decoration:
+                                const InputDecoration(labelText: 'Year'),
+                            items: [
+                              for (final y in years)
+                                DropdownMenuItem(
+                                    value: y, child: Text(y.toString())),
+                            ],
+                            onChanged: (value) => setFieldState(
+                                () => selectedYear = value ?? selectedYear),
+                          ),
                         ),
                       ],
-                    ],
-                  );
-                },
-              ),
-              TextFormField(
-                initialValue: _amount == 0 ? '' : minorToEditString(_amount),
-                decoration: const InputDecoration(labelText: 'Amount'),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                // A zero cap silently never alerts (see budgetAlerts), so a
-                // budget has to be a positive amount.
-                validator: validateAmountField,
-                onSaved: (value) => _amount = parseMinor(value ?? '0') ?? 0,
-              ),
-              const SizedBox(height: 8),
-              // Month/year pickers instead of free-typed numbers: no invalid
-              // input to validate, and the month reads as a name.
-              StatefulBuilder(
-                builder: (context, setFieldState) {
-                  final now = DateTime.now();
-                  final years = <int>{
-                    for (var y = now.year - 5; y <= now.year + 1; y++) y,
-                    selectedYear,
-                  }.toList()
-                    ..sort();
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<int>(
-                          initialValue: selectedMonth,
-                          decoration:
-                              const InputDecoration(labelText: 'Month'),
-                          items: [
-                            for (var m = 1; m <= 12; m++)
-                              DropdownMenuItem(
-                                  value: m, child: Text(monthName(m))),
-                          ],
-                          onChanged: (value) => setFieldState(
-                              () => selectedMonth = value ?? selectedMonth),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: DropdownButtonFormField<int>(
-                          initialValue: selectedYear,
-                          decoration:
-                              const InputDecoration(labelText: 'Year'),
-                          items: [
-                            for (final y in years)
-                              DropdownMenuItem(
-                                  value: y, child: Text(y.toString())),
-                          ],
-                          onChanged: (value) => setFieldState(
-                              () => selectedYear = value ?? selectedYear),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -240,7 +241,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               if (_formKey.currentState!.validate()) {
                 _formKey.currentState!.save();
@@ -289,8 +290,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
           child: TextFormField(
             controller: controller,
             autofocus: true,
-            decoration: InputDecoration(
-                labelText: 'Cap for ${monthName(month)} $year'),
+            decoration:
+                InputDecoration(labelText: 'Cap for ${monthName(month)} $year'),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             validator: validateAmountField,
           ),
@@ -300,7 +301,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               if (!formKey.currentState!.validate()) return;
               final provider = context.read<BudgetProvider>();
@@ -338,8 +339,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel')),
-          ElevatedButton(
-              style: ElevatedButton.styleFrom(
+          FilledButton(
+              style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.error,
                 foregroundColor: Theme.of(context).colorScheme.onError,
               ),
@@ -407,8 +408,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
           // Base-currency spend for the cap's category, matched leniently on
           // case/whitespace (see spentForCategoryInMonth) so a budget still
           // tracks spend even if the category was filed with a different case.
-          int spentForBudget(Budget b) =>
-              expenseProvider.spentForCategoryInMonth(b.year, b.month, b.category);
+          int spentForBudget(Budget b) => expenseProvider
+              .spentForCategoryInMonth(b.year, b.month, b.category);
 
           return ListView(
             padding: scrollPadding(context, all: 12, fab: true),
@@ -420,9 +421,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 onStep: _stepMonth,
                 onToday: _viewingCurrentMonth
                     ? null
-                    : () => _stepMonth((now.year - _viewYear) * 12 +
-                        now.month -
-                        _viewMonth),
+                    : () => _stepMonth(
+                        (now.year - _viewYear) * 12 + now.month - _viewMonth),
               ),
               const SizedBox(height: 8),
               _OverallBudgetCard(
@@ -435,8 +435,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 onSet: () => _showOverallDialog(existing: overall),
                 onClear: overall == null
                     ? null
-                    : () => _confirmDeleteBudget(
-                        overall.id!, 'total monthly'),
+                    : () => _confirmDeleteBudget(overall.id!, 'total monthly'),
               ),
               const SizedBox(height: 16),
               if (categoryBudgets.isEmpty)
@@ -572,14 +571,16 @@ class _OverallBudgetCard extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
+                // The month is already in the stepper right above this card,
+                // and repeating it here wrapped the title onto two lines.
                 Expanded(
-                  child: Text('Total monthly budget · $label',
+                  child: Text('Total monthly budget',
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                 ),
                 IconButton(

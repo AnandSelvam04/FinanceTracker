@@ -46,7 +46,13 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     'Entertainment', 'Health', 'Education', _kOther,
   ];
   static const _incomeCategories = [
-    'Salary', 'Business', 'Interest', 'Dividends', 'Gift', 'Refund', _kOther,
+    'Salary',
+    'Business',
+    'Interest',
+    'Dividends',
+    'Gift',
+    'Refund',
+    _kOther,
   ];
 
   List<SmsDraft> _drafts = [];
@@ -75,8 +81,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
   /// Built-in investment types plus any the user already uses, "Other" last —
   /// the same list the Add Investment screen offers.
   List<String> get _investmentTypes {
-    final base =
-        Investment.builtInTypes.where((t) => t != _kOther).toList();
+    final base = Investment.builtInTypes.where((t) => t != _kOther).toList();
     for (final t in context.read<InvestmentProvider>().usedTypes()) {
       if (t.isNotEmpty && !base.contains(t)) base.add(t);
     }
@@ -178,7 +183,8 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
               memory: memory,
               recurringSuggested: p.isExpense &&
                   RecurringDetector.looksMonthly(
-                      p.description, p.amount, history, asOf: now))
+                      p.description, p.amount, history,
+                      asOf: now))
       ];
       _loading = false;
     });
@@ -191,8 +197,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
       firstDate: DateTime(now.year - 2),
       lastDate: now,
       initialDateRange: _customRange ??
-          DateTimeRange(
-              start: now.subtract(const Duration(days: 7)), end: now),
+          DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now),
     );
     if (picked == null || !mounted) return;
     setState(() {
@@ -242,7 +247,8 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     // A recurring rule only makes sense for a plain expense the user opted in
     // on; an investment or transfer is excluded.
     final recurringDrafts = chosen
-        .where((d) => d.createRecurring && !d.asInvestment && d.parsed.isExpense)
+        .where(
+            (d) => d.createRecurring && !d.asInvestment && d.parsed.isExpense)
         .toList(growable: false);
 
     setState(() => _importing = true);
@@ -250,7 +256,8 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
       // One transaction, matching the CSV importer: a failure part-way through
       // leaves nothing half-imported.
       if (txDrafts.isNotEmpty) {
-        await DBService().insertExpenses([for (final d in txDrafts) d.toExpense()]);
+        await DBService()
+            .insertExpenses([for (final d in txDrafts) d.toExpense()]);
       }
       // The investments table carries no sourceRef, so a contribution imported
       // from a message can't be deduped by the sourceRef check — mark its ref
@@ -296,8 +303,9 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
           : ' Added ${recurringDrafts.length} recurring '
               'rule${recurringDrafts.length == 1 ? '' : 's'}.';
       messenger.showSnackBar(
-        SnackBar(content: Text('Imported ${chosen.length} transaction'
-            '${chosen.length == 1 ? '' : 's'}.$ruleNote')),
+        SnackBar(
+            content: Text('Imported ${chosen.length} transaction'
+                '${chosen.length == 1 ? '' : 's'}.$ruleNote')),
       );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -470,14 +478,13 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
                       selected: selectedCount,
                       onSelectAll: () => _setAllSelected(true),
                       onSelectNone: () => _setAllSelected(false),
-                      onSetAccount: context
-                              .watch<AccountProvider>()
-                              .accounts
-                              .isEmpty
+                      onSetAccount:
+                          context.watch<AccountProvider>().accounts.isEmpty
+                              ? null
+                              : _applyAccountToAll,
+                      onDismissSelected: selectedCount == 0 || _importing
                           ? null
-                          : _applyAccountToAll,
-                      onDismissSelected:
-                          selectedCount == 0 || _importing ? null : _dismissSelected,
+                          : _dismissSelected,
                     ),
                     Expanded(
                       child: ListView.separated(
@@ -501,7 +508,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
                     SafeArea(
                       child: Padding(
                         padding: const EdgeInsets.all(12),
-                        child: ElevatedButton(
+                        child: FilledButton(
                           onPressed: selectedCount == 0 || _importing
                               ? null
                               : _importSelected,
@@ -509,8 +516,8 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
                               ? const SizedBox(
                                   height: 18,
                                   width: 18,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2),
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : Text('Import $selectedCount selected'),
                         ),
@@ -578,7 +585,7 @@ class _EmptyState extends StatelessWidget {
             Text(message, textAlign: TextAlign.center),
             if (supported) ...[
               const SizedBox(height: 16),
-              ElevatedButton(
+              FilledButton(
                 onPressed: onRetry,
                 child: Text(permissionDenied ? 'Grant permission' : 'Rescan'),
               ),
@@ -678,8 +685,7 @@ class _DraftCardState extends State<_DraftCard> {
           decoration: InputDecoration(labelText: label, isDense: true),
           items: items
               .map((c) => DropdownMenuItem(
-                  value: c,
-                  child: Text(c, overflow: TextOverflow.ellipsis)))
+                  value: c, child: Text(c, overflow: TextOverflow.ellipsis)))
               .toList(),
           onChanged: (v) {
             if (v == null) return;
@@ -750,8 +756,7 @@ class _DraftCardState extends State<_DraftCard> {
                       // added before (e.g. "Nifty 50") is picked from the list
                       // instead of retyped, matching the Add Investment screen.
                       Autocomplete<String>(
-                        initialValue:
-                            TextEditingValue(text: draft.description),
+                        initialValue: TextEditingValue(text: draft.description),
                         optionsBuilder: (value) {
                           if (!draft.asInvestment) {
                             return const Iterable<String>.empty();
@@ -761,8 +766,8 @@ class _DraftCardState extends State<_DraftCard> {
                               .usedNames(type: draft.investmentType);
                           final query = value.text.trim().toLowerCase();
                           if (query.isEmpty) return names;
-                          return names.where(
-                              (n) => n.toLowerCase().contains(query));
+                          return names
+                              .where((n) => n.toLowerCase().contains(query));
                         },
                         onSelected: (v) {
                           draft.description = v;
@@ -1021,9 +1026,8 @@ class _BulkActionBar extends StatelessWidget {
         children: [
           TextButton.icon(
             style: compact,
-            icon: Icon(allSelected
-                ? Icons.check_box_outline_blank
-                : Icons.select_all),
+            icon: Icon(
+                allSelected ? Icons.check_box_outline_blank : Icons.select_all),
             label: Text(allSelected ? 'Clear all' : 'Select all'),
             onPressed: allSelected ? onSelectNone : onSelectAll,
           ),
@@ -1076,8 +1080,7 @@ class _Notice extends StatelessWidget {
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(text,
-                style: TextStyle(fontSize: 12, color: color)),
+            child: Text(text, style: TextStyle(fontSize: 12, color: color)),
           ),
         ],
       ),
