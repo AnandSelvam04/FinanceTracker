@@ -107,7 +107,9 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                       return CircleAvatar(
                         backgroundColor:
                             c.withValues(alpha: dark ? 0.28 : 0.15),
-                        child: Icon(Icons.trending_up, color: c),
+                        child: Icon(Icons.trending_up,
+                            color: CategoryColors.foreground(
+                                c, Theme.of(context).brightness)),
                       );
                     }),
                     title: Text(type,

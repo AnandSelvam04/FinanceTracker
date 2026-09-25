@@ -19,7 +19,9 @@ class CategoryAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: radius,
       backgroundColor: color.withValues(alpha: dark ? 0.28 : 0.15),
-      child: Icon(categoryIcon(category), color: color, size: radius * 1.1),
+      child: Icon(categoryIcon(category),
+          color: CategoryColors.foreground(color, Theme.of(context).brightness),
+          size: radius * 1.1),
     );
   }
 }

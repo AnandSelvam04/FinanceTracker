@@ -90,7 +90,9 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
                       showCheckmark: false,
                       avatar: Icon(categoryIcon(category),
                           size: 18,
-                          color: CategoryColors.forCategory(category)),
+                          color: CategoryColors.foreground(
+                              CategoryColors.forCategory(category),
+                              Theme.of(context).brightness)),
                       onSelected: (value) {
                         setState(() {
                           if (value) {

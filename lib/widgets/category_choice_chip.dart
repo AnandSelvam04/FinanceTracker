@@ -24,14 +24,15 @@ class CategoryChoiceChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = CategoryColors.forCategory(category);
+    final fg = CategoryColors.foreground(color, Theme.of(context).brightness);
     return ChoiceChip(
-      avatar: Icon(categoryIcon(category), size: 18, color: color),
+      avatar: Icon(categoryIcon(category), size: 18, color: fg),
       label: Text(category),
       selected: selected,
       showCheckmark: false,
       selectedColor: color.withValues(alpha: 0.22),
       side: selected
-          ? BorderSide(color: color, width: 1.5)
+          ? BorderSide(color: fg, width: 1.5)
           : BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
       onSelected: (_) => onSelected(),
     );
