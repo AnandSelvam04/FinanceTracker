@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/investment_provider.dart';
+import '../utils/category_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import '../widgets/empty_state.dart';
@@ -99,14 +100,19 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                     return Card(
                       margin: EdgeInsets.zero,
                       child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.secondaryContainer,
-                          child: Icon(Icons.trending_up,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSecondaryContainer),
-                        ),
+                        // A stable colour per investment type (same mapping
+                        // the category charts use), so types are told apart
+                        // at a glance instead of all wearing one grey badge.
+                        leading: Builder(builder: (context) {
+                          final c = CategoryColors.forCategory(type);
+                          final dark = Theme.of(context).brightness ==
+                              Brightness.dark;
+                          return CircleAvatar(
+                            backgroundColor:
+                                c.withValues(alpha: dark ? 0.28 : 0.15),
+                            child: Icon(Icons.trending_up, color: c),
+                          );
+                        }),
                         title: Text(type,
                             style:
                                 const TextStyle(fontWeight: FontWeight.w600)),

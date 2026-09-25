@@ -458,7 +458,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     margin: EdgeInsets.zero,
                     child: ListTile(
                       leading: CategoryAvatar(category: budget.category),
-                      title: Text(budget.category),
+                      title: Text(budget.category,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Builder(builder: (context) {
                         final spent = spentForBudget(budget);
                         final progress =
