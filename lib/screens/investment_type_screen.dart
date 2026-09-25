@@ -6,6 +6,8 @@ import '../utils/app_colors.dart';
 import '../providers/investment_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
+import '../widgets/hero_total_card.dart';
+import '../widgets/swipe_delete_background.dart';
 import 'add_investment_screen.dart';
 import '../utils/date_format.dart';
 
@@ -220,32 +222,12 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.all(12),
-                child: Card(
-                  margin: EdgeInsets.zero,
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Total in $type',
-                            style: TextStyle(
-                                fontSize: 16,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onPrimaryContainer)),
-                        Text(
-                          formatMoneySigned(total),
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onPrimaryContainer),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: HeroTotalCard(
+                  label: 'Total in $type',
+                  amount: formatMoneySigned(total),
+                  caption: '${entries.length} '
+                      '${entries.length == 1 ? 'contribution' : 'contributions'}'
+                      ' · latest ${formatShortDate(entries.first.date)}',
                 ),
               ),
               Padding(
@@ -382,8 +364,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
           margin: const EdgeInsets.symmetric(vertical: 4),
           clipBehavior: Clip.antiAlias,
           child: ExpansionTile(
-            title: Text(name,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
+            title:
+                Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text(
               '$count ${count == 1 ? 'contribution' : 'contributions'}'
               ' · latest ${formatDateWithDay(latest)}',
@@ -413,13 +395,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
           key: ValueKey(
               investment.id ?? '${investment.name}-${investment.date}'),
           direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            color: Theme.of(context).colorScheme.error,
-            child: Icon(Icons.delete,
-                color: Theme.of(context).colorScheme.onError),
-          ),
+          background: const SwipeDeleteBackground(),
           confirmDismiss: (_) => _confirmDelete(context, investment),
           child: Card(
             margin: const EdgeInsets.symmetric(vertical: 4),
@@ -521,8 +497,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
       BuildContext context, Investment investment) async {
     final nameController = TextEditingController(text: investment.name);
     // Edit the magnitude; the Contribution/Withdrawal toggle carries the sign.
-    final amountController = TextEditingController(
-        text: minorToEditString(investment.amount.abs()));
+    final amountController =
+        TextEditingController(text: minorToEditString(investment.amount.abs()));
     DateTime selectedDate = investment.date;
     bool isWithdrawal = investment.isWithdrawal;
 
@@ -580,9 +556,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                       controller: amountController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                          labelText: isWithdrawal
-                              ? 'Amount to withdraw'
-                              : 'Amount'),
+                          labelText:
+                              isWithdrawal ? 'Amount to withdraw' : 'Amount'),
                     ),
                     DropdownButtonFormField<String>(
                       initialValue: type,

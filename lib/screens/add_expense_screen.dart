@@ -246,7 +246,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (parsed.category != null) _categoryController.text = parsed.category!;
       if (parsed.description != null && parsed.description!.isNotEmpty) {
         _descriptionController.text = parsed.description!;
-      } else if (_descriptionController.text.isEmpty && parsed.category != null) {
+      } else if (_descriptionController.text.isEmpty &&
+          parsed.category != null) {
         _descriptionController.text = parsed.category!;
       }
     });
@@ -269,7 +270,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
+              SizedBox(
+                width: double.infinity,
                 child: SegmentedButton<String>(
                   segments: [
                     ButtonSegment(
@@ -292,7 +294,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               // Quick-capture shortcuts: read a bill photo, or dictate the
               // transaction. Both only pre-fill the fields below.
               Row(
@@ -321,15 +323,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                textInputAction: TextInputAction.next,
-                validator: (value) =>
-                    value!.isEmpty ? 'Enter a description' : null,
-              ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               // The amount is the focal input, so it is enlarged and carries
               // the configured currency symbol as a prefix.
               TextFormField(
@@ -338,24 +332,31 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   labelText: 'Amount',
                   prefixText: '${CurrencyFormat.symbol} ',
                   prefixStyle: TextStyle(
-                    fontSize: 22,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
-                style: const TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.next,
                 validator: validateAmountField,
               ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
+                textInputAction: TextInputAction.next,
+                validator: (value) =>
+                    value!.isEmpty ? 'Enter a description' : null,
+              ),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
                   children: [
-                    Icon(Icons.event,
-                        size: 20, color: mutedTextColor(context)),
+                    Icon(Icons.event, size: 20, color: mutedTextColor(context)),
                     const SizedBox(width: 8),
                     Expanded(child: Text(formatDateWithDay(_selectedDate))),
                     TextButton(
@@ -386,7 +387,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ? (_isIncome ? 'Enter a source' : 'Enter a category')
                     : null,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
@@ -405,7 +406,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   );
                 }).toList(),
               ),
-              if (accounts.isNotEmpty)
+              if (accounts.isNotEmpty) ...[
+                const SizedBox(height: 16),
                 DropdownButtonFormField<int?>(
                   initialValue: _accountId,
                   decoration: const InputDecoration(labelText: 'Account'),
@@ -417,8 +419,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   ],
                   onChanged: (value) => setState(() => _accountId = value),
                 ),
+              ],
               if (!_isIncome) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text('Payment mode',
                     style: TextStyle(
                         fontSize: 12, color: mutedTextColor(context))),
@@ -445,77 +448,85 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 value: _saveAsTemplate,
                 onChanged: (v) => setState(() => _saveAsTemplate = v ?? false),
               ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _isSaving
-                    ? null
-                    : () async {
-                        if (_formKey.currentState!.validate()) {
-                          setState(() => _isSaving = true);
-                          final expense = Expense(
-                            description: _descriptionController.text,
-                            amount: rupeesToMinor(
-                                double.parse(_amountController.text)),
-                            date: _selectedDate,
-                            category: _categoryController.text,
-                            paymentMode:
-                                _isIncome ? 'Other' : _selectedPaymentMode,
-                            type: _txType,
-                            accountId: _accountId,
-                          );
-                          final provider = context.read<ExpenseProvider>();
-                          final accountProvider =
-                              context.read<AccountProvider>();
-                          final templateProvider =
-                              context.read<TemplateProvider>();
-                          try {
-                            await provider.addExpense(expense);
-                            await accountProvider.refreshBalances();
-                            if (_saveAsTemplate) {
-                              await templateProvider.addTemplate(TxTemplate(
-                                name: _descriptionController.text,
-                                description: _descriptionController.text,
-                                amount: rupeesToMinor(
-                                    double.parse(_amountController.text)),
-                                category: _categoryController.text,
-                                type: _txType,
-                                accountId: _accountId,
-                              ));
+              const SizedBox(height: 16),
+              // Full width, filled: the screen's one primary action. As an
+              // ElevatedButton in a start-aligned column it shrank to its label
+              // at the left edge, and the white saving spinner vanished on its
+              // light fill.
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton(
+                  onPressed: _isSaving
+                      ? null
+                      : () async {
+                          if (_formKey.currentState!.validate()) {
+                            setState(() => _isSaving = true);
+                            final expense = Expense(
+                              description: _descriptionController.text,
+                              amount: rupeesToMinor(
+                                  double.parse(_amountController.text)),
+                              date: _selectedDate,
+                              category: _categoryController.text,
+                              paymentMode:
+                                  _isIncome ? 'Other' : _selectedPaymentMode,
+                              type: _txType,
+                              accountId: _accountId,
+                            );
+                            final provider = context.read<ExpenseProvider>();
+                            final accountProvider =
+                                context.read<AccountProvider>();
+                            final templateProvider =
+                                context.read<TemplateProvider>();
+                            try {
+                              await provider.addExpense(expense);
+                              await accountProvider.refreshBalances();
+                              if (_saveAsTemplate) {
+                                await templateProvider.addTemplate(TxTemplate(
+                                  name: _descriptionController.text,
+                                  description: _descriptionController.text,
+                                  amount: rupeesToMinor(
+                                      double.parse(_amountController.text)),
+                                  category: _categoryController.text,
+                                  type: _txType,
+                                  accountId: _accountId,
+                                ));
+                              }
+                              HapticFeedback.lightImpact();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text(_isIncome
+                                          ? 'Income added'
+                                          : 'Expense added')),
+                                );
+                                Navigator.pop(context);
+                              }
+                            } catch (e, st) {
+                              // Show the error in a SnackBar and log
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(SnackBar(
+                                  content: Text('Failed to save: $e'),
+                                ));
+                              }
+                              AppLogger.error('Error saving expense', e, st);
+                            } finally {
+                              if (mounted) setState(() => _isSaving = false);
                             }
-                            HapticFeedback.lightImpact();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text(_isIncome
-                                        ? 'Income added'
-                                        : 'Expense added')),
-                              );
-                              Navigator.pop(context);
-                            }
-                          } catch (e, st) {
-                            // Show the error in a SnackBar and log
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(SnackBar(
-                                content: Text('Failed to save: $e'),
-                              ));
-                            }
-                            AppLogger.error('Error saving expense', e, st);
-                          } finally {
-                            if (mounted) setState(() => _isSaving = false);
                           }
-                        }
-                      },
-                child: _isSaving
-                    ? SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Theme.of(context).colorScheme.onPrimary,
-                        ),
-                      )
-                    : Text(_isIncome ? 'Add Income' : 'Add Expense'),
+                        },
+                  child: _isSaving
+                      ? SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          ),
+                        )
+                      : Text(_isIncome ? 'Add Income' : 'Add Expense'),
+                ),
               ),
             ],
           ),
