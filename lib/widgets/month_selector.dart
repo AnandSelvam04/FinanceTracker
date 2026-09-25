@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/date_format.dart';
+
 /// Month stepper shared by the dashboard and the monthly summary screen.
 class MonthSelector extends StatefulWidget {
   final void Function(int year, int month) onChanged;
@@ -51,9 +53,18 @@ class _MonthSelectorState extends State<MonthSelector> {
           tooltip: 'Previous month',
           onPressed: () => _changeMonth(-1),
         ),
-        Text(
-          '$year-${month.toString().padLeft(2, '0')}',
-          style: const TextStyle(fontSize: 16),
+        // A fixed width keeps the arrows from shifting as month names change
+        // length ("May" vs "September").
+        SizedBox(
+          width: 150,
+          child: Text(
+            formatMonthYear(year, month),
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
         ),
         IconButton(
           icon: const Icon(Icons.chevron_right),

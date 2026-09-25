@@ -33,7 +33,7 @@ void main() {
       );
 
   test('formatMoney matches the app-wide convention', () {
-    expect(formatMoney(123450), '₹1234.50');
+    expect(formatMoney(123450), '₹1,234.50');
     expect(formatMoney(0), '₹0.00');
   });
 

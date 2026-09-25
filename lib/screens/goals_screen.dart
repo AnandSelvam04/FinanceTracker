@@ -93,7 +93,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                         child: Text(
                           targetDate == null
                               ? 'No target date'
-                              : 'By ${formatIsoDate(targetDate!)}',
+                              : 'By ${formatShortDate(targetDate!)}',
                         ),
                       ),
                       if (targetDate != null)
@@ -428,7 +428,7 @@ class _GoalCard extends StatelessWidget {
     if (monthly == null || months == null) return null;
     return (
       '${formatMoneyRounded(monthly)}/month for $months '
-          'month${months == 1 ? '' : 's'} · by ${formatIsoDate(goal.targetDate!)}',
+          'month${months == 1 ? '' : 's'} · by ${formatShortDate(goal.targetDate!)}',
       mutedTextColor(context)
     );
   }
@@ -504,22 +504,27 @@ class _GoalCard extends StatelessWidget {
                 ),
               ],
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton.icon(
-                  onPressed: onWithdraw,
-                  icon: const Icon(Icons.remove, size: 18),
-                  label: const Text('Withdraw'),
-                ),
-                const SizedBox(width: 4),
-                FilledButton.tonalIcon(
-                  onPressed: onAdd,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add money'),
-                ),
-                const SizedBox(width: 8),
-              ],
+            // OverflowBar rather than Row: on a narrow phone (or with large
+            // text) the two buttons stack instead of overflowing the card.
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: OverflowBar(
+                alignment: MainAxisAlignment.end,
+                spacing: 4,
+                overflowAlignment: OverflowBarAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: onWithdraw,
+                    icon: const Icon(Icons.remove, size: 18),
+                    label: const Text('Withdraw'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: onAdd,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add money'),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

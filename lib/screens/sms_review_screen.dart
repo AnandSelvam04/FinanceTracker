@@ -117,7 +117,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
           from: DateTime(r.start.year, r.start.month, r.start.day),
           to: to,
           window: SmsService.defaultWindow,
-          label: '${formatIsoDate(r.start)} – ${formatIsoDate(r.end)}'
+          label: '${formatShortDate(r.start)} – ${formatShortDate(r.end)}'
         );
     }
   }
@@ -787,7 +787,7 @@ class _DraftCardState extends State<_DraftCard> {
                         },
                       ),
                       Text(
-                        '${formatIsoDate(parsed.date)} · ${parsed.sender}'
+                        '${formatShortDate(parsed.date)} · ${parsed.sender}'
                         '${parsed.last4 != null ? ' · ••${parsed.last4}' : ''}',
                         style: TextStyle(
                             fontSize: 12, color: mutedTextColor(context)),
