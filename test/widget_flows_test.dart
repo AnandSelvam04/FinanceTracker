@@ -13,6 +13,9 @@ import 'package:finance_tracker/providers/budget_provider.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
 import 'package:finance_tracker/providers/goal_provider.dart';
 import 'package:finance_tracker/providers/recurring_provider.dart';
+import 'package:finance_tracker/providers/settings_provider.dart';
+import 'package:finance_tracker/providers/template_provider.dart';
+import 'package:finance_tracker/screens/add_expense_screen.dart';
 import 'package:finance_tracker/screens/budgets_screen.dart';
 import 'package:finance_tracker/screens/expense_list_screen.dart';
 import 'package:finance_tracker/screens/goals_screen.dart';
@@ -58,8 +61,8 @@ void main() {
   // alive), so pumpAndSettle never returns — see widget_test.dart. The data
   // is already in the providers, so a couple of fixed pumps render it, and
   // the short duration lets the finite entrance animation finish.
-  Future<void> pumpScreen(
-      WidgetTester tester, Widget screen, List<ChangeNotifierProvider> ps) async {
+  Future<void> pumpScreen(WidgetTester tester, Widget screen,
+      List<ChangeNotifierProvider> ps) async {
     await tester.pumpWidget(
       MultiProvider(
         providers: ps,
@@ -240,6 +243,44 @@ void main() {
 
     expect(find.text('Netflix'), findsOneWidget);
     expect(find.textContaining('ends'), findsWidgets);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+
+  testWidgets('Add expense: typing a category lights up its chip, any case',
+      (tester) async {
+    final (accounts, expenses, templates) = (await tester.runAsync(() async {
+      final a = AccountProvider();
+      await a.fetchAccounts();
+      return (a, ExpenseProvider(), TemplateProvider());
+    }))!;
+
+    await pumpScreen(tester, const AddExpenseScreen(), [
+      ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
+      ChangeNotifierProvider<TemplateProvider>.value(value: templates),
+      ChangeNotifierProvider<SettingsProvider>.value(value: SettingsProvider()),
+    ]);
+
+    // The screen loads frequent expense and then income categories in
+    // sequence; pumpScreen only lets the first query land. Let the second
+    // finish too, or its sqflite lock timer is still pending at teardown.
+    for (var i = 0; i < 2; i++) {
+      await tester.runAsync(
+          () async => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
+
+    bool selected(String label) => tester
+        .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, label))
+        .selected;
+
+    expect(selected('Food'), isFalse);
+    // Lower case and a trailing space still name the built-in category.
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Category'), 'food ');
+    await tester.pump();
+    expect(selected('Food'), isTrue);
+    expect(selected('Bills'), isFalse);
     await teardownTree(tester);
   }, timeout: testTimeout);
 }

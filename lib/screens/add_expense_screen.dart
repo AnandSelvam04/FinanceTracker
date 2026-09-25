@@ -14,11 +14,10 @@ import '../services/receipt_scanner.dart';
 import '../services/voice_expense_parser.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_logger.dart';
-import '../utils/category_colors.dart';
-import '../utils/category_icons.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
+import '../widgets/category_choice_chip.dart';
 import '../widgets/date_field_row.dart';
 import '../widgets/voice_capture_sheet.dart';
 
@@ -138,12 +137,29 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  /// Recent categories first, then built-in defaults, de-duplicated.
+  /// Recent categories first, then built-in defaults, de-duplicated
+  /// ignoring case — so a past "food" entry and the built-in "Food" show as
+  /// one chip, not two.
   List<String> get _suggestions {
     final frequent =
         _isIncome ? _frequentIncomeCategories : _frequentExpenseCategories;
     final defaults = _isIncome ? _incomeCategories : _expenseCategories;
-    return <String>{...frequent, ...defaults}.toList();
+    final seen = <String>{};
+    return [
+      for (final c in [...frequent, ...defaults])
+        if (seen.add(c.trim().toLowerCase())) c,
+    ];
+  }
+
+  /// The category to save: the typed text trimmed, spelled like an existing
+  /// suggestion when it names one, so typing "food" files under "Food"
+  /// instead of starting a second, separate category.
+  String get _resolvedCategory {
+    final typed = _categoryController.text.trim();
+    for (final c in _suggestions) {
+      if (isSameCategory(typed, c)) return c;
+    }
+    return typed;
   }
 
   // --- Receipt scanning ------------------------------------------------------
@@ -365,28 +381,25 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 decoration: InputDecoration(
                     labelText: _isIncome ? 'Source' : 'Category'),
                 textInputAction: TextInputAction.next,
-                validator: (value) => value!.isEmpty
+                validator: (value) => value!.trim().isEmpty
                     ? (_isIncome ? 'Enter a source' : 'Enter a category')
                     : null,
+                // Rebuild as the user types so the matching chip below lights
+                // up; without it the chips only reflected taps.
+                onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
-                children: categorySuggestions.map((c) {
-                  final color = CategoryColors.forCategory(c);
-                  return ChoiceChip(
-                    avatar: Icon(categoryIcon(c), size: 18, color: color),
-                    label: Text(c),
-                    selected: _categoryController.text == c,
-                    selectedColor: color.withValues(alpha: 0.22),
-                    onSelected: (_) {
-                      setState(() {
-                        _categoryController.text = c;
-                      });
-                    },
-                  );
-                }).toList(),
+                children: categorySuggestions
+                    .map((c) => CategoryChoiceChip(
+                          category: c,
+                          selected: isSameCategory(_categoryController.text, c),
+                          onSelected: () =>
+                              setState(() => _categoryController.text = c),
+                        ))
+                    .toList(),
               ),
               if (accounts.isNotEmpty) ...[
                 const SizedBox(height: 16),
@@ -416,6 +429,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       avatar: Icon(_paymentIcon(p), size: 18),
                       label: Text(p),
                       selected: _selectedPaymentMode == p,
+                      // The checkmark replaces the avatar, hiding the icon.
+                      showCheckmark: false,
                       onSelected: (_) =>
                           setState(() => _selectedPaymentMode = p),
                     );
@@ -449,7 +464,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                               amount: rupeesToMinor(
                                   double.parse(_amountController.text)),
                               date: _selectedDate,
-                              category: _categoryController.text,
+                              category: _resolvedCategory,
                               paymentMode:
                                   _isIncome ? 'Other' : _selectedPaymentMode,
                               type: _txType,
@@ -469,7 +484,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                   description: _descriptionController.text,
                                   amount: rupeesToMinor(
                                       double.parse(_amountController.text)),
-                                  category: _categoryController.text,
+                                  category: _resolvedCategory,
                                   type: _txType,
                                   accountId: _accountId,
                                 ));

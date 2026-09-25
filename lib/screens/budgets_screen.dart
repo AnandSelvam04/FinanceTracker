@@ -6,13 +6,12 @@ import '../providers/expense_provider.dart';
 import '../services/db_service.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
-import '../utils/category_colors.dart';
-import '../utils/category_icons.dart';
 import '../utils/category_suggestions.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
+import '../widgets/category_choice_chip.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
 
@@ -154,22 +153,15 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                           Wrap(
                             spacing: 8,
                             runSpacing: 4,
-                            children: _categorySuggestions.map((c) {
-                              final color = CategoryColors.forCategory(c);
-                              final selected = categoryController.text
-                                      .trim()
-                                      .toLowerCase() ==
-                                  c.toLowerCase();
-                              return ChoiceChip(
-                                avatar: Icon(categoryIcon(c),
-                                    size: 18, color: color),
-                                label: Text(c),
-                                selected: selected,
-                                selectedColor: color.withValues(alpha: 0.22),
-                                onSelected: (_) => setFieldState(
-                                    () => categoryController.text = c),
-                              );
-                            }).toList(),
+                            children: _categorySuggestions
+                                .map((c) => CategoryChoiceChip(
+                                      category: c,
+                                      selected: isSameCategory(
+                                          categoryController.text, c),
+                                      onSelected: () => setFieldState(
+                                          () => categoryController.text = c),
+                                    ))
+                                .toList(),
                           ),
                         ],
                       ],
