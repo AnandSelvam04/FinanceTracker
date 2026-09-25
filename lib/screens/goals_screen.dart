@@ -381,14 +381,10 @@ class _GoalsSummary extends StatelessWidget {
             style: TextStyle(color: fg.withValues(alpha: 0.85)),
           ),
           const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: ratio.toDouble(),
-              minHeight: 8,
-              color: fg,
-              backgroundColor: fg.withValues(alpha: 0.25),
-            ),
+          LinearProgressIndicator(
+            value: ratio.toDouble(),
+            color: fg,
+            backgroundColor: fg.withValues(alpha: 0.25),
           ),
         ],
       ),

@@ -479,16 +479,9 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                             if (pace != null)
                               _PaceLine(pace: pace, compact: true),
                             const SizedBox(height: 4),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: LinearProgressIndicator(
-                                value: progress.clamp(0.0, 1.0).toDouble(),
-                                minHeight: 8,
-                                color: progressColor(progress),
-                                backgroundColor: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                              ),
+                            LinearProgressIndicator(
+                              value: progress.clamp(0.0, 1.0).toDouble(),
+                              color: progressColor(progress),
                             ),
                           ],
                         );
@@ -618,15 +611,10 @@ class _OverallBudgetCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: ratio.clamp(0.0, 1.0).toDouble(),
-                minHeight: 10,
-                color: progressColor(ratio),
-                backgroundColor:
-                    Theme.of(context).colorScheme.surfaceContainerHighest,
-              ),
+            LinearProgressIndicator(
+              value: ratio.clamp(0.0, 1.0).toDouble(),
+              minHeight: 10,
+              color: progressColor(ratio),
             ),
             if (pace != null) ...[
               const SizedBox(height: 8),

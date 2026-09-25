@@ -491,14 +491,10 @@ class _CategoryProgressRow extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      value: fraction,
-                      minHeight: 7,
-                      backgroundColor: color.withValues(alpha: 0.15),
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                    ),
+                  LinearProgressIndicator(
+                    value: fraction,
+                    backgroundColor: color.withValues(alpha: 0.15),
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                   const SizedBox(height: 4),
                   Row(
