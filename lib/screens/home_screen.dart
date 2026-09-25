@@ -230,65 +230,60 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ];
 
   void _showAddOptions(BuildContext context) {
+    void open(Widget screen) {
+      Navigator.pop(context);
+      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    }
+
+    final scheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
       // SafeArea keeps the sheet's items above the system navigation bar in
       // edge-to-edge mode; without it the last tile is covered and untappable.
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.money_off),
-              title: const Text('Add Expense'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const AddExpenseScreen()),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.document_scanner_outlined),
-              title: const Text('Scan Receipt'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const AddExpenseScreen(
-                          autoStart: AddExpenseAction.scan)),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.mic_none),
-              title: const Text('Add by Voice'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const AddExpenseScreen(
-                          autoStart: AddExpenseAction.voice)),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.trending_up),
-              title: const Text('Add Investment'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const AddInvestmentScreen()),
-                );
-              },
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child:
+                    Text('Add', style: Theme.of(context).textTheme.titleLarge),
+              ),
+              _AddOption(
+                icon: Icons.remove_circle_outline,
+                color: expenseColor(context),
+                title: 'Add expense',
+                subtitle: 'Or income — switch at the top',
+                onTap: () => open(const AddExpenseScreen()),
+              ),
+              _AddOption(
+                icon: Icons.document_scanner_outlined,
+                color: scheme.primary,
+                title: 'Scan receipt',
+                subtitle: 'Read the amount and date from a photo',
+                onTap: () => open(
+                    const AddExpenseScreen(autoStart: AddExpenseAction.scan)),
+              ),
+              _AddOption(
+                icon: Icons.mic_none,
+                color: scheme.tertiary,
+                title: 'Add by voice',
+                subtitle: 'Say "Spent 250 on lunch"',
+                onTap: () => open(
+                    const AddExpenseScreen(autoStart: AddExpenseAction.voice)),
+              ),
+              _AddOption(
+                icon: Icons.trending_up,
+                color: incomeColor(context),
+                title: 'Add investment',
+                subtitle: 'Record a contribution or withdrawal',
+                onTap: () => open(const AddInvestmentScreen()),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -377,17 +372,14 @@ class _DashboardView extends StatelessWidget {
       BuildContext context, ExpenseProvider provider, String category,
       {required bool isYear}) {
     final rows = (isYear
-            ? provider
-                .expensesForYear(selectedYear)
-                .where((e) => e.isExpense)
+            ? provider.expensesForYear(selectedYear).where((e) => e.isExpense)
             : provider.spendingForMonth(selectedYear, selectedMonth))
         .where((e) => e.category == category)
         .toList()
       ..sort((a, b) => b.date.compareTo(a.date));
     final total = rows.fold<int>(0, (s, e) => s + provider.baseAmountOf(e));
-    final period = isYear
-        ? '$selectedYear'
-        : '$selectedYear-${selectedMonth.toString().padLeft(2, '0')}';
+    final period =
+        isYear ? '$selectedYear' : formatMonthYear(selectedYear, selectedMonth);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -474,9 +466,8 @@ class _DashboardView extends StatelessWidget {
                       )
                     else ...[
                       _TotalHeadline(
-                        label: 'Year total',
+                        label: 'Spent in $selectedYear',
                         amount: provider.totalForYear(selectedYear),
-                        income: yearlyIncome,
                       ),
                       const SizedBox(height: 12),
                       _SummaryPills(
@@ -487,8 +478,7 @@ class _DashboardView extends StatelessWidget {
                       const SectionHeader('Spending by category (year)'),
                       const SizedBox(height: 4),
                       CategoryBarChart(
-                        totals:
-                            provider.categoryTotalsForYear(selectedYear),
+                        totals: provider.categoryTotalsForYear(selectedYear),
                         onCategoryTap: (c) => _showCategoryDetail(
                             context, provider, c,
                             isYear: true),
@@ -508,16 +498,15 @@ class _DashboardView extends StatelessWidget {
                       )
                     else ...[
                       _TotalHeadline(
-                        label: 'This month',
+                        label: 'Spent this month',
                         amount:
                             provider.totalForMonth(selectedYear, selectedMonth),
-                        income: monthlyIncome,
                       ),
                       const SizedBox(height: 12),
                       _SummaryPills(
                         income: monthlyIncome,
-                        expense: provider.totalForMonth(
-                            selectedYear, selectedMonth),
+                        expense:
+                            provider.totalForMonth(selectedYear, selectedMonth),
                       ),
                       const SizedBox(height: 4),
                       _LeftToSpend(
@@ -585,13 +574,11 @@ class _CategoryDetailSheet extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(category,
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.titleLarge,
                     overflow: TextOverflow.ellipsis),
               ),
               Text(formatMoney(total),
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
+                  style: Theme.of(context).textTheme.titleLarge),
             ],
           ),
           const SizedBox(height: 2),
@@ -646,15 +633,14 @@ class _CategoryDetailSheet extends StatelessWidget {
   }
 }
 
-/// Headline total with an animated count-up, plus an optional income line.
+/// Headline spend with an animated count-up. Income is not repeated here:
+/// the summary cards directly below already show it.
 class _TotalHeadline extends StatelessWidget {
   final String label;
   final int amount;
-  final int income;
   const _TotalHeadline({
     required this.label,
     required this.amount,
-    required this.income,
   });
 
   @override
@@ -687,15 +673,6 @@ class _TotalHeadline extends StatelessWidget {
             ),
           ),
         ),
-        if (income > 0)
-          Text(
-            'Income ${formatMoney(income)}',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: incomeColor(context),
-            ),
-          ),
       ],
     );
   }
@@ -710,6 +687,10 @@ class _SummaryPills extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The headline above is already the period's spend, so the second card
+    // shows what is left after it (income minus spend) rather than repeating
+    // the same figure.
+    final net = income - expense;
     return Row(
       children: [
         Expanded(
@@ -723,10 +704,10 @@ class _SummaryPills extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: _SummaryPill(
-            label: 'Expenses',
-            amount: expense,
-            icon: Icons.north_east,
-            color: expenseColor(context),
+            label: net < 0 ? 'Overspent' : 'Saved',
+            amount: net.abs(),
+            icon: net < 0 ? Icons.trending_down : Icons.savings_outlined,
+            color: net < 0 ? expenseColor(context) : incomeColor(context),
           ),
         ),
       ],
@@ -944,8 +925,8 @@ class _QuickAddRow extends StatelessWidget {
   /// Confirms before dropping a saved quick-add shortcut. Deleting the
   /// template only removes the one-tap shortcut — transactions already added
   /// from it are untouched.
-  Future<void> _confirmDelete(
-      BuildContext context, TemplateProvider provider, TxTemplate template) async {
+  Future<void> _confirmDelete(BuildContext context, TemplateProvider provider,
+      TxTemplate template) async {
     final messenger = ScaffoldMessenger.of(context);
     final ok = await showDialog<bool>(
       context: context,
@@ -958,7 +939,11 @@ class _QuickAddRow extends StatelessWidget {
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Delete'),
           ),
@@ -983,8 +968,16 @@ class _QuickAddRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Quick add', style: const TextStyle(fontSize: 13)),
-              const SizedBox(height: 4),
+              Text(
+                'QUICK ADD',
+                style: TextStyle(
+                  fontSize: 11,
+                  letterSpacing: 0.6,
+                  fontWeight: FontWeight.w600,
+                  color: mutedTextColor(context),
+                ),
+              ),
+              const SizedBox(height: 6),
               SizedBox(
                 height: 40,
                 child: ListView.separated(
@@ -1014,6 +1007,42 @@ class _QuickAddRow extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// One row of the add sheet: a tinted icon badge, a title and a hint of what
+/// the option does — the same badge style as the More menu.
+class _AddOption extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _AddOption({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: dark ? 0.24 : 0.14),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle),
+      onTap: onTap,
     );
   }
 }

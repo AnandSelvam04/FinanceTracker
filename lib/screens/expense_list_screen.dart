@@ -18,6 +18,7 @@ import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/fade_slide_in.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/swipe_delete_background.dart';
 import '../widgets/transaction_edit_sheet.dart';
 
 class ExpenseListScreen extends StatefulWidget {
@@ -85,12 +86,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Period',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 12),
+              Text('Period', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
@@ -174,15 +171,15 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete expense?'),
+        title: const Text('Delete transaction?'),
         content: Text('Remove "${expense.description}" for '
-            '${formatMoney(expense.amount)}?'),
+            '${_rowAmount(context, expense)}?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel')),
-          ElevatedButton(
-              style: ElevatedButton.styleFrom(
+          FilledButton(
+              style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.error,
                 foregroundColor: Theme.of(context).colorScheme.onError,
               ),
@@ -255,9 +252,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Filters',
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
+                      style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 16),
                   DropdownButtonFormField<String?>(
                     initialValue:
                         categories.contains(category) ? category : null,
@@ -270,7 +266,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                     ],
                     onChanged: (v) => setSheet(() => category = v),
                   ),
-                  if (accounts.isNotEmpty)
+                  const SizedBox(height: 12),
+                  if (accounts.isNotEmpty) ...[
                     DropdownButtonFormField<int?>(
                       initialValue: accounts.any((a) => a.id == accountId)
                           ? accountId
@@ -284,6 +281,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       ],
                       onChanged: (v) => setSheet(() => accountId = v),
                     ),
+                    const SizedBox(height: 12),
+                  ],
                   Row(
                     children: [
                       Expanded(
@@ -353,7 +352,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       const Spacer(),
                       SizedBox(
                         height: kSheetActionHeight,
-                        child: ElevatedButton(
+                        child: FilledButton(
                           onPressed: () {
                             final appliedRange = range;
                             setState(() {
@@ -511,6 +510,24 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       onSelected: (_) => setState(() => _typeFilter = entry.$1),
                     ),
                   ),
+                // The filter icon in the app bar was the only sign that
+                // category/account/amount filters were narrowing the list.
+                // Surface them here, with a one-tap clear.
+                if (_hasAdvancedFilters)
+                  InputChip(
+                    avatar: const Icon(Icons.filter_alt, size: 18),
+                    label: const Text('Filters on'),
+                    selected: true,
+                    onPressed: _openFilterSheet,
+                    onDeleted: () => setState(() {
+                      _categoryFilter = null;
+                      _accountFilter = null;
+                      _minAmount = null;
+                      _maxAmount = null;
+                      _dateRange = null;
+                    }),
+                    deleteButtonTooltipMessage: 'Clear filters',
+                  ),
               ],
             ),
           ),
@@ -545,98 +562,209 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                     ),
                   );
                 }
+                // Flatten into day headers followed by that day's rows (the
+                // list is already newest-first), so the date is said once per
+                // day instead of repeated on every row.
+                final items = <Object>[];
+                final daySpent = <DateTime, int>{};
+                DateTime? day;
+                for (final e in expenses) {
+                  final d = DateUtils.dateOnly(e.date);
+                  if (d != day) {
+                    day = d;
+                    items.add(d);
+                  }
+                  items.add(e);
+                  if (e.isExpense) {
+                    daySpent[d] = (daySpent[d] ?? 0) + provider.baseAmountOf(e);
+                  }
+                }
+                final spent = expenses
+                    .where((e) => e.isExpense)
+                    .fold<int>(0, (s, e) => s + provider.baseAmountOf(e));
+                final income = expenses
+                    .where((e) => e.isIncome)
+                    .fold<int>(0, (s, e) => s + provider.baseAmountOf(e));
                 return RefreshIndicator(
                   onRefresh: () =>
                       context.read<ExpenseProvider>().reloadLoadedYears(),
-                  child: ListView.separated(
-                    itemCount: expenses.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  child: ListView.builder(
+                    // +1 for the period summary leading the list.
+                    itemCount: items.length + 1,
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: scrollPadding(context, all: 12, fab: true),
+                    padding: scrollPadding(context, all: 12, top: 4, fab: true),
                     itemBuilder: (context, index) {
-                    final expense = expenses[index];
-                    final rowKey =
-                        expense.id ?? '${expense.description}-$index';
-                    // Set.add returns true only the first time this row is
-                    // built, so each row fades in once and does not replay when
-                    // it scrolls back into view.
-                    final firstAppearance = _animatedRows.add(rowKey);
-                    // Swiping is the only way to delete here, and a
-                    // Dismissible exposes no action to TalkBack or switch
-                    // access — so those users could not delete a transaction
-                    // at all. Publish a custom semantics action and a
-                    // long-press, matching the explicit delete buttons the
-                    // budgets/accounts/recurring screens already have.
-                    final Widget row = Semantics(
-                        customSemanticsActions: {
-                          const CustomSemanticsAction(label: 'Delete'): () =>
-                              _confirmDelete(expense),
-                        },
-                        child: Dismissible(
-                          key: ValueKey(
-                              expense.id ?? '${expense.description}-$index'),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            color: Theme.of(context).colorScheme.error,
-                            child: Icon(Icons.delete,
-                                color: Theme.of(context).colorScheme.onError),
-                          ),
-                          confirmDismiss: (_) => _confirmDelete(expense),
-                          child: Card(
-                            margin: EdgeInsets.zero,
-                            child: ListTile(
-                              leading: _CategoryAvatar(expense: expense),
-                              title: Text(expense.description,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600)),
-                              subtitle: Text(
-                                  '${expense.category} · ${formatDateWithDay(expense.date)}'),
-                              trailing: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                      expense.isIncome
-                                          ? '+${_rowAmount(context, expense)}'
-                                          : expense.isTransfer
-                                              ? _rowAmount(context, expense)
-                                              : '-${_rowAmount(context, expense)}',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: expense.isIncome
-                                              ? incomeColor(context)
-                                              : expense.isTransfer
-                                                  ? transferColor(context)
-                                                  : expenseColor(context))),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                      expense.isExpense
-                                          ? expense.paymentMode
-                                          : expense.isIncome
-                                              ? 'Income'
-                                              : 'Transfer',
-                                      style: TextStyle(
-                                          color: mutedTextColor(context),
-                                          fontSize: 12)),
-                                ],
-                              ),
-                              onTap: () => editTransactionSheet(
-                                  context, expense,
-                                  firstDate: _pickerFirstDate),
-                              onLongPress: () => _confirmDelete(expense),
-                            ),
-                          ),
-                        ));
-                    return firstAppearance
-                        ? FadeSlideIn(child: row)
-                        : row;
+                      if (index == 0) {
+                        return _PeriodSummary(
+                          count: expenses.length,
+                          spent: spent,
+                          income: income,
+                        );
+                      }
+                      final item = items[index - 1];
+                      if (item is DateTime) {
+                        return _DayHeader(
+                            day: item, spent: daySpent[item] ?? 0);
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _buildRow(context, item as Expense, index),
+                      );
                     },
                   ),
                 );
               },
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRow(BuildContext context, Expense expense, int index) {
+    final rowKey = expense.id ?? '${expense.description}-$index';
+    // Set.add returns true only the first time this row is built, so each row
+    // fades in once and does not replay when it scrolls back into view.
+    final firstAppearance = _animatedRows.add(rowKey);
+    final amountColor = expense.isIncome
+        ? incomeColor(context)
+        : expense.isTransfer
+            ? transferColor(context)
+            : expenseColor(context);
+    final amount = expense.isIncome
+        ? '+${_rowAmount(context, expense)}'
+        : expense.isTransfer
+            ? _rowAmount(context, expense)
+            : '-${_rowAmount(context, expense)}';
+    final detail = expense.isTransfer
+        ? 'Transfer'
+        : expense.isIncome
+            ? '${expense.category} · Income'
+            : '${expense.category} · ${expense.paymentMode}';
+    // Swiping is the only way to delete here, and a Dismissible exposes no
+    // action to TalkBack or switch access — so those users could not delete a
+    // transaction at all. Publish a custom semantics action and a long-press,
+    // matching the explicit delete buttons the budgets/accounts/recurring
+    // screens already have.
+    final Widget row = Semantics(
+        customSemanticsActions: {
+          const CustomSemanticsAction(label: 'Delete'): () =>
+              _confirmDelete(expense),
+        },
+        child: Dismissible(
+          key: ValueKey(rowKey),
+          direction: DismissDirection.endToStart,
+          background: const SwipeDeleteBackground(),
+          confirmDismiss: (_) => _confirmDelete(expense),
+          child: Card(
+            margin: EdgeInsets.zero,
+            child: ListTile(
+              leading: _CategoryAvatar(expense: expense),
+              title: Text(
+                  expense.description.isEmpty
+                      ? '(no description)'
+                      : expense.description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle:
+                  Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis),
+              trailing: Text(amount,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: amountColor)),
+              onTap: () => editTransactionSheet(context, expense,
+                  firstDate: _pickerFirstDate),
+              onLongPress: () => _confirmDelete(expense),
+            ),
+          ),
+        ));
+    return firstAppearance ? FadeSlideIn(child: row) : row;
+  }
+}
+
+/// Totals for whatever the current filters show, leading the list so the
+/// period's spend is visible without leaving the Transactions tab.
+class _PeriodSummary extends StatelessWidget {
+  final int count;
+  final int spent;
+  final int income;
+
+  const _PeriodSummary({
+    required this.count,
+    required this.spent,
+    required this.income,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = mutedTextColor(context);
+    Widget figure(String label, int amount, Color color) => Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label.toUpperCase(),
+                  style: TextStyle(
+                      fontSize: 11,
+                      letterSpacing: 0.6,
+                      fontWeight: FontWeight.w600,
+                      color: muted)),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(formatMoney(amount),
+                    style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: color)),
+              ),
+            ],
+          ),
+        );
+    return Card(
+      margin: const EdgeInsets.only(bottom: 4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            figure('Spent', spent, expenseColor(context)),
+            figure('Income', income, incomeColor(context)),
+            Text('$count ${count == 1 ? 'entry' : 'entries'}',
+                style: TextStyle(fontSize: 12, color: muted)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Date heading over one day's transactions, with that day's spend.
+class _DayHeader extends StatelessWidget {
+  final DateTime day;
+  final int spent;
+
+  const _DayHeader({required this.day, required this.spent});
+
+  String _label() {
+    final today = DateUtils.dateOnly(DateTime.now());
+    if (day == today) return 'Today';
+    if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
+    return formatDateWithDay(day);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: mutedTextColor(context),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+      child: Row(
+        children: [
+          Expanded(child: Text(_label(), style: style)),
+          if (spent > 0) Text('-${formatMoney(spent)}', style: style),
         ],
       ),
     );
@@ -661,7 +789,8 @@ class _CategoryAvatar extends StatelessWidget {
     if (expense.isIncome) {
       return CircleAvatar(
         backgroundColor: incomeAvatarColor(context),
-        child: Icon(categoryIcon(expense.category), color: incomeColor(context)),
+        child:
+            Icon(categoryIcon(expense.category), color: incomeColor(context)),
       );
     }
     return CategoryAvatar(category: expense.category);

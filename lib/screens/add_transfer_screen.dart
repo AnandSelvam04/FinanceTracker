@@ -7,6 +7,7 @@ import '../providers/expense_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
+import '../widgets/date_field_row.dart';
 
 class AddTransferScreen extends StatefulWidget {
   const AddTransferScreen({super.key});
@@ -71,6 +72,8 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  // The fields sat flush against each other with no gap.
+                  spacing: 12,
                   children: [
                     DropdownButtonFormField<int>(
                       initialValue: _fromAccountId,
@@ -141,33 +144,16 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                       decoration:
                           const InputDecoration(labelText: 'Note (optional)'),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                              'Date: ${_selectedDate.toString().split(' ')[0]}'),
-                        ),
-                        TextButton(
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: _selectedDate,
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime.now(),
-                            );
-                            if (picked != null) {
-                              setState(() => _selectedDate = picked);
-                            }
-                          },
-                          child: const Text('Select Date'),
-                        ),
-                      ],
+                    DateFieldRow(
+                      date: _selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                      onChanged: (d) => setState(() => _selectedDate = d),
                     ),
-                    const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
+                      height: 52,
+                      child: FilledButton(
                         onPressed: _isSaving ? null : () => _save(context),
                         child: _isSaving
                             ? SizedBox(

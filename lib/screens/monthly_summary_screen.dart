@@ -5,6 +5,7 @@ import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../services/statement_pdf.dart';
+import '../widgets/section_header.dart';
 import '../widgets/category_avatar.dart';
 import '../utils/app_colors.dart';
 import '../utils/category_colors.dart';
@@ -50,9 +51,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
 
   // --- Period boundaries -----------------------------------------------------
 
-  DateTime get _rangeStart => _mode == _PeriodMode.week
-      ? _weekStart
-      : DateTime(_year, _month, 1);
+  DateTime get _rangeStart =>
+      _mode == _PeriodMode.week ? _weekStart : DateTime(_year, _month, 1);
 
   /// Exclusive upper bound of the current period.
   DateTime get _rangeEnd => _mode == _PeriodMode.week
@@ -62,7 +62,9 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
 
   DateTime get _prevStart => _mode == _PeriodMode.week
       ? _weekStart.subtract(const Duration(days: 7))
-      : (_month == 1 ? DateTime(_year - 1, 12, 1) : DateTime(_year, _month - 1, 1));
+      : (_month == 1
+          ? DateTime(_year - 1, 12, 1)
+          : DateTime(_year, _month - 1, 1));
 
   DateTime get _prevEnd => _rangeStart;
 
@@ -139,8 +141,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         final expenseRows = rows.where((e) => e.isExpense).toList();
         final income = sumBase(rows.where((e) => e.isIncome));
         final expense = sumBase(expenseRows);
-        final prevExpense =
-            sumBase(prevRows.where((e) => e.isExpense));
+        final prevExpense = sumBase(prevRows.where((e) => e.isExpense));
 
         // Category totals for the period (expenses only).
         final categoryTotals = <String, int>{};
@@ -237,7 +238,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                   // Reset the dropdown's internal state whenever the period
                   // changes, so it can't keep showing a category that isn't in
                   // the newly selected period.
-                  key: ValueKey('cat-${_mode.name}-${formatIsoDate(_rangeStart)}'),
+                  key: ValueKey(
+                      'cat-${_mode.name}-${formatIsoDate(_rangeStart)}'),
                   categories: sortedCategories.map((e) => e.key).toList(),
                   selected: selectedCategory,
                   onChanged: (c) => setState(() => _category = c),
@@ -286,8 +288,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     final net = income - expense;
     final savingsRate = income > 0 ? (net / income) * 100 : null;
     final topCategories = sortedCategories.take(6).toList();
-    final categoryTotal =
-        sortedCategories.fold<int>(0, (s, e) => s + e.value);
+    final categoryTotal = sortedCategories.fold<int>(0, (s, e) => s + e.value);
 
     return [
       Card(
@@ -302,7 +303,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                   color: expenseColor(context)),
               const Divider(),
               _row('Net', formatMoneySigned(net),
-                  color: net >= 0 ? incomeColor(context) : expenseColor(context),
+                  color:
+                      net >= 0 ? incomeColor(context) : expenseColor(context),
                   bold: true),
               const SizedBox(height: 8),
               _row(
@@ -323,7 +325,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
       const SizedBox(height: 16),
       Row(
         children: [
-          Text('Expense vs last ${_mode == _PeriodMode.week ? 'week' : 'month'}: ',
+          Text(
+              'Expense vs last ${_mode == _PeriodMode.week ? 'week' : 'month'}: ',
               style: const TextStyle(fontSize: 14)),
           _DeltaLabel(current: expense, previous: prevExpense),
         ],
@@ -331,9 +334,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
       const SizedBox(height: 16),
       _SpendByAccount(totals: spendByAccount),
       const SizedBox(height: 16),
-      const Text('Top Categories',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 8),
+      const SectionHeader('Top categories'),
       if (topCategories.isEmpty)
         const Padding(
           padding: EdgeInsets.all(8),
@@ -482,8 +483,7 @@ class _CategoryProgressRow extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(category,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                             overflow: TextOverflow.ellipsis),
                       ),
                       Text(formatMoney(amount),
@@ -491,14 +491,10 @@ class _CategoryProgressRow extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      value: fraction,
-                      minHeight: 7,
-                      backgroundColor: color.withValues(alpha: 0.15),
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                    ),
+                  LinearProgressIndicator(
+                    value: fraction,
+                    backgroundColor: color.withValues(alpha: 0.15),
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -554,8 +550,7 @@ class _CategoryFocus extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(category,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
+                          style: Theme.of(context).textTheme.titleLarge,
                           overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
                       Text(
@@ -571,8 +566,7 @@ class _CategoryFocus extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(formatMoney(total),
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
+                        style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 2),
                     _DeltaLabel(current: total, previous: previous),
                   ],
@@ -664,9 +658,7 @@ class _SpendByAccount extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Spend by Account',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
+        const SectionHeader('Spend by account'),
         Card(
           margin: EdgeInsets.zero,
           child: Padding(

@@ -4,6 +4,7 @@ import '../providers/expense_provider.dart';
 import '../utils/category_colors.dart';
 import '../utils/category_icons.dart';
 import '../utils/insets.dart';
+import '../widgets/section_header.dart';
 import '../widgets/category_trend_chart.dart';
 import '../widgets/empty_state.dart';
 
@@ -69,10 +70,8 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Spending by Category (Last 12 Months)',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
+                const SectionHeader('Spending by category (last 12 months)'),
+                const SizedBox(height: 8),
                 CategoryTrendChart(
                   provider: provider,
                   categories: _selected.toList(),
@@ -86,8 +85,14 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
                     return FilterChip(
                       label: Text(category),
                       selected: selected,
+                      // The checkmark is drawn over the avatar, hiding the
+                      // category icon; the selected fill already shows state.
+                      showCheckmark: false,
                       avatar: Icon(categoryIcon(category),
-                          size: 18, color: CategoryColors.forCategory(category)),
+                          size: 18,
+                          color: CategoryColors.foreground(
+                              CategoryColors.forCategory(category),
+                              Theme.of(context).brightness)),
                       onSelected: (value) {
                         setState(() {
                           if (value) {

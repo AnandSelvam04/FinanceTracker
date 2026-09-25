@@ -99,7 +99,10 @@ class _CategoryBar extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(categoryIcon(label), size: 16, color: color),
+                Icon(categoryIcon(label),
+                    size: 16,
+                    color: CategoryColors.foreground(
+                        color, Theme.of(context).brightness)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(

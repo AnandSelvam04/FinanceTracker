@@ -34,6 +34,13 @@ String formatIsoDate(DateTime date) =>
 String formatShortDate(DateTime date) =>
     '${date.day} ${monthName(date.month).substring(0, 3)} ${date.year}';
 
+/// Short date that drops the year when it is the current one, e.g. "25 Sep"
+/// or "25 Sep 2025" — for list rows where every character of width counts.
+String formatCompactDate(DateTime date, {DateTime? now}) =>
+    date.year == (now ?? DateTime.now()).year
+        ? '${date.day} ${monthName(date.month).substring(0, 3)}'
+        : formatShortDate(date);
+
 /// Date prefixed with its weekday, e.g. "Fri, 24 Jul 2026".
 /// DateTime.weekday is 1 (Mon) .. 7 (Sun).
 String formatDateWithDay(DateTime date) =>

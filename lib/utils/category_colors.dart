@@ -31,6 +31,26 @@ class CategoryColors {
     'Other': Color(0xFF6D4C41),
   };
 
+  /// [color] adjusted for drawing an icon or outline on the current theme's
+  /// surface.
+  ///
+  /// The palette is tuned for light backgrounds; on a dark surface the deeper
+  /// shades (the brown of "Other", the indigo of "Education") nearly vanish.
+  /// In dark mode this raises the colour's lightness to at least
+  /// [darkMinLightness] while keeping its hue, so each category still reads as
+  /// its own colour. Chart bars and lines keep the base colour — at their size
+  /// they already stand out.
+  static Color foreground(Color color, Brightness brightness) {
+    if (brightness != Brightness.dark) return color;
+    final hsl = HSLColor.fromColor(color);
+    return hsl.lightness >= darkMinLightness
+        ? color
+        : hsl.withLightness(darkMinLightness).toColor();
+  }
+
+  /// Lightest-shade floor used by [foreground] in dark mode.
+  static const double darkMinLightness = 0.68;
+
   static Color forCategory(String category) {
     final builtIn = _builtIn[category];
     if (builtIn != null) return builtIn;

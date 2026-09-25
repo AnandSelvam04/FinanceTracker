@@ -9,6 +9,8 @@ import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../services/csv_import.dart';
 import '../services/db_service.dart';
+import '../widgets/section_header.dart';
+import '../utils/date_format.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_logger.dart';
 import '../utils/currency_format.dart';
@@ -173,7 +175,7 @@ class _ImportScreenState extends State<ImportScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  ElevatedButton.icon(
+                  FilledButton.icon(
                     icon: const Icon(Icons.folder_open),
                     label: const Text('Choose CSV file'),
                     onPressed: _pickFile,
@@ -221,13 +223,10 @@ class _ImportScreenState extends State<ImportScreen> {
                     ),
                   ),
                 const SizedBox(height: 16),
-                Text('Preview',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
+                const SectionHeader('Preview'),
                 _preview(rows),
                 const SizedBox(height: 16),
-                ElevatedButton.icon(
+                FilledButton.icon(
                   icon: _importing
                       ? const SizedBox(
                           width: 18,
@@ -262,8 +261,8 @@ class _ImportScreenState extends State<ImportScreen> {
             contentPadding: EdgeInsets.zero,
             title: Text(
                 e.description.isEmpty ? '(no description)' : e.description),
-            subtitle: Text(
-                '${e.category} · ${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')} · ${e.type}'),
+            subtitle:
+                Text('${e.category} · ${formatShortDate(e.date)} · ${e.type}'),
             trailing: Text(formatMoney(e.amount)),
           ),
         Padding(
