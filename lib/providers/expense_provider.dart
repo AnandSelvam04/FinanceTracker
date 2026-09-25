@@ -92,16 +92,28 @@ class ExpenseProvider extends ChangeNotifier {
     return map;
   }
 
+  /// Swaps in [rows] as the full contents of [year] and marks it loaded.
+  ///
+  /// Synchronous on purpose: callers fetch first and only then replace, so no
+  /// `await` sits between dropping the old rows and adding the new ones. Two
+  /// overlapping loads of the same year (the dashboard and a pushed screen both
+  /// asking for the current year on start-up, or two quick edits) therefore
+  /// each leave exactly one copy of the year, instead of both appending and
+  /// double-counting every total.
+  void _replaceYear(int year, List<Expense> rows) {
+    _expenses.removeWhere((e) => e.date.year == year);
+    _expenses.addAll(rows);
+    // Sort descending by date
+    _expenses.sort((a, b) => b.date.compareTo(a.date));
+    _loadedYears.add(year);
+  }
+
   /// Ensures expenses for the given year are loaded.
   Future<void> ensureYearLoaded(int year) async {
     if (_loadedYears.contains(year)) return;
 
     await _tracked(() async {
-      final newExpenses = await DBService().getExpensesByYear(year);
-      _expenses.addAll(newExpenses);
-      // Sort descending by date
-      _expenses.sort((a, b) => b.date.compareTo(a.date));
-      _loadedYears.add(year);
+      _replaceYear(year, await DBService().getExpensesByYear(year));
     });
     notifyListeners();
   }
@@ -109,14 +121,7 @@ class ExpenseProvider extends ChangeNotifier {
   /// Reloads expenses for a specific year (e.g., after an update)
   Future<void> _reloadYear(int year) async {
     if (!_loadedYears.contains(year)) return;
-
-    // Remove existing expenses for that year
-    _expenses.removeWhere((e) => e.date.year == year);
-
-    // Fetch fresh data
-    final newExpenses = await DBService().getExpensesByYear(year);
-    _expenses.addAll(newExpenses);
-    _expenses.sort((a, b) => b.date.compareTo(a.date));
+    _replaceYear(year, await DBService().getExpensesByYear(year));
     notifyListeners();
   }
 
@@ -178,9 +183,15 @@ class ExpenseProvider extends ChangeNotifier {
   }
 
   Future<void> updateExpense(Expense expense) async {
+    // The edit sheets let the date change, so the row may be moving to another
+    // year. Reload the year it came from too, or the old copy stays in memory
+    // and is counted alongside the new one.
+    final previousYear =
+        _expenses.where((e) => e.id == expense.id).firstOrNull?.date.year;
     await DBService().updateExpense(expense);
-    if (_loadedYears.contains(expense.date.year)) {
-      await _reloadYear(expense.date.year);
+    await _reloadYear(expense.date.year);
+    if (previousYear != null && previousYear != expense.date.year) {
+      await _reloadYear(previousYear);
     }
   }
 

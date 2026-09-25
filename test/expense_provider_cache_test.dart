@@ -97,4 +97,41 @@ void main() {
     expect(rated, expected);
     expect(rated, isNot(unrated));
   });
+
+  test('concurrent loads of the same year keep one copy of each row',
+      () async {
+    await add(10000);
+
+    // The dashboard and a pushed screen can both ask for the current year
+    // before either load has finished.
+    await Future.wait([
+      provider.ensureYearLoaded(2026),
+      provider.ensureYearLoaded(2026),
+    ]);
+
+    expect(provider.expensesForYear(2026), hasLength(1));
+    expect(provider.totalForMonth(2026, 5), 10000);
+  });
+
+  test('moving a row to another year drops it from the old year', () async {
+    await add(10000);
+    await provider.ensureYearLoaded(2026);
+    await provider.ensureYearLoaded(2025);
+    final row = provider.expensesForYear(2026).single;
+
+    await provider.updateExpense(Expense(
+      id: row.id,
+      description: row.description,
+      amount: row.amount,
+      date: DateTime(2025, 12, 31),
+      category: row.category,
+      paymentMode: row.paymentMode,
+      type: row.type,
+    ));
+
+    expect(provider.expensesForYear(2026), isEmpty);
+    expect(provider.totalForYear(2026), 0);
+    expect(provider.expensesForYear(2025), hasLength(1));
+    expect(provider.totalForYear(2025), 10000);
+  });
 }
