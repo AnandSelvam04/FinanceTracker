@@ -21,9 +21,15 @@ class AppTheme {
       _build(Brightness.dark, seedColor ?? seed);
 
   static ThemeData _build(Brightness brightness, Color seedColor) {
+    // Fidelity keeps `primary` true to the seed. The default tonal-spot
+    // variant desaturated the vivid brand blue into a muted slate-purple, so
+    // the FAB, switches, hero cards and headline totals clashed with the
+    // saturated app bar (which paints the raw seed). Fidelity makes every
+    // accent read as the same brand colour the header shows.
     final scheme = ColorScheme.fromSeed(
       seedColor: seedColor,
       brightness: brightness,
+      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
     );
     final isDark = brightness == Brightness.dark;
 
@@ -205,9 +211,17 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
         ),
       ),
-      listTileTheme: const ListTileThemeData(
-        shape: RoundedRectangleBorder(
+      listTileTheme: ListTileThemeData(
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+        // Material 3 sets trailing text in labelSmall (11px), and nearly every
+        // list here puts its amount in the trailing slot — so balances and
+        // transaction amounts rendered as the smallest text on screen. Money
+        // is the point of the row; give it a readable, firm weight.
+        leadingAndTrailingTextStyle: textTheme.titleSmall?.copyWith(
+          fontSize: 15,
+          color: scheme.onSurface,
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
