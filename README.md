@@ -13,7 +13,8 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 - Recurring: set daily/weekly/monthly/yearly rules that auto-post due transactions on launch (with catch-up); pause or edit any rule.
 - Insights: monthly summary (income, expense, net, savings rate, spend split per account with each one's share, top categories with month-over-month deltas), cash-flow chart, and category trend comparisons.
 - Investments: add/list/edit investments with per-type totals; record a withdrawal to take money back out of a holding (stored as a negative contribution, so the type total and net worth fall); and move a whole type's contributions to another type from the type detail screen when one was filed under the wrong category.
-- Budgets: set monthly budgets per category and see spent vs. budget with progress bars (income and transfers excluded from spend).
+- Budgets: set monthly budgets per category and see spent vs. budget with progress bars (income and transfers excluded from spend). Step between months; for the current month each cap shows a month-end pace forecast — an early warning when today's pace would break the cap, otherwise how much is left to spend per day.
+- Savings goals: set a target amount with an optional target date, add or withdraw money toward it (with undo), and see progress plus the monthly amount needed to hit the date. Goals earmark money rather than moving it, so account balances and net worth are unaffected. Included in backups.
 - SMS import: off by default; enable **Read SMS for transactions** in Settings. Scans the last 2 days of the SMS inbox for bank transaction alerts, parses out amount, direction, merchant, and date, and routes each one to the account whose last-4 digits the message names. Money moving between your own accounts (a card bill paid from a bank, an NEFT between banks) is detected from the from/to pair and recorded as a transfer rather than as spending, and the two alerts one movement sends are collapsed into a single row. Candidates that match a transaction you already entered by hand are flagged and left unchecked. Categories are recalled from how the same merchant was filed before, so a familiar one arrives ready to import. Everything lands in a review queue — nothing posts to the ledger without confirmation, and the queue's bulk bar can select all, set one account for the batch, or dismiss every selected message at once (with a single Undo). Imported and dismissed messages are remembered, so a rescan never offers the same one twice.
 - Filter & download: filter the Transactions list by search, year/month, type, category, account, amount range, or a custom date range — then download exactly that set as CSV.
 - Backup / Export / Import: Drive backup/restore, versioned local JSON backup/restore, optional passphrase-encrypted backups (AES-256-GCM, PBKDF2), CSV/JSON download via the share sheet, a PDF monthly statement, and CSV import with column mapping and a preview.
@@ -36,8 +37,8 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 ```
 lib/
   main.dart                 # App entry, providers, theming, AuthGate, onboarding wrapper
-  models/                   # Expense (expense/income/transfer), account, investment, budget, recurring rule, template
-  providers/                # Expense, Investment, Budget, Account, Recurring, Template providers
+  models/                   # Expense (expense/income/transfer), account, investment, budget, recurring rule, template, savings goal
+  providers/                # Expense, Investment, Budget, Account, Recurring, Template, Goal providers
   services/                 # DB (schema v10, migrations), backup + crypto, auth, notifications, recurring, CSV + SMS import, PDF statement
   screens/                  # UI screens (home, add expense/transfer, accounts, budgets, recurring, insights, backups, list)
   widgets/                  # Charts (pie, trends, cash flow, category trend), month selector
