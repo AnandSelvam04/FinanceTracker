@@ -37,9 +37,38 @@ int? parseMinor(String input) {
   return rupeesToMinor(major);
 }
 
+/// Groups the digits of a non-negative whole number for display: Indian
+/// lakh/crore grouping (12,34,567) for the rupee, thousands (1,234,567) for
+/// every other symbol. Unseparated figures like 675300.00 were hard to read at
+/// a glance — the one thing a finance screen must not be.
+String groupDigits(String digits, {String? symbol}) {
+  if (digits.length <= 3) return digits;
+  final indian = (symbol ?? CurrencyFormat.symbol) == '₹';
+  final last3 = digits.substring(digits.length - 3);
+  var rest = digits.substring(0, digits.length - 3);
+  final size = indian ? 2 : 3;
+  final groups = <String>[];
+  while (rest.length > size) {
+    groups.insert(0, rest.substring(rest.length - size));
+    rest = rest.substring(0, rest.length - size);
+  }
+  if (rest.isNotEmpty) groups.insert(0, rest);
+  return '${groups.join(',')},$last3';
+}
+
+/// A major-unit amount with grouped digits and [decimals] places. [minor]
+/// should be non-negative; callers handle the sign.
+String _grouped(int minor, int decimals, String symbol) {
+  final fixed = (minor.abs() / 100).toStringAsFixed(decimals);
+  final dot = fixed.indexOf('.');
+  final whole = dot < 0 ? fixed : fixed.substring(0, dot);
+  final frac = dot < 0 ? '' : fixed.substring(dot);
+  return '${minor < 0 ? '-' : ''}${groupDigits(whole, symbol: symbol)}$frac';
+}
+
 /// Formats minor units with the configured currency symbol and 2 decimals.
 String formatMoney(int minor) =>
-    '${CurrencyFormat.symbol}${(minor / 100).toStringAsFixed(2)}';
+    '${CurrencyFormat.symbol}${_grouped(minor, 2, CurrencyFormat.symbol)}';
 
 /// Formats a possibly-negative amount with the minus sign *before* the
 /// currency symbol — "-₹75.00", the conventional presentation.
@@ -53,7 +82,7 @@ String formatMoneySigned(int minor) =>
 /// Like [formatMoney] but with an explicit [symbol], for accounts held in a
 /// currency other than the app's base currency.
 String formatMoneyIn(String symbol, int minor) =>
-    '$symbol${(minor / 100).toStringAsFixed(2)}';
+    '$symbol${_grouped(minor, 2, symbol)}';
 
 /// [formatMoneySigned] with an explicit [symbol], for an account balance that
 /// can legitimately be negative — a credit card's balance is what is owed, so
@@ -63,7 +92,7 @@ String formatMoneySignedIn(String symbol, int minor) =>
 
 /// Formats minor units rounded to whole major units (no decimals).
 String formatMoneyRounded(int minor) =>
-    '${CurrencyFormat.symbol}${(minor / 100).round()}';
+    '${CurrencyFormat.symbol}${_grouped((minor / 100).round() * 100, 0, CurrencyFormat.symbol)}';
 
 /// Converts an [amount] in an account currency (minor units) to base-currency
 /// minor units using [rate] (base units per 1 account-currency unit).

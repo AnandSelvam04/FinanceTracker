@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 13;
+  static const int dbVersion = 14;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -83,6 +83,11 @@ class DbConstants {
 
   // Templates Table
   static const String tableTemplates = 'templates';
+
+  // Savings goals table (added in schema v14). colAmount holds the target,
+  // colSaved the amount set aside so far, colDate the optional target date.
+  static const String tableGoals = 'goals';
+  static const String colSaved = 'saved';
 
   // Frequency values stored in recurring_rules.frequency
   static const String freqDaily = 'daily';

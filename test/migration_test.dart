@@ -191,4 +191,51 @@ void main() {
         .firstWhere((e) => e.description == 'SWIGGY');
     expect(saved.sourceRef, 'sms:vm-hdfcbk:1000:abcd1234');
   });
+
+  test('v13 database gains an empty goals table at v14', () async {
+    // Drop the singleton's open handle so it re-opens (and upgrades) this file.
+    await DBService().close();
+    DBService.dbNameOverride = 'goals_migration_test.db';
+    final path = join(await getDatabasesPath(), 'goals_migration_test.db');
+    await databaseFactory.deleteDatabase(path);
+
+    // A v13 database: only the expenses table matters here, plus a row to
+    // prove the upgrade leaves existing data alone.
+    final v13 = await databaseFactory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 13,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE expenses(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              description TEXT,
+              amount INTEGER,
+              date TEXT,
+              category TEXT,
+              paymentMode TEXT,
+              type TEXT NOT NULL DEFAULT 'expense',
+              accountId INTEGER,
+              toAccountId INTEGER,
+              toAmount INTEGER,
+              sourceRef TEXT
+            )
+          ''');
+        },
+      ),
+    );
+    await v13.insert('expenses', {
+      'description': 'Kept',
+      'amount': 1000,
+      'date': DateTime(2026, 9, 1).toIso8601String(),
+      'category': 'Food',
+      'paymentMode': 'Cash',
+    });
+    await v13.close();
+
+    final db = await DBService().database;
+    expect(await db.getVersion(), DbConstants.dbVersion);
+    expect(await DBService().getGoals(), isEmpty);
+    expect((await DBService().getExpenses()).single.description, 'Kept');
+  });
 }

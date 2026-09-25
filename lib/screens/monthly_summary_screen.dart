@@ -88,7 +88,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
   String get _periodHeading {
     if (_mode == _PeriodMode.week) {
       final end = _weekStart.add(const Duration(days: 6));
-      return '${formatIsoDate(_weekStart)}  –  ${formatIsoDate(end)}';
+      return '${formatShortDate(_weekStart)}  –  ${formatShortDate(end)}';
     }
     return '${monthName(_month)} $_year';
   }

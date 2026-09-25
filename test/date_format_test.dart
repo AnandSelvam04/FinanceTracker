@@ -12,9 +12,16 @@ void main() {
   group('formatDateWithDay', () {
     test('prefixes the weekday abbreviation', () {
       // 2026-07-24 is a Friday; 07-19 Sunday; 07-20 Monday (weekday == 1).
-      expect(formatDateWithDay(DateTime(2026, 7, 24)), 'Fri, 2026-07-24');
-      expect(formatDateWithDay(DateTime(2026, 7, 19)), 'Sun, 2026-07-19');
-      expect(formatDateWithDay(DateTime(2026, 7, 20)), 'Mon, 2026-07-20');
+      expect(formatDateWithDay(DateTime(2026, 7, 24)), 'Fri, 24 Jul 2026');
+      expect(formatDateWithDay(DateTime(2026, 7, 19)), 'Sun, 19 Jul 2026');
+      expect(formatDateWithDay(DateTime(2026, 7, 20)), 'Mon, 20 Jul 2026');
+    });
+  });
+
+  group('formatShortDate / formatMonthYear', () {
+    test('read as day, short month, year', () {
+      expect(formatShortDate(DateTime(2026, 9, 5)), '5 Sep 2026');
+      expect(formatMonthYear(2026, 12), 'December 2026');
     });
   });
 

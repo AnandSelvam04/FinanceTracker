@@ -620,7 +620,7 @@ class _CategoryDetailSheet extends StatelessWidget {
                                 ? '(no description)'
                                 : e.description,
                             overflow: TextOverflow.ellipsis),
-                        subtitle: Text(formatIsoDate(e.date)),
+                        subtitle: Text(formatDateWithDay(e.date)),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [

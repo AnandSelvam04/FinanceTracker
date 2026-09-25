@@ -8,6 +8,7 @@ import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../utils/date_format.dart';
+import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
 
 class RecurringScreen extends StatefulWidget {
@@ -279,19 +280,20 @@ class _RecurringScreenState extends State<RecurringScreen> {
               return Card(
                 margin: EdgeInsets.zero,
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: rule.isInvestment
-                        ? incomeAvatarColor(context)
-                        : rule.type == DbConstants.txIncome
-                            ? incomeAvatarColor(context)
-                            : expenseAvatarColor(context),
-                    child: Icon(
-                        rule.isInvestment ? Icons.trending_up : Icons.repeat,
-                        color: rule.type == DbConstants.txIncome ||
-                                rule.isInvestment
-                            ? incomeColor(context)
-                            : expenseColor(context)),
-                  ),
+                  // Expense rules wear their category's avatar, so "Netflix"
+                  // looks the same here as on the dashboard and transaction
+                  // list; income and SIP rules keep the green up-arrow.
+                  leading: !rule.isInvestment &&
+                          rule.type != DbConstants.txIncome
+                      ? CategoryAvatar(category: rule.category)
+                      : CircleAvatar(
+                          backgroundColor: incomeAvatarColor(context),
+                          child: Icon(
+                              rule.isInvestment
+                                  ? Icons.trending_up
+                                  : Icons.south_west,
+                              color: incomeColor(context)),
+                        ),
                   title: Text(rule.description,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(

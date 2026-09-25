@@ -30,6 +30,27 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   int _year = DateTime.now().year;
   int _month = DateTime.now().month;
 
+  /// The month the screen is showing. Budgets are per month, so listing every
+  /// month's caps at once (as this screen used to) buried this month's among
+  /// stale ones; a stepper keeps one month in view at a time.
+  int _viewYear = DateTime.now().year;
+  int _viewMonth = DateTime.now().month;
+
+  bool get _viewingCurrentMonth {
+    final now = DateTime.now();
+    return _viewYear == now.year && _viewMonth == now.month;
+  }
+
+  Future<void> _stepMonth(int delta) async {
+    final target = DateTime(_viewYear, _viewMonth + delta);
+    setState(() {
+      _viewYear = target.year;
+      _viewMonth = target.month;
+    });
+    // Spend for a year outside the loaded set would read as zero otherwise.
+    await context.read<ExpenseProvider>().ensureYearLoaded(target.year);
+  }
+
   /// Common expense categories offered in the picker before the user has any
   /// spend history — kept in step with the Add Expense screen's defaults.
   static const List<String> _defaultCategories = [
@@ -89,8 +110,9 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     } else {
       _category = '';
       _amount = 0;
-      _year = DateTime.now().year;
-      _month = DateTime.now().month;
+      // New budgets default to the month on screen, not always "now".
+      _year = _viewYear;
+      _month = _viewMonth;
     }
 
     final categoryController = TextEditingController(text: _category);
@@ -248,10 +270,11 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     categoryController.dispose();
   }
 
-  /// Sets or edits the single overall cap for the current month (amount only —
-  /// it always applies to this month across every category).
+  /// Sets or edits the single overall cap for the viewed month (amount only —
+  /// it applies to that month across every category).
   Future<void> _showOverallDialog({Budget? existing}) async {
-    final now = DateTime.now();
+    final year = _viewYear;
+    final month = _viewMonth;
     final controller = TextEditingController(
         text: existing == null ? '' : minorToEditString(existing.amount));
     final formKey = GlobalKey<FormState>();
@@ -267,8 +290,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             controller: controller,
             autofocus: true,
             decoration: InputDecoration(
-                labelText:
-                    'Cap for ${now.year}/${now.month.toString().padLeft(2, '0')}'),
+                labelText: 'Cap for ${monthName(month)} $year'),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             validator: validateAmountField,
           ),
@@ -286,8 +308,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 id: existing?.id,
                 category: Budget.overallCategory,
                 amount: parseMinor(controller.text.trim()) ?? 0,
-                year: now.year,
-                month: now.month,
+                year: year,
+                month: month,
               );
               if (existing == null) {
                 await provider.addBudget(budget);
@@ -330,15 +352,16 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   }
 
   Future<void> _copyLastMonth() async {
-    final now = DateTime.now();
     final messenger = ScaffoldMessenger.of(context);
     final provider = context.read<BudgetProvider>();
     final copied =
-        await provider.copyBudgetsFromPreviousMonth(now.year, now.month);
+        await provider.copyBudgetsFromPreviousMonth(_viewYear, _viewMonth);
     messenger.showSnackBar(SnackBar(
       content: Text(copied == 0
-          ? 'Nothing to copy — no budgets from last month are missing this month.'
-          : 'Copied $copied budget${copied == 1 ? '' : 's'} from last month.'),
+          ? 'Nothing to copy — no budgets from the previous month are missing '
+              'in ${monthName(_viewMonth)}.'
+          : 'Copied $copied budget${copied == 1 ? '' : 's'} from the '
+              'previous month.'),
     ));
   }
 
@@ -350,7 +373,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.copy_all),
-            tooltip: 'Copy last month\'s budgets',
+            tooltip: 'Copy previous month\'s budgets',
             onPressed: _copyLastMonth,
           ),
         ],
@@ -358,8 +381,20 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       body: Consumer2<BudgetProvider, ExpenseProvider>(
         builder: (context, budgetProvider, expenseProvider, _) {
           final now = DateTime.now();
-          final categoryBudgets = budgetProvider.categoryBudgets;
-          final overall = budgetProvider.overallBudgetRow(now.year, now.month);
+          final categoryBudgets = budgetProvider.categoryBudgets
+              .where((b) => b.year == _viewYear && b.month == _viewMonth)
+              .toList()
+            // Most-strained first, so the caps that need attention lead.
+            ..sort((a, b) {
+              double ratio(Budget x) => x.amount <= 0
+                  ? 0
+                  : expenseProvider.spentForCategoryInMonth(
+                          x.year, x.month, x.category) /
+                      x.amount;
+              return ratio(b).compareTo(ratio(a));
+            });
+          final overall =
+              budgetProvider.overallBudgetRow(_viewYear, _viewMonth);
 
           // Thresholds come from alerts.dart so the bar turns red at exactly
           // the point the banner and notifications fire.
@@ -378,11 +413,24 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
           return ListView(
             padding: scrollPadding(context, all: 12, fab: true),
             children: [
+              _BudgetMonthStepper(
+                year: _viewYear,
+                month: _viewMonth,
+                isCurrent: _viewingCurrentMonth,
+                onStep: _stepMonth,
+                onToday: _viewingCurrentMonth
+                    ? null
+                    : () => _stepMonth((now.year - _viewYear) * 12 +
+                        now.month -
+                        _viewMonth),
+              ),
+              const SizedBox(height: 8),
               _OverallBudgetCard(
-                year: now.year,
-                month: now.month,
+                year: _viewYear,
+                month: _viewMonth,
                 cap: overall?.amount ?? 0,
-                spent: expenseProvider.totalForMonth(now.year, now.month),
+                spent: expenseProvider.totalForMonth(_viewYear, _viewMonth),
+                now: now,
                 progressColor: progressColor,
                 onSet: () => _showOverallDialog(existing: overall),
                 onClear: overall == null
@@ -392,12 +440,16 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               ),
               const SizedBox(height: 16),
               if (categoryBudgets.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   child: EmptyState(
                     icon: Icons.pie_chart_outline,
-                    title: 'No per-category budgets yet',
-                    message: 'Tap + to cap a category and track its spending.',
+                    title: 'No category budgets for '
+                        '${monthName(_viewMonth)}',
+                    message: 'Cap a category to track its spending, or copy '
+                        'the previous month\'s caps.',
+                    actionLabel: 'Add budget',
+                    onAction: () => _showBudgetDialog(),
                   ),
                 )
               else
@@ -406,18 +458,26 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     margin: EdgeInsets.zero,
                     child: ListTile(
                       leading: CategoryAvatar(category: budget.category),
-                      title: Text(
-                          '${budget.category} · ${monthName(budget.month)} ${budget.year}'),
+                      title: Text(budget.category,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Builder(builder: (context) {
                         final spent = spentForBudget(budget);
                         final progress =
                             budget.amount == 0 ? 0.0 : spent / budget.amount;
+                        final pace = budgetPace(
+                          spent: spent,
+                          cap: budget.amount,
+                          year: budget.year,
+                          month: budget.month,
+                          now: now,
+                        );
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                                'Budget: ${formatMoneyRounded(budget.amount)}'),
-                            Text('Spent: ${formatMoney(spent)}'),
+                            Text('${formatMoney(spent)} of '
+                                '${formatMoneyRounded(budget.amount)}'),
+                            if (pace != null)
+                              _PaceLine(pace: pace, compact: true),
                             const SizedBox(height: 4),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(6),
@@ -477,6 +537,9 @@ class _OverallBudgetCard extends StatelessWidget {
   /// no overall budget is set.
   final int cap;
   final int spent;
+
+  /// Today, for the month-end pace forecast (only shown for the current month).
+  final DateTime now;
   final Color Function(double ratio) progressColor;
   final VoidCallback onSet;
 
@@ -488,6 +551,7 @@ class _OverallBudgetCard extends StatelessWidget {
     required this.month,
     required this.cap,
     required this.spent,
+    required this.now,
     required this.progressColor,
     required this.onSet,
     required this.onClear,
@@ -495,7 +559,7 @@ class _OverallBudgetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = '$year/${month.toString().padLeft(2, '0')}';
+    final label = '${monthName(month)} $year';
     if (cap <= 0) {
       return Card(
         margin: EdgeInsets.zero,
@@ -510,6 +574,8 @@ class _OverallBudgetCard extends StatelessWidget {
     }
     final left = cap - spent;
     final ratio = spent / cap;
+    final pace =
+        budgetPace(spent: spent, cap: cap, year: year, month: month, now: now);
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -562,8 +628,116 @@ class _OverallBudgetCard extends StatelessWidget {
                     Theme.of(context).colorScheme.surfaceContainerHighest,
               ),
             ),
+            if (pace != null) ...[
+              const SizedBox(height: 8),
+              _PaceLine(pace: pace),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Month stepper for the Budgets screen, with a jump back to the current month
+/// when viewing another one.
+class _BudgetMonthStepper extends StatelessWidget {
+  final int year;
+  final int month;
+  final bool isCurrent;
+  final ValueChanged<int> onStep;
+  final VoidCallback? onToday;
+
+  const _BudgetMonthStepper({
+    required this.year,
+    required this.month,
+    required this.isCurrent,
+    required this.onStep,
+    required this.onToday,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          tooltip: 'Previous month',
+          onPressed: () => onStep(-1),
+        ),
+        Expanded(
+          child: Column(
+            children: [
+              Text('${monthName(month)} $year',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+              if (isCurrent)
+                Text('This month',
+                    style: TextStyle(
+                        fontSize: 12, color: mutedTextColor(context))),
+            ],
+          ),
+        ),
+        if (onToday != null)
+          TextButton(onPressed: onToday, child: const Text('Today')),
+        IconButton(
+          icon: const Icon(Icons.chevron_right),
+          tooltip: 'Next month',
+          onPressed: () => onStep(1),
+        ),
+      ],
+    );
+  }
+}
+
+/// One-line month-end forecast under a budget's progress bar: a warning when
+/// the current pace breaks the cap before it is actually broken, otherwise
+/// how much can still be spent per day.
+class _PaceLine extends StatelessWidget {
+  final BudgetPace pace;
+
+  /// Shorter wording for the per-category rows.
+  final bool compact;
+
+  const _PaceLine({required this.pace, this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final IconData icon;
+    final Color color;
+    final String text;
+    if (pace.spent > pace.cap) {
+      // Already over: the progress bar says so; the pace adds nothing.
+      return const SizedBox.shrink();
+    } else if (pace.onTrackToOverspend) {
+      icon = Icons.trending_up;
+      color = warningColor(context);
+      text = compact
+          ? 'On pace for ${formatMoneyRounded(pace.projected)}'
+          : 'On pace for ${formatMoneyRounded(pace.projected)} by month end '
+              '— ${formatMoneyRounded(pace.projected - pace.cap)} over';
+    } else {
+      icon = Icons.check_circle_outline;
+      color = incomeColor(context);
+      text = pace.daysLeft == 0
+          ? '${formatMoneyRounded(pace.dailyAllowance)} left today'
+          : '${formatMoneyRounded(pace.dailyAllowance)}/day for '
+              '${pace.daysLeft + 1} days';
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
   }

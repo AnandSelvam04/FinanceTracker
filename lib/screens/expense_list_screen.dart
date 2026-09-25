@@ -397,7 +397,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 
   String _fmtRange(DateTimeRange r) =>
-      '${formatIsoDate(r.start)} → ${formatIsoDate(r.end)}';
+      '${formatShortDate(r.start)} → ${formatShortDate(r.end)}';
 
   String get _filterLabel {
     final period = _selectedMonth == null
@@ -579,9 +579,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                           background: Container(
                             alignment: Alignment.centerRight,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            color: Colors.red.shade400,
-                            child:
-                                const Icon(Icons.delete, color: Colors.white),
+                            color: Theme.of(context).colorScheme.error,
+                            child: Icon(Icons.delete,
+                                color: Theme.of(context).colorScheme.onError),
                           ),
                           confirmDismiss: (_) => _confirmDelete(expense),
                           child: Card(

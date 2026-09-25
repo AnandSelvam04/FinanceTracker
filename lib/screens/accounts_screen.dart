@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/account.dart';
 import '../providers/account_provider.dart';
 import '../providers/settings_provider.dart';
+import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import '../widgets/empty_state.dart';
@@ -375,14 +376,24 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     return Card(
                       margin: EdgeInsets.zero,
                       child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.secondaryContainer,
-                          child: Icon(_iconForType(account.type),
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSecondaryContainer),
-                        ),
+                        // The account's own colour when one was picked, as a
+                        // tint like the category avatars; the theme's
+                        // secondary container otherwise.
+                        leading: Builder(builder: (context) {
+                          final scheme = Theme.of(context).colorScheme;
+                          final own = account.color == null
+                              ? null
+                              : Color(account.color!);
+                          final dark = Theme.of(context).brightness ==
+                              Brightness.dark;
+                          return CircleAvatar(
+                            backgroundColor: own == null
+                                ? scheme.secondaryContainer
+                                : own.withValues(alpha: dark ? 0.28 : 0.15),
+                            child: Icon(_iconForType(account.type),
+                                color: own ?? scheme.onSecondaryContainer),
+                          );
+                        }),
                         title: Text(account.name,
                             style:
                                 const TextStyle(fontWeight: FontWeight.w600)),
@@ -403,8 +414,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
                                   ? '…'
                                   : formatMoneySignedIn(
                                       account.symbol, balance),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 14),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: balance != null && balance < 0
+                                      ? expenseColor(context)
+                                      : null),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete),

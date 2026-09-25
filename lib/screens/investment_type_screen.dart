@@ -416,8 +416,9 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
           background: Container(
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            color: Colors.red.shade400,
-            child: const Icon(Icons.delete, color: Colors.white),
+            color: Theme.of(context).colorScheme.error,
+            child: Icon(Icons.delete,
+                color: Theme.of(context).colorScheme.onError),
           ),
           confirmDismiss: (_) => _confirmDelete(context, investment),
           child: Card(

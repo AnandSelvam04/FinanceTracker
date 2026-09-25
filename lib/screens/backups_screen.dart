@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/account_provider.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
+import '../providers/goal_provider.dart';
 import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/template_provider.dart';
@@ -154,6 +155,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
     final accountProvider = context.read<AccountProvider>();
     final recurringProvider = context.read<RecurringProvider>();
     final templateProvider = context.read<TemplateProvider>();
+    final goalProvider = context.read<GoalProvider>();
     setState(() => _isWorking = true);
     try {
       await task();
@@ -165,6 +167,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
       await accountProvider.fetchAccounts();
       await recurringProvider.fetchRules();
       await templateProvider.fetchTemplates();
+      await goalProvider.fetchGoals();
       await _loadLastBackup();
     } on _Cancelled {
       // The user backed out of a second confirmation; nothing to report.
