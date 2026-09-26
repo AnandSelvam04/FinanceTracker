@@ -604,9 +604,17 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                       height: kSheetActionHeight,
                       child: FilledButton(
                         onPressed: () async {
+                          // Say why nothing happened, as the transaction editor
+                          // does; a typed 0 used to be saved as a 0 entry.
+                          final problem =
+                              validateAmountField(amountController.text);
+                          if (problem != null) {
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(SnackBar(content: Text(problem)));
+                            return;
+                          }
                           final magnitude =
-                              parseMinor(amountController.text.trim());
-                          if (magnitude == null) return;
+                              parseMinor(amountController.text.trim())!;
                           // The field holds a positive magnitude; the toggle
                           // decides the sign.
                           final amount =
@@ -614,7 +622,12 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                           final resolvedType = type == Investment.otherType
                               ? customTypeController.text.trim()
                               : type;
-                          if (resolvedType.isEmpty) return;
+                          if (resolvedType.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Enter an investment type')));
+                            return;
+                          }
                           final updated = Investment(
                             id: investment.id,
                             name: nameController.text.trim(),

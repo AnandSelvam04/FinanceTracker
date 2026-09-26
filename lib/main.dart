@@ -20,7 +20,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   final seenOnboarding = prefs.getBool('seenOnboarding') ?? false;
-  final biometricEnabled = prefs.getBool('biometricEnabled') ?? false;
   final settings = SettingsProvider();
   await settings.load();
   // Before the first frame, so the About tile never shows a placeholder.
@@ -29,19 +28,16 @@ void main() async {
   runApp(FinanceTrackerApp(
     settings: settings,
     seenOnboarding: seenOnboarding,
-    requireAuth: seenOnboarding && biometricEnabled,
   ));
 }
 
 class FinanceTrackerApp extends StatelessWidget {
   final SettingsProvider settings;
   final bool seenOnboarding;
-  final bool requireAuth;
   const FinanceTrackerApp({
     super.key,
     required this.settings,
     required this.seenOnboarding,
-    this.requireAuth = false,
   });
 
   @override
@@ -80,12 +76,14 @@ class FinanceTrackerApp extends StatelessWidget {
           // home route. As the home route it could only hide the bottom of the
           // stack: any screen pushed on top (Accounts, a transaction sheet,
           // Settings) stayed visible and usable after a re-lock.
-          builder: requireAuth
-              ? (context, navigator) => AuthGate(
-                    lockAfter: settings.lockTimeout,
-                    child: navigator!,
-                  )
-              : null,
+          // Always present, and told whether the lock is on, so toggling App
+          // lock takes effect at once without rebuilding the tree above the
+          // Navigator.
+          builder: (context, navigator) => AuthGate(
+            enabled: settings.appLockEnabled,
+            lockAfter: settings.lockTimeout,
+            child: navigator!,
+          ),
           home: home,
         ),
       ),
@@ -104,12 +102,18 @@ class AuthGate extends StatefulWidget {
   final Widget child;
   final Duration lockAfter;
 
+  /// Whether the lock is on. Turning it on while the app is open doesn't lock
+  /// immediately (the user is plainly present); the next trip to the
+  /// background does. Turning it off unlocks.
+  final bool enabled;
+
   /// Overridable for tests; defaults to the platform biometric prompt.
   final AuthService? authService;
 
   const AuthGate({
     super.key,
     required this.child,
+    this.enabled = true,
     this.lockAfter = AuthService.lockAfter,
     this.authService,
   });
@@ -132,7 +136,21 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _tryUnlock();
+    if (widget.enabled) {
+      _tryUnlock();
+    } else {
+      _unlocked = _everUnlocked = true;
+      _checking = false;
+    }
+  }
+
+  @override
+  void didUpdateWidget(AuthGate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enabled && !widget.enabled) {
+      _unlocked = _everUnlocked = true;
+      _checking = false;
+    }
   }
 
   @override
@@ -145,7 +163,8 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       // Re-lock if the app was in the background longer than the grace period.
-      if (_unlocked &&
+      if (widget.enabled &&
+          _unlocked &&
           AuthService.shouldRelock(
             backgroundedAt: _backgroundedAt,
             now: DateTime.now(),

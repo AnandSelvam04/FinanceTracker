@@ -112,11 +112,20 @@ class _GoalsScreenState extends State<GoalsScreen> {
                               Text(targetDate == null ? 'Set date' : 'Change'),
                           onPressed: () async {
                             final now = DateTime.now();
+                            final today =
+                                DateTime(now.year, now.month, now.day);
+                            final current = targetDate;
                             final picked = await showDatePicker(
                               context: context,
-                              initialDate: targetDate ??
-                                  DateTime(now.year + 1, now.month, now.day),
-                              firstDate: DateTime(now.year, now.month, now.day),
+                              // A goal whose date has already passed would put
+                              // the initial date before firstDate, which the
+                              // picker rejects; start from today instead.
+                              initialDate: current == null
+                                  ? DateTime(now.year + 1, now.month, now.day)
+                                  : current.isBefore(today)
+                                      ? today
+                                      : current,
+                              firstDate: today,
                               lastDate: DateTime(2100),
                             );
                             if (picked != null) {

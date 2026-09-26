@@ -248,6 +248,47 @@ void main() {
     await teardownTree(tester);
   }, timeout: testTimeout);
 
+  testWidgets('Editing a recurring rule keeps its day-of-month anchor',
+      (tester) async {
+    // Rent on the 31st, whose next occurrence is clamped to Feb 28.
+    final feb = DateTime(now.year + 1, 2, 28);
+    final (recurring, accounts) = (await tester.runAsync(() async {
+      await DBService().insertRecurringRule(RecurringRule(
+        description: 'Rent',
+        amount: 2000000,
+        category: 'Bills',
+        frequency: DbConstants.freqMonthly,
+        nextDue: feb,
+        anchorDay: 31,
+      ));
+      final r = RecurringProvider();
+      await r.fetchRules();
+      final a = AccountProvider();
+      await a.fetchAccounts();
+      return (r, a);
+    }))!;
+
+    await pumpScreen(tester, const RecurringScreen(), [
+      ChangeNotifierProvider<RecurringProvider>.value(value: recurring),
+      ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+    ]);
+
+    await tester.tap(find.text('Rent'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Save'));
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+          () async => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    final rule =
+        (await tester.runAsync(() => DBService().getRecurringRules()))!.single;
+    expect(rule.nextDue, feb);
+    expect(rule.anchorDay, 31);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+
   testWidgets('Add expense: typing a category lights up its chip, any case',
       (tester) async {
     final (accounts, expenses, templates) = (await tester.runAsync(() async {

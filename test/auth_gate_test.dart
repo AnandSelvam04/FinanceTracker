@@ -22,8 +22,9 @@ class _FakeAuth extends AuthService {
 void main() {
   late _FakeAuth auth;
 
-  Widget app() => MaterialApp(
+  Widget app({bool enabled = true}) => MaterialApp(
         builder: (context, navigator) => AuthGate(
+          enabled: enabled,
           lockAfter: Duration.zero,
           authService: auth,
           child: navigator!,
@@ -94,5 +95,37 @@ void main() {
 
     expect(find.text('Finance Tracker is locked'), findsNothing);
     expect(find.text('Account balances'), findsOneWidget);
+  });
+
+  testWidgets('turning the lock on takes effect without a restart',
+      (tester) async {
+    await tester.pumpWidget(app(enabled: false));
+    await tester.pumpAndSettle();
+    expect(auth.prompts, 0);
+    expect(find.text('Open accounts'), findsOneWidget);
+
+    // Switched on in the More tab: no prompt while the user is right there...
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(auth.prompts, 0);
+    expect(find.text('Open accounts'), findsOneWidget);
+
+    // ...but the next trip to the background locks.
+    auth.allow = false;
+    await backgroundAndResume(tester);
+    expect(auth.prompts, 1);
+    expect(find.text('Finance Tracker is locked'), findsOneWidget);
+  });
+
+  testWidgets('turning the lock off stops re-locking', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(app(enabled: false));
+    await tester.pumpAndSettle();
+
+    auth.allow = false;
+    await backgroundAndResume(tester);
+    expect(auth.prompts, 1); // only the launch prompt
+    expect(find.text('Open accounts'), findsOneWidget);
   });
 }
