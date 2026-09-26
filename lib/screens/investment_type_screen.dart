@@ -10,6 +10,7 @@ import '../widgets/hero_total_card.dart';
 import '../widgets/swipe_delete_background.dart';
 import 'add_investment_screen.dart';
 import '../utils/date_format.dart';
+import '../widgets/dispose_with_route.dart';
 
 /// How the contributions on the type screen are grouped: into time buckets
 /// (how much went in each period) or by name (how much each individual fund
@@ -80,55 +81,57 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     final customController = TextEditingController();
     final target = await showDialog<String>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(title),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(description),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: selected,
-                decoration: const InputDecoration(labelText: 'Move to'),
-                items: options
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                    .toList(),
-                onChanged: (v) =>
-                    setDialogState(() => selected = v ?? selected),
-              ),
-              if (selected == Investment.otherType)
-                TextField(
-                  controller: customController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration:
-                      const InputDecoration(labelText: 'Enter investment type'),
+      builder: (context) => DisposeWithRoute(
+        notifiers: [customController],
+        child: StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text(title),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(description),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: selected,
+                  decoration: const InputDecoration(labelText: 'Move to'),
+                  items: options
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                      .toList(),
+                  onChanged: (v) =>
+                      setDialogState(() => selected = v ?? selected),
                 ),
+                if (selected == Investment.otherType)
+                  TextField(
+                    controller: customController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                        labelText: 'Enter investment type'),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final resolved = selected == Investment.otherType
+                      ? customController.text.trim()
+                      : selected;
+                  if (resolved.isEmpty || resolved == type) {
+                    Navigator.pop(context);
+                    return;
+                  }
+                  Navigator.pop(context, resolved);
+                },
+                child: const Text('Move'),
+              ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final resolved = selected == Investment.otherType
-                    ? customController.text.trim()
-                    : selected;
-                if (resolved.isEmpty || resolved == type) {
-                  Navigator.pop(context);
-                  return;
-                }
-                Navigator.pop(context, resolved);
-              },
-              child: const Text('Move'),
-            ),
-          ],
         ),
       ),
     );
-    customController.dispose();
     return target;
   }
 
@@ -508,14 +511,18 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     final customTypeController =
         TextEditingController(text: isBuiltIn ? '' : investment.type);
 
-    // The sheet owns these controllers for its lifetime; dispose them once
-    // it closes rather than leaking one set per open/close cycle.
-    try {
-      await showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        builder: (context) {
-          return StatefulBuilder(builder: (context, setModalState) {
+    // The builders below shadow `context`; keep the caller's for Duplicate,
+    // which opens a screen after this sheet has closed.
+    final callerContext = context;
+
+    // DisposeWithRoute disposes the controllers once the sheet has closed.
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return DisposeWithRoute(
+          notifiers: [nameController, amountController, customTypeController],
+          child: StatefulBuilder(builder: (context, setModalState) {
             return Padding(
               padding: bottomSheetPadding(context),
               // Scrollable so the form can still be reached (and Save tapped)
@@ -524,9 +531,31 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Edit Investment',
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text('Edit Investment',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold)),
+                        ),
+                        // Opens Add pre-filled with this entry, dated today.
+                        TextButton.icon(
+                          icon: const Icon(Icons.content_copy, size: 18),
+                          label: const Text('Duplicate'),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              callerContext,
+                              MaterialPageRoute(
+                                builder: (_) => AddInvestmentScreen(
+                                    duplicateOf: investment),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
@@ -601,9 +630,17 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                       height: kSheetActionHeight,
                       child: FilledButton(
                         onPressed: () async {
+                          // Say why nothing happened, as the transaction editor
+                          // does; a typed 0 used to be saved as a 0 entry.
+                          final problem =
+                              validateAmountField(amountController.text);
+                          if (problem != null) {
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(SnackBar(content: Text(problem)));
+                            return;
+                          }
                           final magnitude =
-                              parseMinor(amountController.text.trim());
-                          if (magnitude == null) return;
+                              parseMinor(amountController.text.trim())!;
                           // The field holds a positive magnitude; the toggle
                           // decides the sign.
                           final amount =
@@ -611,7 +648,12 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                           final resolvedType = type == Investment.otherType
                               ? customTypeController.text.trim()
                               : type;
-                          if (resolvedType.isEmpty) return;
+                          if (resolvedType.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Enter an investment type')));
+                            return;
+                          }
                           final updated = Investment(
                             id: investment.id,
                             name: nameController.text.trim(),
@@ -631,13 +673,9 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                 ),
               ),
             );
-          });
-        },
-      );
-    } finally {
-      nameController.dispose();
-      amountController.dispose();
-      customTypeController.dispose();
-    }
+          }),
+        );
+      },
+    );
   }
 }

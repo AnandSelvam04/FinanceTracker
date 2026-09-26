@@ -20,6 +20,7 @@ import '../widgets/fade_slide_in.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/swipe_delete_background.dart';
 import '../widgets/transaction_edit_sheet.dart';
+import '../widgets/dispose_with_route.dart';
 
 class ExpenseListScreen extends StatefulWidget {
   const ExpenseListScreen({super.key});
@@ -235,13 +236,13 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         text: _maxAmount == null ? '' : minorToEditString(_maxAmount!));
     DateTimeRange? range = _dateRange;
 
-    // The sheet owns these controllers for its lifetime; dispose them once
-    // it closes rather than leaking one set per open/close cycle.
-    try {
-      await showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        builder: (context) => StatefulBuilder(
+    // DisposeWithRoute disposes the controllers once the sheet has closed.
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DisposeWithRoute(
+        notifiers: [minController, maxController],
+        child: StatefulBuilder(
           builder: (context, setSheet) => Padding(
             padding: bottomSheetPadding(context),
             // Scrollable so the filter list can still be reached (and Apply
@@ -388,11 +389,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
             ),
           ),
         ),
-      );
-    } finally {
-      minController.dispose();
-      maxController.dispose();
-    }
+      ),
+    );
   }
 
   String _fmtRange(DateTimeRange r) =>
@@ -748,7 +746,11 @@ class _DayHeader extends StatelessWidget {
   String _label() {
     final today = DateUtils.dateOnly(DateTime.now());
     if (day == today) return 'Today';
-    if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
+    // Calendar arithmetic, not a 24h Duration, so a DST change doesn't lose
+    // the "Yesterday" label for a day.
+    if (day == DateTime(today.year, today.month, today.day - 1)) {
+      return 'Yesterday';
+    }
     return formatDateWithDay(day);
   }
 

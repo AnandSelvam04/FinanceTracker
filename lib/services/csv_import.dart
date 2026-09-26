@@ -26,8 +26,48 @@ class CsvColumnMapping {
 
 class CsvImportResult {
   final List<Expense> expenses;
+
+  /// Rows that could not be read (no parseable date or amount).
   final int skipped;
-  const CsvImportResult(this.expenses, this.skipped);
+
+  /// Rows left out because an earlier CSV import already brought them in.
+  final int duplicates;
+
+  const CsvImportResult(this.expenses, this.skipped, {this.duplicates = 0});
+
+  /// This result without the rows whose [Expense.sourceRef] is in [existing],
+  /// so importing the same (or an overlapping) statement twice doesn't
+  /// double every transaction.
+  CsvImportResult withoutAlreadyImported(Set<String> existing) {
+    final fresh = [
+      for (final e in expenses)
+        if (!existing.contains(e.sourceRef)) e,
+    ];
+    return CsvImportResult(fresh, skipped,
+        duplicates: duplicates + expenses.length - fresh.length);
+  }
+}
+
+/// Prefix of the [Expense.sourceRef] given to CSV-imported rows.
+const csvSourceRefPrefix = 'csv:';
+
+/// The identity of an imported row: the same calendar day, amount, direction,
+/// and description (ignoring case and runs of whitespace) is the same
+/// transaction. Category is left out on purpose — it is the field people fix
+/// after importing, and a mapping change can alter it.
+///
+/// [occurrence] tells apart genuinely identical rows within one file (two
+/// ₹50 coffees on the same day), counted from 1 in file order. Re-importing
+/// that file matches both; a later statement that really has a third one
+/// still brings it in.
+String csvSourceRef(Expense e, int occurrence) {
+  final d = e.date;
+  final day = '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+  final description =
+      e.description.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  return '$csvSourceRefPrefix$day|${e.type}|${e.amount}|$description#$occurrence';
 }
 
 /// Parses rows (as produced by the csv package) into expenses using the given
@@ -39,6 +79,8 @@ CsvImportResult parseCsvExpenses(
 }) {
   final expenses = <Expense>[];
   var skipped = 0;
+  // Occurrences seen so far of each row identity, for [csvSourceRef].
+  final seen = <String, int>{};
   final data = hasHeader && rows.isNotEmpty ? rows.sublist(1) : rows;
 
   String cell(List<dynamic> row, int? index) {
@@ -68,7 +110,7 @@ CsvImportResult parseCsvExpenses(
     final type = signIndicatesType
         ? (amount < 0 ? DbConstants.txExpense : DbConstants.txIncome)
         : _normalizeType(cell(row, mapping.typeCol), mapping.defaultType);
-    expenses.add(Expense(
+    final expense = Expense(
       description: cell(row, mapping.descriptionCol),
       // Direction lives in `type`; the stored amount is always positive.
       amount: rupeesToMinor(amount.abs()),
@@ -76,6 +118,17 @@ CsvImportResult parseCsvExpenses(
       category: category.isEmpty ? mapping.defaultCategory : category,
       paymentMode: 'Other',
       type: type,
+    );
+    final identity = csvSourceRef(expense, 0);
+    final occurrence = seen[identity] = (seen[identity] ?? 0) + 1;
+    expenses.add(Expense(
+      description: expense.description,
+      amount: expense.amount,
+      date: expense.date,
+      category: expense.category,
+      paymentMode: expense.paymentMode,
+      type: expense.type,
+      sourceRef: csvSourceRef(expense, occurrence),
     ));
   }
   return CsvImportResult(expenses, skipped);

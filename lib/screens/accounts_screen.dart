@@ -9,6 +9,7 @@ import '../utils/insets.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/hero_total_card.dart';
 import 'add_transfer_screen.dart';
+import '../widgets/dispose_with_route.dart';
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -82,10 +83,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final rateController =
         TextEditingController(text: _rate == 1.0 ? '' : _rate.toString());
 
-    try {
-      await showDialog(
-        context: context,
-        builder: (context) => StatefulBuilder(
+    // DisposeWithRoute disposes the controller once the dialog has closed.
+    await showDialog(
+      context: context,
+      builder: (context) => DisposeWithRoute(
+        notifiers: [rateController],
+        child: StatefulBuilder(
           builder: (context, setDialogState) {
             final isForeign = _currency != null && _currency != base;
             return AlertDialog(
@@ -262,12 +265,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
             );
           },
         ),
-      );
-    } finally {
-      // The dialog owns this for its lifetime; dispose once it closes rather
-      // than leaking one per open/close cycle.
-      rateController.dispose();
-    }
+      ),
+    );
   }
 
   Future<void> _confirmDelete(Account account) async {

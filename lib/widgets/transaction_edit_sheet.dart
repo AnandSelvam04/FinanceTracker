@@ -10,6 +10,8 @@ import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
+import '../screens/add_expense_screen.dart';
+import 'dispose_with_route.dart';
 
 /// Opens the right edit sheet for [expense] — a transfer editor for transfers,
 /// the expense/income editor otherwise. Shared so every list of transactions
@@ -41,15 +43,27 @@ Future<void> showEditExpenseSheet(
   final categoryController = TextEditingController(text: expense.category);
   String paymentMode = expense.paymentMode;
   DateTime selectedDate = expense.date;
+  // The builders below shadow `context`; keep the caller's for the split and
+  // duplicate actions, which outlive this sheet.
+  final callerContext = context;
 
-  // The sheet owns these controllers for its lifetime; dispose them once
-  // it closes rather than leaking one set per open/close cycle.
-  try {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return StatefulBuilder(builder: (context, setModalState) {
+  // Payment modes offered in the editor. A row can carry a value outside this
+  // list (SMS-imported income is stored with an empty one), and a dropdown
+  // whose value matches no item throws — so keep the row's own value selectable.
+  const knownModes = ['Cash', 'Credit Card', 'Debit Card', 'UPI', 'Other'];
+  final modes = [
+    ...knownModes,
+    if (!knownModes.contains(paymentMode)) paymentMode,
+  ];
+
+  // DisposeWithRoute disposes the controllers once the sheet has closed.
+  await showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      return DisposeWithRoute(
+        notifiers: [descController, amountController, categoryController],
+        child: StatefulBuilder(builder: (context, setModalState) {
           return Padding(
             padding: bottomSheetPadding(context),
             // Scrollable so the form can still be reached (and Save tapped)
@@ -60,16 +74,39 @@ Future<void> showEditExpenseSheet(
                 children: [
                   Row(
                     children: [
-                      Text('Edit Expense',
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
-                      const Spacer(),
+                      Expanded(
+                        child: Text(
+                            expense.isIncome ? 'Edit Income' : 'Edit Expense',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                      ),
+                      // Opens Add pre-filled with this row, dated today, so a
+                      // repeat purchase is one date change away.
+                      TextButton.icon(
+                        icon: const Icon(Icons.content_copy, size: 18),
+                        label: const Text('Duplicate'),
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          Navigator.push(
+                            callerContext,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  AddExpenseScreen(duplicateOf: expense),
+                            ),
+                          );
+                        },
+                      ),
                       TextButton.icon(
                         icon: const Icon(Icons.call_split, size: 18),
                         label: const Text('Split'),
+                        // Close this sheet with its own context, then run the
+                        // split from the caller's: the sheet's context is
+                        // unmounted by the time the split sheet returns, and
+                        // the split used to be silently dropped.
                         onPressed: () {
-                          Navigator.pop(context);
-                          splitTransaction(context, expense);
+                          Navigator.pop(sheetContext);
+                          splitTransaction(callerContext, expense);
                         },
                       ),
                     ],
@@ -94,16 +131,9 @@ Future<void> showEditExpenseSheet(
                     decoration:
                         const InputDecoration(labelText: 'Payment Mode'),
                     items: [
-                      DropdownMenuItem(
-                          value: 'Cash', child: const Text('Cash')),
-                      DropdownMenuItem(
-                          value: 'Credit Card',
-                          child: const Text('Credit Card')),
-                      DropdownMenuItem(
-                          value: 'Debit Card', child: const Text('Debit Card')),
-                      DropdownMenuItem(value: 'UPI', child: const Text('UPI')),
-                      DropdownMenuItem(
-                          value: 'Other', child: const Text('Other')),
+                      for (final m in modes)
+                        DropdownMenuItem(
+                            value: m, child: Text(m.isEmpty ? 'None' : m)),
                     ],
                     onChanged: (v) =>
                         setModalState(() => paymentMode = v ?? paymentMode),
@@ -155,6 +185,9 @@ Future<void> showEditExpenseSheet(
                           type: expense.type,
                           accountId: expense.accountId,
                           toAccountId: expense.toAccountId,
+                          // Keep the import link, or the next SMS scan offers
+                          // the edited row again as a new transaction.
+                          sourceRef: expense.sourceRef,
                         );
                         final provider = context.read<ExpenseProvider>();
                         final accountProvider = context.read<AccountProvider>();
@@ -170,14 +203,10 @@ Future<void> showEditExpenseSheet(
               ),
             ),
           );
-        });
-      },
-    );
-  } finally {
-    descController.dispose();
-    amountController.dispose();
-    categoryController.dispose();
-  }
+        }),
+      );
+    },
+  );
 }
 
 /// Edit sheet for a transfer between accounts.
@@ -204,13 +233,13 @@ Future<void> showEditTransferSheet(
     return from != null && to != null && from.symbol != to.symbol;
   }
 
-  // The sheet owns these controllers for its lifetime; dispose them once
-  // it closes rather than leaking one set per open/close cycle.
-  try {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
+  // DisposeWithRoute disposes the controllers once the sheet has closed.
+  await showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) => DisposeWithRoute(
+      notifiers: [amountController, toAmountController, noteController],
+      child: StatefulBuilder(
         builder: (context, setSheet) => Padding(
           padding: bottomSheetPadding(context),
           // Scrollable so the form can still be reached (and Save tapped)
@@ -319,6 +348,7 @@ Future<void> showEditTransferSheet(
                         accountId: fromId,
                         toAccountId: toId,
                         toAmount: toAmount,
+                        sourceRef: transfer.sourceRef,
                       );
                       final expenseProvider = context.read<ExpenseProvider>();
                       final accountProvider = context.read<AccountProvider>();
@@ -335,12 +365,8 @@ Future<void> showEditTransferSheet(
           ),
         ),
       ),
-    );
-  } finally {
-    amountController.dispose();
-    toAmountController.dispose();
-    noteController.dispose();
-  }
+    ),
+  );
 }
 
 /// Splits one transaction into several categorized parts that sum to it —

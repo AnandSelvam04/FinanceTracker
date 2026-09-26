@@ -124,9 +124,9 @@ class _ImportScreenState extends State<ImportScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
-    final result =
+    final parsed =
         parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
-    if (result.expenses.isEmpty) {
+    if (parsed.expenses.isEmpty) {
       messenger.showSnackBar(
         SnackBar(content: const Text('No valid rows to import.')),
       );
@@ -134,6 +134,18 @@ class _ImportScreenState extends State<ImportScreen> {
     }
     setState(() => _importing = true);
     try {
+      // Leave out rows an earlier import already brought in, so importing the
+      // same or an overlapping statement again doesn't double them.
+      final result = parsed.withoutAlreadyImported(
+          await DBService().existingSourceRefs(includeIgnored: false));
+      if (result.expenses.isEmpty) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(result.duplicates == 1
+              ? 'That row was already imported.'
+              : 'All ${result.duplicates} rows were already imported.'),
+        ));
+        return;
+      }
       // One transaction, so a failure part-way through leaves no half-imported
       // file behind for the user to untangle by hand.
       await DBService().insertExpenses(result.expenses);
@@ -141,8 +153,11 @@ class _ImportScreenState extends State<ImportScreen> {
       await accountProvider.refreshBalances();
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
-        content: Text(
-            'Imported ${result.expenses.length}, skipped ${result.skipped}'),
+        content: Text([
+          'Imported ${result.expenses.length}',
+          if (result.duplicates > 0) '${result.duplicates} already imported',
+          if (result.skipped > 0) '${result.skipped} unreadable',
+        ].join(' · ')),
       ));
       Navigator.pop(context);
     } catch (e) {

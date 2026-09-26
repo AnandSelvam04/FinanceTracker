@@ -17,7 +17,13 @@ class AddInvestmentScreen extends StatefulWidget {
   /// screen lands on the right instrument without extra taps.
   final String? initialType;
 
-  const AddInvestmentScreen({super.key, this.initialType});
+  /// An existing entry to copy: the form opens filled with its type, name,
+  /// amount, and contribution/withdrawal direction, dated today so the date
+  /// is the one thing usually changed. Nothing is saved until the user taps
+  /// Add.
+  final Investment? duplicateOf;
+
+  const AddInvestmentScreen({super.key, this.initialType, this.duplicateOf});
 
   @override
   State<AddInvestmentScreen> createState() => _AddInvestmentScreenState();
@@ -81,7 +87,12 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
     // If the caller passed a known type (built-in or a previously used custom
     // one), start on it; an unknown type starts on "Other" with the value
     // prefilled so it round-trips.
-    final initial = widget.initialType;
+    final copy = widget.duplicateOf;
+    if (copy != null) {
+      _isWithdrawal = copy.isWithdrawal;
+      _amountController.text = minorToEditString(copy.amount.abs());
+    }
+    final initial = copy?.type ?? widget.initialType;
     if (initial != null &&
         initial != Investment.otherType &&
         _types.contains(initial)) {
@@ -102,10 +113,24 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   /// A sensible default name when the user leaves the name blank, e.g.
   /// "Silver Jul 2026", so each contribution is self-describing without
   /// forcing the user to name it.
-  String _defaultName() {
-    final type = _resolvedType.isEmpty ? 'Investment' : _resolvedType;
-    final kind = _isWithdrawal ? 'Withdrawal ' : '';
-    return '$type $kind${_monthAbbr[_selectedDate.month - 1]} ${_selectedDate.year}';
+  String _defaultName() => _autoName(
+      _resolvedType, _isWithdrawal, _selectedDate.year, _selectedDate.month);
+
+  static String _autoName(String type, bool withdrawal, int year, int month) {
+    final t = type.isEmpty ? 'Investment' : type;
+    final kind = withdrawal ? 'Withdrawal ' : '';
+    return '$t $kind${_monthAbbr[month - 1]} $year';
+  }
+
+  /// The name a copy starts with. An auto-generated one ("Silver Jul 2026")
+  /// is left blank so it regenerates for the copy's own date instead of
+  /// carrying the original month.
+  String get _duplicateName {
+    final copy = widget.duplicateOf;
+    if (copy == null) return '';
+    final auto = _autoName(
+        copy.type, copy.isWithdrawal, copy.date.year, copy.date.month);
+    return copy.name == auto ? '' : copy.name;
   }
 
   @override
@@ -120,7 +145,10 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Investment')),
+      appBar: AppBar(
+          title: Text(widget.duplicateOf != null
+              ? 'Duplicate Investment'
+              : 'Add Investment')),
       body: SingleChildScrollView(
         padding: scrollPadding(context),
         child: Form(
@@ -164,6 +192,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
               // name is optional and a blank one falls back to an
               // auto-generated label like "Silver Jul 2026".
               Autocomplete<String>(
+                initialValue: TextEditingValue(text: _duplicateName),
                 optionsBuilder: (value) {
                   final names = context
                       .read<InvestmentProvider>()

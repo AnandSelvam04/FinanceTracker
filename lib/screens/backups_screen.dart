@@ -16,6 +16,7 @@ import 'import_screen.dart';
 import '../utils/app_colors.dart';
 import '../utils/insets.dart';
 import '../widgets/section_header.dart';
+import '../widgets/dispose_with_route.dart';
 
 /// A restore, parameterised by whether the user has already agreed to apply a
 /// backup that contains no rows.
@@ -233,10 +234,13 @@ class _BackupsScreenState extends State<BackupsScreen> {
     final controller = TextEditingController();
     final confirmController = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    try {
-      return await showDialog<String>(
-        context: context,
-        builder: (ctx) => AlertDialog(
+    // DisposeWithRoute disposes the controllers once the dialog has closed.
+    // They hold a backup passphrase, so they must not outlive it.
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => DisposeWithRoute(
+        notifiers: [controller, confirmController],
+        child: AlertDialog(
           title: Text(title),
           content: Form(
             key: formKey,
@@ -300,13 +304,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
             ),
           ],
         ),
-      );
-    } finally {
-      // Dispose once the dialog closes. These held a backup passphrase, so
-      // leaking them left it sitting in the heap for the rest of the session.
-      controller.dispose();
-      confirmController.dispose();
-    }
+      ),
+    );
   }
 
   /// Verifies the local backup is restorable and shows the row counts (or the
