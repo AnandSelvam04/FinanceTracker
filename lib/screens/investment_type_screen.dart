@@ -511,6 +511,10 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     final customTypeController =
         TextEditingController(text: isBuiltIn ? '' : investment.type);
 
+    // The builders below shadow `context`; keep the caller's for Duplicate,
+    // which opens a screen after this sheet has closed.
+    final callerContext = context;
+
     // DisposeWithRoute disposes the controllers once the sheet has closed.
     await showModalBottomSheet(
       context: context,
@@ -527,9 +531,31 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Edit Investment',
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text('Edit Investment',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold)),
+                        ),
+                        // Opens Add pre-filled with this entry, dated today.
+                        TextButton.icon(
+                          icon: const Icon(Icons.content_copy, size: 18),
+                          label: const Text('Duplicate'),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              callerContext,
+                              MaterialPageRoute(
+                                builder: (_) => AddInvestmentScreen(
+                                    duplicateOf: investment),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,

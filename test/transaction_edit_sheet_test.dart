@@ -7,6 +7,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:finance_tracker/models/expense.dart';
 import 'package:finance_tracker/providers/account_provider.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
+import 'package:finance_tracker/providers/settings_provider.dart';
+import 'package:finance_tracker/providers/template_provider.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
 import 'package:finance_tracker/widgets/transaction_edit_sheet.dart';
@@ -45,6 +47,9 @@ void main() {
       providers: [
         ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
         ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+        // For the Add screen that Duplicate opens.
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => TemplateProvider()),
       ],
       child: MaterialApp(
         home: Builder(
@@ -90,7 +95,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Edit Expense'), findsOneWidget);
+    expect(find.text('Edit Income'), findsOneWidget);
   });
 
   testWidgets('saving an edit keeps the SMS import link', (tester) async {
@@ -151,5 +156,50 @@ void main() {
       {'Groceries': 70000, 'Gifts': 30000},
     );
     expect(find.text('Split into 2 transactions.'), findsOneWidget);
+  });
+
+  testWidgets('Duplicate opens Add pre-filled and dated today', (tester) async {
+    final original = await pumpEditor(
+      tester,
+      Expense(
+        description: 'Swiggy',
+        amount: 45000,
+        date: day,
+        category: 'Food',
+        paymentMode: 'UPI',
+        sourceRef: 'sms:42',
+      ),
+    );
+
+    await tester.tap(find.text('Duplicate'));
+    await settle(tester);
+
+    expect(find.text('Duplicate Expense'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Swiggy'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, '450.00'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Food'), findsOneWidget);
+
+    final add = find.widgetWithText(FilledButton, 'Add Expense');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    // Fixed pumps, not pumpAndSettle: the saving spinner animates until the
+    // database write lands, so the tree never settles in between.
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(
+          () async => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    final rows = await dbRows(tester);
+    expect(rows.length, 2);
+    final copy = rows.singleWhere((r) => r.id != original.id);
+    expect(DateUtils.dateOnly(copy.date), DateUtils.dateOnly(DateTime.now()));
+    expect(copy.description, 'Swiggy');
+    expect(copy.amount, 45000);
+    expect(copy.category, 'Food');
+    expect(copy.paymentMode, 'UPI');
+    // A copy is a new, hand-entered row: it must not claim the original's
+    // SMS, or a rescan would treat the two as one.
+    expect(copy.sourceRef, isNull);
   });
 }

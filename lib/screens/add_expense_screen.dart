@@ -27,7 +27,18 @@ enum AddExpenseAction { none, scan, voice }
 
 class AddExpenseScreen extends StatefulWidget {
   final AddExpenseAction autoStart;
-  const AddExpenseScreen({super.key, this.autoStart = AddExpenseAction.none});
+
+  /// An existing transaction to copy: the form opens filled with its amount,
+  /// description, category, type, account, and payment mode, dated today so
+  /// the date is the one thing usually changed. Nothing is saved until the
+  /// user taps Add.
+  final Expense? duplicateOf;
+
+  const AddExpenseScreen({
+    super.key,
+    this.autoStart = AddExpenseAction.none,
+    this.duplicateOf,
+  });
 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -80,14 +91,40 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   void initState() {
     super.initState();
+    final copy = widget.duplicateOf;
+    if (copy != null) {
+      _txType = copy.isIncome ? DbConstants.txIncome : DbConstants.txExpense;
+      _amountController.text = minorToEditString(copy.amount);
+      _descriptionController.text = copy.description;
+      _categoryController.text = copy.category;
+      // Only keep an account that still exists: a dropdown whose value
+      // matches no item throws. If accounts aren't loaded yet, the check
+      // after the first frame covers it.
+      final accounts = context.read<AccountProvider>();
+      if (accounts.accounts.isEmpty ||
+          accounts.accountById(copy.accountId) != null) {
+        _accountId = copy.accountId;
+      }
+      if (_paymentModes.contains(copy.paymentMode)) {
+        _selectedPaymentMode = copy.paymentMode;
+      }
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<AccountProvider>();
       if (provider.accounts.isEmpty) {
-        provider.fetchAccounts();
+        await provider.fetchAccounts();
+        if (!mounted) return;
       }
-      // Preselect the user's default account, if set and still present.
+      // A copied account that has since been deleted would match no dropdown
+      // item; fall back to none.
+      if (_accountId != null && provider.accountById(_accountId) == null) {
+        setState(() => _accountId = null);
+      }
+      // Preselect the user's default account, if set and still present —
+      // unless this is a copy, which keeps the original's account.
       final defaultId = context.read<SettingsProvider>().defaultAccountId;
-      if (defaultId != null &&
+      if (copy == null &&
+          defaultId != null &&
           context.read<AccountProvider>().accountById(defaultId) != null) {
         setState(() => _accountId = defaultId);
       }
@@ -284,7 +321,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         CurrencyFormat.symbol;
 
     return Scaffold(
-      appBar: AppBar(title: Text(_isIncome ? 'Add Income' : 'Add Expense')),
+      appBar: AppBar(
+          title: Text(widget.duplicateOf != null
+              ? (_isIncome ? 'Duplicate Income' : 'Duplicate Expense')
+              : (_isIncome ? 'Add Income' : 'Add Expense'))),
       body: SingleChildScrollView(
         padding: scrollPadding(context),
         child: Form(

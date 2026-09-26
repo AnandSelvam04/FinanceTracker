@@ -10,6 +10,7 @@ import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
+import '../screens/add_expense_screen.dart';
 import 'dispose_with_route.dart';
 
 /// Opens the right edit sheet for [expense] — a transfer editor for transfers,
@@ -42,7 +43,8 @@ Future<void> showEditExpenseSheet(
   final categoryController = TextEditingController(text: expense.category);
   String paymentMode = expense.paymentMode;
   DateTime selectedDate = expense.date;
-  // The builders below shadow `context`; keep the caller's for the split.
+  // The builders below shadow `context`; keep the caller's for the split and
+  // duplicate actions, which outlive this sheet.
   final callerContext = context;
 
   // Payment modes offered in the editor. A row can carry a value outside this
@@ -72,10 +74,29 @@ Future<void> showEditExpenseSheet(
                 children: [
                   Row(
                     children: [
-                      Text('Edit Expense',
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
-                      const Spacer(),
+                      Expanded(
+                        child: Text(
+                            expense.isIncome ? 'Edit Income' : 'Edit Expense',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                      ),
+                      // Opens Add pre-filled with this row, dated today, so a
+                      // repeat purchase is one date change away.
+                      TextButton.icon(
+                        icon: const Icon(Icons.content_copy, size: 18),
+                        label: const Text('Duplicate'),
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          Navigator.push(
+                            callerContext,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  AddExpenseScreen(duplicateOf: expense),
+                            ),
+                          );
+                        },
+                      ),
                       TextButton.icon(
                         icon: const Icon(Icons.call_split, size: 18),
                         label: const Text('Split'),
