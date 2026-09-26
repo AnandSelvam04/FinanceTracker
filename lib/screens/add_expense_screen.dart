@@ -274,8 +274,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final accounts = context.watch<AccountProvider>().accounts;
+    final accountProvider = context.watch<AccountProvider>();
+    final accounts = accountProvider.accounts;
     final categorySuggestions = _suggestions;
+    // The amount is stored in the chosen account's currency, so label it with
+    // that currency — a USD account showed "₹", inviting a rupee figure that
+    // was then booked as dollars.
+    final amountSymbol = accountProvider.accountById(_accountId)?.symbol ??
+        CurrencyFormat.symbol;
 
     return Scaffold(
       appBar: AppBar(title: Text(_isIncome ? 'Add Income' : 'Add Expense')),
@@ -346,7 +352,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 controller: _amountController,
                 decoration: InputDecoration(
                   labelText: 'Amount',
-                  prefixText: '${CurrencyFormat.symbol} ',
+                  prefixText: '$amountSymbol ',
                   prefixStyle: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,

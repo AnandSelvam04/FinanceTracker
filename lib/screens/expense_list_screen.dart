@@ -748,7 +748,11 @@ class _DayHeader extends StatelessWidget {
   String _label() {
     final today = DateUtils.dateOnly(DateTime.now());
     if (day == today) return 'Today';
-    if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
+    // Calendar arithmetic, not a 24h Duration, so a DST change doesn't lose
+    // the "Yesterday" label for a day.
+    if (day == DateTime(today.year, today.month, today.day - 1)) {
+      return 'Yesterday';
+    }
     return formatDateWithDay(day);
   }
 

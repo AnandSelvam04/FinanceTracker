@@ -41,6 +41,17 @@ Future<void> showEditExpenseSheet(
   final categoryController = TextEditingController(text: expense.category);
   String paymentMode = expense.paymentMode;
   DateTime selectedDate = expense.date;
+  // The builders below shadow `context`; keep the caller's for the split.
+  final callerContext = context;
+
+  // Payment modes offered in the editor. A row can carry a value outside this
+  // list (SMS-imported income is stored with an empty one), and a dropdown
+  // whose value matches no item throws — so keep the row's own value selectable.
+  const knownModes = ['Cash', 'Credit Card', 'Debit Card', 'UPI', 'Other'];
+  final modes = [
+    ...knownModes,
+    if (!knownModes.contains(paymentMode)) paymentMode,
+  ];
 
   // The sheet owns these controllers for its lifetime; dispose them once
   // it closes rather than leaking one set per open/close cycle.
@@ -48,7 +59,7 @@ Future<void> showEditExpenseSheet(
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) {
+      builder: (sheetContext) {
         return StatefulBuilder(builder: (context, setModalState) {
           return Padding(
             padding: bottomSheetPadding(context),
@@ -67,9 +78,13 @@ Future<void> showEditExpenseSheet(
                       TextButton.icon(
                         icon: const Icon(Icons.call_split, size: 18),
                         label: const Text('Split'),
+                        // Close this sheet with its own context, then run the
+                        // split from the caller's: the sheet's context is
+                        // unmounted by the time the split sheet returns, and
+                        // the split used to be silently dropped.
                         onPressed: () {
-                          Navigator.pop(context);
-                          splitTransaction(context, expense);
+                          Navigator.pop(sheetContext);
+                          splitTransaction(callerContext, expense);
                         },
                       ),
                     ],
@@ -94,16 +109,9 @@ Future<void> showEditExpenseSheet(
                     decoration:
                         const InputDecoration(labelText: 'Payment Mode'),
                     items: [
-                      DropdownMenuItem(
-                          value: 'Cash', child: const Text('Cash')),
-                      DropdownMenuItem(
-                          value: 'Credit Card',
-                          child: const Text('Credit Card')),
-                      DropdownMenuItem(
-                          value: 'Debit Card', child: const Text('Debit Card')),
-                      DropdownMenuItem(value: 'UPI', child: const Text('UPI')),
-                      DropdownMenuItem(
-                          value: 'Other', child: const Text('Other')),
+                      for (final m in modes)
+                        DropdownMenuItem(
+                            value: m, child: Text(m.isEmpty ? 'None' : m)),
                     ],
                     onChanged: (v) =>
                         setModalState(() => paymentMode = v ?? paymentMode),
@@ -155,6 +163,9 @@ Future<void> showEditExpenseSheet(
                           type: expense.type,
                           accountId: expense.accountId,
                           toAccountId: expense.toAccountId,
+                          // Keep the import link, or the next SMS scan offers
+                          // the edited row again as a new transaction.
+                          sourceRef: expense.sourceRef,
                         );
                         final provider = context.read<ExpenseProvider>();
                         final accountProvider = context.read<AccountProvider>();
@@ -319,6 +330,7 @@ Future<void> showEditTransferSheet(
                         accountId: fromId,
                         toAccountId: toId,
                         toAmount: toAmount,
+                        sourceRef: transfer.sourceRef,
                       );
                       final expenseProvider = context.read<ExpenseProvider>();
                       final accountProvider = context.read<AccountProvider>();

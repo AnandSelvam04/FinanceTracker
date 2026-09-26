@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:finance_tracker/models/account.dart';
 import 'package:finance_tracker/models/budget.dart';
 import 'package:finance_tracker/models/expense.dart';
 import 'package:finance_tracker/models/recurring_rule.dart';
@@ -21,6 +22,7 @@ import 'package:finance_tracker/screens/expense_list_screen.dart';
 import 'package:finance_tracker/screens/goals_screen.dart';
 import 'package:finance_tracker/screens/recurring_screen.dart';
 import 'package:finance_tracker/services/db_service.dart';
+import 'package:finance_tracker/utils/currency_format.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
 
 /// Widget tests for the money-critical screens: the numbers people rely on
@@ -281,6 +283,40 @@ void main() {
     await tester.pump();
     expect(selected('Food'), isTrue);
     expect(selected('Bills'), isFalse);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+  testWidgets('Add expense: the amount carries the chosen account\'s currency',
+      (tester) async {
+    final (accounts, expenses, templates) = (await tester.runAsync(() async {
+      await DBService().insertAccount(Account(
+          name: 'US card', type: 'credit_card', currency: r'$', rate: 83));
+      final a = AccountProvider();
+      await a.fetchAccounts();
+      return (a, ExpenseProvider(), TemplateProvider());
+    }))!;
+
+    await pumpScreen(tester, const AddExpenseScreen(), [
+      ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
+      ChangeNotifierProvider<TemplateProvider>.value(value: templates),
+      ChangeNotifierProvider<SettingsProvider>.value(value: SettingsProvider()),
+    ]);
+    for (var i = 0; i < 2; i++) {
+      await tester.runAsync(
+          () async => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
+
+    expect(find.text('${CurrencyFormat.symbol} '), findsOneWidget);
+
+    await tester.ensureVisible(find.text('None'));
+    await tester.tap(find.text('None'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('US card').last);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Stored in dollars, so it must not be labelled in rupees.
+    expect(find.text(r'$ '), findsOneWidget);
     await teardownTree(tester);
   }, timeout: testTimeout);
 }
