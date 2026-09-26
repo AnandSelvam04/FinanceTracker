@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:local_auth/local_auth.dart';
 
 import 'package:finance_tracker/main.dart';
 import 'package:finance_tracker/services/auth_service.dart';
@@ -7,15 +8,16 @@ import 'package:finance_tracker/services/auth_service.dart';
 /// Stands in for the biometric prompt: answers with whatever [allow] holds.
 class _FakeAuth extends AuthService {
   bool allow = true;
+  AuthOutcome? forced;
   int prompts = 0;
 
   @override
   Future<bool> canAuthenticate() async => true;
 
   @override
-  Future<bool> authenticate() async {
+  Future<AuthOutcome> authenticate() async {
     prompts++;
-    return allow;
+    return forced ?? (allow ? AuthOutcome.success : AuthOutcome.failed);
   }
 }
 
@@ -127,5 +129,40 @@ void main() {
     await backgroundAndResume(tester);
     expect(auth.prompts, 1); // only the launch prompt
     expect(find.text('Open accounts'), findsOneWidget);
+  });
+
+  testWidgets('a prompt that cannot open does not trap the user',
+      (tester) async {
+    // e.g. the Android activity can't host the biometric dialog: retrying
+    // would fail the same way forever.
+    auth.forced = AuthOutcome.unavailable;
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Finance Tracker is locked'), findsNothing);
+    expect(find.text('Open accounts'), findsOneWidget);
+  });
+
+  testWidgets('a cancelled prompt stays locked', (tester) async {
+    auth.allow = false;
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Finance Tracker is locked'), findsOneWidget);
+    expect(find.text('Unlock'), findsOneWidget);
+  });
+
+  test('only errors no retry can fix count as unavailable', () {
+    for (final code in LocalAuthExceptionCode.values) {
+      final permanent = {
+        LocalAuthExceptionCode.uiUnavailable,
+        LocalAuthExceptionCode.noCredentialsSet,
+        LocalAuthExceptionCode.noBiometricHardware,
+        LocalAuthExceptionCode.noBiometricsEnrolled,
+      }.contains(code);
+      expect(AuthService.outcomeForError(code),
+          permanent ? AuthOutcome.unavailable : AuthOutcome.failed,
+          reason: code.name);
+    }
   });
 }

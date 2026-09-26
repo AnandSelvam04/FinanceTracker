@@ -183,9 +183,10 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
   Future<void> _tryUnlock() async {
     setState(() => _checking = true);
-    // If the device can't authenticate at all, don't lock the user out.
+    // If the device can't authenticate at all, or the prompt can't be shown,
+    // don't lock the user out: retrying could never succeed.
     final ok = !await _authService.canAuthenticate() ||
-        await _authService.authenticate();
+        await _authService.authenticate() != AuthOutcome.failed;
     if (!mounted) return;
     setState(() {
       _unlocked = ok;

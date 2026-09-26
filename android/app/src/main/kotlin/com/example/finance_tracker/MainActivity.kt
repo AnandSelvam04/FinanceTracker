@@ -2,9 +2,13 @@ package com.example.finance_tracker
 
 import android.os.Bundle
 import android.view.WindowManager
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity() {
+// FlutterFragmentActivity, not FlutterActivity: the app-lock prompt
+// (local_auth's BiometricPrompt) can only be shown from a FragmentActivity.
+// With a plain FlutterActivity every unlock attempt failed at once, leaving
+// the lock screen's Unlock button doing nothing.
+class MainActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // FLAG_SECURE keeps balances and transaction lists out of the
         // recents/app-switcher thumbnail and blocks screenshots and screen
