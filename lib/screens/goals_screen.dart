@@ -8,6 +8,7 @@ import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/dispose_with_route.dart';
 
 /// Ring colors offered when creating a goal. Mid-tone shades that read on
 /// both light and dark surfaces.
@@ -49,142 +50,143 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
     await showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(goal == null ? 'New savings goal' : 'Edit goal'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: nameController,
-                    autofocus: goal == null,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                        labelText: 'Goal', hintText: 'e.g. Emergency fund'),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  TextFormField(
-                    controller: targetController,
-                    decoration:
-                        const InputDecoration(labelText: 'Target amount'),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    validator: validateAmountField,
-                  ),
-                  TextFormField(
-                    controller: savedController,
-                    decoration: const InputDecoration(
-                        labelText: 'Already saved (optional)'),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? null
-                        : validateAmountField(v, allowZero: true),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          targetDate == null
-                              ? 'No target date'
-                              : 'By ${formatShortDate(targetDate!)}',
-                        ),
-                      ),
-                      if (targetDate != null)
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 20),
-                          tooltip: 'Clear target date',
-                          onPressed: () =>
-                              setDialogState(() => targetDate = null),
-                        ),
-                      TextButton.icon(
-                        icon: const Icon(Icons.event, size: 18),
-                        label: Text(targetDate == null ? 'Set date' : 'Change'),
-                        onPressed: () async {
-                          final now = DateTime.now();
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: targetDate ??
-                                DateTime(now.year + 1, now.month, now.day),
-                            firstDate: DateTime(now.year, now.month, now.day),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null) {
-                            setDialogState(() => targetDate = picked);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 10,
-                    children: [
-                      for (final c in _goalColors)
-                        Semantics(
-                          button: true,
-                          selected: c.toARGB32() == color,
-                          label: 'Goal color',
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: () =>
-                                setDialogState(() => color = c.toARGB32()),
-                            child: CircleAvatar(
-                              radius: 14,
-                              backgroundColor: c,
-                              child: c.toARGB32() == color
-                                  ? const Icon(Icons.check,
-                                      size: 16, color: Colors.white)
-                                  : null,
-                            ),
+      builder: (context) => DisposeWithRoute(
+        notifiers: [nameController, targetController, savedController],
+        child: StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text(goal == null ? 'New savings goal' : 'Edit goal'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      controller: nameController,
+                      autofocus: goal == null,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: const InputDecoration(
+                          labelText: 'Goal', hintText: 'e.g. Emergency fund'),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    TextFormField(
+                      controller: targetController,
+                      decoration:
+                          const InputDecoration(labelText: 'Target amount'),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      validator: validateAmountField,
+                    ),
+                    TextFormField(
+                      controller: savedController,
+                      decoration: const InputDecoration(
+                          labelText: 'Already saved (optional)'),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? null
+                          : validateAmountField(v, allowZero: true),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            targetDate == null
+                                ? 'No target date'
+                                : 'By ${formatShortDate(targetDate!)}',
                           ),
                         ),
-                    ],
-                  ),
-                ],
+                        if (targetDate != null)
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            tooltip: 'Clear target date',
+                            onPressed: () =>
+                                setDialogState(() => targetDate = null),
+                          ),
+                        TextButton.icon(
+                          icon: const Icon(Icons.event, size: 18),
+                          label:
+                              Text(targetDate == null ? 'Set date' : 'Change'),
+                          onPressed: () async {
+                            final now = DateTime.now();
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: targetDate ??
+                                  DateTime(now.year + 1, now.month, now.day),
+                              firstDate: DateTime(now.year, now.month, now.day),
+                              lastDate: DateTime(2100),
+                            );
+                            if (picked != null) {
+                              setDialogState(() => targetDate = picked);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      children: [
+                        for (final c in _goalColors)
+                          Semantics(
+                            button: true,
+                            selected: c.toARGB32() == color,
+                            label: 'Goal color',
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () =>
+                                  setDialogState(() => color = c.toARGB32()),
+                              child: CircleAvatar(
+                                radius: 14,
+                                backgroundColor: c,
+                                child: c.toARGB32() == color
+                                    ? const Icon(Icons.check,
+                                        size: 16, color: Colors.white)
+                                    : null,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+                  final provider = context.read<GoalProvider>();
+                  final saved = parseMinor(savedController.text.trim()) ?? 0;
+                  final updated = SavingsGoal(
+                    id: goal?.id,
+                    name: nameController.text.trim(),
+                    target: parseMinor(targetController.text.trim()) ?? 0,
+                    saved: saved < 0 ? 0 : saved,
+                    targetDate: targetDate,
+                    color: color,
+                  );
+                  if (goal == null) {
+                    await provider.addGoal(updated);
+                  } else {
+                    await provider.updateGoal(updated);
+                  }
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+                child: Text(goal == null ? 'Create' : 'Save'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                final provider = context.read<GoalProvider>();
-                final saved = parseMinor(savedController.text.trim()) ?? 0;
-                final updated = SavingsGoal(
-                  id: goal?.id,
-                  name: nameController.text.trim(),
-                  target: parseMinor(targetController.text.trim()) ?? 0,
-                  saved: saved < 0 ? 0 : saved,
-                  targetDate: targetDate,
-                  color: color,
-                );
-                if (goal == null) {
-                  await provider.addGoal(updated);
-                } else {
-                  await provider.updateGoal(updated);
-                }
-                if (context.mounted) Navigator.of(context).pop();
-              },
-              child: Text(goal == null ? 'Create' : 'Save'),
-            ),
-          ],
         ),
       ),
     );
-    nameController.dispose();
-    targetController.dispose();
-    savedController.dispose();
   }
 
   /// Adds to (or, with [withdraw], takes from) a goal's saved amount, then
@@ -195,50 +197,53 @@ class _GoalsScreenState extends State<GoalsScreen> {
     final controller = TextEditingController();
     final amount = await showDialog<int>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-            withdraw ? 'Withdraw from ${goal.name}' : 'Add to ${goal.name}'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            autofocus: true,
-            decoration: InputDecoration(
-              labelText: 'Amount',
-              helperText: withdraw
-                  ? 'Saved so far: ${formatMoney(goal.saved)}'
-                  : goal.remaining > 0
-                      ? '${formatMoney(goal.remaining)} to go'
-                      : null,
+      builder: (context) => DisposeWithRoute(
+        notifiers: [controller],
+        child: AlertDialog(
+          title: Text(
+              withdraw ? 'Withdraw from ${goal.name}' : 'Add to ${goal.name}'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Amount',
+                helperText: withdraw
+                    ? 'Saved so far: ${formatMoney(goal.saved)}'
+                    : goal.remaining > 0
+                        ? '${formatMoney(goal.remaining)} to go'
+                        : null,
+              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              validator: (v) {
+                final base = validateAmountField(v);
+                if (base != null) return base;
+                if (withdraw && (parseMinor(v!.trim()) ?? 0) > goal.saved) {
+                  return 'More than is saved';
+                }
+                return null;
+              },
             ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            validator: (v) {
-              final base = validateAmountField(v);
-              if (base != null) return base;
-              if (withdraw && (parseMinor(v!.trim()) ?? 0) > goal.saved) {
-                return 'More than is saved';
-              }
-              return null;
-            },
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+                Navigator.of(context)
+                    .pop(parseMinor(controller.text.trim()) ?? 0);
+              },
+              child: Text(withdraw ? 'Withdraw' : 'Add'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (!formKey.currentState!.validate()) return;
-              Navigator.of(context)
-                  .pop(parseMinor(controller.text.trim()) ?? 0);
-            },
-            child: Text(withdraw ? 'Withdraw' : 'Add'),
-          ),
-        ],
       ),
     );
-    controller.dispose();
     if (amount == null || amount <= 0 || !mounted) return;
 
     final provider = context.read<GoalProvider>();

@@ -10,6 +10,7 @@ import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
+import 'dispose_with_route.dart';
 
 /// Opens the right edit sheet for [expense] — a transfer editor for transfers,
 /// the expense/income editor otherwise. Shared so every list of transactions
@@ -53,14 +54,14 @@ Future<void> showEditExpenseSheet(
     if (!knownModes.contains(paymentMode)) paymentMode,
   ];
 
-  // The sheet owns these controllers for its lifetime; dispose them once
-  // it closes rather than leaking one set per open/close cycle.
-  try {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        return StatefulBuilder(builder: (context, setModalState) {
+  // DisposeWithRoute disposes the controllers once the sheet has closed.
+  await showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      return DisposeWithRoute(
+        notifiers: [descController, amountController, categoryController],
+        child: StatefulBuilder(builder: (context, setModalState) {
           return Padding(
             padding: bottomSheetPadding(context),
             // Scrollable so the form can still be reached (and Save tapped)
@@ -181,14 +182,10 @@ Future<void> showEditExpenseSheet(
               ),
             ),
           );
-        });
-      },
-    );
-  } finally {
-    descController.dispose();
-    amountController.dispose();
-    categoryController.dispose();
-  }
+        }),
+      );
+    },
+  );
 }
 
 /// Edit sheet for a transfer between accounts.
@@ -215,13 +212,13 @@ Future<void> showEditTransferSheet(
     return from != null && to != null && from.symbol != to.symbol;
   }
 
-  // The sheet owns these controllers for its lifetime; dispose them once
-  // it closes rather than leaking one set per open/close cycle.
-  try {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
+  // DisposeWithRoute disposes the controllers once the sheet has closed.
+  await showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) => DisposeWithRoute(
+      notifiers: [amountController, toAmountController, noteController],
+      child: StatefulBuilder(
         builder: (context, setSheet) => Padding(
           padding: bottomSheetPadding(context),
           // Scrollable so the form can still be reached (and Save tapped)
@@ -347,12 +344,8 @@ Future<void> showEditTransferSheet(
           ),
         ),
       ),
-    );
-  } finally {
-    amountController.dispose();
-    toAmountController.dispose();
-    noteController.dispose();
-  }
+    ),
+  );
 }
 
 /// Splits one transaction into several categorized parts that sum to it —

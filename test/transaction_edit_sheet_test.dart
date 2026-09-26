@@ -106,10 +106,18 @@ void main() {
       ),
     );
 
+    // Typing raises the keyboard; saving dismisses it while the sheet is
+    // still animating closed, which rebuilds the fields. Their controllers
+    // must still be alive then (they used to be disposed already).
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Swiggy'), 'Swiggy dinner');
     await tester.tap(find.text('Save'));
     await settle(tester);
 
-    expect((await dbRows(tester)).single.sourceRef, 'sms:42');
+    expect(tester.takeException(), isNull);
+    final row = (await dbRows(tester)).single;
+    expect(row.description, 'Swiggy dinner');
+    expect(row.sourceRef, 'sms:42');
   });
 
   testWidgets('Split from the edit sheet saves the parts', (tester) async {
