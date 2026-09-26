@@ -133,6 +133,8 @@ class SmsImport {
     'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12,
   };
 
+  static const _smsRefPrefix = 'sms:';
+
   /// A stable id for one SMS, used to keep a rescan from re-importing it.
   ///
   /// Sender plus the message timestamp is already effectively unique; the body
@@ -141,7 +143,7 @@ class SmsImport {
   /// persisted on the transaction row — so this uses an explicit FNV-1a rather
   /// than `String.hashCode`, which Dart does not guarantee between runs.
   static String sourceRefFor(String sender, DateTime receivedAt, String body) {
-    return 'sms:${sender.toLowerCase()}:'
+    return '$_smsRefPrefix${sender.toLowerCase()}:'
         '${receivedAt.millisecondsSinceEpoch}:${_fnv1a(body)}';
   }
 
@@ -438,9 +440,10 @@ class SmsImport {
   /// An already-recorded transaction that looks like [parsed] was entered by
   /// hand, or null when there is none.
   ///
-  /// Only rows without a sourceRef are considered: anything imported from a
-  /// message is already covered by the sourceRef check, and matching against
-  /// those would flag a legitimate second purchase of the same amount.
+  /// Rows imported from a message are skipped: they are already covered by
+  /// the sourceRef check, and matching against those would flag a legitimate
+  /// second purchase of the same amount. Rows from a CSV statement are still
+  /// considered — the same spend often arrives both ways.
   static Expense? findDuplicate(
     ParsedSms parsed,
     int? accountId,
@@ -448,7 +451,7 @@ class SmsImport {
     Duration window = const Duration(days: 2),
   }) {
     for (final e in existing) {
-      if (e.sourceRef != null) continue;
+      if (e.sourceRef?.startsWith(_smsRefPrefix) ?? false) continue;
       if (e.amount != parsed.amount || e.type != parsed.type) continue;
       if (e.date.difference(parsed.date).abs() > window) continue;
       // An unset account on either side is not evidence of a different
