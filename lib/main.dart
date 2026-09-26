@@ -76,9 +76,17 @@ class FinanceTrackerApp extends StatelessWidget {
           theme: AppTheme.light(settings.seedColor),
           darkTheme: AppTheme.dark(settings.seedColor),
           themeMode: settings.themeMode,
-          home: requireAuth
-              ? AuthGate(lockAfter: settings.lockTimeout, child: home)
-              : home,
+          // The gate wraps the Navigator (via builder) rather than being the
+          // home route. As the home route it could only hide the bottom of the
+          // stack: any screen pushed on top (Accounts, a transaction sheet,
+          // Settings) stayed visible and usable after a re-lock.
+          builder: requireAuth
+              ? (context, navigator) => AuthGate(
+                    lockAfter: settings.lockTimeout,
+                    child: navigator!,
+                  )
+              : null,
+          home: home,
         ),
       ),
     );
@@ -87,13 +95,23 @@ class FinanceTrackerApp extends StatelessWidget {
 
 /// Shows a lock screen until the user authenticates, instead of
 /// silently refusing to launch when authentication fails.
+///
+/// Wrap the app's Navigator with it (see `MaterialApp.builder`) so a lock
+/// covers every route, not just the first one. While locked the child is kept
+/// mounted but offstage, so unlocking returns the user to exactly the screen
+/// (and half-filled form) they left.
 class AuthGate extends StatefulWidget {
   final Widget child;
   final Duration lockAfter;
+
+  /// Overridable for tests; defaults to the platform biometric prompt.
+  final AuthService? authService;
+
   const AuthGate({
     super.key,
     required this.child,
     this.lockAfter = AuthService.lockAfter,
+    this.authService,
   });
 
   @override
@@ -101,8 +119,12 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
-  final AuthService _authService = AuthService();
+  late final AuthService _authService = widget.authService ?? AuthService();
   bool _unlocked = false;
+
+  /// The child is only built once the user has unlocked at least once, so
+  /// nothing loads or renders behind the very first lock screen.
+  bool _everUnlocked = false;
   bool _checking = true;
   DateTime? _backgroundedAt;
 
@@ -143,21 +165,45 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   Future<void> _tryUnlock() async {
     setState(() => _checking = true);
     // If the device can't authenticate at all, don't lock the user out.
-    if (!await _authService.canAuthenticate()) {
-      if (mounted) setState(() => _unlocked = true);
-      return;
-    }
-    final ok = await _authService.authenticate();
+    final ok = !await _authService.canAuthenticate() ||
+        await _authService.authenticate();
     if (!mounted) return;
     setState(() {
       _unlocked = ok;
+      _everUnlocked |= ok;
       _checking = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_unlocked) return widget.child;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (_everUnlocked)
+          // Offstage stops painting, hit-testing and semantics; ExcludeFocus
+          // keeps a focused text field from taking keyboard input; TickerMode
+          // pauses animations. Together the app is inert while locked.
+          Offstage(
+            key: const ValueKey('auth-gate-content'),
+            offstage: !_unlocked,
+            child: ExcludeFocus(
+              excluding: !_unlocked,
+              child: TickerMode(enabled: _unlocked, child: widget.child),
+            ),
+          ),
+        if (!_unlocked)
+          // Its own messenger, so a SnackBar raised by the app just before
+          // locking isn't shown on the lock screen.
+          ScaffoldMessenger(
+            key: const ValueKey('auth-gate-lock'),
+            child: _buildLockScreen(context),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLockScreen(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: Center(
