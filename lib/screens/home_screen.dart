@@ -440,6 +440,11 @@ class _DashboardView extends StatelessWidget {
     );
   }
 
+  bool get _isCurrentMonth {
+    final now = DateTime.now();
+    return selectedYear == now.year && selectedMonth == now.month;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ExpenseProvider>(
@@ -495,7 +500,8 @@ class _DashboardView extends StatelessWidget {
                     // empty text otherwise flashes on every cold start.
                     if (yearlyExpenses.isEmpty && provider.isLoading)
                       const DashboardSkeleton()
-                    else if (yearlyExpenses.isEmpty)
+                    // Income alone is still something to show.
+                    else if (yearlyExpenses.isEmpty && yearlyIncome == 0)
                       EmptyState(
                         icon: Icons.savings_outlined,
                         title: 'Nothing recorded in $selectedYear yet',
@@ -527,10 +533,12 @@ class _DashboardView extends StatelessWidget {
                   ] else ...[
                     if (monthlyExpenses.isEmpty && provider.isLoading)
                       const DashboardSkeleton()
-                    else if (monthlyExpenses.isEmpty)
+                    // A month with only income used to show "No expenses"
+                    // and hide the salary that had come in.
+                    else if (monthlyExpenses.isEmpty && monthlyIncome == 0)
                       EmptyState(
                         icon: Icons.account_balance_wallet_outlined,
-                        title: 'No expenses this month',
+                        title: 'Nothing recorded this month',
                         message:
                             'Track your first expense to see charts and trends.',
                         actionLabel: 'Add expense',
@@ -538,7 +546,9 @@ class _DashboardView extends StatelessWidget {
                       )
                     else ...[
                       _TotalHeadline(
-                        label: 'Spent this month',
+                        label: _isCurrentMonth
+                            ? 'Spent this month'
+                            : 'Spent in ${formatMonthYear(selectedYear, selectedMonth)}',
                         amount:
                             provider.totalForMonth(selectedYear, selectedMonth),
                       ),

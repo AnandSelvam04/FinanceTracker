@@ -7,6 +7,7 @@ import '../providers/expense_provider.dart';
 import '../services/statement_pdf.dart';
 import '../widgets/section_header.dart';
 import '../widgets/category_avatar.dart';
+import '../utils/alerts.dart' show calendarDaysBetween;
 import '../utils/app_colors.dart';
 import '../utils/category_colors.dart';
 import '../utils/currency_format.dart';
@@ -71,7 +72,25 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
           ? DateTime(_year - 1, 12, 1)
           : DateTime(_year, _month - 1, 1));
 
-  DateTime get _prevEnd => _rangeStart;
+  /// Whether today falls inside the period on screen, i.e. it isn't over.
+  bool get _inProgress {
+    final today = _dateOnly(DateTime.now());
+    return !today.isBefore(_rangeStart) && today.isBefore(_rangeEnd);
+  }
+
+  /// End of the stretch of the previous period to compare against. While the
+  /// period on screen is still running, that is the same number of days into
+  /// the previous one: ten days of this month against the whole of last
+  /// month always looked like a big drop in spending.
+  DateTime get _prevEnd {
+    if (!_inProgress) return _rangeStart;
+    final today = _dateOnly(DateTime.now());
+    final elapsed = calendarDaysBetween(_rangeStart, today) + 1;
+    if (_mode == _PeriodMode.week) return _plusDays(_prevStart, elapsed);
+    final prevLength =
+        DateTime(_prevStart.year, _prevStart.month + 1, 0).day;
+    return _plusDays(_prevStart, elapsed < prevLength ? elapsed : prevLength);
+  }
 
   void _ensureLoaded() {
     final provider = context.read<ExpenseProvider>();
@@ -331,7 +350,11 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
       Row(
         children: [
           Text(
-              'Expense vs last ${_mode == _PeriodMode.week ? 'week' : 'month'}: ',
+              _inProgress
+                  ? 'Expense vs same days last '
+                      '${_mode == _PeriodMode.week ? 'week' : 'month'}: '
+                  : 'Expense vs last '
+                      '${_mode == _PeriodMode.week ? 'week' : 'month'}: ',
               style: const TextStyle(fontSize: 14)),
           _DeltaLabel(current: expense, previous: prevExpense),
         ],
