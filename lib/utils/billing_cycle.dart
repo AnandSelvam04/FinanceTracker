@@ -131,7 +131,9 @@ List<CreditCardReminder> creditCardReminders({
   int overdueGrace = 7,
 }) {
   final today = DateTime(now.year, now.month, now.day);
-  final tomorrow = today.add(const Duration(days: 1));
+  // Calendar arithmetic: a 24-hour Duration lands on 23:00 today on a
+  // 25-hour daylight-saving day.
+  final tomorrow = DateTime(today.year, today.month, today.day + 1);
   final out = <CreditCardReminder>[];
   for (final a in accounts) {
     if (!a.hasBillingCycle || a.id == null) continue;
