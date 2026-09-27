@@ -3,8 +3,10 @@ import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/expense.dart';
+import '../models/investment.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
+import '../providers/investment_provider.dart';
 import '../services/backup_service.dart';
 import '../services/db_service.dart';
 import '../utils/app_colors.dart';
@@ -21,6 +23,7 @@ import '../widgets/skeleton.dart';
 import '../widgets/swipe_delete_background.dart';
 import '../widgets/transaction_edit_sheet.dart';
 import '../widgets/dispose_with_route.dart';
+import 'investment_type_screen.dart';
 
 class ExpenseListScreen extends StatefulWidget {
   const ExpenseListScreen({super.key});
@@ -202,20 +205,24 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
 
   /// The current search/period/type plus advanced (category, account,
   /// amount range, custom date range) filters applied to a list.
-  List<Expense> _applyFilters(List<Expense> all) {
-    return TransactionFilter(
-      searchQuery: _searchQuery,
-      year: _selectedYear,
-      month: _selectedMonth,
-      type: _typeFilter,
-      category: _categoryFilter,
-      accountId: _accountFilter,
-      minAmount: _minAmount,
-      maxAmount: _maxAmount,
-      startDate: _dateRange?.start,
-      endDate: _dateRange?.end,
-    ).apply(all);
-  }
+  List<Expense> _applyFilters(List<Expense> all) => _filter.apply(all);
+
+  TransactionFilter get _filter => TransactionFilter(
+        searchQuery: _searchQuery,
+        year: _selectedYear,
+        month: _selectedMonth,
+        type: _typeFilter,
+        category: _categoryFilter,
+        accountId: _accountFilter,
+        minAmount: _minAmount,
+        maxAmount: _maxAmount,
+        startDate: _dateRange?.start,
+        endDate: _dateRange?.end,
+        accountNames: {
+          for (final a in context.read<AccountProvider>().accounts)
+            a.id!: a.name,
+        },
+      );
 
   Future<void> _openFilterSheet() async {
     final provider = context.read<ExpenseProvider>();
@@ -531,16 +538,20 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
           ),
           const SizedBox(height: 4),
           Expanded(
-            child: Consumer<ExpenseProvider>(
-              builder: (context, provider, _) {
+            child: Consumer2<ExpenseProvider, InvestmentProvider>(
+              builder: (context, provider, investmentProvider, _) {
                 final expenses = _applyFilters(provider.expenses);
+                // With an account chosen, the investments paid from it too:
+                // they move its balance, so the list must show them to add up.
+                final investments =
+                    _filter.investmentsFor(investmentProvider.investments);
                 // Distinguish "still loading" from "nothing here" — otherwise
                 // a cold start shows "No expenses found." for a few frames,
                 // which reads as data loss.
                 if (expenses.isEmpty && provider.isLoading) {
                   return const ListSkeleton();
                 }
-                if (expenses.isEmpty) {
+                if (expenses.isEmpty && investments.isEmpty) {
                   // Wrapped in a scrollable so pull-to-refresh still works from
                   // the empty state.
                   return RefreshIndicator(
@@ -566,15 +577,19 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 final items = <Object>[];
                 final daySpent = <DateTime, int>{};
                 DateTime? day;
-                for (final e in expenses) {
-                  final d = DateUtils.dateOnly(e.date);
+                // Both lists are newest-first; merge them by date.
+                final rows = <Object>[...expenses, ...investments]
+                  ..sort((a, b) => _dateOf(b).compareTo(_dateOf(a)));
+                for (final row in rows) {
+                  final d = DateUtils.dateOnly(_dateOf(row));
                   if (d != day) {
                     day = d;
                     items.add(d);
                   }
-                  items.add(e);
-                  if (e.isExpense) {
-                    daySpent[d] = (daySpent[d] ?? 0) + provider.baseAmountOf(e);
+                  items.add(row);
+                  if (row is Expense && row.isExpense) {
+                    daySpent[d] =
+                        (daySpent[d] ?? 0) + provider.baseAmountOf(row);
                   }
                 }
                 final spent = expenses
@@ -594,7 +609,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                     itemBuilder: (context, index) {
                       if (index == 0) {
                         return _PeriodSummary(
-                          count: expenses.length,
+                          count: expenses.length + investments.length,
                           spent: spent,
                           income: income,
                         );
@@ -606,7 +621,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       }
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: _buildRow(context, item as Expense, index),
+                        child: item is Investment
+                            ? _InvestmentRow(investment: item)
+                            : _buildRow(context, item as Expense, index),
                       );
                     },
                   ),
@@ -618,6 +635,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       ),
     );
   }
+
+  static DateTime _dateOf(Object row) =>
+      row is Investment ? row.date : (row as Expense).date;
 
   Widget _buildRow(BuildContext context, Expense expense, int index) {
     final rowKey = expense.id ?? '${expense.description}-$index';
@@ -814,6 +834,50 @@ class _ToolbarDivider extends StatelessWidget {
         width: 1,
         height: 24,
         color: Theme.of(context).colorScheme.outlineVariant,
+      ),
+    );
+  }
+}
+
+/// An investment paid from (or back into) the filtered account. Tapping it
+/// opens its type, where it can be edited like any other contribution.
+class _InvestmentRow extends StatelessWidget {
+  final Investment investment;
+  const _InvestmentRow({required this.investment});
+
+  @override
+  Widget build(BuildContext context) {
+    final i = investment;
+    // Money out of the account for a contribution, back in for a withdrawal.
+    final amount = i.isWithdrawal
+        ? '+${formatMoney(-i.amount)}'
+        : '-${formatMoney(i.amount)}';
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: incomeAvatarColor(context),
+          child: Icon(Icons.trending_up, color: incomeColor(context)),
+        ),
+        title: Text(i.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(
+            '${i.isWithdrawal ? 'Investment withdrawal' : 'Investment'}'
+            ' · ${i.type}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis),
+        trailing: Text(amount,
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: i.isWithdrawal
+                    ? incomeColor(context)
+                    : expenseColor(context))),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => InvestmentTypeScreen(type: i.type)),
+        ),
       ),
     );
   }

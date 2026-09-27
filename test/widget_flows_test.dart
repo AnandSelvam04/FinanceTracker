@@ -12,6 +12,7 @@ import 'package:finance_tracker/models/savings_goal.dart';
 import 'package:finance_tracker/providers/account_provider.dart';
 import 'package:finance_tracker/providers/budget_provider.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
+import 'package:finance_tracker/providers/investment_provider.dart';
 import 'package:finance_tracker/providers/goal_provider.dart';
 import 'package:finance_tracker/providers/recurring_provider.dart';
 import 'package:finance_tracker/providers/settings_provider.dart';
@@ -215,6 +216,8 @@ void main() {
     await pumpScreen(tester, const ExpenseListScreen(), [
       ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
       ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      ChangeNotifierProvider<InvestmentProvider>(
+          create: (_) => InvestmentProvider()),
     ]);
 
     expect(find.text('Groceries'), findsOneWidget);
