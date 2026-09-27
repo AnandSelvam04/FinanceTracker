@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/investment.dart';
 import '../utils/app_colors.dart';
 import '../providers/investment_provider.dart';
+import '../providers/recurring_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import '../widgets/hero_total_card.dart';
@@ -148,7 +149,10 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     if (target == null || !context.mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
+    final recurring = context.read<RecurringProvider>();
     final moved = await provider.reassignType(type, target);
+    // Its SIP rules moved too; refresh them so the Recurring screen agrees.
+    await recurring.fetchRules();
     messenger.showSnackBar(SnackBar(
       content: Text('Moved $moved '
           '${moved == 1 ? 'contribution' : 'contributions'} to "$target".'),

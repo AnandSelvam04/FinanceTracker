@@ -775,15 +775,29 @@ class DBService {
   /// Reassigns every contribution filed under [from] to [to], for correcting a
   /// mis-typed category. Returns the number of rows moved. A no-op (0 rows) if
   /// the type has no contributions or [from] equals [to].
+  ///
+  /// Monthly SIP rules filing into [from] move with it, in the same
+  /// transaction. Moving only the past contributions let the next SIP recreate
+  /// the type that had just been merged away.
   Future<int> reassignInvestmentType(String from, String to) async {
     if (from == to) return 0;
     final db = await database;
-    return await db.update(
-      DbConstants.tableInvestments,
-      {DbConstants.colType: to},
-      where: '${DbConstants.colType} = ?',
-      whereArgs: [from],
-    );
+    return db.transaction((txn) async {
+      final moved = await txn.update(
+        DbConstants.tableInvestments,
+        {DbConstants.colType: to},
+        where: '${DbConstants.colType} = ?',
+        whereArgs: [from],
+      );
+      await txn.update(
+        DbConstants.tableRecurringRules,
+        {DbConstants.colCategory: to},
+        where:
+            '${DbConstants.colIsInvestment} = 1 AND ${DbConstants.colCategory} = ?',
+        whereArgs: [from],
+      );
+      return moved;
+    });
   }
 
   Future<void> clearInvestments() async {
