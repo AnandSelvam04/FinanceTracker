@@ -15,6 +15,7 @@ import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 import '../services/notification_service.dart';
 import '../services/recurring_service.dart';
+import '../services/sms_service.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
 import '../utils/billing_cycle.dart';
@@ -931,21 +932,61 @@ class _ShortcutsRow extends StatelessWidget {
           ),
           if (smsEnabled) ...[
             const SizedBox(width: 8),
-            Expanded(
-              child: _ShortcutButton(
-                icon: Icons.sms,
-                label: 'Import SMS',
-                accent: const Color(0xFF6A3DE8), // violet
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const SmsReviewScreen()),
-                ),
-              ),
-            ),
+            const Expanded(child: _SmsShortcut()),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// The Import SMS shortcut, badged with how many new bank alerts are waiting
+/// since the last review — so the queue announces itself instead of relying
+/// on the user remembering to open it. Recounted when the app comes back to
+/// the foreground and after returning from the review screen.
+class _SmsShortcut extends StatefulWidget {
+  const _SmsShortcut();
+
+  @override
+  State<_SmsShortcut> createState() => _SmsShortcutState();
+}
+
+class _SmsShortcutState extends State<_SmsShortcut> {
+  int _pending = 0;
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(onResume: _refresh);
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    final count = await SmsService.pendingCount();
+    if (mounted && count != _pending) setState(() => _pending = count);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShortcutButton(
+      icon: Icons.sms,
+      label: 'Import SMS',
+      accent: const Color(0xFF6A3DE8), // violet
+      badge: _pending,
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SmsReviewScreen()),
+        );
+        await _refresh();
+      },
     );
   }
 }
@@ -956,11 +997,15 @@ class _ShortcutButton extends StatelessWidget {
   final String label;
   final Color accent;
   final VoidCallback onTap;
+
+  /// A count shown on the icon (new items waiting); hidden at zero.
+  final int badge;
   const _ShortcutButton({
     required this.icon,
     required this.label,
     required this.accent,
     required this.onTap,
+    this.badge = 0,
   });
 
   @override
@@ -985,7 +1030,11 @@ class _ShortcutButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 20, color: foreground),
+              Badge(
+                isLabelVisible: badge > 0,
+                label: Text(badge > 99 ? '99+' : '$badge'),
+                child: Icon(icon, size: 20, color: foreground),
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(

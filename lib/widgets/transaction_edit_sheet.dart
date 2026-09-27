@@ -45,7 +45,8 @@ Future<void> transactionRowActions(
     title:
         expense.description.isEmpty ? '(no description)' : expense.description,
     subtitle:
-        '${formatMoney(expense.amount)} · ${formatDateWithDay(expense.date)}',
+        '${expense.isRefund ? 'Refund ${formatMoney(-expense.amount)}' : formatMoney(expense.amount)}'
+        ' · ${formatDateWithDay(expense.date)}',
     canDelete: onDelete != null,
   );
   if (action == null || !context.mounted) return;
@@ -79,8 +80,11 @@ Future<void> showEditExpenseSheet(
 }) async {
   final first = firstDate ?? DateTime(2000);
   final descController = TextEditingController(text: expense.description);
+  // A refund is stored negative but edited by its size, then saved back
+  // negative, so the amount field keeps its usual positive-only check.
+  final refund = expense.isRefund;
   final amountController =
-      TextEditingController(text: minorToEditString(expense.amount));
+      TextEditingController(text: minorToEditString(expense.amount.abs()));
   final categoryController = TextEditingController(text: expense.category);
   String paymentMode = expense.paymentMode;
   DateTime selectedDate = expense.date;
@@ -117,7 +121,9 @@ Future<void> showEditExpenseSheet(
                     children: [
                       Expanded(
                         child: Text(
-                            expense.isIncome ? 'Edit Income' : 'Edit Expense',
+                            expense.isIncome
+                                ? 'Edit Income'
+                                : (refund ? 'Edit Refund' : 'Edit Expense'),
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold)),
@@ -132,18 +138,21 @@ Future<void> showEditExpenseSheet(
                           duplicateTransaction(callerContext, expense);
                         },
                       ),
-                      TextButton.icon(
-                        icon: const Icon(Icons.call_split, size: 18),
-                        label: const Text('Split'),
-                        // Close this sheet with its own context, then run the
-                        // split from the caller's: the sheet's context is
-                        // unmounted by the time the split sheet returns, and
-                        // the split used to be silently dropped.
-                        onPressed: () {
-                          Navigator.pop(sheetContext);
-                          splitTransaction(callerContext, expense);
-                        },
-                      ),
+                      // Splitting a refund across categories isn't
+                      // supported: the split sheet works in positive parts.
+                      if (!refund)
+                        TextButton.icon(
+                          icon: const Icon(Icons.call_split, size: 18),
+                          label: const Text('Split'),
+                          // Close this sheet with its own context, then run the
+                          // split from the caller's: the sheet's context is
+                          // unmounted by the time the split sheet returns, and
+                          // the split used to be silently dropped.
+                          onPressed: () {
+                            Navigator.pop(sheetContext);
+                            splitTransaction(callerContext, expense);
+                          },
+                        ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -208,8 +217,8 @@ Future<void> showEditExpenseSheet(
                               .showSnackBar(SnackBar(content: Text(problem)));
                           return;
                         }
-                        final amount =
-                            parseMinor(amountController.text.trim())!;
+                        final size = parseMinor(amountController.text.trim())!;
+                        final amount = refund ? -size : size;
                         final updated = Expense(
                           id: expense.id,
                           description: descController.text.trim(),

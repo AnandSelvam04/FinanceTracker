@@ -246,7 +246,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   secondary: const Icon(Icons.sms),
                   title: const Text('Read SMS for transactions'),
                   subtitle: const Text(
-                      'Find bank alerts from the last 2 days. Messages are '
+                      'Find bank alerts since you last reviewed them. Messages are '
                       'read on this device and never sent anywhere; nothing '
                       'is recorded without your confirmation.'),
                   isThreeLine: true,
