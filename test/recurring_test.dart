@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_tracker/models/expense.dart';
 import 'package:finance_tracker/models/recurring_rule.dart';
+import 'package:finance_tracker/providers/recurring_provider.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/services/recurring_service.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
@@ -261,6 +262,80 @@ void main() {
       final more = await RecurringService.instance
           .postDueTransactions(now: DateTime(2026, 1, 1));
       expect(more, greaterThan(0));
+    });
+  });
+
+  group('resuming a paused rule', () {
+    test('skips the occurrences missed while paused', () async {
+      final now = DateTime(2026, 9, 27);
+      // Monthly on the 5th, paused since June: June to September were missed.
+      await DBService().insertRecurringRule(RecurringRule(
+        description: 'Netflix',
+        amount: 64900,
+        category: 'Bills',
+        frequency: DbConstants.freqMonthly,
+        nextDue: DateTime(2026, 6, 5),
+        enabled: false,
+      ));
+      final provider = RecurringProvider();
+      await provider.fetchRules();
+
+      await provider.toggleEnabled(provider.rules.single, now: now);
+
+      final rule = provider.rules.single;
+      expect(rule.enabled, isTrue);
+      expect(rule.nextDue, DateTime(2026, 10, 5));
+      // Nothing is back-posted for the paused months.
+      expect(await RecurringService.instance.postDueTransactions(now: now), 0);
+      expect(await DBService().getExpenses(), isEmpty);
+    });
+
+    test('keeps the day-of-month anchor while stepping forward', () {
+      final rule = RecurringRule(
+        description: 'Rent',
+        amount: 1,
+        category: 'Bills',
+        frequency: DbConstants.freqMonthly,
+        nextDue: DateTime(2026, 2, 28),
+        anchorDay: 31,
+        enabled: false,
+      );
+      expect(RecurringProvider.resumeDate(rule, DateTime(2026, 4, 1)),
+          DateTime(2026, 4, 30));
+    });
+
+    test('a due date still ahead, or due today, is kept', () {
+      RecurringRule rule(DateTime due) => RecurringRule(
+            description: 'x',
+            amount: 1,
+            category: 'Bills',
+            frequency: DbConstants.freqMonthly,
+            nextDue: due,
+            enabled: false,
+          );
+      final now = DateTime(2026, 9, 27, 18);
+      expect(RecurringProvider.resumeDate(rule(DateTime(2026, 10, 3)), now),
+          DateTime(2026, 10, 3));
+      expect(RecurringProvider.resumeDate(rule(DateTime(2026, 9, 27)), now),
+          DateTime(2026, 9, 27));
+    });
+
+    test('pausing leaves the due date alone', () async {
+      await DBService().insertRecurringRule(RecurringRule(
+        description: 'Gym',
+        amount: 1,
+        category: 'Health',
+        frequency: DbConstants.freqMonthly,
+        nextDue: DateTime(2026, 6, 5),
+      ));
+      final provider = RecurringProvider();
+      await provider.fetchRules();
+
+      await provider.toggleEnabled(provider.rules.single,
+          now: DateTime(2026, 9, 27));
+
+      expect(provider.rules.single.enabled, isFalse);
+      expect(provider.rules.single.nextDue, DateTime(2026, 6, 5));
     });
   });
 }

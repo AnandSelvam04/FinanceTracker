@@ -74,13 +74,46 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // Safety net: keep a fresh local backup even if the user never
       // taps "Backup" (data otherwise lives only on this device).
       await BackupService().autoBackupIfDue();
-      if (mounted) await _syncNotifications();
+      if (!mounted) return;
+      await _syncNotifications();
+      if (!mounted) return;
+      // From here on keep reminders in step with the data, not just the
+      // launch-time snapshot: a deleted or edited rule used to keep its old
+      // "Bill due soon" reminder, and switching notifications back on
+      // scheduled nothing until the next cold start.
+      _recurring = recurringProvider..addListener(_onRulesChanged);
+      _settings = context.read<SettingsProvider>()
+        ..addListener(_onSettingsChanged);
+      _notificationsWereOn = _settings!.notificationsEnabled;
     });
+  }
+
+  RecurringProvider? _recurring;
+  SettingsProvider? _settings;
+  bool _notificationsWereOn = false;
+
+  void _onRulesChanged() {
+    final settings = _settings;
+    final recurring = _recurring;
+    if (settings == null || recurring == null) return;
+    if (!settings.notificationsEnabled) return;
+    NotificationService.instance.scheduleBillReminders(recurring.rules);
+  }
+
+  void _onSettingsChanged() {
+    final on = _settings?.notificationsEnabled ?? false;
+    // Turning them off already cancels everything (Settings does that).
+    if (on && !_notificationsWereOn && mounted) {
+      _syncNotifications(requestPermission: false);
+    }
+    _notificationsWereOn = on;
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _recurring?.removeListener(_onRulesChanged);
+    _settings?.removeListener(_onSettingsChanged);
     super.dispose();
   }
 
@@ -136,8 +169,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   /// Re-arms bill reminders and fires any new budget notifications, honoring
-  /// the user's notifications setting.
-  Future<void> _syncNotifications() async {
+  /// the user's notifications setting. [requestPermission] is false when the
+  /// caller has just asked (the Settings switch does).
+  Future<void> _syncNotifications({bool requestPermission = true}) async {
     final settings = context.read<SettingsProvider>();
     final recurring = context.read<RecurringProvider>();
     final budgets = context.read<BudgetProvider>();
@@ -148,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await service.cancelAll();
       return;
     }
-    await service.requestPermission();
+    if (requestPermission) await service.requestPermission();
     await service.scheduleBillReminders(recurring.rules);
     final now = DateTime.now();
     // Credit-card statement reminders. A wide window so the upcoming due date

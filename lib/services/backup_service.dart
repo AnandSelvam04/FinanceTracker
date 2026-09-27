@@ -254,7 +254,15 @@ class BackupService {
           e);
       return false;
     }
-    await backupToJson(deviceKey: deviceKey);
+    try {
+      await backupToJson(deviceKey: deviceKey);
+    } catch (e, st) {
+      // A full disk or unwritable file used to escape here and abort the rest
+      // of the launch sequence, so bill and budget reminders were never
+      // scheduled. Log it; the next launch tries again.
+      AppLogger.error('Auto-backup failed', e, st);
+      return false;
+    }
     await prefs.setString(_kLastAutoBackup, DateTime.now().toIso8601String());
     return true;
   }
