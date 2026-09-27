@@ -148,7 +148,16 @@ class _RecurringScreenState extends State<RecurringScreen> {
                             lastDate: DateTime(2100),
                           );
                           if (picked != null) {
-                            setDialogState(() => _nextDue = picked);
+                            setDialogState(() {
+                              _nextDue = picked;
+                              // An end date before the first occurrence would
+                              // end the rule before it ever posts.
+                              if (_endDate != null &&
+                                  _endDate!
+                                      .isBefore(DateUtils.dateOnly(picked))) {
+                                _endDate = null;
+                              }
+                            });
                           }
                         },
                         child: const Text('Change'),
@@ -166,7 +175,12 @@ class _RecurringScreenState extends State<RecurringScreen> {
                         onPressed: () async {
                           final picked = await showDatePicker(
                             context: context,
-                            initialDate: _endDate ?? _nextDue,
+                            // Never before firstDate, which the picker asserts.
+                            initialDate: _endDate != null &&
+                                    !_endDate!
+                                        .isBefore(DateUtils.dateOnly(_nextDue))
+                                ? _endDate!
+                                : _nextDue,
                             firstDate: _nextDue,
                             lastDate: DateTime(2100),
                           );
@@ -206,6 +220,13 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     accountId: _accountId,
                     frequency: _frequency,
                     nextDue: _nextDue,
+                    // Keep the rule's anchor unless the due date was changed.
+                    // Re-deriving it from nextDue moved a monthly rule anchored
+                    // on the 31st to the 28th if it was edited while its next
+                    // occurrence sat clamped to a short month.
+                    anchorDay: rule != null && _nextDue == rule.nextDue
+                        ? rule.anchorDay
+                        : null,
                     enabled: rule?.enabled ?? true,
                     endDate: _endDate,
                     // Preserve the SIP flag; this dialog only edits the common

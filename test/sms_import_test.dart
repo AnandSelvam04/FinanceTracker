@@ -608,6 +608,13 @@ void _transferTests() {
           isNull);
     });
 
+    test('still flags a row that came in from a CSV statement', () {
+      expect(
+          SmsImport.findDuplicate(parsed, 1,
+              [typed(sourceRef: 'csv:2025-08-01|expense|49900|lunch#1')]),
+          isNotNull);
+    });
+
     test('no history means no duplicate', () {
       expect(SmsImport.findDuplicate(parsed, 1, const []), isNull);
     });

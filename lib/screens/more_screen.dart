@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/settings_provider.dart';
 import '../services/backup_service.dart';
 import '../utils/app_colors.dart';
@@ -27,22 +26,12 @@ class MoreScreen extends StatefulWidget {
 }
 
 class _MoreScreenState extends State<MoreScreen> {
-  bool _biometricEnabled = false;
   DateTime? _lastBackup;
 
   @override
   void initState() {
     super.initState();
-    _loadPrefs();
     _loadLastBackup();
-  }
-
-  Future<void> _loadPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _biometricEnabled = prefs.getBool('biometricEnabled') ?? false;
-    });
   }
 
   Future<void> _loadLastBackup() async {
@@ -64,15 +53,8 @@ class _MoreScreenState extends State<MoreScreen> {
     return 'Last backup: $ago';
   }
 
-  Future<void> _setBiometricEnabled(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('biometricEnabled', value);
-    if (!mounted) return;
-    setState(() => _biometricEnabled = value);
-  }
-
-  void _open(Widget screen) => Navigator.push(
-      context, MaterialPageRoute(builder: (context) => screen));
+  void _open(Widget screen) =>
+      Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
 
   @override
   Widget build(BuildContext context) {
@@ -174,8 +156,7 @@ class _MoreScreenState extends State<MoreScreen> {
               },
             ),
           ]),
-          const SectionHeader('App',
-              padding: EdgeInsets.fromLTRB(4, 16, 4, 8)),
+          const SectionHeader('App', padding: EdgeInsets.fromLTRB(4, 16, 4, 8)),
           _MenuCard(children: [
             _MenuTile(
               icon: Icons.settings,
@@ -189,8 +170,8 @@ class _MoreScreenState extends State<MoreScreen> {
               title: const Text('App lock'),
               subtitle:
                   const Text('Require biometrics or device PIN on launch'),
-              value: _biometricEnabled,
-              onChanged: _setBiometricEnabled,
+              value: context.watch<SettingsProvider>().appLockEnabled,
+              onChanged: context.read<SettingsProvider>().setAppLockEnabled,
             ),
           ]),
           // Visible without digging into Settings > About, so "which build am

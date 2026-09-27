@@ -4,12 +4,13 @@ import '../services/sms_service.dart';
 import '../utils/app_theme.dart';
 import '../utils/currency_format.dart';
 
-/// User preferences persisted in SharedPreferences: currency, theme,
-/// app-lock timeout, and the default account for new transactions.
+/// User preferences persisted in SharedPreferences: currency, theme, app
+/// lock, and the default account for new transactions.
 class SettingsProvider extends ChangeNotifier {
   static const _kCurrency = 'currencySymbol';
   static const _kThemeMode = 'themeMode';
   static const _kLockTimeout = 'lockTimeoutSeconds';
+  static const _kAppLock = 'biometricEnabled';
   static const _kDefaultAccount = 'defaultAccountId';
   static const _kAlertsEnabled = 'alertsEnabled';
   static const _kNotificationsEnabled = 'notificationsEnabled';
@@ -31,6 +32,7 @@ class SettingsProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   Color _seedColor = AppTheme.seed;
   int _lockTimeoutSeconds = 15;
+  bool _appLockEnabled = false;
   int? _defaultAccountId;
   bool _alertsEnabled = true;
   bool _notificationsEnabled = true;
@@ -44,6 +46,11 @@ class SettingsProvider extends ChangeNotifier {
   Color get seedColor => _seedColor;
   int get lockTimeoutSeconds => _lockTimeoutSeconds;
   Duration get lockTimeout => Duration(seconds: _lockTimeoutSeconds);
+
+  /// Whether the app asks for biometrics / the device PIN. Held here rather
+  /// than read once at launch, so switching it takes effect straight away:
+  /// turning it on used to leave the app unprotected until a full restart.
+  bool get appLockEnabled => _appLockEnabled;
   int? get defaultAccountId => _defaultAccountId;
 
   /// Whether the dashboard shows proactive budget/bill alerts.
@@ -61,6 +68,7 @@ class SettingsProvider extends ChangeNotifier {
     _currencySymbol = prefs.getString(_kCurrency) ?? '₹';
     _themeMode = _themeFromString(prefs.getString(_kThemeMode));
     _lockTimeoutSeconds = prefs.getInt(_kLockTimeout) ?? 15;
+    _appLockEnabled = prefs.getBool(_kAppLock) ?? false;
     _defaultAccountId = prefs.getInt(_kDefaultAccount);
     _alertsEnabled = prefs.getBool(_kAlertsEnabled) ?? true;
     _notificationsEnabled = prefs.getBool(_kNotificationsEnabled) ?? true;
@@ -121,6 +129,13 @@ class SettingsProvider extends ChangeNotifier {
     _lockTimeoutSeconds = seconds;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kLockTimeout, seconds);
+    notifyListeners();
+  }
+
+  Future<void> setAppLockEnabled(bool value) async {
+    _appLockEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kAppLock, value);
     notifyListeners();
   }
 
