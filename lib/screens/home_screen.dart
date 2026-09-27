@@ -435,7 +435,7 @@ class _DashboardView extends StatelessWidget {
         // the sheet's context is defunct once it is popped.
         onEdit: (e) {
           Navigator.pop(sheetContext);
-          editTransactionSheet(context, e);
+          transactionRowActions(context, e);
         },
       ),
     );

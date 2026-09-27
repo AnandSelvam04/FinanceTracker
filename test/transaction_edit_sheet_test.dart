@@ -34,7 +34,8 @@ void main() {
 
   /// Seeds [row], loads it into fresh providers, and pumps a page whose
   /// button opens the edit sheet for it.
-  Future<Expense> pumpEditor(WidgetTester tester, Expense row) async {
+  Future<Expense> pumpEditor(WidgetTester tester, Expense row,
+      {bool viaRowMenu = false}) async {
     final (expenses, accounts, seeded) = (await tester.runAsync(() async {
       await DBService().insertExpense(row);
       final e = ExpenseProvider();
@@ -55,7 +56,9 @@ void main() {
         home: Builder(
           builder: (context) => Scaffold(
             body: TextButton(
-              onPressed: () => editTransactionSheet(context, seeded),
+              onPressed: () => viaRowMenu
+                  ? transactionRowActions(context, seeded)
+                  : editTransactionSheet(context, seeded),
               child: const Text('Edit'),
             ),
           ),
@@ -201,5 +204,28 @@ void main() {
     // A copy is a new, hand-entered row: it must not claim the original's
     // SMS, or a rescan would treat the two as one.
     expect(copy.sourceRef, isNull);
+  });
+
+  testWidgets('tapping a row offers Duplicate without opening the editor',
+      (tester) async {
+    await pumpEditor(
+      tester,
+      Expense(
+        description: 'Swiggy',
+        amount: 45000,
+        date: day,
+        category: 'Food',
+        paymentMode: 'UPI',
+      ),
+      viaRowMenu: true,
+    );
+
+    expect(find.text('Edit'), findsWidgets);
+    expect(find.text('Edit Expense'), findsNothing);
+    await tester.tap(find.text('Duplicate'));
+    await settle(tester);
+
+    expect(find.text('Duplicate Expense'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Swiggy'), findsOneWidget);
   });
 }

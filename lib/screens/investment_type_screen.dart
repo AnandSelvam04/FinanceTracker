@@ -14,6 +14,7 @@ import 'add_investment_screen.dart';
 import '../utils/date_format.dart';
 import '../widgets/dispose_with_route.dart';
 import '../widgets/paid_from_field.dart';
+import '../widgets/row_actions_sheet.dart';
 
 /// How the contributions on the type screen are grouped: into time buckets
 /// (how much went in each period) or by name (how much each individual fund
@@ -479,7 +480,9 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                   ),
                 ],
               ),
-              onTap: () => _editInvestment(context, investment),
+              // Edit, Duplicate or Delete — duplicating used to need the
+              // edit sheet opened first.
+              onTap: () => _rowActions(context, investment),
               onLongPress: () => _confirmDelete(context, investment),
             ),
           ),
@@ -571,6 +574,29 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
       return true;
     }
     return false;
+  }
+
+  Future<void> _rowActions(BuildContext context, Investment investment) async {
+    final action = await showRowActions(
+      context,
+      title: investment.name,
+      subtitle: '${formatMoneySigned(investment.amount)} · '
+          '${formatDateWithDay(investment.date)}',
+    );
+    if (action == null || !context.mounted) return;
+    switch (action) {
+      case RowAction.edit:
+        await _editInvestment(context, investment);
+      case RowAction.duplicate:
+        // Opens Add pre-filled with this entry, dated today.
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => AddInvestmentScreen(duplicateOf: investment)),
+        );
+      case RowAction.delete:
+        await _confirmDelete(context, investment);
+    }
   }
 
   Future<void> _editInvestment(

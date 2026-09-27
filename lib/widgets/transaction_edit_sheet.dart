@@ -12,6 +12,7 @@ import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../screens/add_expense_screen.dart';
 import 'dispose_with_route.dart';
+import 'row_actions_sheet.dart';
 
 /// Opens the right edit sheet for [expense] — a transfer editor for transfers,
 /// the expense/income editor otherwise. Shared so every list of transactions
@@ -29,6 +30,44 @@ Future<void> editTransactionSheet(
       ? showEditTransferSheet(context, expense, firstDate: firstDate)
       : showEditExpenseSheet(context, expense, firstDate: firstDate);
 }
+
+/// What a tap on a transaction row does: offers Edit, Duplicate and (when
+/// [onDelete] is given) Delete, then carries out the choice. Duplicate isn't
+/// offered for a transfer, which Add can't pre-fill.
+Future<void> transactionRowActions(
+  BuildContext context,
+  Expense expense, {
+  DateTime? firstDate,
+  Future<void> Function()? onDelete,
+}) async {
+  final action = await showRowActions(
+    context,
+    title:
+        expense.description.isEmpty ? '(no description)' : expense.description,
+    subtitle:
+        '${formatMoney(expense.amount)} · ${formatDateWithDay(expense.date)}',
+    canDuplicate: !expense.isTransfer,
+    canDelete: onDelete != null,
+  );
+  if (action == null || !context.mounted) return;
+  switch (action) {
+    case RowAction.edit:
+      await editTransactionSheet(context, expense, firstDate: firstDate);
+    case RowAction.duplicate:
+      await duplicateTransaction(context, expense);
+    case RowAction.delete:
+      await onDelete?.call();
+  }
+}
+
+/// Opens Add pre-filled with [expense], dated today, so a repeat purchase is
+/// one date change away. Nothing is saved until the user taps Add.
+Future<void> duplicateTransaction(BuildContext context, Expense expense) =>
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => AddExpenseScreen(duplicateOf: expense)),
+    );
 
 /// Edit sheet for a spend or income row.
 Future<void> showEditExpenseSheet(
@@ -88,13 +127,7 @@ Future<void> showEditExpenseSheet(
                         label: const Text('Duplicate'),
                         onPressed: () {
                           Navigator.pop(sheetContext);
-                          Navigator.push(
-                            callerContext,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  AddExpenseScreen(duplicateOf: expense),
-                            ),
-                          );
+                          duplicateTransaction(callerContext, expense);
                         },
                       ),
                       TextButton.icon(
