@@ -35,7 +35,9 @@ class _MoreScreenState extends State<MoreScreen> {
   }
 
   Future<void> _loadLastBackup() async {
-    final t = await BackupService().lastBackupTime();
+    // Only a copy off the phone counts: the daily on-device backup is lost
+    // along with it.
+    final t = await BackupService().lastOffDeviceBackupTime();
     if (mounted) setState(() => _lastBackup = t);
   }
 
@@ -43,14 +45,14 @@ class _MoreScreenState extends State<MoreScreen> {
   /// nudge is visible without opening the backup screen.
   String get _backupSubtitle {
     final t = _lastBackup;
-    if (t == null) return 'No backup yet — tap to protect your data';
+    if (t == null) return 'Nothing backed up off this phone — tap to fix';
     final d = DateTime.now().difference(t);
     final ago = d.inDays >= 1
         ? (d.inDays == 1 ? '1 day ago' : '${d.inDays} days ago')
         : d.inHours >= 1
             ? (d.inHours == 1 ? '1 hour ago' : '${d.inHours} hours ago')
             : 'just now';
-    return 'Last backup: $ago';
+    return 'Last backup off this phone: $ago';
   }
 
   void _open(Widget screen) =>

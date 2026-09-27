@@ -113,6 +113,60 @@ void main() {
       expect(goal.color, 0xFF1E88E5);
     });
 
+    test('dismissed SMS survive a backup round-trip', () async {
+      final db = DBService();
+      await db.insertExpense(Expense(
+          description: 'x',
+          amount: 100,
+          date: DateTime(2026, 1, 1),
+          category: 'Food',
+          paymentMode: 'Cash'));
+      await db.ignoreSourceRefs(['sms:7', 'sms:9']);
+
+      final service = BackupService();
+      await service.backupToJson();
+      await db.clearAll();
+      await service.restoreFromJson();
+
+      expect((await db.ignoredSourceRefs()).toSet(), {'sms:7', 'sms:9'});
+    });
+
+    test('restoreFromFile opens a passphrase backup and asks when needed',
+        () async {
+      final db = DBService();
+      await db.insertExpense(Expense(
+          description: 'Rent',
+          amount: 1500000,
+          date: DateTime(2026, 1, 1),
+          category: 'Housing',
+          paymentMode: 'UPI'));
+      final service = BackupService();
+      final file = await service.writeEncryptedBackup('correct horse battery');
+      await db.clearAll();
+
+      await expectLater(service.restoreFromFile(file.path),
+          throwsA(isA<PassphraseRequiredException>()));
+      await expectLater(
+          service.restoreFromFile(file.path, passphrase: 'nope nope nope'),
+          throwsA(isA<PassphraseRequiredException>()
+              .having((e) => e.wrongPassphrase, 'wrong', isTrue)));
+      expect(await db.getExpenses(), isEmpty);
+
+      await service.restoreFromFile(file.path,
+          passphrase: 'correct horse battery');
+      expect((await db.getExpenses()).single.description, 'Rent');
+    });
+
+    test('only a copy that leaves the phone counts as off-device', () async {
+      final service = BackupService();
+      await service.autoBackupIfDue();
+      expect(await service.lastBackupTime(), isNotNull);
+      expect(await service.lastOffDeviceBackupTime(), isNull);
+
+      await service.markSharedOffDevice();
+      expect(await service.lastOffDeviceBackupTime(), isNotNull);
+    });
+
     test('restore of legacy backup without budgets key succeeds', () async {
       final legacy = {
         'expenses': [

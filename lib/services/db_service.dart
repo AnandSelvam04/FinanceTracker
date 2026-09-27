@@ -837,7 +837,12 @@ class DBService {
       final batch = txn.batch();
       for (final table in _allTables) {
         for (final row in rowsByTable[table] ?? const []) {
-          batch.insert(table, row);
+          // The dismissal list is a set of keys: merging a backup into data
+          // that already holds one of them must not abort the restore.
+          batch.insert(table, row,
+              conflictAlgorithm: table == DbConstants.tableSmsIgnored
+                  ? ConflictAlgorithm.ignore
+                  : null);
         }
       }
       await batch.commit(noResult: true);
@@ -884,9 +889,9 @@ class DBService {
     DbConstants.tableTemplates,
     DbConstants.tableGoals,
     // Included so toggling at-rest encryption (which copies every table into a
-    // fresh database) carries the dismissal list across. A restore-with-clear
-    // does empty it, since a backup carries no rows for it — the only cost is
-    // that previously dismissed messages reappear once in the review queue.
+    // fresh database) carries the dismissal list across. Backups carry it
+    // from v7; restoring an older one empties it, and the only cost is that
+    // previously dismissed messages reappear once in the review queue.
     DbConstants.tableSmsIgnored,
   ];
 
@@ -1445,6 +1450,17 @@ class DBService {
       for (final row in [...imported, ...ignored])
         if (row['ref'] is String) row['ref'] as String,
     };
+  }
+
+  /// Every message the user dismissed in the review queue, for backups.
+  Future<List<String>> ignoredSourceRefs() async {
+    final db = await database;
+    final rows = await db.query(DbConstants.tableSmsIgnored);
+    return [
+      for (final r in rows)
+        if (r[DbConstants.colSourceRef] is String)
+          r[DbConstants.colSourceRef] as String,
+    ];
   }
 
   /// Records that the user dismissed these messages in the review queue.
