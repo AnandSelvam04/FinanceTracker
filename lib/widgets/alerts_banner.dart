@@ -7,6 +7,7 @@ import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/settings_provider.dart';
+import '../screens/add_transfer_screen.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
 import '../utils/billing_cycle.dart';
@@ -148,6 +149,24 @@ class AlertsBanner extends StatelessWidget {
               '$whenLabel$spentNote',
               style: const TextStyle(fontSize: 13),
             ),
+          ),
+          // Records the payment as a transfer into the card, which is what
+          // clears this reminder; opened with the card and amount filled in.
+          TextButton(
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AddTransferScreen(
+                  initialToAccountId: r.accountId,
+                  initialAmount: r.amountDue,
+                ),
+              ),
+            ),
+            child: const Text('Pay'),
           ),
         ],
       ),

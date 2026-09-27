@@ -4,13 +4,28 @@ import '../models/account.dart';
 import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
+import '../providers/settings_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/date_field_row.dart';
 
 class AddTransferScreen extends StatefulWidget {
-  const AddTransferScreen({super.key});
+  /// A transfer to copy: accounts, amounts and note are filled in and the
+  /// date is today, so only what differs needs changing.
+  final Expense? duplicateOf;
+
+  /// Opens with the destination (e.g. a credit card whose bill is being
+  /// paid) and amount already filled in.
+  final int? initialToAccountId;
+  final int? initialAmount;
+
+  const AddTransferScreen({
+    super.key,
+    this.duplicateOf,
+    this.initialToAccountId,
+    this.initialAmount,
+  });
 
   @override
   State<AddTransferScreen> createState() => _AddTransferScreenState();
@@ -25,6 +40,38 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
   int? _toAccountId;
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final copy = widget.duplicateOf;
+    final accounts = context.read<AccountProvider>();
+    // Only accounts that still exist: a dropdown whose value matches no item
+    // throws.
+    int? live(int? id) => accounts.accountById(id)?.id;
+    if (copy != null) {
+      _fromAccountId = live(copy.accountId);
+      _toAccountId = live(copy.toAccountId);
+      _amountController.text = minorToEditString(copy.amount);
+      if (copy.toAmount != null) {
+        _toAmountController.text = minorToEditString(copy.toAmount!);
+      }
+      if (copy.description != 'Transfer') {
+        _noteController.text = copy.description;
+      }
+    } else {
+      _toAccountId = live(widget.initialToAccountId);
+      if (widget.initialAmount != null) {
+        _amountController.text = minorToEditString(widget.initialAmount!);
+      }
+      // Paying something: start from the default account, when that isn't
+      // the destination itself.
+      final defaultId = live(context.read<SettingsProvider>().defaultAccountId);
+      if (_toAccountId != null && defaultId != _toAccountId) {
+        _fromAccountId = defaultId;
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -57,7 +104,10 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
         fromAccount.symbol != toAccount.symbol;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Transfer between accounts')),
+      appBar: AppBar(
+          title: Text(widget.duplicateOf != null
+              ? 'Duplicate transfer'
+              : 'Transfer between accounts')),
       body: accounts.length < 2
           ? Center(
               child: Padding(
@@ -200,15 +250,21 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
     );
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
+    final messenger = ScaffoldMessenger.of(context);
     try {
       await expenseProvider.addExpense(transfer);
       await accountProvider.refreshBalances();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(content: const Text('Transfer recorded')),
         );
         Navigator.pop(context);
       }
+    } catch (e) {
+      // A failed save used to vanish silently, leaving the user unsure
+      // whether the money had been recorded.
+      messenger.showSnackBar(
+          SnackBar(content: Text('Could not record the transfer: $e')));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
