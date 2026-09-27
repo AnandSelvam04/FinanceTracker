@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/auth_service.dart';
 import '../services/backup_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/build_info.dart';
@@ -35,7 +36,9 @@ class _MoreScreenState extends State<MoreScreen> {
   }
 
   Future<void> _loadLastBackup() async {
-    final t = await BackupService().lastBackupTime();
+    // Only a copy off the phone counts: the daily on-device backup is lost
+    // along with it.
+    final t = await BackupService().lastOffDeviceBackupTime();
     if (mounted) setState(() => _lastBackup = t);
   }
 
@@ -43,14 +46,39 @@ class _MoreScreenState extends State<MoreScreen> {
   /// nudge is visible without opening the backup screen.
   String get _backupSubtitle {
     final t = _lastBackup;
-    if (t == null) return 'No backup yet — tap to protect your data';
+    if (t == null) return 'Nothing backed up off this phone — tap to fix';
     final d = DateTime.now().difference(t);
     final ago = d.inDays >= 1
         ? (d.inDays == 1 ? '1 day ago' : '${d.inDays} days ago')
         : d.inHours >= 1
             ? (d.inHours == 1 ? '1 hour ago' : '${d.inHours} hours ago')
             : 'just now';
-    return 'Last backup: $ago';
+    return 'Last backup off this phone: $ago';
+  }
+
+  /// Turning the lock on first proves it works: on a phone with no screen
+  /// lock or fingerprint set up (or where the prompt can't open) the switch
+  /// used to turn on anyway, promising a protection the app couldn't give.
+  Future<void> _setAppLock(bool on) async {
+    final settings = context.read<SettingsProvider>();
+    if (!on) {
+      await settings.setAppLockEnabled(false);
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    final outcome = await AuthService().authenticate();
+    switch (outcome) {
+      case AuthOutcome.success:
+        await settings.setAppLockEnabled(true);
+      case AuthOutcome.failed:
+        messenger.showSnackBar(const SnackBar(
+            content: Text('App lock is still off: it could not confirm it '
+                'was you.')));
+      case AuthOutcome.unavailable:
+        messenger.showSnackBar(const SnackBar(
+            content: Text('Set up a screen lock or fingerprint on this phone '
+                'first, then turn on App lock.')));
+    }
   }
 
   void _open(Widget screen) =>
@@ -171,7 +199,7 @@ class _MoreScreenState extends State<MoreScreen> {
               subtitle:
                   const Text('Require biometrics or device PIN on launch'),
               value: context.watch<SettingsProvider>().appLockEnabled,
-              onChanged: context.read<SettingsProvider>().setAppLockEnabled,
+              onChanged: _setAppLock,
             ),
           ]),
           // Visible without digging into Settings > About, so "which build am

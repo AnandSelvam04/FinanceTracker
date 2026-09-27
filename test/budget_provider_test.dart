@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_tracker/models/budget.dart';
 import 'package:finance_tracker/providers/budget_provider.dart';
 import 'package:finance_tracker/services/db_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// Covers the overall-monthly-budget helpers layered on top of the existing
@@ -88,5 +89,42 @@ void main() {
     expect(amountFor(Budget.overallCategory), 800000);
     // The pre-existing August Food cap is untouched.
     expect(amountFor('Food'), 99999);
+  });
+
+  test('editing a budget onto a category the month already has replaces it',
+      () async {
+    await provider.addBudget(
+        Budget(category: 'Food', amount: 10000, year: 2026, month: 8));
+    await provider.addBudget(
+        Budget(category: 'Travel', amount: 20000, year: 2026, month: 8));
+    final travel = provider.budgets.singleWhere((b) => b.category == 'Travel');
+
+    // Renamed to "food " by hand: same category as the existing Food cap.
+    await provider.updateBudget(Budget(
+        id: travel.id,
+        category: 'food ',
+        amount: 30000,
+        year: 2026,
+        month: 8));
+
+    expect(provider.budgets.length, 1);
+    expect(provider.budgets.single.amount, 30000);
+  });
+
+  test('carryForwardIfEmpty copies last month once, only into an empty month',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    await provider.addBudget(
+        Budget(category: 'Food', amount: 10000, year: 2026, month: 8));
+
+    expect(await provider.carryForwardIfEmpty(DateTime(2026, 9, 2)), 1);
+    expect(provider.getBudgetForCategory(2026, 9, 'Food'), 10000);
+
+    // Deleted by the user: not brought back later the same month.
+    final carried = provider.budgets
+        .singleWhere((b) => b.year == 2026 && b.month == 9);
+    await provider.deleteBudget(carried.id!);
+    expect(await provider.carryForwardIfEmpty(DateTime(2026, 9, 20)), 0);
+    expect(provider.getBudgetForCategory(2026, 9, 'Food'), 0);
   });
 }

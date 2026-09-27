@@ -215,7 +215,7 @@ class SmsImport {
           : (_merchantOf(text) ?? _prettySender(sender)),
       last4: last4,
       toLast4: toLast4,
-      date: _dateOf(text) ?? receivedAt,
+      date: plausibleDate(_dateOf(text), receivedAt),
       sender: sender,
       body: text,
       sourceRef: sourceRefFor(sender, receivedAt, body),
@@ -327,6 +327,32 @@ class SmsImport {
       if (name.length >= 2 && RegExp(r'[A-Za-z]').hasMatch(name)) return name;
     }
     return null;
+  }
+
+  /// How far before the SMS arrived a date in its body is still taken as the
+  /// transaction date. Banks text within minutes or days; anything older is
+  /// some other date in the message.
+  static const plausibleLookback = Duration(days: 45);
+
+  /// The date in the body if it could be when the money moved, else the day
+  /// the SMS arrived. A payment can't happen after its own alert, so a later
+  /// date is a due date, a day/month read the wrong way round, or a typo —
+  /// and filing it there put the row in a future month where no budget or
+  /// summary for this month counted it.
+  static DateTime plausibleDate(DateTime? parsed, DateTime receivedAt) {
+    if (parsed == null) return receivedAt;
+    final received =
+        DateTime(receivedAt.year, receivedAt.month, receivedAt.day);
+    // A day's slack for time zones and alerts sent just after midnight.
+    final nextDay =
+        DateTime(received.year, received.month, received.day + 1);
+    if (parsed.isAfter(nextDay)) {
+      return receivedAt;
+    }
+    if (parsed.isBefore(received.subtract(plausibleLookback))) {
+      return receivedAt;
+    }
+    return parsed;
   }
 
   static DateTime? _dateOf(String text) {

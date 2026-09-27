@@ -175,7 +175,8 @@ class DBService {
             ${DbConstants.colName} TEXT,
             ${DbConstants.colAmount} INTEGER,
             ${DbConstants.colDate} TEXT,
-            ${DbConstants.colType} TEXT
+            ${DbConstants.colType} TEXT,
+            ${DbConstants.colAccountId} INTEGER
           )
         ''');
     await db.execute('''
@@ -190,6 +191,7 @@ class DBService {
     await _createAccountsTable(db);
     await _createRecurringTables(db);
     await _createGoalsTable(db);
+    await _createInvestmentValuesTable(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -328,6 +330,20 @@ class DBService {
     }
     if (oldVersion < 14) {
       await _createGoalsTable(db);
+    }
+    if (oldVersion < 15) {
+      // The account an investment was paid from, so buying one lowers that
+      // balance (or adds to a credit card's bill). Existing rows stay
+      // unlinked and keep not touching any balance. Guarded like v12/v13.
+      final hasInvestments = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableInvestments]);
+      if (hasInvestments.isNotEmpty) {
+        await db.execute(
+            'ALTER TABLE ${DbConstants.tableInvestments} ADD COLUMN '
+            '${DbConstants.colAccountId} INTEGER');
+      }
+      await _createInvestmentValuesTable(db);
     }
   }
 
@@ -548,6 +564,16 @@ class DBService {
         ${DbConstants.colLast4} TEXT,
         ${DbConstants.colStatementDay} INTEGER,
         ${DbConstants.colDueDay} INTEGER
+      )
+    ''');
+  }
+
+  static Future<void> _createInvestmentValuesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DbConstants.tableInvestmentValues}(
+        ${DbConstants.colType} TEXT PRIMARY KEY,
+        ${DbConstants.colAmount} INTEGER NOT NULL,
+        ${DbConstants.colDate} TEXT NOT NULL
       )
     ''');
   }
@@ -775,20 +801,72 @@ class DBService {
   /// Reassigns every contribution filed under [from] to [to], for correcting a
   /// mis-typed category. Returns the number of rows moved. A no-op (0 rows) if
   /// the type has no contributions or [from] equals [to].
+  ///
+  /// Monthly SIP rules filing into [from] move with it, in the same
+  /// transaction. Moving only the past contributions let the next SIP recreate
+  /// the type that had just been merged away.
   Future<int> reassignInvestmentType(String from, String to) async {
     if (from == to) return 0;
     final db = await database;
-    return await db.update(
-      DbConstants.tableInvestments,
-      {DbConstants.colType: to},
-      where: '${DbConstants.colType} = ?',
-      whereArgs: [from],
-    );
+    return db.transaction((txn) async {
+      final moved = await txn.update(
+        DbConstants.tableInvestments,
+        {DbConstants.colType: to},
+        where: '${DbConstants.colType} = ?',
+        whereArgs: [from],
+      );
+      await txn.update(
+        DbConstants.tableRecurringRules,
+        {DbConstants.colCategory: to},
+        where:
+            '${DbConstants.colIsInvestment} = 1 AND ${DbConstants.colCategory} = ?',
+        whereArgs: [from],
+      );
+      // The old type's market value described holdings that are now part of
+      // another type; it no longer means anything on its own.
+      await txn.delete(DbConstants.tableInvestmentValues,
+          where: '${DbConstants.colType} = ?', whereArgs: [from]);
+      return moved;
+    });
   }
 
   Future<void> clearInvestments() async {
     final db = await database;
     await db.delete(DbConstants.tableInvestments);
+    await db.delete(DbConstants.tableInvestmentValues);
+  }
+
+  /// The current market value recorded for each investment type.
+  Future<Map<String, InvestmentValue>> getInvestmentValues() async {
+    final db = await database;
+    final rows = await db.query(DbConstants.tableInvestmentValues);
+    return {
+      for (final r in rows)
+        r[DbConstants.colType] as String: InvestmentValue(
+          amount: (r[DbConstants.colAmount] as num).toInt(),
+          asOf: DateTime.parse(r[DbConstants.colDate] as String),
+        ),
+    };
+  }
+
+  /// Records [type]'s current market value, or clears it when [value] is
+  /// null.
+  Future<void> setInvestmentValue(String type, InvestmentValue? value) async {
+    final db = await database;
+    if (value == null) {
+      await db.delete(DbConstants.tableInvestmentValues,
+          where: '${DbConstants.colType} = ?', whereArgs: [type]);
+      return;
+    }
+    await db.insert(
+      DbConstants.tableInvestmentValues,
+      {
+        DbConstants.colType: type,
+        DbConstants.colAmount: value.amount,
+        DbConstants.colDate: value.asOf.toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<void> clearAll() async {
@@ -823,7 +901,15 @@ class DBService {
       final batch = txn.batch();
       for (final table in _allTables) {
         for (final row in rowsByTable[table] ?? const []) {
-          batch.insert(table, row);
+          // The dismissal list and the market values are keyed: merging a
+          // backup into data that already holds a key must not abort the
+          // restore (a value from the backup wins).
+          batch.insert(table, row,
+              conflictAlgorithm: switch (table) {
+                DbConstants.tableSmsIgnored => ConflictAlgorithm.ignore,
+                DbConstants.tableInvestmentValues => ConflictAlgorithm.replace,
+                _ => null,
+              });
         }
       }
       await batch.commit(noResult: true);
@@ -870,10 +956,11 @@ class DBService {
     DbConstants.tableTemplates,
     DbConstants.tableGoals,
     // Included so toggling at-rest encryption (which copies every table into a
-    // fresh database) carries the dismissal list across. A restore-with-clear
-    // does empty it, since a backup carries no rows for it — the only cost is
-    // that previously dismissed messages reappear once in the review queue.
+    // fresh database) carries the dismissal list across. Backups carry it
+    // from v7; restoring an older one empties it, and the only cost is that
+    // previously dismissed messages reappear once in the review queue.
     DbConstants.tableSmsIgnored,
+    DbConstants.tableInvestmentValues,
   ];
 
   Future<Map<String, List<Map<String, Object?>>>> _dumpAllTables(
@@ -1067,10 +1154,23 @@ class DBService {
     return maps.map((map) => Budget.fromMap(map)).toList();
   }
 
+  /// Saves an edited budget. When the edit moves it onto a category and
+  /// month that already has a budget, that other row is replaced: otherwise
+  /// the month ended up with two caps for one category, and whichever loaded
+  /// first silently won.
   Future<int> updateBudget(Budget budget) async {
     final db = await database;
-    return await db.update(DbConstants.tableBudgets, budget.toMap(),
-        where: '${DbConstants.colId} = ?', whereArgs: [budget.id]);
+    return db.transaction((txn) async {
+      await txn.delete(
+        DbConstants.tableBudgets,
+        where: '${DbConstants.colId} != ? AND ${DbConstants.colYear} = ? '
+            'AND ${DbConstants.colMonth} = ? '
+            'AND lower(trim(${DbConstants.colCategory})) = lower(trim(?))',
+        whereArgs: [budget.id, budget.year, budget.month, budget.category],
+      );
+      return txn.update(DbConstants.tableBudgets, budget.toMap(),
+          where: '${DbConstants.colId} = ?', whereArgs: [budget.id]);
+    });
   }
 
   Future<int> deleteBudget(int id) async {
@@ -1129,6 +1229,12 @@ class DBService {
       );
       await txn.update(
         DbConstants.tableTemplates,
+        {DbConstants.colAccountId: null},
+        where: '${DbConstants.colAccountId} = ?',
+        whereArgs: [id],
+      );
+      await txn.update(
+        DbConstants.tableInvestments,
         {DbConstants.colAccountId: null},
         where: '${DbConstants.colAccountId} = ?',
         whereArgs: [id],
@@ -1273,8 +1379,9 @@ class DBService {
         'GROUP BY ym, type, accountId, toAccountId');
     final invRows =
         await db.rawQuery('SELECT substr(${DbConstants.colDate}, 1, 7) AS ym, '
+            '${DbConstants.colAccountId} AS accountId, '
             'SUM(${DbConstants.colAmount}) AS amt '
-            'FROM ${DbConstants.tableInvestments} GROUP BY ym');
+            'FROM ${DbConstants.tableInvestments} GROUP BY ym, accountId');
 
     // Net base-currency change per month.
     final deltaByMonth = <String, double>{};
@@ -1287,10 +1394,18 @@ class DBService {
       final amt = ((row['amt'] ?? 0) as num).toDouble();
       final toAmt = ((row['toAmt'] ?? 0) as num).toDouble();
       switch (row['type']) {
+        // Income and expenses only move net worth through an account's
+        // balance: rows with no (live) account aren't in any balance on the
+        // Net worth card, so counting them here made the trend's latest point
+        // disagree with the headline figure right above it.
         case DbConstants.txIncome:
-          addDelta(row['ym'], amt * rateOf(row['accountId']));
+          if (isLiveAccount(row['accountId'])) {
+            addDelta(row['ym'], amt * rateOf(row['accountId']));
+          }
         case DbConstants.txExpense:
-          addDelta(row['ym'], -amt * rateOf(row['accountId']));
+          if (isLiveAccount(row['accountId'])) {
+            addDelta(row['ym'], -amt * rateOf(row['accountId']));
+          }
         case DbConstants.txTransfer:
           var delta = 0.0;
           if (isLiveAccount(row['accountId'])) {
@@ -1303,7 +1418,15 @@ class DBService {
       }
     }
     for (final row in invRows) {
-      addDelta(row['ym'], ((row['amt'] ?? 0) as num).toDouble());
+      final amt = ((row['amt'] ?? 0) as num).toDouble();
+      // The holding grows by what was invested; the account it was paid from
+      // shrinks by the same (a card's owed balance grows), so buying with
+      // your own money leaves net worth where it was.
+      var delta = amt;
+      if (isLiveAccount(row['accountId'])) {
+        delta -= amt * rateOf(row['accountId']);
+      }
+      addDelta(row['ym'], delta);
     }
 
     String ymKey(DateTime d) =>
@@ -1363,6 +1486,19 @@ class DBService {
       flows[id] = (flows[id] ?? 0) + ((row['amt'] ?? 0) as num).toDouble();
     }
 
+    // Investments paid from an account leave it like an expense (a
+    // withdrawal, stored negative, comes back in).
+    final invRows = await db.rawQuery(
+        'SELECT ${DbConstants.colAccountId} AS accountId, '
+        'SUM(${DbConstants.colAmount}) AS amt '
+        'FROM ${DbConstants.tableInvestments} '
+        'WHERE ${DbConstants.colAccountId} IS NOT NULL '
+        'GROUP BY accountId');
+    for (final row in invRows) {
+      final id = row['accountId'] as int;
+      flows[id] = (flows[id] ?? 0) - ((row['amt'] ?? 0) as num).toDouble();
+    }
+
     return flows.map((id, v) => MapEntry(id, v.round()));
   }
 
@@ -1410,6 +1546,17 @@ class DBService {
       for (final row in [...imported, ...ignored])
         if (row['ref'] is String) row['ref'] as String,
     };
+  }
+
+  /// Every message the user dismissed in the review queue, for backups.
+  Future<List<String>> ignoredSourceRefs() async {
+    final db = await database;
+    final rows = await db.query(DbConstants.tableSmsIgnored);
+    return [
+      for (final r in rows)
+        if (r[DbConstants.colSourceRef] is String)
+          r[DbConstants.colSourceRef] as String,
+    ];
   }
 
   /// Records that the user dismissed these messages in the review queue.

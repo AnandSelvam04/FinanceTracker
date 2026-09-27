@@ -184,8 +184,18 @@ void main() {
     });
 
     test('reads a numeric date', () {
-      expect(parse('Rs.499 debited on 03/02/2025 to SWIGGY')!.date,
-          DateTime(2025, 2, 3));
+      expect(parse('Rs.499 debited on 28/07/2025 to SWIGGY')!.date,
+          DateTime(2025, 7, 28));
+    });
+
+    test('a date after the SMS arrived is not the transaction date', () {
+      // e.g. a due date, or 08/12 meaning 12 August read as 8 December.
+      expect(parse('Rs.499 debited on 08/12/2025 to SWIGGY')!.date, received);
+    });
+
+    test('a date long before the SMS arrived is not the transaction date',
+        () {
+      expect(parse('Rs.499 debited on 03/02/2025 to SWIGGY')!.date, received);
     });
 
     test('falls back to the SMS timestamp', () {

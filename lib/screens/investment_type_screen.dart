@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:provider/provider.dart';
 import '../models/investment.dart';
+import '../providers/account_provider.dart';
 import '../utils/app_colors.dart';
 import '../providers/investment_provider.dart';
+import '../providers/recurring_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import '../widgets/hero_total_card.dart';
@@ -11,6 +13,8 @@ import '../widgets/swipe_delete_background.dart';
 import 'add_investment_screen.dart';
 import '../utils/date_format.dart';
 import '../widgets/dispose_with_route.dart';
+import '../widgets/paid_from_field.dart';
+import '../widgets/row_actions_sheet.dart';
 
 /// How the contributions on the type screen are grouped: into time buckets
 /// (how much went in each period) or by name (how much each individual fund
@@ -148,7 +152,10 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     if (target == null || !context.mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
+    final recurring = context.read<RecurringProvider>();
     final moved = await provider.reassignType(type, target);
+    // Its SIP rules moved too; refresh them so the Recurring screen agrees.
+    await recurring.fetchRules();
     messenger.showSnackBar(SnackBar(
       content: Text('Moved $moved '
           '${moved == 1 ? 'contribution' : 'contributions'} to "$target".'),
@@ -178,6 +185,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
       amount: investment.amount,
       date: investment.date,
       type: target,
+      accountId: investment.accountId,
     ));
     messenger.showSnackBar(
       SnackBar(content: Text('Moved "${investment.name}" to "$target".')),
@@ -231,6 +239,12 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                   caption: '${entries.length} '
                       '${entries.length == 1 ? 'contribution' : 'contributions'}'
                       ' · latest ${formatShortDate(entries.first.date)}',
+                  footer: _CurrentValueRow(
+                    invested: total,
+                    value: provider.currentValueOf(type),
+                    onUpdate: () => _editCurrentValue(context, provider,
+                        type: type, invested: total),
+                  ),
                 ),
               ),
               Padding(
@@ -417,9 +431,16 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
               ),
               title: Text(investment.name,
                   style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(investment.isWithdrawal
-                  ? 'Withdrawal · ${formatDateWithDay(investment.date)}'
-                  : formatDateWithDay(investment.date)),
+              subtitle: Text([
+                if (investment.isWithdrawal) 'Withdrawal',
+                formatDateWithDay(investment.date),
+                // Which account it was paid from (or back into).
+                if (context
+                        .watch<AccountProvider>()
+                        .accountById(investment.accountId)
+                    case final account?)
+                  account.name,
+              ].join(' · ')),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -459,11 +480,70 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                   ),
                 ],
               ),
-              onTap: () => _editInvestment(context, investment),
+              // Edit, Duplicate or Delete — duplicating used to need the
+              // edit sheet opened first.
+              onTap: () => _rowActions(context, investment),
               onLongPress: () => _confirmDelete(context, investment),
             ),
           ),
         ));
+  }
+
+  /// Asks what this type's holdings are worth now (blank clears it).
+  Future<void> _editCurrentValue(BuildContext context,
+      InvestmentProvider provider,
+      {required String type, required int invested}) async {
+    final existing = provider.currentValueOf(type);
+    final controller = TextEditingController(
+        text: existing == null ? '' : minorToEditString(existing.amount));
+    final result = await showDialog<(bool, int?)>(
+      context: context,
+      builder: (ctx) => DisposeWithRoute(
+        notifiers: [controller],
+        child: AlertDialog(
+          title: Text('Current value of $type'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                  'What these holdings are worth today, from your broker or '
+                  'statement. You put in ${formatMoneySigned(invested)}.',
+                  style: const TextStyle(fontSize: 13)),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Current value',
+                  prefixText: '${CurrencyFormat.symbol} ',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            if (existing != null)
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, (true, null)),
+                  child: const Text('Clear')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final text = controller.text.trim();
+                if (validateAmountField(text) != null) return;
+                Navigator.pop(ctx, (true, parseMinor(text)));
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null) return;
+    await provider.setCurrentValue(type, result.$2);
   }
 
   Future<bool> _confirmDelete(
@@ -496,6 +576,29 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     return false;
   }
 
+  Future<void> _rowActions(BuildContext context, Investment investment) async {
+    final action = await showRowActions(
+      context,
+      title: investment.name,
+      subtitle: '${formatMoneySigned(investment.amount)} · '
+          '${formatDateWithDay(investment.date)}',
+    );
+    if (action == null || !context.mounted) return;
+    switch (action) {
+      case RowAction.edit:
+        await _editInvestment(context, investment);
+      case RowAction.duplicate:
+        // Opens Add pre-filled with this entry, dated today.
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => AddInvestmentScreen(duplicateOf: investment)),
+        );
+      case RowAction.delete:
+        await _confirmDelete(context, investment);
+    }
+  }
+
   Future<void> _editInvestment(
       BuildContext context, Investment investment) async {
     final nameController = TextEditingController(text: investment.name);
@@ -504,6 +607,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
         TextEditingController(text: minorToEditString(investment.amount.abs()));
     DateTime selectedDate = investment.date;
     bool isWithdrawal = investment.isWithdrawal;
+    int? accountId = investment.accountId;
+    final accounts = context.read<AccountProvider>().accounts;
 
     const types = Investment.builtInTypes;
     final isBuiltIn = types.contains(investment.type);
@@ -604,6 +709,13 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                         decoration:
                             InputDecoration(labelText: 'Enter investment type'),
                       ),
+                    if (accounts.isNotEmpty)
+                      PaidFromField(
+                        accounts: accounts,
+                        value: accountId,
+                        withdrawal: isWithdrawal,
+                        onChanged: (v) => setModalState(() => accountId = v),
+                      ),
                     Row(
                       children: [
                         Text('Date: ${formatDateWithDay(selectedDate)}'),
@@ -660,6 +772,10 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                             amount: amount,
                             date: selectedDate,
                             type: resolvedType,
+                            // Only an account that still exists.
+                            accountId: accounts.any((a) => a.id == accountId)
+                                ? accountId
+                                : null,
                           );
                           final provider = context.read<InvestmentProvider>();
                           await provider.updateInvestment(updated);
@@ -676,6 +792,50 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
           }),
         );
       },
+    );
+  }
+}
+
+/// Under a type's total: what it is worth now and the gain or loss, with a
+/// button to update it. Values are entered by hand; the app has no prices.
+class _CurrentValueRow extends StatelessWidget {
+  final int invested;
+  final InvestmentValue? value;
+  final VoidCallback onUpdate;
+
+  const _CurrentValueRow({
+    required this.invested,
+    required this.value,
+    required this.onUpdate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = onBrandGradient(context);
+    final subtle = fg.withValues(alpha: 0.82);
+    final v = value;
+    String text;
+    if (v == null) {
+      text = 'Add what it is worth today to see your gain';
+    } else {
+      final gain = v.amount - invested;
+      final pct = invested > 0
+          ? ' (${(gain * 100 / invested).toStringAsFixed(1)}%)'
+          : '';
+      text = 'Worth ${formatMoneySigned(v.amount)} · '
+          '${gain >= 0 ? '+' : '−'}${formatMoney(gain.abs())}$pct'
+          ' · as of ${formatShortDate(v.asOf)}';
+    }
+    return Row(
+      children: [
+        Expanded(
+            child: Text(text, style: TextStyle(fontSize: 13, color: subtle))),
+        TextButton(
+          onPressed: onUpdate,
+          style: TextButton.styleFrom(foregroundColor: fg),
+          child: Text(v == null ? 'Add value' : 'Update'),
+        ),
+      ],
     );
   }
 }

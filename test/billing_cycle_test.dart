@@ -96,5 +96,28 @@ void main() {
       );
       expect(r, isEmpty);
     });
+
+    test('a statement paid in full produces no reminder', () {
+      final r = creditCardReminders(
+        accounts: [card()],
+        now: DateTime(2026, 3, 20),
+        spendInRange: spend, // 50,000 billed
+        paidInRange: (_, start, __) =>
+            start == DateTime(2026, 3, 5) ? 50000 : 0,
+      );
+      expect(r, isEmpty);
+    });
+
+    test('a part payment leaves the rest due', () {
+      final r = creditCardReminders(
+        accounts: [card()],
+        now: DateTime(2026, 3, 20),
+        spendInRange: spend,
+        paidInRange: (_, start, __) =>
+            start == DateTime(2026, 3, 5) ? 20000 : 0,
+      );
+      expect(r.single.amountDue, 30000);
+      expect(r.single.statementAmount, 50000);
+    });
   });
 }

@@ -48,7 +48,12 @@ class FinanceTrackerApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => InvestmentProvider()),
         ChangeNotifierProvider(create: (_) => BudgetProvider()),
-        ChangeNotifierProvider(create: (_) => AccountProvider()),
+        // Investments paid from an account move its balance.
+        ChangeNotifierProxyProvider<InvestmentProvider, AccountProvider>(
+          create: (_) => AccountProvider(),
+          update: (_, investments, accounts) => (accounts ?? AccountProvider())
+            ..syncInvestments(investments.investments),
+        ),
         // Transaction amounts are stored in their source account's currency,
         // so ExpenseProvider needs the accounts' exchange rates to report
         // base-currency totals. Proxied rather than pushed by hand at each

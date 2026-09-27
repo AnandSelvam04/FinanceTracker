@@ -670,8 +670,11 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               trailing: Text(amount,
                   style: TextStyle(
                       fontWeight: FontWeight.bold, color: amountColor)),
-              onTap: () => editTransactionSheet(context, expense,
-                  firstDate: _pickerFirstDate),
+              // Edit, Duplicate or Delete — duplicating used to need the
+              // edit sheet opened first.
+              onTap: () => transactionRowActions(context, expense,
+                  firstDate: _pickerFirstDate,
+                  onDelete: () => _confirmDelete(expense)),
               onLongPress: () => _confirmDelete(expense),
             ),
           ),

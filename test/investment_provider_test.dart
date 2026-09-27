@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_tracker/models/investment.dart';
+import 'package:finance_tracker/models/recurring_rule.dart';
 import 'package:finance_tracker/providers/investment_provider.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -295,6 +296,57 @@ void main() {
       // Silver is untouched, and the grand total is unchanged by a re-file.
       expect(provider.ofType('Silver').length, 1);
       expect(provider.totalInvested, 400000);
+    });
+
+    test('reassignType carries SIP rules to the new type', () async {
+      final db = DBService();
+      await db.insertRecurringRule(RecurringRule(
+          description: 'Gold SIP',
+          amount: 100000,
+          category: 'Gold',
+          frequency: 'monthly',
+          nextDue: DateTime(2026, 2, 1),
+          isInvestment: true));
+      // An expense that happens to share the name is not a SIP.
+      await db.insertRecurringRule(RecurringRule(
+          description: 'Gold locker',
+          amount: 20000,
+          category: 'Gold',
+          frequency: 'yearly',
+          nextDue: DateTime(2026, 2, 1)));
+
+      await provider.reassignType('Gold', 'Mutual Funds');
+
+      final rules = {
+        for (final r in await db.getRecurringRules()) r.description: r.category
+      };
+      expect(rules, {'Gold SIP': 'Mutual Funds', 'Gold locker': 'Gold'});
+    });
+
+    test('current values: set, total, cleared by a type merge', () async {
+      await provider.addInvestment(Investment(
+          name: 'a',
+          amount: 100000,
+          date: DateTime(2026, 1, 1),
+          type: 'Gold'));
+      await provider.addInvestment(Investment(
+          name: 'b',
+          amount: 50000,
+          date: DateTime(2026, 1, 2),
+          type: 'Stocks'));
+      expect(provider.hasCurrentValues, isFalse);
+
+      await provider.setCurrentValue('Gold', 130000);
+      expect(provider.currentValueOf('Gold')!.amount, 130000);
+      // Stocks has no value entered, so it counts at cost.
+      expect(provider.totalCurrentValue, 180000);
+      // Reloading keeps it.
+      final fresh = InvestmentProvider();
+      await fresh.fetchInvestments();
+      expect(fresh.currentValueOf('Gold')!.amount, 130000);
+
+      await provider.reassignType('Gold', 'Stocks');
+      expect(provider.currentValueOf('Gold'), isNull);
     });
 
     test('reassignType with the same source and target moves nothing',

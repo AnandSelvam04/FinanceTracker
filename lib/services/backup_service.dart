@@ -119,6 +119,18 @@ class DriveBackupException implements Exception {
   String toString() => message;
 }
 
+/// Raised when a backup is passphrase-encrypted and no passphrase (or the
+/// wrong one) was given. The caller asks the user for it and tries again.
+class PassphraseRequiredException implements Exception {
+  /// True when a passphrase was given but didn't open the backup.
+  final bool wrongPassphrase;
+  PassphraseRequiredException({this.wrongPassphrase = false});
+  @override
+  String toString() => wrongPassphrase
+      ? 'That passphrase did not open the backup.'
+      : 'This backup is protected with a passphrase.';
+}
+
 /// Raised when a file offered for restore isn't a backup at all (wrong JSON
 /// shape, a renamed CSV, a truncated download). Restoring clears the database
 /// first, so this must be caught *before* anything is wiped.
@@ -206,6 +218,17 @@ class BackupService {
   static const _kLastBackup = 'last_backup_time';
   static const _kLastAutoBackup = 'last_auto_backup_time';
 
+  /// When this device last wrote to (or restored from) the Drive copy. Kept
+  /// apart from [_kLastBackup], which the daily on-device auto-backup also
+  /// bumps: comparing Drive against that made a newer backup from another
+  /// phone look older, so it was overwritten without the warning.
+  static const _kLastDriveBackup = 'last_drive_backup_time';
+
+  /// When a copy last left the phone (Drive, or a backup shared out). The
+  /// on-device auto-backup dies with the phone, so it must not count towards
+  /// the "you haven't backed up" nudge.
+  static const _kLastOffDevice = 'last_off_device_backup_time';
+
   Future<File> get _backupFile async {
     final path = await _localPath;
     return File('$path/finance_backup.json');
@@ -223,10 +246,24 @@ class BackupService {
     return raw == null ? null : DateTime.tryParse(raw);
   }
 
-  Future<void> _markBackedUp() async {
+  /// When a backup last left the phone: to Drive, or shared out of the app.
+  /// Null when every backup so far lives only on this device.
+  Future<DateTime?> lastOffDeviceBackupTime() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kLastBackup, DateTime.now().toIso8601String());
+    final raw = prefs.getString(_kLastOffDevice);
+    return raw == null ? null : DateTime.tryParse(raw);
   }
+
+  Future<void> _markBackedUp({bool offDevice = false}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now().toIso8601String();
+    await prefs.setString(_kLastBackup, now);
+    if (offDevice) await prefs.setString(_kLastOffDevice, now);
+  }
+
+  /// Records that a full backup was shared out of the app (saved to Files,
+  /// emailed, …), so it counts as a copy that survives losing the phone.
+  Future<void> markSharedOffDevice() => _markBackedUp(offDevice: true);
 
   /// Writes a local backup at most once per [minInterval] to protect against
   /// data loss when users forget to back up manually. Safe to call on launch.
@@ -254,7 +291,15 @@ class BackupService {
           e);
       return false;
     }
-    await backupToJson(deviceKey: deviceKey);
+    try {
+      await backupToJson(deviceKey: deviceKey);
+    } catch (e, st) {
+      // A full disk or unwritable file used to escape here and abort the rest
+      // of the launch sequence, so bill and budget reminders were never
+      // scheduled. Log it; the next launch tries again.
+      AppLogger.error('Auto-backup failed', e, st);
+      return false;
+    }
     await prefs.setString(_kLastAutoBackup, DateTime.now().toIso8601String());
     return true;
   }
@@ -281,11 +326,16 @@ class BackupService {
     final recurringRules = await DBService().getRecurringRules();
     final templates = await DBService().getTemplates();
     final goals = await DBService().getGoals();
+    final smsIgnored = await DBService().ignoredSourceRefs();
+    final values = await DBService().getInvestmentValues();
     return {
       // v4: amounts are integer minor units (paise/cents).
       // v5: transfer rows may carry toAmount (destination-currency amount).
       // v6: adds savings goals. Older backups simply restore with none.
-      'version': 6,
+      // v7: adds the dismissed-SMS list, so a restore doesn't bring every
+      //     rejected message back into the review queue, and each investment
+      //     type's current value.
+      'version': 7,
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'investments': investments.map((i) => i.toMap()).toList(),
       'budgets': budgets.map((b) => b.toMap()).toList(),
@@ -293,6 +343,15 @@ class BackupService {
       'recurring_rules': recurringRules.map((r) => r.toMap()).toList(),
       'templates': templates.map((t) => t.toMap()).toList(),
       'goals': goals.map((g) => g.toMap()).toList(),
+      'sms_ignored': smsIgnored,
+      'investment_values': [
+        for (final e in values.entries)
+          {
+            DbConstants.colType: e.key,
+            DbConstants.colAmount: e.value.amount,
+            DbConstants.colDate: e.value.asOf.toIso8601String(),
+          },
+      ],
     };
   }
 
@@ -336,6 +395,51 @@ class BackupService {
         clearBeforeRestore: clearBeforeRestore, allowEmpty: allowEmpty);
   }
 
+  /// Turns a backup file's contents into its payload, decrypting when it is
+  /// an encrypted envelope: first with this device's key (auto-backups and
+  /// older Drive copies), then with [passphrase]. Throws
+  /// [PassphraseRequiredException] when neither opens it.
+  static Future<dynamic> decodeBackupContent(String content,
+      {String? deviceKey, String? passphrase}) async {
+    if (!BackupCrypto.isEncrypted(content)) return jsonDecode(content);
+    if (deviceKey != null) {
+      try {
+        return jsonDecode(await BackupCrypto.decryptString(content, deviceKey));
+      } catch (_) {
+        // Not sealed with this device's key; try the passphrase.
+      }
+    }
+    if (passphrase == null) throw PassphraseRequiredException();
+    try {
+      return jsonDecode(await BackupCrypto.decryptString(content, passphrase));
+    } on FormatException {
+      rethrow;
+    } catch (_) {
+      throw PassphraseRequiredException(wrongPassphrase: true);
+    }
+  }
+
+  Future<dynamic> _decode(String content, {String? passphrase}) async {
+    String? deviceKey;
+    try {
+      deviceKey = await DBService().deviceKeyIfEncrypted();
+    } catch (e) {
+      AppLogger.error('Device key unavailable while opening a backup', e);
+    }
+    return decodeBackupContent(content,
+        deviceKey: deviceKey, passphrase: passphrase);
+  }
+
+  /// Restores from a backup file the user picked (a download, a copy from
+  /// another phone, an emailed backup). Plain or encrypted; throws
+  /// [PassphraseRequiredException] when it needs a passphrase.
+  Future<void> restoreFromFile(String path,
+      {String? passphrase, bool allowEmpty = false}) async {
+    final content = await File(path).readAsString();
+    final data = await _decode(content, passphrase: passphrase);
+    await _applyRestore(data, clearBeforeRestore: true, allowEmpty: allowEmpty);
+  }
+
   Future<void> restoreFromJson(
       {bool clearBeforeRestore = true,
       String? deviceKey,
@@ -368,6 +472,8 @@ class BackupService {
     'recurring_rules',
     'templates',
     'goals',
+    'sms_ignored',
+    'investment_values',
   ];
 
   /// Throws [BackupFormatException] unless [data] is shaped like a backup.
@@ -475,6 +581,20 @@ class BackupService {
         for (final g in data['goals'] ?? [])
           SavingsGoal.fromMap(Map<String, dynamic>.from(g)).toMap(),
       ],
+      DbConstants.tableSmsIgnored: [
+        for (final ref in data['sms_ignored'] ?? [])
+          if (ref is String) {DbConstants.colSourceRef: ref},
+      ],
+      DbConstants.tableInvestmentValues: [
+        for (final v in data['investment_values'] ?? [])
+          {
+            DbConstants.colType: v[DbConstants.colType] as String,
+            DbConstants.colAmount: (v[DbConstants.colAmount] as num).toInt(),
+            DbConstants.colDate:
+                DateTime.parse(v[DbConstants.colDate] as String)
+                    .toIso8601String(),
+          },
+      ],
     };
   }
 
@@ -555,13 +675,43 @@ class BackupService {
     return drive.DriveApi(client);
   }
 
-  Future<void> backupToDrive() async {
+  /// Uploads a full backup to Drive, sealed with [passphrase] when given.
+  ///
+  /// With database encryption on a passphrase is required. The Drive copy
+  /// used to be sealed with this device's key instead — but that key lives
+  /// only on this phone, so the one backup meant to survive losing the phone
+  /// could only be opened *on* that phone.
+  Future<void> backupToDrive({String? passphrase}) async {
+    if (passphrase == null && await DBService().isEncryptionEnabled()) {
+      throw DriveBackupException(
+          'Database encryption is on, so the Drive backup needs a '
+          'passphrase to protect it.');
+    }
     final driveApi = await _getDriveApi();
-    // Encrypt with the device key when at-rest encryption is on, matching
-    // autoBackupIfDue. Without this the Drive copy went up as plaintext *and*
-    // overwrote the encrypted local auto-backup, since both share _backupFile.
-    await backupToJson(deviceKey: await DBService().deviceKeyIfEncrypted());
-    final file = await _backupFile;
+    var content = jsonEncode(await _collectBackupData());
+    if (passphrase != null) {
+      content = await BackupCrypto.encryptString(content, passphrase);
+    }
+    // Its own file: writing the upload over _backupFile replaced the
+    // on-device auto-backup with a copy this phone may not be able to open.
+    final file = File('${await _localPath}/finance_backup_drive.json');
+    await file.writeAsString(content);
+    try {
+      await _uploadToDrive(driveApi, file);
+    } finally {
+      try {
+        await file.delete();
+      } catch (e) {
+        AppLogger.error('Failed to clean up the Drive upload file', e);
+      }
+    }
+
+    await _markBackedUp(offDevice: true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kLastDriveBackup, DateTime.now().toIso8601String());
+  }
+
+  Future<void> _uploadToDrive(drive.DriveApi driveApi, File file) async {
     final length = await file.length();
 
     // Update the existing Drive copy in place (instead of creating a new
@@ -599,14 +749,11 @@ class BackupService {
         }
       }
     }
-
-    // Update last sync time
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kLastBackup, DateTime.now().toIso8601String());
   }
 
-  /// Checks if the remote backup is newer than the last local backup.
-  /// Returns true if remote is newer, false otherwise.
+  /// Whether the Drive copy was written after this device last backed up to
+  /// (or restored from) Drive — i.e. by another phone, so overwriting it
+  /// would lose that phone's data.
   Future<bool> isRemoteBackupNewer() async {
     try {
       final driveApi = await _getDriveApi();
@@ -626,7 +773,10 @@ class BackupService {
       if (remoteFile.modifiedTime == null) return false;
 
       final prefs = await SharedPreferences.getInstance();
-      final lastBackupStr = prefs.getString(_kLastBackup);
+      // Before the Drive time was kept separately, the Drive backup only
+      // stamped the shared one; fall back to it until the next Drive backup.
+      final lastBackupStr =
+          prefs.getString(_kLastDriveBackup) ?? prefs.getString(_kLastBackup);
 
       if (lastBackupStr == null) {
         // We have never backed up from this device, but a remote file exists.
@@ -645,7 +795,10 @@ class BackupService {
     }
   }
 
-  Future<void> restoreFromDrive({bool allowEmpty = false}) async {
+  /// Restores the Drive copy. Throws [PassphraseRequiredException] when it
+  /// is passphrase-protected and [passphrase] is missing or wrong.
+  Future<void> restoreFromDrive(
+      {bool allowEmpty = false, String? passphrase}) async {
     final driveApi = await _getDriveApi();
     final fileList = await driveApi.files.list(
       spaces: 'appDataFolder',
@@ -671,7 +824,7 @@ class BackupService {
     // Download to a temp file first. Streaming straight over _backupFile
     // destroyed the user's local safety-net backup before we knew the remote
     // payload was even usable — a truncated download then left them with
-    // neither. Validate, then swap.
+    // neither. Validate first.
     final target = await _backupFile;
     final temp = File('${target.path}.download');
     try {
@@ -680,28 +833,24 @@ class BackupService {
       await sink.flush();
       await sink.close();
 
-      // Parse (and decrypt, if this is a device-key envelope) before the
-      // local backup is touched, so a corrupt download fails harmlessly.
-      var content = await temp.readAsString();
-      if (BackupCrypto.isEncrypted(content)) {
-        final deviceKey = await DBService().deviceKeyIfEncrypted();
-        if (deviceKey == null) {
-          throw Exception(
-              'The Drive backup is encrypted with this device\'s key, which '
-              'is no longer available. Enable database encryption on this '
-              'device, or restore from a passphrase-encrypted backup.');
-        }
-        content = await BackupCrypto.decryptString(content, deviceKey);
-      }
-      final data = jsonDecode(content);
+      // Parse (and decrypt) before anything is touched, so a corrupt
+      // download fails harmlessly. Older Drive copies are sealed with the
+      // device key; newer ones with a passphrase.
+      final data =
+          await _decode(await temp.readAsString(), passphrase: passphrase);
       _validateBackupPayload(data);
 
-      // Restore first, adopt second. If the restore throws — corrupt rows, or
-      // an unconfirmed empty backup — the local backup is still the user's own
-      // last good copy rather than whatever came down from Drive.
+      // Restore first, then refresh the on-device backup from the restored
+      // data. If the restore throws — corrupt rows, or an unconfirmed empty
+      // backup — the local backup is still the user's own last good copy.
       await _applyRestore(data,
           clearBeforeRestore: true, allowEmpty: allowEmpty);
-      await temp.rename(target.path);
+      await backupToJson(deviceKey: await DBService().deviceKeyIfEncrypted());
+      // This device now matches the Drive copy: backing up again straight
+      // away is not overwriting someone else's newer data.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          _kLastDriveBackup, DateTime.now().toIso8601String());
     } finally {
       if (await temp.exists()) {
         try {

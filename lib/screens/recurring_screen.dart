@@ -323,7 +323,16 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(formatMoneyRounded(rule.amount),
+                      // In the account's currency: a rule posting to a
+                      // USD account showed its amount with the base symbol.
+                      Text(
+                          switch (context
+                              .watch<AccountProvider>()
+                              .accountById(rule.accountId)) {
+                            final a? when a.isForeign =>
+                              formatMoneyIn(a.symbol, rule.amount),
+                            _ => formatMoneyRounded(rule.amount),
+                          },
                           style: const TextStyle(fontWeight: FontWeight.bold)),
                       Switch(
                         value: rule.enabled,

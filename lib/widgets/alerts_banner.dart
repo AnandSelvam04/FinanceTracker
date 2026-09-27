@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
+import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/settings_provider.dart';
 import '../utils/alerts.dart';
@@ -31,16 +32,22 @@ class AlertsBanner extends StatelessWidget {
           month: now.month,
           spentForCategory: (c) =>
               expenses.spentForCategoryInMonth(now.year, now.month, c),
+          totalSpent: () => expenses.totalForMonth(now.year, now.month),
         );
         final bills = upcomingBills(rules: recurring.rules, now: now);
 
         // Credit-card statements coming due (needs the accounts and their
         // per-card spend).
         final accounts = context.watch<AccountProvider>();
+        final investments = context.watch<InvestmentProvider>();
         final cardDue = creditCardReminders(
           accounts: accounts.accounts,
           now: now,
-          spendInRange: expenses.spendOnAccountInRange,
+          // Investments bought on the card are on its statement too.
+          spendInRange: (id, from, to) =>
+              expenses.spendOnAccountInRange(id, from, to) +
+              investments.chargedToAccountInRange(id, from, to),
+          paidInRange: expenses.paidToAccountInRange,
         );
 
         if (budgetIssues.isEmpty && bills.isEmpty && cardDue.isEmpty) {
@@ -115,12 +122,18 @@ class AlertsBanner extends StatelessWidget {
     if (r.isOverdue) {
       whenLabel = 'overdue';
     } else if (r.isToday) {
-      whenLabel = 'due today';
+      whenLabel = 'by today';
     } else if (r.daysUntilDue == 1) {
-      whenLabel = 'due tomorrow';
+      whenLabel = 'by tomorrow';
     } else {
-      whenLabel = 'due in ${r.daysUntilDue} days';
+      whenLabel = 'within ${r.daysUntilDue} days';
     }
+    // What was spent since the statement is on the next bill, not this one;
+    // shown so the card's running total is visible alongside what's due.
+    final spentNote = r.currentCycleSpend > 0
+        ? ' · ${formatMoneyIn(r.symbol, r.currentCycleSpend)} spent since '
+            'the statement'
+        : '';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -131,8 +144,8 @@ class AlertsBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '${r.accountName}: ${formatMoneyIn(r.symbol, r.statementAmount)} '
-              '$whenLabel',
+              '${r.accountName}: pay ${formatMoneyIn(r.symbol, r.amountDue)} '
+              '$whenLabel$spentNote',
               style: const TextStyle(fontSize: 13),
             ),
           ),

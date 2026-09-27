@@ -31,6 +31,11 @@ class Investment {
   final DateTime date;
   final String type;
 
+  /// The account the money came from, or null when it isn't tracked. A bank
+  /// or debit account's balance drops by [amount]; on a credit card it is
+  /// added to what's owed and to the card's statement.
+  final int? accountId;
+
   /// A negative amount records money pulled back out of the holding rather than
   /// put in.
   bool get isWithdrawal => amount < 0;
@@ -41,6 +46,7 @@ class Investment {
     required this.amount,
     required this.date,
     required this.type,
+    this.accountId,
   });
 
   Map<String, dynamic> toMap() => {
@@ -49,6 +55,7 @@ class Investment {
         DbConstants.colAmount: amount,
         DbConstants.colDate: date.toIso8601String(),
         DbConstants.colType: type,
+        DbConstants.colAccountId: accountId,
       };
 
   factory Investment.fromMap(Map<String, dynamic> map) => Investment(
@@ -57,5 +64,19 @@ class Investment {
         amount: (map[DbConstants.colAmount] as num).round(),
         date: DateTime.parse(map[DbConstants.colDate]),
         type: map[DbConstants.colType],
+        accountId: (map[DbConstants.colAccountId] as num?)?.toInt(),
       );
+}
+
+/// What an investment type's holdings are worth now, as last entered by the
+/// user. Shown next to what was put in; the ledger and net worth stay at
+/// cost, since the app has no market prices of its own.
+class InvestmentValue {
+  /// Minor units.
+  final int amount;
+
+  /// When the value was entered.
+  final DateTime asOf;
+
+  const InvestmentValue({required this.amount, required this.asOf});
 }

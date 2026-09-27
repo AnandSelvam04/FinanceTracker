@@ -70,17 +70,51 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await recurringProvider.fetchRules();
       // Budgets power both the in-app alerts banner and budget notifications.
       await budgetProvider.fetchBudgets();
+      await budgetProvider.carryForwardIfEmpty(DateTime.now());
       await _postRecurring();
       // Safety net: keep a fresh local backup even if the user never
       // taps "Backup" (data otherwise lives only on this device).
       await BackupService().autoBackupIfDue();
-      if (mounted) await _syncNotifications();
+      if (!mounted) return;
+      await _syncNotifications();
+      if (!mounted) return;
+      // From here on keep reminders in step with the data, not just the
+      // launch-time snapshot: a deleted or edited rule used to keep its old
+      // "Bill due soon" reminder, and switching notifications back on
+      // scheduled nothing until the next cold start.
+      _recurring = recurringProvider..addListener(_onRulesChanged);
+      _settings = context.read<SettingsProvider>()
+        ..addListener(_onSettingsChanged);
+      _notificationsWereOn = _settings!.notificationsEnabled;
     });
+  }
+
+  RecurringProvider? _recurring;
+  SettingsProvider? _settings;
+  bool _notificationsWereOn = false;
+
+  void _onRulesChanged() {
+    final settings = _settings;
+    final recurring = _recurring;
+    if (settings == null || recurring == null) return;
+    if (!settings.notificationsEnabled) return;
+    NotificationService.instance.scheduleBillReminders(recurring.rules);
+  }
+
+  void _onSettingsChanged() {
+    final on = _settings?.notificationsEnabled ?? false;
+    // Turning them off already cancels everything (Settings does that).
+    if (on && !_notificationsWereOn && mounted) {
+      _syncNotifications(requestPermission: false);
+    }
+    _notificationsWereOn = on;
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _recurring?.removeListener(_onRulesChanged);
+    _settings?.removeListener(_onSettingsChanged);
     super.dispose();
   }
 
@@ -136,19 +170,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   /// Re-arms bill reminders and fires any new budget notifications, honoring
-  /// the user's notifications setting.
-  Future<void> _syncNotifications() async {
+  /// the user's notifications setting. [requestPermission] is false when the
+  /// caller has just asked (the Settings switch does).
+  Future<void> _syncNotifications({bool requestPermission = true}) async {
     final settings = context.read<SettingsProvider>();
     final recurring = context.read<RecurringProvider>();
     final budgets = context.read<BudgetProvider>();
     final expenses = context.read<ExpenseProvider>();
     final accounts = context.read<AccountProvider>();
+    final investments = context.read<InvestmentProvider>();
     final service = NotificationService.instance;
     if (!settings.notificationsEnabled) {
       await service.cancelAll();
       return;
     }
-    await service.requestPermission();
+    if (requestPermission) await service.requestPermission();
     await service.scheduleBillReminders(recurring.rules);
     final now = DateTime.now();
     // Credit-card statement reminders. A wide window so the upcoming due date
@@ -157,7 +193,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final cardReminders = creditCardReminders(
       accounts: accounts.accounts,
       now: now,
-      spendInRange: expenses.spendOnAccountInRange,
+      // Investments bought on the card are on its statement too.
+      spendInRange: (id, from, to) =>
+          expenses.spendOnAccountInRange(id, from, to) +
+          investments.chargedToAccountInRange(id, from, to),
+      paidInRange: expenses.paidToAccountInRange,
       withinDays: 45,
       overdueGrace: 0,
     );
@@ -168,6 +208,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       month: now.month,
       spentForCategory: (c) =>
           expenses.spentForCategoryInMonth(now.year, now.month, c),
+      totalSpent: () => expenses.totalForMonth(now.year, now.month),
     );
     await service.notifyBudgetAlerts(alerts, year: now.year, month: now.month);
   }
@@ -394,10 +435,15 @@ class _DashboardView extends StatelessWidget {
         // the sheet's context is defunct once it is popped.
         onEdit: (e) {
           Navigator.pop(sheetContext);
-          editTransactionSheet(context, e);
+          transactionRowActions(context, e);
         },
       ),
     );
+  }
+
+  bool get _isCurrentMonth {
+    final now = DateTime.now();
+    return selectedYear == now.year && selectedMonth == now.month;
   }
 
   @override
@@ -455,7 +501,8 @@ class _DashboardView extends StatelessWidget {
                     // empty text otherwise flashes on every cold start.
                     if (yearlyExpenses.isEmpty && provider.isLoading)
                       const DashboardSkeleton()
-                    else if (yearlyExpenses.isEmpty)
+                    // Income alone is still something to show.
+                    else if (yearlyExpenses.isEmpty && yearlyIncome == 0)
                       EmptyState(
                         icon: Icons.savings_outlined,
                         title: 'Nothing recorded in $selectedYear yet',
@@ -487,10 +534,12 @@ class _DashboardView extends StatelessWidget {
                   ] else ...[
                     if (monthlyExpenses.isEmpty && provider.isLoading)
                       const DashboardSkeleton()
-                    else if (monthlyExpenses.isEmpty)
+                    // A month with only income used to show "No expenses"
+                    // and hide the salary that had come in.
+                    else if (monthlyExpenses.isEmpty && monthlyIncome == 0)
                       EmptyState(
                         icon: Icons.account_balance_wallet_outlined,
-                        title: 'No expenses this month',
+                        title: 'Nothing recorded this month',
                         message:
                             'Track your first expense to see charts and trends.',
                         actionLabel: 'Add expense',
@@ -498,7 +547,9 @@ class _DashboardView extends StatelessWidget {
                       )
                     else ...[
                       _TotalHeadline(
-                        label: 'Spent this month',
+                        label: _isCurrentMonth
+                            ? 'Spent this month'
+                            : 'Spent in ${formatMonthYear(selectedYear, selectedMonth)}',
                         amount:
                             provider.totalForMonth(selectedYear, selectedMonth),
                       ),

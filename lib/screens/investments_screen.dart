@@ -80,7 +80,9 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                     caption: '${totalsByType.length} '
                         '${totalsByType.length == 1 ? 'type' : 'types'} · '
                         '$contributions '
-                        '${contributions == 1 ? 'contribution' : 'contributions'}',
+                        '${contributions == 1 ? 'contribution' : 'contributions'}'
+                        // Types without a value entered count at cost.
+                        '${provider.hasCurrentValues ? ' · worth ${formatMoneySigned(provider.totalCurrentValue)} now' : ''}',
                     footer: positiveTotal > 0 && totalsByType.length > 1
                         ? _AllocationBar(
                             totals: totalsByType, total: positiveTotal)
@@ -126,7 +128,18 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                         Text(formatMoneySigned(entry.value),
                             style:
                                 const TextStyle(fontWeight: FontWeight.bold)),
-                        if (share != null)
+                        // Gain or loss against the value entered for it.
+                        if (provider.currentValueOf(type) case final v?)
+                          Text(
+                              '${v.amount >= entry.value ? '+' : '−'}'
+                              '${formatMoney((v.amount - entry.value).abs())}',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: v.amount >= entry.value
+                                      ? incomeColor(context)
+                                      : expenseColor(context)))
+                        else if (share != null)
                           Text('$share%',
                               style: TextStyle(
                                   fontSize: 12,

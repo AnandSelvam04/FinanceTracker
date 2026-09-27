@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:finance_tracker/models/investment.dart';
+import 'package:finance_tracker/providers/account_provider.dart';
 import 'package:finance_tracker/providers/investment_provider.dart';
 import 'package:finance_tracker/providers/recurring_provider.dart';
 import 'package:finance_tracker/screens/add_investment_screen.dart';
@@ -12,6 +13,7 @@ void main() {
   Future<void> pumpDuplicate(WidgetTester tester, Investment original) async {
     await tester.pumpWidget(MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AccountProvider()),
         ChangeNotifierProvider(create: (_) => InvestmentProvider()),
         ChangeNotifierProvider(create: (_) => RecurringProvider()),
       ],

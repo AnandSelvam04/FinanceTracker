@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -12,6 +13,7 @@ import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
+import '../services/db_service.dart';
 import 'import_screen.dart';
 import '../utils/app_colors.dart';
 import '../utils/insets.dart';
@@ -21,6 +23,10 @@ import '../widgets/dispose_with_route.dart';
 /// A restore, parameterised by whether the user has already agreed to apply a
 /// backup that contains no rows.
 typedef _RestoreTask = Future<void> Function({bool allowEmpty});
+
+/// A restore from a backup that may be passphrase-protected.
+typedef _ProtectedRestoreTask = Future<void> Function(
+    {bool allowEmpty, String? passphrase});
 
 /// Unwinds a task the user backed out of part-way through, so [_runTask]
 /// reports neither success nor an error.
@@ -42,7 +48,14 @@ const _minPassphraseLength = 12;
 class _BackupsScreenState extends State<BackupsScreen> {
   final _backupService = BackupService();
   bool _isWorking = false;
+
+  /// When a backup last left the phone (Drive, or shared out). The on-device
+  /// auto-backup doesn't count: it is lost along with the phone.
   DateTime? _lastBackup;
+
+  /// Whether at-rest database encryption is on. Backups that leave the phone
+  /// then need a passphrase: the device key can't open them anywhere else.
+  bool _dbEncrypted = false;
 
   /// Email of the Google account signed in for Drive, or null when nobody is.
   String? _driveEmail;
@@ -52,11 +65,21 @@ class _BackupsScreenState extends State<BackupsScreen> {
     super.initState();
     _loadLastBackup();
     _loadDriveAccount();
+    _loadEncryption();
   }
 
   Future<void> _loadLastBackup() async {
-    final t = await _backupService.lastBackupTime();
+    final t = await _backupService.lastOffDeviceBackupTime();
     if (mounted) setState(() => _lastBackup = t);
+  }
+
+  Future<void> _loadEncryption() async {
+    try {
+      final on = await DBService().isEncryptionEnabled();
+      if (mounted) setState(() => _dbEncrypted = on);
+    } catch (_) {
+      // Unknown: leave it off; backupToDrive still refuses a plain upload.
+    }
   }
 
   Future<void> _loadDriveAccount() async {
@@ -147,6 +170,50 @@ class _BackupsScreenState extends State<BackupsScreen> {
     await _loadLastBackup();
   }
 
+  /// Like [_restore], for backups that may be sealed with a passphrase: asks
+  /// for it when the backup needs one (again, if it was wrong) and retries.
+  Future<void> _restoreProtected(
+      _ProtectedRestoreTask task, String success) async {
+    if (!await _confirmRestore()) return;
+    String? passphrase;
+    var allowEmpty = false;
+    await _runTask(() async {
+      while (true) {
+        try {
+          await task(allowEmpty: allowEmpty, passphrase: passphrase);
+          return;
+        } on EmptyBackupException catch (e) {
+          if (!mounted || !await _confirmEmptyRestore(e.message)) {
+            throw _cancelled;
+          }
+          allowEmpty = true;
+        } on PassphraseRequiredException catch (e) {
+          if (!mounted) throw _cancelled;
+          passphrase = await _promptPassphrase(
+              title: e.wrongPassphrase
+                  ? 'Wrong passphrase — try again'
+                  : 'Backup passphrase',
+              action: 'Restore');
+          if (passphrase == null) throw _cancelled;
+        }
+      }
+    }, success);
+    await _loadLastBackup();
+  }
+
+  /// Restores a backup file the user picks: a download, an emailed backup, or
+  /// a copy from another phone.
+  Future<void> _restoreFromPickedFile() async {
+    final result = await FilePicker.platform.pickFiles();
+    final path = result?.files.single.path;
+    if (path == null || !mounted) return;
+    await _restoreProtected(
+        ({bool allowEmpty = false, String? passphrase}) =>
+            _backupService.restoreFromFile(path,
+                passphrase: passphrase, allowEmpty: allowEmpty),
+        'Restored from file');
+  }
+
   Future<void> _runTask(Future<void> Function() task, String success) async {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -200,8 +267,11 @@ class _BackupsScreenState extends State<BackupsScreen> {
 
   /// Generates a file and opens the system share sheet so the user can
   /// save it to Files/Downloads, email it, or send it elsewhere.
-  Future<void> _exportAndShare(
-      Future<File> Function() build, String subject) async {
+  ///
+  /// Set [offDevice] for a full backup that can be restored elsewhere: once
+  /// shared it counts as a copy that survives losing the phone.
+  Future<void> _exportAndShare(Future<File> Function() build, String subject,
+      {bool offDevice = false}) async {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isWorking = true);
@@ -211,8 +281,14 @@ class _BackupsScreenState extends State<BackupsScreen> {
         [XFile(file.path, mimeType: _mimeFor(file.path))],
         subject: subject,
       );
-      if (mounted && result.status == ShareResultStatus.success) {
-        messenger.showSnackBar(SnackBar(content: const Text('Exported')));
+      if (result.status == ShareResultStatus.success) {
+        if (offDevice) {
+          await _backupService.markSharedOffDevice();
+          await _loadLastBackup();
+        }
+        if (mounted) {
+          messenger.showSnackBar(SnackBar(content: const Text('Exported')));
+        }
       }
     } catch (e) {
       messenger.showSnackBar(_errorSnackBar(e));
@@ -230,6 +306,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
   Future<String?> _promptPassphrase(
       {required String title,
       required String action,
+      String? message,
       bool confirm = false}) async {
     final controller = TextEditingController();
     final confirmController = TextEditingController();
@@ -247,6 +324,11 @@ class _BackupsScreenState extends State<BackupsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (message != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(message, style: const TextStyle(fontSize: 13)),
+                  ),
                 TextFormField(
                   controller: controller,
                   obscureText: true,
@@ -415,8 +497,22 @@ class _BackupsScreenState extends State<BackupsScreen> {
                             return;
                           }
                         }
+                        String? passphrase;
+                        if (_dbEncrypted) {
+                          passphrase = await _promptPassphrase(
+                            title: 'Protect the Drive backup',
+                            action: 'Back up',
+                            message: 'Your database is encrypted, so the Drive '
+                                'copy is sealed with a passphrase. You will '
+                                'need it to restore on a new phone.',
+                            confirm: true,
+                          );
+                          if (passphrase == null) return;
+                        }
                         await _runTask(
-                            _backupService.backupToDrive, 'Backed up to Drive');
+                            () => _backupService.backupToDrive(
+                                passphrase: passphrase),
+                            'Backed up to Drive');
                         // Signing in during the backup may have established the
                         // account — show it.
                         await _loadDriveAccount();
@@ -430,7 +526,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     title: const Text('Restore from Google Drive'),
                     enabled: !_isWorking,
                     onTap: () async {
-                      await _restore(_backupService.restoreFromDrive,
+                      await _restoreProtected(
+                          _backupService.restoreFromDrive,
                           'Restored from Drive');
                       await _loadDriveAccount();
                     },
@@ -478,6 +575,14 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         ({bool allowEmpty = false}) => _backupService
                             .restoreFromJson(allowEmpty: allowEmpty),
                         'Restored from local JSON'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.folder_open),
+                    title: const Text('Restore from a file'),
+                    subtitle: const Text(
+                        'A downloaded, emailed, or other phone\'s backup'),
+                    enabled: !_isWorking,
+                    onTap: _restoreFromPickedFile,
                   ),
                   ListTile(
                     leading: const Icon(Icons.fact_check_outlined),
@@ -551,7 +656,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
                       if (pass == null) return;
                       await _exportAndShare(
                           () => _backupService.writeEncryptedBackup(pass),
-                          'Finance Tracker — Encrypted Backup');
+                          'Finance Tracker — Encrypted Backup',
+                          offDevice: true);
                     },
                   ),
                 ],
@@ -586,9 +692,12 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     leading: const Icon(Icons.download),
                     title: const Text('Download full data (JSON)'),
                     enabled: !_isWorking,
+                    // With database encryption on this file is sealed with
+                    // the device key, so it only opens on this phone.
                     onTap: () => _exportAndShare(
                         _backupService.writeJsonBackupFile,
-                        'Finance Tracker — Full Backup'),
+                        'Finance Tracker — Full Backup',
+                        offDevice: !_dbEncrypted),
                   ),
                   const Divider(height: 1),
                   ListTile(
@@ -612,8 +721,9 @@ class _BackupsScreenState extends State<BackupsScreen> {
   }
 }
 
-/// Shows when the app was last backed up, warning if it's stale (>7 days)
-/// or has never happened — a safety nudge for on-device-only data.
+/// Shows when a backup last left the phone, warning if it's stale (>7 days)
+/// or has never happened. The daily on-device backup doesn't count: it is
+/// lost together with the phone.
 class _LastBackupBanner extends StatelessWidget {
   final DateTime? time;
   const _LastBackupBanner({required this.time});
@@ -627,7 +737,8 @@ class _LastBackupBanner extends StatelessWidget {
 
     String label;
     if (time == null) {
-      label = 'No backup yet — back up to avoid losing your data.';
+      label = 'Nothing is backed up off this phone yet — back up to Drive or '
+          'download a backup so a lost phone doesn\'t take your data with it.';
     } else {
       final d = now.difference(time!);
       final ago = d.inDays >= 1
@@ -635,7 +746,7 @@ class _LastBackupBanner extends StatelessWidget {
           : d.inHours >= 1
               ? (d.inHours == 1 ? '1 hour ago' : '${d.inHours} hours ago')
               : 'just now';
-      label = 'Last backup: $ago';
+      label = 'Last backup off this phone: $ago';
     }
 
     return Container(

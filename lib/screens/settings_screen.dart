@@ -82,10 +82,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  /// Explains what encryption changes about backups before it is switched
+  /// on: the key lives only on this phone, so anything sealed with it can't
+  /// be opened after a reset or on a new phone.
+  Future<bool> _confirmEncryption() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Encrypt the database?'),
+        content: const Text(
+            'The key is kept only on this phone. The automatic on-device '
+            'backup is sealed with it too, so it can\'t be opened after a '
+            'reset or on another phone.\n\n'
+            'Drive backups will ask for a passphrase instead — keep it safe, '
+            'it is the only way to restore on a new phone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Encrypt')),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   /// Toggles at-rest DB encryption. The migration is verify-and-rollback, so
   /// data is preserved even if it fails; on error we surface it and leave the
   /// switch in its real state.
   Future<void> _toggleEncryption(bool enable) async {
+    if (enable && !await _confirmEncryption()) return;
+    if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final expenses = context.read<ExpenseProvider>();
     final accounts = context.read<AccountProvider>();

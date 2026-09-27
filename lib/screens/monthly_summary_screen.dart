@@ -7,6 +7,7 @@ import '../providers/expense_provider.dart';
 import '../services/statement_pdf.dart';
 import '../widgets/section_header.dart';
 import '../widgets/category_avatar.dart';
+import '../utils/alerts.dart' show calendarDaysBetween;
 import '../utils/app_colors.dart';
 import '../utils/category_colors.dart';
 import '../utils/currency_format.dart';
@@ -38,10 +39,15 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
   static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   static DateTime _mondayOf(DateTime d) {
-    final day = _dateOnly(d);
     // DateTime.weekday: Mon = 1 .. Sun = 7.
-    return day.subtract(Duration(days: day.weekday - 1));
+    return _plusDays(_dateOnly(d), -(d.weekday - 1));
   }
+
+  /// [d] moved by [days] calendar days. A `Duration` adds 24-hour blocks,
+  /// which lands on 23:00 or 01:00 across a daylight-saving change and would
+  /// start the week on Sunday night.
+  static DateTime _plusDays(DateTime d, int days) =>
+      DateTime(d.year, d.month, d.day + days);
 
   @override
   void initState() {
@@ -56,17 +62,35 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
 
   /// Exclusive upper bound of the current period.
   DateTime get _rangeEnd => _mode == _PeriodMode.week
-      ? _weekStart.add(const Duration(days: 7))
+      ? _plusDays(_weekStart, 7)
       // DateTime normalizes month 13 to January of the next year.
       : DateTime(_year, _month + 1, 1);
 
   DateTime get _prevStart => _mode == _PeriodMode.week
-      ? _weekStart.subtract(const Duration(days: 7))
+      ? _plusDays(_weekStart, -7)
       : (_month == 1
           ? DateTime(_year - 1, 12, 1)
           : DateTime(_year, _month - 1, 1));
 
-  DateTime get _prevEnd => _rangeStart;
+  /// Whether today falls inside the period on screen, i.e. it isn't over.
+  bool get _inProgress {
+    final today = _dateOnly(DateTime.now());
+    return !today.isBefore(_rangeStart) && today.isBefore(_rangeEnd);
+  }
+
+  /// End of the stretch of the previous period to compare against. While the
+  /// period on screen is still running, that is the same number of days into
+  /// the previous one: ten days of this month against the whole of last
+  /// month always looked like a big drop in spending.
+  DateTime get _prevEnd {
+    if (!_inProgress) return _rangeStart;
+    final today = _dateOnly(DateTime.now());
+    final elapsed = calendarDaysBetween(_rangeStart, today) + 1;
+    if (_mode == _PeriodMode.week) return _plusDays(_prevStart, elapsed);
+    final prevLength =
+        DateTime(_prevStart.year, _prevStart.month + 1, 0).day;
+    return _plusDays(_prevStart, elapsed < prevLength ? elapsed : prevLength);
+  }
 
   void _ensureLoaded() {
     final provider = context.read<ExpenseProvider>();
@@ -74,14 +98,14 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     // fall in an earlier year, so load every year the two ranges can touch.
     provider.ensureYearsLoaded({
       _rangeStart.year,
-      _rangeEnd.subtract(const Duration(days: 1)).year,
+      _plusDays(_rangeEnd, -1).year,
       _prevStart.year,
     });
   }
 
   String get _periodLabel {
     if (_mode == _PeriodMode.week) {
-      final end = _weekStart.add(const Duration(days: 6));
+      final end = _plusDays(_weekStart, 6);
       return '${formatIsoDate(_weekStart)}_${formatIsoDate(end)}';
     }
     return '$_year-${_month.toString().padLeft(2, '0')}';
@@ -89,7 +113,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
 
   String get _periodHeading {
     if (_mode == _PeriodMode.week) {
-      final end = _weekStart.add(const Duration(days: 6));
+      final end = _plusDays(_weekStart, 6);
       return '${formatShortDate(_weekStart)}  –  ${formatShortDate(end)}';
     }
     return '${monthName(_month)} $_year';
@@ -97,7 +121,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
 
   void _stepWeek(int delta) {
     setState(() {
-      _weekStart = _weekStart.add(Duration(days: 7 * delta));
+      _weekStart = _plusDays(_weekStart, 7 * delta);
       _category = null;
     });
     _ensureLoaded();
@@ -326,7 +350,11 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
       Row(
         children: [
           Text(
-              'Expense vs last ${_mode == _PeriodMode.week ? 'week' : 'month'}: ',
+              _inProgress
+                  ? 'Expense vs same days last '
+                      '${_mode == _PeriodMode.week ? 'week' : 'month'}: '
+                  : 'Expense vs last '
+                      '${_mode == _PeriodMode.week ? 'week' : 'month'}: ',
               style: const TextStyle(fontSize: 14)),
           _DeltaLabel(current: expense, previous: prevExpense),
         ],

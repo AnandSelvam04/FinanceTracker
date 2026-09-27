@@ -51,6 +51,33 @@ void main() {
       expect(alerts, isEmpty);
     });
 
+    test('warns on the overall cap against the month\'s total spend', () {
+      final overall = Budget(
+          category: Budget.overallCategory,
+          amount: 10000,
+          year: 2026,
+          month: 7);
+      final alerts = budgetAlerts(
+        budgets: [overall],
+        year: 2026,
+        month: 7,
+        spentForCategory: (_) => 0,
+        totalSpent: () => 12000,
+      );
+      expect(alerts.single.category, kOverallAlertLabel);
+      expect(alerts.single.isOver, isTrue);
+
+      expect(
+          budgetAlerts(
+            budgets: [overall],
+            year: 2026,
+            month: 7,
+            spentForCategory: (_) => 0,
+            totalSpent: () => 5000,
+          ),
+          isEmpty);
+    });
+
     test('ignores budgets with a zero cap', () {
       final alerts = budgetAlerts(
         budgets: [Budget(category: 'X', amount: 0, year: 2026, month: 7)],
@@ -89,6 +116,31 @@ void main() {
           ['Phone', 'Gym', 'Rent']);
       expect(alerts.first.isOverdue, isTrue);
       expect(alerts[1].isToday, isTrue);
+    });
+
+    test('leaves out SIPs and income, which are not bills', () {
+      final due = DateTime(2026, 7, 15);
+      final alerts = upcomingBills(
+        rules: [
+          rule('Rent', due),
+          RecurringRule(
+              description: 'Index SIP',
+              amount: 5000,
+              category: 'Mutual Funds',
+              frequency: DbConstants.freqMonthly,
+              nextDue: due,
+              isInvestment: true),
+          RecurringRule(
+              description: 'Salary',
+              amount: 90000,
+              category: 'Salary',
+              type: DbConstants.txIncome,
+              frequency: DbConstants.freqMonthly,
+              nextDue: due),
+        ],
+        now: DateTime(2026, 7, 14),
+      );
+      expect(alerts.map((a) => a.description), ['Rent']);
     });
   });
 
