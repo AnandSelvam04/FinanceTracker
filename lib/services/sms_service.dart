@@ -255,5 +255,7 @@ class SmsDraft {
         amount: parsed.amount,
         date: parsed.date,
         type: investmentType,
+        // The account the SMS debited: the purchase leaves that balance.
+        accountId: accountId,
       );
 }

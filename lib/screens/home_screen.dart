@@ -177,6 +177,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final budgets = context.read<BudgetProvider>();
     final expenses = context.read<ExpenseProvider>();
     final accounts = context.read<AccountProvider>();
+    final investments = context.read<InvestmentProvider>();
     final service = NotificationService.instance;
     if (!settings.notificationsEnabled) {
       await service.cancelAll();
@@ -191,7 +192,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final cardReminders = creditCardReminders(
       accounts: accounts.accounts,
       now: now,
-      spendInRange: expenses.spendOnAccountInRange,
+      // Investments bought on the card are on its statement too.
+      spendInRange: (id, from, to) =>
+          expenses.spendOnAccountInRange(id, from, to) +
+          investments.chargedToAccountInRange(id, from, to),
       paidInRange: expenses.paidToAccountInRange,
       withinDays: 45,
       overdueGrace: 0,

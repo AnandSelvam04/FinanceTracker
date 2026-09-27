@@ -175,7 +175,8 @@ class DBService {
             ${DbConstants.colName} TEXT,
             ${DbConstants.colAmount} INTEGER,
             ${DbConstants.colDate} TEXT,
-            ${DbConstants.colType} TEXT
+            ${DbConstants.colType} TEXT,
+            ${DbConstants.colAccountId} INTEGER
           )
         ''');
     await db.execute('''
@@ -328,6 +329,19 @@ class DBService {
     }
     if (oldVersion < 14) {
       await _createGoalsTable(db);
+    }
+    if (oldVersion < 15) {
+      // The account an investment was paid from, so buying one lowers that
+      // balance (or adds to a credit card's bill). Existing rows stay
+      // unlinked and keep not touching any balance. Guarded like v12/v13.
+      final hasInvestments = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableInvestments]);
+      if (hasInvestments.isNotEmpty) {
+        await db.execute(
+            'ALTER TABLE ${DbConstants.tableInvestments} ADD COLUMN '
+            '${DbConstants.colAccountId} INTEGER');
+      }
     }
   }
 
@@ -1165,6 +1179,12 @@ class DBService {
         where: '${DbConstants.colAccountId} = ?',
         whereArgs: [id],
       );
+      await txn.update(
+        DbConstants.tableInvestments,
+        {DbConstants.colAccountId: null},
+        where: '${DbConstants.colAccountId} = ?',
+        whereArgs: [id],
+      );
       return await txn.delete(DbConstants.tableAccounts,
           where: '${DbConstants.colId} = ?', whereArgs: [id]);
     });
@@ -1305,8 +1325,9 @@ class DBService {
         'GROUP BY ym, type, accountId, toAccountId');
     final invRows =
         await db.rawQuery('SELECT substr(${DbConstants.colDate}, 1, 7) AS ym, '
+            '${DbConstants.colAccountId} AS accountId, '
             'SUM(${DbConstants.colAmount}) AS amt '
-            'FROM ${DbConstants.tableInvestments} GROUP BY ym');
+            'FROM ${DbConstants.tableInvestments} GROUP BY ym, accountId');
 
     // Net base-currency change per month.
     final deltaByMonth = <String, double>{};
@@ -1343,7 +1364,15 @@ class DBService {
       }
     }
     for (final row in invRows) {
-      addDelta(row['ym'], ((row['amt'] ?? 0) as num).toDouble());
+      final amt = ((row['amt'] ?? 0) as num).toDouble();
+      // The holding grows by what was invested; the account it was paid from
+      // shrinks by the same (a card's owed balance grows), so buying with
+      // your own money leaves net worth where it was.
+      var delta = amt;
+      if (isLiveAccount(row['accountId'])) {
+        delta -= amt * rateOf(row['accountId']);
+      }
+      addDelta(row['ym'], delta);
     }
 
     String ymKey(DateTime d) =>
@@ -1401,6 +1430,19 @@ class DBService {
     for (final row in inRows) {
       final id = row['accountId'] as int;
       flows[id] = (flows[id] ?? 0) + ((row['amt'] ?? 0) as num).toDouble();
+    }
+
+    // Investments paid from an account leave it like an expense (a
+    // withdrawal, stored negative, comes back in).
+    final invRows = await db.rawQuery(
+        'SELECT ${DbConstants.colAccountId} AS accountId, '
+        'SUM(${DbConstants.colAmount}) AS amt '
+        'FROM ${DbConstants.tableInvestments} '
+        'WHERE ${DbConstants.colAccountId} IS NOT NULL '
+        'GROUP BY accountId');
+    for (final row in invRows) {
+      final id = row['accountId'] as int;
+      flows[id] = (flows[id] ?? 0) - ((row['amt'] ?? 0) as num).toDouble();
     }
 
     return flows.map((id, v) => MapEntry(id, v.round()));

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:provider/provider.dart';
+import '../providers/account_provider.dart';
 import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../models/investment.dart';
@@ -11,6 +12,7 @@ import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/date_field_row.dart';
+import '../widgets/paid_from_field.dart';
 
 class AddInvestmentScreen extends StatefulWidget {
   /// Pre-selects a type so "add another contribution" from a type's detail
@@ -41,6 +43,9 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   late String _selectedType;
   bool _isSaving = false;
   bool _repeatMonthly = false;
+
+  /// The account the money came from (or, for a withdrawal, went back to).
+  int? _accountId;
 
   /// Whether this entry takes money back out of the holding (a withdrawal /
   /// redemption) rather than adding to it. A withdrawal is stored as a negative
@@ -91,6 +96,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
     if (copy != null) {
       _isWithdrawal = copy.isWithdrawal;
       _amountController.text = minorToEditString(copy.amount.abs());
+      _accountId = copy.accountId;
     }
     final initial = copy?.type ?? widget.initialType;
     if (initial != null &&
@@ -269,6 +275,19 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                           ? 'Enter a type or pick one above'
                           : null,
                 ),
+              Consumer<AccountProvider>(
+                builder: (context, accounts, _) => accounts.accounts.isEmpty
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: PaidFromField(
+                          accounts: accounts.accounts,
+                          value: _accountId,
+                          withdrawal: _isWithdrawal,
+                          onChanged: (v) => setState(() => _accountId = v),
+                        ),
+                      ),
+              ),
               // Only a contribution can repeat as a SIP; a withdrawal is a
               // one-off correction/redemption.
               if (!_isWithdrawal)
@@ -305,6 +324,11 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                               amount: signedAmount,
                               date: _selectedDate,
                               type: type,
+                              // Only an account that still exists.
+                              accountId: context
+                                  .read<AccountProvider>()
+                                  .accountById(_accountId)
+                                  ?.id,
                             );
                             final provider = context.read<InvestmentProvider>();
                             final recurring = context.read<RecurringProvider>();
@@ -317,10 +341,20 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                                 // last day of a short month instead of overflowing
                                 // into the next one (DateTime(y, 2, 31) → Mar 3).
                                 final anchorDay = _selectedDate.day;
-                                final next = RecurringService.nextDate(
+                                var next = RecurringService.nextDate(
                                     _selectedDate,
                                     DbConstants.freqMonthly,
                                     anchorDay);
+                                // A backdated first contribution starts the
+                                // SIP at its next date from today on. Starting
+                                // it in the past made the catch-up post every
+                                // month in between at once — months the user
+                                // usually logs (or already logged) by hand.
+                                final today = DateUtils.dateOnly(DateTime.now());
+                                while (next.isBefore(today)) {
+                                  next = RecurringService.nextDate(next,
+                                      DbConstants.freqMonthly, anchorDay);
+                                }
                                 // A blank name falls back to the instrument type,
                                 // not the month-stamped default — otherwise every
                                 // future contribution would carry the first
@@ -336,6 +370,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                                   nextDue: next,
                                   anchorDay: anchorDay,
                                   isInvestment: true,
+                                  accountId: investment.accountId,
                                 ));
                               }
                               HapticFeedback.lightImpact();

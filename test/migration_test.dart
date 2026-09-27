@@ -142,6 +142,13 @@ void main() {
             DbConstants.tableRecurringRules, DbConstants.colIsInvestment),
         'INTEGER');
 
+    // v15 links an investment to the account it was paid from, after the
+    // v9 rebuild of the investments table.
+    expect(
+        await affinityOf(
+            DbConstants.tableInvestments, DbConstants.colAccountId),
+        'INTEGER');
+
     final tables = await db.rawQuery(
         "SELECT name FROM sqlite_master WHERE type = 'table'");
     expect(tables.map((r) => r['name']), contains(DbConstants.tableSmsIgnored));

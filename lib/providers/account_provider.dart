@@ -68,6 +68,18 @@ class AccountProvider extends ChangeNotifier {
     await fetchAccounts();
   }
 
+  Object? _seenInvestments;
+
+  /// Investments can be paid from an account, so a change to them moves
+  /// balances. Wired from the investment provider in main.dart, which hands
+  /// over its list each time it changes (a new list on every fetch).
+  void syncInvestments(Object investments) {
+    if (identical(investments, _seenInvestments)) return;
+    final firstSight = _seenInvestments == null;
+    _seenInvestments = investments;
+    if (!firstSight) refreshBalances();
+  }
+
   /// Recompute balances after transactions change.
   Future<void> refreshBalances() async {
     await _recomputeBalances();

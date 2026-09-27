@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:provider/provider.dart';
 import '../models/investment.dart';
+import '../providers/account_provider.dart';
 import '../utils/app_colors.dart';
 import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
@@ -12,6 +13,7 @@ import '../widgets/swipe_delete_background.dart';
 import 'add_investment_screen.dart';
 import '../utils/date_format.dart';
 import '../widgets/dispose_with_route.dart';
+import '../widgets/paid_from_field.dart';
 
 /// How the contributions on the type screen are grouped: into time buckets
 /// (how much went in each period) or by name (how much each individual fund
@@ -182,6 +184,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
       amount: investment.amount,
       date: investment.date,
       type: target,
+      accountId: investment.accountId,
     ));
     messenger.showSnackBar(
       SnackBar(content: Text('Moved "${investment.name}" to "$target".')),
@@ -421,9 +424,16 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
               ),
               title: Text(investment.name,
                   style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(investment.isWithdrawal
-                  ? 'Withdrawal · ${formatDateWithDay(investment.date)}'
-                  : formatDateWithDay(investment.date)),
+              subtitle: Text([
+                if (investment.isWithdrawal) 'Withdrawal',
+                formatDateWithDay(investment.date),
+                // Which account it was paid from (or back into).
+                if (context
+                        .watch<AccountProvider>()
+                        .accountById(investment.accountId)
+                    case final account?)
+                  account.name,
+              ].join(' · ')),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -508,6 +518,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
         TextEditingController(text: minorToEditString(investment.amount.abs()));
     DateTime selectedDate = investment.date;
     bool isWithdrawal = investment.isWithdrawal;
+    int? accountId = investment.accountId;
+    final accounts = context.read<AccountProvider>().accounts;
 
     const types = Investment.builtInTypes;
     final isBuiltIn = types.contains(investment.type);
@@ -608,6 +620,13 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                         decoration:
                             InputDecoration(labelText: 'Enter investment type'),
                       ),
+                    if (accounts.isNotEmpty)
+                      PaidFromField(
+                        accounts: accounts,
+                        value: accountId,
+                        withdrawal: isWithdrawal,
+                        onChanged: (v) => setModalState(() => accountId = v),
+                      ),
                     Row(
                       children: [
                         Text('Date: ${formatDateWithDay(selectedDate)}'),
@@ -664,6 +683,10 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                             amount: amount,
                             date: selectedDate,
                             type: resolvedType,
+                            // Only an account that still exists.
+                            accountId: accounts.any((a) => a.id == accountId)
+                                ? accountId
+                                : null,
                           );
                           final provider = context.read<InvestmentProvider>();
                           await provider.updateInvestment(updated);

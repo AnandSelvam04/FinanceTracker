@@ -126,6 +126,7 @@ class RecurringService {
                 amount: rule.amount,
                 date: d,
                 type: rule.category,
+                accountId: rule.accountId,
               ),
           ], advanced);
         } else {
