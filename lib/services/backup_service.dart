@@ -17,6 +17,7 @@ import '../models/recurring_rule.dart';
 import '../models/savings_goal.dart';
 import '../models/tx_template.dart';
 import '../utils/app_logger.dart';
+import '../providers/settings_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import 'backup_crypto.dart';
@@ -39,7 +40,9 @@ Object? csvSafeCell(Object? value) {
   return RegExp(r'^[=+\-@\t\r]').hasMatch(value) ? "'$value" : value;
 }
 
-List<List<dynamic>> _expenseCsvRows(List<Expense> expenses) => [
+List<List<dynamic>> _expenseCsvRows(
+        List<Expense> expenses, Map<int, String> accountNames) =>
+    [
       [
         'ID',
         'Description',
@@ -50,7 +53,10 @@ List<List<dynamic>> _expenseCsvRows(List<Expense> expenses) => [
         'Type',
         'AccountId',
         'ToAccountId',
-        'ToAmount'
+        'ToAmount',
+        // Names alongside the ids, which mean nothing outside the app.
+        'Account',
+        'ToAccount',
       ],
       ...expenses.map((e) => [
             e.id ?? '',
@@ -67,6 +73,8 @@ List<List<dynamic>> _expenseCsvRows(List<Expense> expenses) => [
             e.toAmount == null
                 ? ''
                 : minorToMajor(e.toAmount!).toStringAsFixed(2),
+            csvSafeCell(accountNames[e.accountId] ?? ''),
+            csvSafeCell(accountNames[e.toAccountId] ?? ''),
           ]),
     ];
 
@@ -75,7 +83,8 @@ List<List<dynamic>> _expenseCsvRows(List<Expense> expenses) => [
 /// exactly what they see.
 Future<File> writeExpensesCsvFile(List<Expense> expenses,
     {String filename = 'expenses_export.csv'}) async {
-  final csvData = const ListToCsvConverter().convert(_expenseCsvRows(expenses));
+  final csvData = const ListToCsvConverter()
+      .convert(_expenseCsvRows(expenses, await _accountNames()));
   final path = await BackupService()._localPath;
   final file = File('$path/$filename');
   await file.writeAsString(csvData);
@@ -87,18 +96,25 @@ Future<File> exportExpensesToCsv() async {
   return writeExpensesCsvFile(expenses);
 }
 
+/// Account names by id, for the export's readable account columns.
+Future<Map<int, String>> _accountNames() async => {
+      for (final a in await DBService().getAccounts()) a.id!: a.name,
+    };
+
 // Export investments to CSV
 
 Future<File> exportInvestmentsToCsv() async {
   final investments = await DBService().getInvestments();
+  final accountNames = await _accountNames();
   final List<List<dynamic>> rows = [
-    ['ID', 'Name', 'Amount', 'Date', 'Type'],
+    ['ID', 'Name', 'Amount', 'Date', 'Type', 'PaidFrom'],
     ...investments.map((i) => [
           i.id ?? '',
           csvSafeCell(i.name),
           minorToMajor(i.amount).toStringAsFixed(2),
           i.date.toIso8601String(),
           csvSafeCell(i.type),
+          csvSafeCell(accountNames[i.accountId] ?? ''),
         ]),
   ];
   String csvData = const ListToCsvConverter().convert(rows);
@@ -328,13 +344,15 @@ class BackupService {
     final goals = await DBService().getGoals();
     final smsIgnored = await DBService().ignoredSourceRefs();
     final values = await DBService().getInvestmentValues();
+    final settings = await SettingsProvider.exportForBackup();
     return {
       // v4: amounts are integer minor units (paise/cents).
       // v5: transfer rows may carry toAmount (destination-currency amount).
       // v6: adds savings goals. Older backups simply restore with none.
       // v7: adds the dismissed-SMS list, so a restore doesn't bring every
       //     rejected message back into the review queue, and each investment
-      //     type's current value.
+      //     type's current value, and the app's settings (currency, theme,
+      //     default account...).
       'version': 7,
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'investments': investments.map((i) => i.toMap()).toList(),
@@ -344,6 +362,7 @@ class BackupService {
       'templates': templates.map((t) => t.toMap()).toList(),
       'goals': goals.map((g) => g.toMap()).toList(),
       'sms_ignored': smsIgnored,
+      'settings': settings,
       'investment_values': [
         for (final e in values.entries)
           {
@@ -526,6 +545,11 @@ class BackupService {
 
     await DBService()
         .replaceAllData(rowsByTable, clearFirst: clearBeforeRestore);
+    // Settings only come back with a full restore; merging a backup into
+    // existing data keeps this phone's own. Older backups carry none.
+    if (clearBeforeRestore && data['settings'] is Map) {
+      await SettingsProvider.importFromBackup(data['settings'] as Map);
+    }
   }
 
   /// Parses a validated backup payload into per-table row maps, running every

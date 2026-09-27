@@ -11,6 +11,7 @@ import '../providers/expense_provider.dart';
 import '../providers/goal_provider.dart';
 import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
+import '../providers/settings_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 import '../services/db_service.dart';
@@ -224,6 +225,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
     final recurringProvider = context.read<RecurringProvider>();
     final templateProvider = context.read<TemplateProvider>();
     final goalProvider = context.read<GoalProvider>();
+    final settingsProvider = context.read<SettingsProvider>();
     setState(() => _isWorking = true);
     try {
       await task();
@@ -236,6 +238,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
       await recurringProvider.fetchRules();
       await templateProvider.fetchTemplates();
       await goalProvider.fetchGoals();
+      // A full restore brings back the backup's settings too.
+      await settingsProvider.load();
       await _loadLastBackup();
     } on _Cancelled {
       // The user backed out of a second confirmation; nothing to report.
@@ -526,8 +530,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     title: const Text('Restore from Google Drive'),
                     enabled: !_isWorking,
                     onTap: () async {
-                      await _restoreProtected(
-                          _backupService.restoreFromDrive,
+                      await _restoreProtected(_backupService.restoreFromDrive,
                           'Restored from Drive');
                       await _loadDriveAccount();
                     },
