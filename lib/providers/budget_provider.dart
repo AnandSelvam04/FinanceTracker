@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/budget.dart';
 import '../services/db_service.dart';
 
@@ -37,6 +38,22 @@ class BudgetProvider extends ChangeNotifier {
       copied++;
     }
     if (copied > 0) await fetchBudgets();
+    return copied;
+  }
+
+  /// Carries last month's budgets into [now]'s month the first time the app
+  /// runs in a month that has none, so caps keep working without the user
+  /// remembering to tap "Copy last month". Runs once per month: budgets the
+  /// user then deletes stay deleted. Returns how many were carried.
+  Future<int> carryForwardIfEmpty(DateTime now) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'budgets_carried_${now.year}_${now.month}';
+    if (prefs.getBool(key) ?? false) return 0;
+    final hasAny =
+        _budgets.any((b) => b.year == now.year && b.month == now.month);
+    final copied =
+        hasAny ? 0 : await copyBudgetsFromPreviousMonth(now.year, now.month);
+    await prefs.setBool(key, true);
     return copied;
   }
 

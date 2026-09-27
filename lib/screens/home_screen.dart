@@ -70,6 +70,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await recurringProvider.fetchRules();
       // Budgets power both the in-app alerts banner and budget notifications.
       await budgetProvider.fetchBudgets();
+      await budgetProvider.carryForwardIfEmpty(DateTime.now());
       await _postRecurring();
       // Safety net: keep a fresh local backup even if the user never
       // taps "Backup" (data otherwise lives only on this device).
