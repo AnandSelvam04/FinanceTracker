@@ -82,7 +82,7 @@ class NetWorthCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Accounts ${formatMoneySigned(liquid)} · '
-                  'Investments ${formatMoneySigned(invested)}',
+                  'Investments ${formatMoneySigned(invested)} (at cost)',
                   style: TextStyle(fontSize: 12, color: subtle),
                 ),
                 const SizedBox(height: 12),

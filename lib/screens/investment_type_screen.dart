@@ -238,6 +238,12 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                   caption: '${entries.length} '
                       '${entries.length == 1 ? 'contribution' : 'contributions'}'
                       ' · latest ${formatShortDate(entries.first.date)}',
+                  footer: _CurrentValueRow(
+                    invested: total,
+                    value: provider.currentValueOf(type),
+                    onUpdate: () => _editCurrentValue(context, provider,
+                        type: type, invested: total),
+                  ),
                 ),
               ),
               Padding(
@@ -480,6 +486,63 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
         ));
   }
 
+  /// Asks what this type's holdings are worth now (blank clears it).
+  Future<void> _editCurrentValue(BuildContext context,
+      InvestmentProvider provider,
+      {required String type, required int invested}) async {
+    final existing = provider.currentValueOf(type);
+    final controller = TextEditingController(
+        text: existing == null ? '' : minorToEditString(existing.amount));
+    final result = await showDialog<(bool, int?)>(
+      context: context,
+      builder: (ctx) => DisposeWithRoute(
+        notifiers: [controller],
+        child: AlertDialog(
+          title: Text('Current value of $type'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                  'What these holdings are worth today, from your broker or '
+                  'statement. You put in ${formatMoneySigned(invested)}.',
+                  style: const TextStyle(fontSize: 13)),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Current value',
+                  prefixText: '${CurrencyFormat.symbol} ',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            if (existing != null)
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, (true, null)),
+                  child: const Text('Clear')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final text = controller.text.trim();
+                if (validateAmountField(text) != null) return;
+                Navigator.pop(ctx, (true, parseMinor(text)));
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null) return;
+    await provider.setCurrentValue(type, result.$2);
+  }
+
   Future<bool> _confirmDelete(
       BuildContext context, Investment investment) async {
     final confirmed = await showDialog<bool>(
@@ -703,6 +766,50 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
           }),
         );
       },
+    );
+  }
+}
+
+/// Under a type's total: what it is worth now and the gain or loss, with a
+/// button to update it. Values are entered by hand; the app has no prices.
+class _CurrentValueRow extends StatelessWidget {
+  final int invested;
+  final InvestmentValue? value;
+  final VoidCallback onUpdate;
+
+  const _CurrentValueRow({
+    required this.invested,
+    required this.value,
+    required this.onUpdate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = onBrandGradient(context);
+    final subtle = fg.withValues(alpha: 0.82);
+    final v = value;
+    String text;
+    if (v == null) {
+      text = 'Add what it is worth today to see your gain';
+    } else {
+      final gain = v.amount - invested;
+      final pct = invested > 0
+          ? ' (${(gain * 100 / invested).toStringAsFixed(1)}%)'
+          : '';
+      text = 'Worth ${formatMoneySigned(v.amount)} · '
+          '${gain >= 0 ? '+' : '−'}${formatMoney(gain.abs())}$pct'
+          ' · as of ${formatShortDate(v.asOf)}';
+    }
+    return Row(
+      children: [
+        Expanded(
+            child: Text(text, style: TextStyle(fontSize: 13, color: subtle))),
+        TextButton(
+          onPressed: onUpdate,
+          style: TextButton.styleFrom(foregroundColor: fg),
+          child: Text(v == null ? 'Add value' : 'Update'),
+        ),
+      ],
     );
   }
 }

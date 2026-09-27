@@ -327,12 +327,14 @@ class BackupService {
     final templates = await DBService().getTemplates();
     final goals = await DBService().getGoals();
     final smsIgnored = await DBService().ignoredSourceRefs();
+    final values = await DBService().getInvestmentValues();
     return {
       // v4: amounts are integer minor units (paise/cents).
       // v5: transfer rows may carry toAmount (destination-currency amount).
       // v6: adds savings goals. Older backups simply restore with none.
       // v7: adds the dismissed-SMS list, so a restore doesn't bring every
-      //     rejected message back into the review queue.
+      //     rejected message back into the review queue, and each investment
+      //     type's current value.
       'version': 7,
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'investments': investments.map((i) => i.toMap()).toList(),
@@ -342,6 +344,14 @@ class BackupService {
       'templates': templates.map((t) => t.toMap()).toList(),
       'goals': goals.map((g) => g.toMap()).toList(),
       'sms_ignored': smsIgnored,
+      'investment_values': [
+        for (final e in values.entries)
+          {
+            DbConstants.colType: e.key,
+            DbConstants.colAmount: e.value.amount,
+            DbConstants.colDate: e.value.asOf.toIso8601String(),
+          },
+      ],
     };
   }
 
@@ -463,6 +473,7 @@ class BackupService {
     'templates',
     'goals',
     'sms_ignored',
+    'investment_values',
   ];
 
   /// Throws [BackupFormatException] unless [data] is shaped like a backup.
@@ -573,6 +584,16 @@ class BackupService {
       DbConstants.tableSmsIgnored: [
         for (final ref in data['sms_ignored'] ?? [])
           if (ref is String) {DbConstants.colSourceRef: ref},
+      ],
+      DbConstants.tableInvestmentValues: [
+        for (final v in data['investment_values'] ?? [])
+          {
+            DbConstants.colType: v[DbConstants.colType] as String,
+            DbConstants.colAmount: (v[DbConstants.colAmount] as num).toInt(),
+            DbConstants.colDate:
+                DateTime.parse(v[DbConstants.colDate] as String)
+                    .toIso8601String(),
+          },
       ],
     };
   }

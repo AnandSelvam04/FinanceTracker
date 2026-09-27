@@ -89,6 +89,11 @@ class DbConstants {
   static const String tableGoals = 'goals';
   static const String colSaved = 'saved';
 
+  // Current market value per investment type (added in schema v15): one row
+  // per type, colAmount the value and colDate when it was last updated. For
+  // display only; the ledger and net worth stay at cost.
+  static const String tableInvestmentValues = 'investment_values';
+
   // Frequency values stored in recurring_rules.frequency
   static const String freqDaily = 'daily';
   static const String freqWeekly = 'weekly';

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_tracker/models/account.dart';
 import 'package:finance_tracker/models/budget.dart';
 import 'package:finance_tracker/models/expense.dart';
+import 'package:finance_tracker/models/investment.dart';
 import 'package:finance_tracker/models/savings_goal.dart';
 import 'package:finance_tracker/services/backup_service.dart';
 import 'package:finance_tracker/services/db_service.dart';
@@ -129,6 +130,28 @@ void main() {
       await service.restoreFromJson();
 
       expect((await db.ignoredSourceRefs()).toSet(), {'sms:7', 'sms:9'});
+    });
+
+    test('investment current values survive a backup round-trip', () async {
+      final db = DBService();
+      await db.insertExpense(Expense(
+          description: 'x',
+          amount: 100,
+          date: DateTime(2026, 1, 1),
+          category: 'Food',
+          paymentMode: 'Cash'));
+      await db.setInvestmentValue(
+          'Gold', InvestmentValue(amount: 99000, asOf: DateTime(2026, 5, 1)));
+
+      final service = BackupService();
+      await service.backupToJson();
+      await db.clearAll();
+      expect(await db.getInvestmentValues(), isEmpty);
+      await service.restoreFromJson();
+
+      final v = (await db.getInvestmentValues())['Gold']!;
+      expect(v.amount, 99000);
+      expect(v.asOf, DateTime(2026, 5, 1));
     });
 
     test('restoreFromFile opens a passphrase backup and asks when needed',

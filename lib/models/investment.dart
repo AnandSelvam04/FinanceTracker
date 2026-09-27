@@ -67,3 +67,16 @@ class Investment {
         accountId: (map[DbConstants.colAccountId] as num?)?.toInt(),
       );
 }
+
+/// What an investment type's holdings are worth now, as last entered by the
+/// user. Shown next to what was put in; the ledger and net worth stay at
+/// cost, since the app has no market prices of its own.
+class InvestmentValue {
+  /// Minor units.
+  final int amount;
+
+  /// When the value was entered.
+  final DateTime asOf;
+
+  const InvestmentValue({required this.amount, required this.asOf});
+}

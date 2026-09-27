@@ -191,6 +191,7 @@ class DBService {
     await _createAccountsTable(db);
     await _createRecurringTables(db);
     await _createGoalsTable(db);
+    await _createInvestmentValuesTable(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -342,6 +343,7 @@ class DBService {
             'ALTER TABLE ${DbConstants.tableInvestments} ADD COLUMN '
             '${DbConstants.colAccountId} INTEGER');
       }
+      await _createInvestmentValuesTable(db);
     }
   }
 
@@ -562,6 +564,16 @@ class DBService {
         ${DbConstants.colLast4} TEXT,
         ${DbConstants.colStatementDay} INTEGER,
         ${DbConstants.colDueDay} INTEGER
+      )
+    ''');
+  }
+
+  static Future<void> _createInvestmentValuesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DbConstants.tableInvestmentValues}(
+        ${DbConstants.colType} TEXT PRIMARY KEY,
+        ${DbConstants.colAmount} INTEGER NOT NULL,
+        ${DbConstants.colDate} TEXT NOT NULL
       )
     ''');
   }
@@ -810,6 +822,10 @@ class DBService {
             '${DbConstants.colIsInvestment} = 1 AND ${DbConstants.colCategory} = ?',
         whereArgs: [from],
       );
+      // The old type's market value described holdings that are now part of
+      // another type; it no longer means anything on its own.
+      await txn.delete(DbConstants.tableInvestmentValues,
+          where: '${DbConstants.colType} = ?', whereArgs: [from]);
       return moved;
     });
   }
@@ -817,6 +833,40 @@ class DBService {
   Future<void> clearInvestments() async {
     final db = await database;
     await db.delete(DbConstants.tableInvestments);
+    await db.delete(DbConstants.tableInvestmentValues);
+  }
+
+  /// The current market value recorded for each investment type.
+  Future<Map<String, InvestmentValue>> getInvestmentValues() async {
+    final db = await database;
+    final rows = await db.query(DbConstants.tableInvestmentValues);
+    return {
+      for (final r in rows)
+        r[DbConstants.colType] as String: InvestmentValue(
+          amount: (r[DbConstants.colAmount] as num).toInt(),
+          asOf: DateTime.parse(r[DbConstants.colDate] as String),
+        ),
+    };
+  }
+
+  /// Records [type]'s current market value, or clears it when [value] is
+  /// null.
+  Future<void> setInvestmentValue(String type, InvestmentValue? value) async {
+    final db = await database;
+    if (value == null) {
+      await db.delete(DbConstants.tableInvestmentValues,
+          where: '${DbConstants.colType} = ?', whereArgs: [type]);
+      return;
+    }
+    await db.insert(
+      DbConstants.tableInvestmentValues,
+      {
+        DbConstants.colType: type,
+        DbConstants.colAmount: value.amount,
+        DbConstants.colDate: value.asOf.toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<void> clearAll() async {
@@ -851,12 +901,15 @@ class DBService {
       final batch = txn.batch();
       for (final table in _allTables) {
         for (final row in rowsByTable[table] ?? const []) {
-          // The dismissal list is a set of keys: merging a backup into data
-          // that already holds one of them must not abort the restore.
+          // The dismissal list and the market values are keyed: merging a
+          // backup into data that already holds a key must not abort the
+          // restore (a value from the backup wins).
           batch.insert(table, row,
-              conflictAlgorithm: table == DbConstants.tableSmsIgnored
-                  ? ConflictAlgorithm.ignore
-                  : null);
+              conflictAlgorithm: switch (table) {
+                DbConstants.tableSmsIgnored => ConflictAlgorithm.ignore,
+                DbConstants.tableInvestmentValues => ConflictAlgorithm.replace,
+                _ => null,
+              });
         }
       }
       await batch.commit(noResult: true);
@@ -907,6 +960,7 @@ class DBService {
     // from v7; restoring an older one empties it, and the only cost is that
     // previously dismissed messages reappear once in the review queue.
     DbConstants.tableSmsIgnored,
+    DbConstants.tableInvestmentValues,
   ];
 
   Future<Map<String, List<Map<String, Object?>>>> _dumpAllTables(

@@ -323,6 +323,32 @@ void main() {
       expect(rules, {'Gold SIP': 'Mutual Funds', 'Gold locker': 'Gold'});
     });
 
+    test('current values: set, total, cleared by a type merge', () async {
+      await provider.addInvestment(Investment(
+          name: 'a',
+          amount: 100000,
+          date: DateTime(2026, 1, 1),
+          type: 'Gold'));
+      await provider.addInvestment(Investment(
+          name: 'b',
+          amount: 50000,
+          date: DateTime(2026, 1, 2),
+          type: 'Stocks'));
+      expect(provider.hasCurrentValues, isFalse);
+
+      await provider.setCurrentValue('Gold', 130000);
+      expect(provider.currentValueOf('Gold')!.amount, 130000);
+      // Stocks has no value entered, so it counts at cost.
+      expect(provider.totalCurrentValue, 180000);
+      // Reloading keeps it.
+      final fresh = InvestmentProvider();
+      await fresh.fetchInvestments();
+      expect(fresh.currentValueOf('Gold')!.amount, 130000);
+
+      await provider.reassignType('Gold', 'Stocks');
+      expect(provider.currentValueOf('Gold'), isNull);
+    });
+
     test('reassignType with the same source and target moves nothing',
         () async {
       await provider.addInvestment(Investment(

@@ -7,6 +7,35 @@ enum InvestmentPeriod { weekly, monthly, yearly }
 
 class InvestmentProvider extends ChangeNotifier {
   List<Investment> _investments = [];
+  Map<String, InvestmentValue> _values = {};
+
+  /// The current value entered for [type], or null when none has been.
+  InvestmentValue? currentValueOf(String type) => _values[type];
+
+  /// Whether any type has a current value entered.
+  bool get hasCurrentValues => _values.isNotEmpty;
+
+  /// What everything is worth now: each type's entered value, or what was put
+  /// in where no value has been entered.
+  int get totalCurrentValue {
+    var total = 0;
+    for (final e in totalsByType()) {
+      total += _values[e.key]?.amount ?? e.value;
+    }
+    return total;
+  }
+
+  /// Records [type]'s current value (null clears it).
+  Future<void> setCurrentValue(String type, int? amount,
+      {DateTime? asOf}) async {
+    await DBService().setInvestmentValue(
+        type,
+        amount == null
+            ? null
+            : InvestmentValue(amount: amount, asOf: asOf ?? DateTime.now()));
+    _values = await DBService().getInvestmentValues();
+    notifyListeners();
+  }
 
   List<Investment> get investments => _investments;
 
@@ -108,7 +137,9 @@ class InvestmentProvider extends ChangeNotifier {
         final byTotal = totalOf[b]!.compareTo(totalOf[a]!);
         // Fall back to name so ties (and equal-total funds) stay stable and
         // alphabetical rather than jumping around between rebuilds.
-        return byTotal != 0 ? byTotal : a.toLowerCase().compareTo(b.toLowerCase());
+        return byTotal != 0
+            ? byTotal
+            : a.toLowerCase().compareTo(b.toLowerCase());
       });
     return {for (final k in ordered) k: byName[k]!};
   }
@@ -140,6 +171,7 @@ class InvestmentProvider extends ChangeNotifier {
 
   Future<void> fetchInvestments() async {
     _investments = await DBService().getInvestments();
+    _values = await DBService().getInvestmentValues();
     notifyListeners();
   }
 
