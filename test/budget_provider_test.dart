@@ -89,4 +89,24 @@ void main() {
     // The pre-existing August Food cap is untouched.
     expect(amountFor('Food'), 99999);
   });
+
+  test('editing a budget onto a category the month already has replaces it',
+      () async {
+    await provider.addBudget(
+        Budget(category: 'Food', amount: 10000, year: 2026, month: 8));
+    await provider.addBudget(
+        Budget(category: 'Travel', amount: 20000, year: 2026, month: 8));
+    final travel = provider.budgets.singleWhere((b) => b.category == 'Travel');
+
+    // Renamed to "food " by hand: same category as the existing Food cap.
+    await provider.updateBudget(Budget(
+        id: travel.id,
+        category: 'food ',
+        amount: 30000,
+        year: 2026,
+        month: 8));
+
+    expect(provider.budgets.length, 1);
+    expect(provider.budgets.single.amount, 30000);
+  });
 }

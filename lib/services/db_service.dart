@@ -1081,10 +1081,23 @@ class DBService {
     return maps.map((map) => Budget.fromMap(map)).toList();
   }
 
+  /// Saves an edited budget. When the edit moves it onto a category and
+  /// month that already has a budget, that other row is replaced: otherwise
+  /// the month ended up with two caps for one category, and whichever loaded
+  /// first silently won.
   Future<int> updateBudget(Budget budget) async {
     final db = await database;
-    return await db.update(DbConstants.tableBudgets, budget.toMap(),
-        where: '${DbConstants.colId} = ?', whereArgs: [budget.id]);
+    return db.transaction((txn) async {
+      await txn.delete(
+        DbConstants.tableBudgets,
+        where: '${DbConstants.colId} != ? AND ${DbConstants.colYear} = ? '
+            'AND ${DbConstants.colMonth} = ? '
+            'AND lower(trim(${DbConstants.colCategory})) = lower(trim(?))',
+        whereArgs: [budget.id, budget.year, budget.month, budget.category],
+      );
+      return txn.update(DbConstants.tableBudgets, budget.toMap(),
+          where: '${DbConstants.colId} = ?', whereArgs: [budget.id]);
+    });
   }
 
   Future<int> deleteBudget(int id) async {
