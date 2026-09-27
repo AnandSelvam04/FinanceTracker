@@ -2,6 +2,9 @@
     xmlns:tools="http://schemas.android.com/tools">
     <!-- Local notifications for budget/bill reminders (Android 13+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Lets flutter_local_notifications re-arm scheduled bill and card
+         reminders after the phone restarts (see the receivers below). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <!-- Voice input for the "add expense by voice" flow (speech_to_text). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!--
@@ -65,6 +68,22 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Required for scheduled notifications (bill and credit-card
+             reminders). flutter_local_notifications no longer declares these
+             itself (v16+): without them the alarm fires into nothing and no
+             reminder is ever shown. The boot receiver re-arms them after a
+             restart or an app update. -->
+        <receiver android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
         <!-- Ask Google Play services to fetch the ML Kit OCR model on install,
              so the first receipt scan doesn't wait for a download. -->
         <meta-data
