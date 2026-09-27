@@ -32,6 +32,7 @@ class AlertsBanner extends StatelessWidget {
           month: now.month,
           spentForCategory: (c) =>
               expenses.spentForCategoryInMonth(now.year, now.month, c),
+          totalSpent: () => expenses.totalForMonth(now.year, now.month),
         );
         final bills = upcomingBills(rules: recurring.rules, now: now);
 

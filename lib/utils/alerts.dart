@@ -1,5 +1,6 @@
 import '../models/budget.dart';
 import '../models/recurring_rule.dart';
+import 'db_constants.dart';
 
 /// Pure alert-computation logic, kept free of Flutter/DB dependencies so it
 /// can be unit-tested and reused by any surface (dashboard banner today,
@@ -54,21 +55,35 @@ class BillAlert {
   bool get isToday => daysUntil == 0;
 }
 
+/// How the overall monthly cap is named in an alert.
+const String kOverallAlertLabel = 'Total spending';
+
 /// Budgets for [year]/[month] whose spend has reached [warnAt] of the cap,
 /// most-strained first. [spentForCategory] returns minor-unit spend for a
-/// category in that month.
+/// category in that month; [totalSpent], the month's total spend, which the
+/// overall monthly cap is checked against (left out, it isn't checked).
 List<BudgetAlert> budgetAlerts({
   required List<Budget> budgets,
   required int year,
   required int month,
   required int Function(String category) spentForCategory,
+  int Function()? totalSpent,
   double warnAt = kBudgetWarnRatio,
 }) {
   final alerts = <BudgetAlert>[];
   for (final b in budgets) {
-    // The overall monthly cap is surfaced on its own, not as a category alert.
-    if (b.isOverall) continue;
     if (b.year != year || b.month != month || b.amount <= 0) continue;
+    if (b.isOverall) {
+      // The overall cap used to be skipped here with nothing checking it
+      // anywhere else, so blowing the whole month's budget never warned.
+      if (totalSpent == null) continue;
+      final spent = totalSpent();
+      if (spent / b.amount >= warnAt) {
+        alerts.add(BudgetAlert(
+            category: kOverallAlertLabel, spent: spent, budget: b.amount));
+      }
+      continue;
+    }
     final spent = spentForCategory(b.category);
     if (spent / b.amount >= warnAt) {
       alerts.add(
@@ -99,6 +114,9 @@ List<BillAlert> upcomingBills({
   final alerts = <BillAlert>[];
   for (final r in rules) {
     if (!r.enabled) continue;
+    // Only money going out is a bill: not a salary, and not a SIP, which is
+    // posted to the investments automatically.
+    if (r.isInvestment || r.type != DbConstants.txExpense) continue;
     final days = calendarDaysBetween(now, r.nextDue);
     if (days <= withinDays) {
       alerts.add(BillAlert(

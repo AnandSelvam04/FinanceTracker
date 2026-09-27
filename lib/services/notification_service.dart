@@ -119,6 +119,8 @@ class NotificationService {
       for (final rule in rules) {
         if (!rule.enabled || rule.id == null) continue;
         if (rule.type != DbConstants.txExpense) continue;
+        // A SIP isn't a bill: it is posted to the investments by itself.
+        if (rule.isInvestment) continue;
         final due = rule.nextDue;
         // TZDateTime normalizes an out-of-range day (e.g. the 0th → prev month).
         final when = tz.TZDateTime(
