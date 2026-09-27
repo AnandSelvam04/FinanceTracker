@@ -1301,10 +1301,18 @@ class DBService {
       final amt = ((row['amt'] ?? 0) as num).toDouble();
       final toAmt = ((row['toAmt'] ?? 0) as num).toDouble();
       switch (row['type']) {
+        // Income and expenses only move net worth through an account's
+        // balance: rows with no (live) account aren't in any balance on the
+        // Net worth card, so counting them here made the trend's latest point
+        // disagree with the headline figure right above it.
         case DbConstants.txIncome:
-          addDelta(row['ym'], amt * rateOf(row['accountId']));
+          if (isLiveAccount(row['accountId'])) {
+            addDelta(row['ym'], amt * rateOf(row['accountId']));
+          }
         case DbConstants.txExpense:
-          addDelta(row['ym'], -amt * rateOf(row['accountId']));
+          if (isLiveAccount(row['accountId'])) {
+            addDelta(row['ym'], -amt * rateOf(row['accountId']));
+          }
         case DbConstants.txTransfer:
           var delta = 0.0;
           if (isLiveAccount(row['accountId'])) {

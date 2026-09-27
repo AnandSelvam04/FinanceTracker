@@ -20,7 +20,8 @@ void main() {
     await DBService().clearAll();
   });
 
-  Expense e(int amount, DateTime date, {String type = DbConstants.txExpense}) =>
+  Expense e(int amount, DateTime date,
+          {String type = DbConstants.txExpense, int? accountId}) =>
       Expense(
         description: 'x',
         amount: amount,
@@ -28,15 +29,17 @@ void main() {
         category: 'General',
         paymentMode: 'Cash',
         type: type,
+        accountId: accountId,
       );
 
   test('netWorthSeries tracks month-end value across accounts, flows, '
       'and investments', () async {
     final db = DBService();
-    await db.insertAccount(Account(name: 'Bank', type: 'bank', openingBalance: 100000));
-    await db.insertExpense(e(20000, DateTime(2026, 1, 10)));
-    await db.insertExpense(
-        e(50000, DateTime(2026, 2, 10), type: DbConstants.txIncome));
+    final bank = await db.insertAccount(
+        Account(name: 'Bank', type: 'bank', openingBalance: 100000));
+    await db.insertExpense(e(20000, DateTime(2026, 1, 10), accountId: bank));
+    await db.insertExpense(e(50000, DateTime(2026, 2, 10),
+        type: DbConstants.txIncome, accountId: bank));
     await db.insertInvestment(Investment(
         name: 'Fund', amount: 30000, date: DateTime(2026, 3, 5), type: 'MF'));
 
@@ -48,6 +51,20 @@ void main() {
     expect(series[2].value, 160000); // Mar end: + 30000 investment
     expect(series[0].month, DateTime(2026, 1, 1));
     expect(series[2].month, DateTime(2026, 3, 1));
+  });
+
+  test('rows with no account do not move the trend, as on the card',
+      () async {
+    final db = DBService();
+    await db.insertAccount(
+        Account(name: 'Bank', type: 'bank', openingBalance: 100000));
+    // Logged without picking an account: in no balance, so not in net worth.
+    await db.insertExpense(e(20000, DateTime(2026, 2, 10)));
+    await db.insertExpense(
+        e(5000, DateTime(2026, 2, 11), type: DbConstants.txIncome));
+
+    final series = await db.netWorthSeries(2, now: DateTime(2026, 2, 15));
+    expect(series.last.value, 100000);
   });
 
   test('netWorthSeries ignores transfers (they cancel across accounts)',
