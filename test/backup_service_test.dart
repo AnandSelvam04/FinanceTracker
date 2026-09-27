@@ -252,7 +252,8 @@ void main() {
       expect(result.ok, isFalse);
     });
 
-    test('verifyLocalBackup rejects a JSON file that is not a backup', () async {
+    test('verifyLocalBackup rejects a JSON file that is not a backup',
+        () async {
       final file = File('${tempDir.path}/finance_backup.json');
       // A list, not the expected object shape.
       await file.writeAsString(jsonEncode([1, 2, 3]));
@@ -282,8 +283,7 @@ void main() {
       expect(second, isFalse);
 
       // A zero interval forces another backup.
-      final forced =
-          await service.autoBackupIfDue(minInterval: Duration.zero);
+      final forced = await service.autoBackupIfDue(minInterval: Duration.zero);
       expect(forced, isTrue);
     });
 
@@ -446,8 +446,8 @@ void main() {
       await service.backupToJson(deviceKey: 'test-device-key');
 
       // The file on disk is an envelope, not readable JSON data.
-      final raw = await File('${tempDir.path}/finance_backup.json')
-          .readAsString();
+      final raw =
+          await File('${tempDir.path}/finance_backup.json').readAsString();
       expect(raw.contains('Secret lunch'), isFalse);
       expect(jsonDecode(raw), containsPair('magic', 'ft-enc-v1'));
 
@@ -502,6 +502,50 @@ void main() {
       expect(lines.first, contains('Type'));
       expect(lines.length, 2); // header + one filtered row
       expect(contents, contains('March lunch'));
+    });
+
+    test('CSV export names the account, not just its id', () async {
+      final bank = await DBService()
+          .insertAccount(Account(name: 'HDFC Savings', type: 'bank'));
+      final file = await writeExpensesCsvFile([
+        Expense(
+          description: 'Rent',
+          amount: 100,
+          date: DateTime(2026, 3, 1),
+          category: 'Housing',
+          paymentMode: 'UPI',
+          accountId: bank,
+        ),
+      ]);
+      final lines = (await file.readAsString()).trim().split('\n');
+      expect(lines.first, contains('Account'));
+      expect(lines.last, contains('HDFC Savings'));
+    });
+
+    test('a full restore brings back the settings', () async {
+      SharedPreferences.setMockInitialValues({
+        'currencySymbol': '\$',
+        'themeMode': 'dark',
+        'biometricEnabled': true
+      });
+      await DBService().insertExpense(Expense(
+          description: 'x',
+          amount: 100,
+          date: DateTime(2026, 1, 1),
+          category: 'Food',
+          paymentMode: 'Cash'));
+      final service = BackupService();
+      await service.backupToJson();
+
+      // A new phone: default settings.
+      SharedPreferences.setMockInitialValues({});
+      await service.restoreFromJson();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('currencySymbol'), '\$');
+      expect(prefs.getString('themeMode'), 'dark');
+      // App lock needs this phone's own biometrics, so it isn't carried.
+      expect(prefs.getBool('biometricEnabled'), isNull);
     });
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/expense_provider.dart';
+import '../providers/investment_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
@@ -31,8 +32,8 @@ class _CashflowScreenState extends State<CashflowScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Cash Flow')),
-      body: Consumer<ExpenseProvider>(
-        builder: (context, provider, _) {
+      body: Consumer2<ExpenseProvider, InvestmentProvider>(
+        builder: (context, provider, investments, _) {
           final now = DateTime.now();
           var totalIncome = 0;
           var totalExpense = 0;
@@ -42,6 +43,12 @@ class _CashflowScreenState extends State<CashflowScreen> {
             totalExpense += provider.totalForMonth(date.year, date.month);
           }
           final net = totalIncome - totalExpense;
+          // Of what was left over, how much went into investments, and the
+          // share of income kept: the two figures a cash-flow view is for.
+          final invested = investments.investedInRange(
+              DateTime(now.year, now.month - 11, 1),
+              DateTime(now.year, now.month + 1, 1));
+          final savingsRate = totalIncome > 0 ? net * 100 / totalIncome : null;
 
           return SingleChildScrollView(
             padding: scrollPadding(context),
@@ -78,11 +85,32 @@ class _CashflowScreenState extends State<CashflowScreen> {
                             color: expenseColor(context)),
                         const Divider(),
                         _SummaryRow(
-                            label: 'Net',
+                            label: 'Net (saved)',
                             value: net,
                             color: net >= 0
                                 ? incomeColor(context)
                                 : expenseColor(context)),
+                        const SizedBox(height: 8),
+                        _SummaryRow(
+                            label: 'Invested',
+                            value: invested,
+                            color: Theme.of(context).colorScheme.onSurface),
+                        if (savingsRate != null) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Savings rate'),
+                              Text(
+                                  '${savingsRate.toStringAsFixed(0)}% of income',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: savingsRate >= 0
+                                          ? incomeColor(context)
+                                          : expenseColor(context))),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

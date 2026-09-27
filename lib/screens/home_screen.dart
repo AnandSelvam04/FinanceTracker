@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -86,17 +88,46 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _settings = context.read<SettingsProvider>()
         ..addListener(_onSettingsChanged);
       _notificationsWereOn = _settings!.notificationsEnabled;
+      // Paying a card bill, adding a spend or a SIP contribution changes
+      // what the card and budget reminders should say. They used to be
+      // worked out only at launch, so a paid card still got its "payment
+      // due" notification while the app stayed open in the background.
+      _dataSources = [
+        context.read<ExpenseProvider>(),
+        context.read<InvestmentProvider>(),
+        context.read<BudgetProvider>(),
+        context.read<AccountProvider>(),
+      ];
+      for (final source in _dataSources) {
+        source.addListener(_scheduleResync);
+      }
     });
   }
 
   RecurringProvider? _recurring;
   SettingsProvider? _settings;
   bool _notificationsWereOn = false;
+  List<ChangeNotifier> _dataSources = const [];
+  Timer? _resync;
+
+  /// Re-derives the reminders shortly after the data settles. Debounced: a
+  /// load or restore notifies many times in a row.
+  void _scheduleResync() {
+    _resync?.cancel();
+    _resync = Timer(const Duration(seconds: 2), () {
+      if (mounted && (_settings?.notificationsEnabled ?? false)) {
+        _syncNotifications(requestPermission: false);
+      }
+    });
+  }
 
   void _onRulesChanged() {
     final settings = _settings;
     final recurring = _recurring;
     if (settings == null || recurring == null) return;
+    // A rule saved already due (today, or backdated) posts now rather than
+    // on the next trip to the background and back.
+    _postRecurring();
     if (!settings.notificationsEnabled) return;
     NotificationService.instance.scheduleBillReminders(recurring.rules);
   }
@@ -115,13 +146,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _recurring?.removeListener(_onRulesChanged);
     _settings?.removeListener(_onSettingsChanged);
+    for (final source in _dataSources) {
+      source.removeListener(_scheduleResync);
+    }
+    _resync?.cancel();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _postRecurring();
+      // Back after a while, possibly on a new day: post what fell due and
+      // bring the reminders up to date.
+      _postRecurring().then((_) => _scheduleResync());
     }
   }
 

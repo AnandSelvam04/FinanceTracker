@@ -11,6 +11,7 @@ import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../screens/add_expense_screen.dart';
+import '../screens/add_transfer_screen.dart';
 import 'dispose_with_route.dart';
 import 'row_actions_sheet.dart';
 
@@ -32,8 +33,7 @@ Future<void> editTransactionSheet(
 }
 
 /// What a tap on a transaction row does: offers Edit, Duplicate and (when
-/// [onDelete] is given) Delete, then carries out the choice. Duplicate isn't
-/// offered for a transfer, which Add can't pre-fill.
+/// [onDelete] is given) Delete, then carries out the choice.
 Future<void> transactionRowActions(
   BuildContext context,
   Expense expense, {
@@ -46,7 +46,6 @@ Future<void> transactionRowActions(
         expense.description.isEmpty ? '(no description)' : expense.description,
     subtitle:
         '${formatMoney(expense.amount)} · ${formatDateWithDay(expense.date)}',
-    canDuplicate: !expense.isTransfer,
     canDelete: onDelete != null,
   );
   if (action == null || !context.mounted) return;
@@ -60,13 +59,16 @@ Future<void> transactionRowActions(
   }
 }
 
-/// Opens Add pre-filled with [expense], dated today, so a repeat purchase is
-/// one date change away. Nothing is saved until the user taps Add.
+/// Opens Add (or, for a transfer, the transfer screen) pre-filled with
+/// [expense], dated today, so a repeat is one date change away. Nothing is
+/// saved until the user confirms.
 Future<void> duplicateTransaction(BuildContext context, Expense expense) =>
     Navigator.push(
       context,
       MaterialPageRoute(
-          builder: (_) => AddExpenseScreen(duplicateOf: expense)),
+          builder: (_) => expense.isTransfer
+              ? AddTransferScreen(duplicateOf: expense)
+              : AddExpenseScreen(duplicateOf: expense)),
     );
 
 /// Edit sheet for a spend or income row.

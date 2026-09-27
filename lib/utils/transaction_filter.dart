@@ -1,4 +1,5 @@
 import '../models/expense.dart';
+import '../models/investment.dart';
 
 /// Pure, testable transaction filter used by the Transactions list and its
 /// "download filtered" export. A custom [startDate]/[endDate] range, when
@@ -15,6 +16,9 @@ class TransactionFilter {
   final DateTime? startDate;
   final DateTime? endDate;
 
+  /// Account names by id, so a search for "HDFC" finds that account's rows.
+  final Map<int, String> accountNames;
+
   const TransactionFilter({
     this.searchQuery = '',
     required this.year,
@@ -26,22 +30,45 @@ class TransactionFilter {
     this.maxAmount,
     this.startDate,
     this.endDate,
+    this.accountNames = const {},
   });
 
-  bool matches(Expense e) {
-    final q = searchQuery.toLowerCase();
-    final matchesSearch = q.isEmpty ||
-        e.description.toLowerCase().contains(q) ||
-        e.category.toLowerCase().contains(q);
-
-    final bool matchesPeriod;
-    if (startDate != null && endDate != null) {
-      final d = DateTime(e.date.year, e.date.month, e.date.day);
-      matchesPeriod = !d.isBefore(startDate!) && !d.isAfter(endDate!);
-    } else {
-      matchesPeriod =
-          e.date.year == year && (month == null || e.date.month == month);
+  /// Whether the search box matches any of [fields], or [amount] when the
+  /// query is a number: "450" finds ₹450.00 (and ₹4,500.00 — it matches from
+  /// the start), "1,200" finds ₹1,200.00.
+  bool _searchHits(Iterable<String?> fields, int amount) {
+    final q = searchQuery.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    for (final f in fields) {
+      if (f != null && f.toLowerCase().contains(q)) return true;
     }
+    final number = q
+        .replaceAll(RegExp(r'[,\s]'), '')
+        .replaceFirst(RegExp(r'^[^0-9.]+'), ''); // a typed currency symbol
+    if (number.isEmpty || !RegExp(r'^\d*\.?\d*$').hasMatch(number)) {
+      return false;
+    }
+    return (amount.abs() / 100).toStringAsFixed(2).startsWith(number);
+  }
+
+  bool _inPeriod(DateTime date) {
+    if (startDate != null && endDate != null) {
+      final d = DateTime(date.year, date.month, date.day);
+      return !d.isBefore(startDate!) && !d.isAfter(endDate!);
+    }
+    return date.year == year && (month == null || date.month == month);
+  }
+
+  bool matches(Expense e) {
+    final matchesSearch = _searchHits([
+      e.description,
+      e.category,
+      e.paymentMode,
+      accountNames[e.accountId],
+      accountNames[e.toAccountId],
+    ], e.amount);
+
+    final matchesPeriod = _inPeriod(e.date);
 
     final matchesType = type == null || e.type == type;
     final matchesCategory = category == null || e.category == category;
@@ -66,4 +93,21 @@ class TransactionFilter {
   }
 
   List<Expense> apply(List<Expense> all) => all.where(matches).toList();
+
+  /// Investments paid from (or back into) the filtered account. They move
+  /// its balance, so the account's list has to show them to add up. Only
+  /// with an account chosen and no type or category filter, which an
+  /// investment has no value for.
+  List<Investment> investmentsFor(List<Investment> all) {
+    if (accountId == null || type != null || category != null) return [];
+    return [
+      for (final i in all)
+        if (i.accountId == accountId &&
+            _inPeriod(i.date) &&
+            (minAmount == null || i.amount.abs() >= minAmount!) &&
+            (maxAmount == null || i.amount.abs() <= maxAmount!) &&
+            _searchHits([i.name, i.type, 'investment'], i.amount))
+          i,
+    ];
+  }
 }

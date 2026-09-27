@@ -64,12 +64,19 @@ class _RecurringScreenState extends State<RecurringScreen> {
     _endDate = rule?.endDate;
 
     final accounts = context.read<AccountProvider>().accounts;
+    // A SIP files contributions into an investment type: it has no
+    // expense/income type to pick, and its category is that investment type.
+    final isSip = rule?.isInvestment ?? false;
 
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(rule == null ? 'Add Recurring' : 'Edit Recurring'),
+          title: Text(rule == null
+              ? 'Add Recurring'
+              : isSip
+                  ? 'Edit SIP'
+                  : 'Edit Recurring'),
           content: Form(
             key: _formKey,
             child: SingleChildScrollView(
@@ -94,24 +101,26 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   ),
                   TextFormField(
                     initialValue: _category,
-                    decoration: const InputDecoration(labelText: 'Category'),
+                    decoration: InputDecoration(
+                        labelText: isSip ? 'Investment type' : 'Category'),
                     validator: (v) =>
                         (v == null || v.isEmpty) ? 'Required' : null,
                     onSaved: (v) => _category = v ?? '',
                   ),
-                  DropdownButtonFormField<String>(
-                    initialValue: _type,
-                    decoration: const InputDecoration(labelText: 'Type'),
-                    items: [
-                      DropdownMenuItem(
-                          value: DbConstants.txExpense,
-                          child: const Text('Expense')),
-                      DropdownMenuItem(
-                          value: DbConstants.txIncome,
-                          child: const Text('Income')),
-                    ],
-                    onChanged: (v) => _type = v ?? _type,
-                  ),
+                  if (!isSip)
+                    DropdownButtonFormField<String>(
+                      initialValue: _type,
+                      decoration: const InputDecoration(labelText: 'Type'),
+                      items: [
+                        DropdownMenuItem(
+                            value: DbConstants.txExpense,
+                            child: const Text('Expense')),
+                        DropdownMenuItem(
+                            value: DbConstants.txIncome,
+                            child: const Text('Income')),
+                      ],
+                      onChanged: (v) => _type = v ?? _type,
+                    ),
                   DropdownButtonFormField<String>(
                     initialValue: _frequency,
                     decoration: const InputDecoration(labelText: 'Frequency'),
@@ -124,7 +133,8 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   if (accounts.isNotEmpty)
                     DropdownButtonFormField<int?>(
                       initialValue: _accountId,
-                      decoration: const InputDecoration(labelText: 'Account'),
+                      decoration: InputDecoration(
+                          labelText: isSip ? 'Paid from' : 'Account'),
                       items: [
                         DropdownMenuItem<int?>(
                             value: null, child: const Text('None')),

@@ -157,6 +157,17 @@ class InvestmentProvider extends ChangeNotifier {
     return {for (final k in ordered) k: byMonth[k]!};
   }
 
+  /// Net amount invested (contributions less withdrawals) dated in
+  /// [from, to).
+  int investedInRange(DateTime from, DateTime to) {
+    var total = 0;
+    for (final i in _investments) {
+      if (i.date.isBefore(from) || !i.date.isBefore(to)) continue;
+      total += i.amount;
+    }
+    return total;
+  }
+
   /// What was invested from [accountId] with a date in [from, to) — for a
   /// credit card, the investment charges that land on its statement.
   int chargedToAccountInRange(int accountId, DateTime from, DateTime to) {

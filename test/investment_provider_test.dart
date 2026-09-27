@@ -349,6 +349,22 @@ void main() {
       expect(provider.currentValueOf('Gold'), isNull);
     });
 
+    test('investedInRange nets contributions and withdrawals in the window',
+        () async {
+      for (final (amount, day) in [
+        (100000, DateTime(2026, 1, 31)), // before the window
+        (50000, DateTime(2026, 2, 1)),
+        (-20000, DateTime(2026, 2, 15)),
+        (30000, DateTime(2026, 3, 1)), // the end is exclusive
+      ]) {
+        await provider.addInvestment(
+            Investment(name: 'x', amount: amount, date: day, type: 'Gold'));
+      }
+      expect(
+          provider.investedInRange(DateTime(2026, 2, 1), DateTime(2026, 3, 1)),
+          30000);
+    });
+
     test('reassignType with the same source and target moves nothing',
         () async {
       await provider.addInvestment(Investment(

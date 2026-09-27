@@ -150,6 +150,47 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Preferences carried in a backup, so restoring on a new phone brings back
+  /// the currency (account exchange rates are relative to it), the default
+  /// account, and the look. App lock and SMS import are left out: both need
+  /// the new phone's own permission or biometrics before they can be on.
+  static const _backedUpKeys = {
+    _kCurrency: String,
+    _kThemeMode: String,
+    _kSeedColor: int,
+    _kLockTimeout: int,
+    _kDefaultAccount: int,
+    _kAlertsEnabled: bool,
+    _kNotificationsEnabled: bool,
+  };
+
+  /// The backed-up preferences currently set.
+  static Future<Map<String, Object>> exportForBackup() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      for (final key in _backedUpKeys.keys)
+        if (prefs.get(key) case final Object value) key: value,
+    };
+  }
+
+  /// Writes preferences from a backup, skipping unknown keys and values of
+  /// the wrong type. Call [load] afterwards to apply them to a live provider.
+  static Future<void> importFromBackup(Map<dynamic, dynamic> values) async {
+    final prefs = await SharedPreferences.getInstance();
+    for (final MapEntry(:key, :value) in values.entries) {
+      switch ((_backedUpKeys[key], value)) {
+        case (const (String), final String v):
+          await prefs.setString(key as String, v);
+        case (const (int), final int v):
+          await prefs.setInt(key as String, v);
+        case (const (bool), final bool v):
+          await prefs.setBool(key as String, v);
+        default:
+          break;
+      }
+    }
+  }
+
   static ThemeMode _themeFromString(String? value) {
     switch (value) {
       case 'light':
