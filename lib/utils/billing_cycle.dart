@@ -97,6 +97,15 @@ class CreditCardReminder {
   /// Amount spent so far in the current (open) cycle, in the card's currency.
   final int currentCycleSpend;
 
+  /// Paid toward the card since the statement was generated (bill payments,
+  /// refunds), in the card's currency.
+  final int paidSinceStatement;
+
+  /// What is still owed on the statement: [statementAmount] less
+  /// [paidSinceStatement]. Always positive — a fully paid statement produces
+  /// no reminder at all.
+  int get amountDue => statementAmount - paidSinceStatement;
+
   final DateTime dueDate;
 
   /// Whole days until [dueDate]; negative means overdue.
@@ -108,6 +117,7 @@ class CreditCardReminder {
     required this.symbol,
     required this.statementAmount,
     required this.currentCycleSpend,
+    this.paidSinceStatement = 0,
     required this.dueDate,
     required this.daysUntilDue,
   });
@@ -120,13 +130,18 @@ class CreditCardReminder {
 /// and a non-empty statement, whose due date falls within [withinDays] ahead
 /// (or is at most [overdueGrace] days overdue), soonest first.
 ///
-/// [spendInRange] returns the card's own-currency spend on [accountId] over
-/// `[start, endExclusive)`.
+/// [spendInRange] returns the card's own-currency charges on [accountId] over
+/// `[start, endExclusive)`. [paidInRange], when given, returns what was paid
+/// into the card over the same kind of window; payments made since the
+/// statement reduce what is due, and a statement paid in full produces no
+/// reminder.
 List<CreditCardReminder> creditCardReminders({
   required List<Account> accounts,
   required DateTime now,
   required int Function(int accountId, DateTime start, DateTime endExclusive)
       spendInRange,
+  int Function(int accountId, DateTime start, DateTime endExclusive)?
+      paidInRange,
   int withinDays = 7,
   int overdueGrace = 7,
 }) {
@@ -149,6 +164,10 @@ List<CreditCardReminder> creditCardReminders({
     if (cycle.daysUntilDue > withinDays || cycle.daysUntilDue < -overdueGrace) {
       continue;
     }
+    // Paying the bill used to change nothing: the reminder and the dashboard
+    // kept saying it was due until the due date passed.
+    final paid = paidInRange?.call(a.id!, cycle.statementDate, tomorrow) ?? 0;
+    if (paid >= statementAmount) continue;
     final cycleSpend = spendInRange(a.id!, cycle.statementDate, tomorrow);
     out.add(CreditCardReminder(
       accountId: a.id!,
@@ -156,6 +175,7 @@ List<CreditCardReminder> creditCardReminders({
       symbol: a.symbol,
       statementAmount: statementAmount,
       currentCycleSpend: cycleSpend,
+      paidSinceStatement: paid < 0 ? 0 : paid,
       dueDate: cycle.dueDate,
       daysUntilDue: cycle.daysUntilDue,
     ));

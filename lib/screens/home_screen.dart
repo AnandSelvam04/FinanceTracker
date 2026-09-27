@@ -192,6 +192,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       accounts: accounts.accounts,
       now: now,
       spendInRange: expenses.spendOnAccountInRange,
+      paidInRange: expenses.paidToAccountInRange,
       withinDays: 45,
       overdueGrace: 0,
     );

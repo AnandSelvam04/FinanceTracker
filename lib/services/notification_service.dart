@@ -163,7 +163,7 @@ class NotificationService {
         await _plugin.zonedSchedule(
           _creditIdBase + r.accountId,
           'Credit card payment due',
-          '${r.accountName}: ${formatMoneyIn(r.symbol, r.statementAmount)} '
+          '${r.accountName}: ${formatMoneyIn(r.symbol, r.amountDue)} '
               'due ${_dueLabel(daysBefore)}',
           when,
           _details(),

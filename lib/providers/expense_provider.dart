@@ -213,18 +213,38 @@ class ExpenseProvider extends ChangeNotifier {
         .toList();
   }
 
-  /// Total expense spend on [accountId] in `[startInclusive, endExclusive)`,
-  /// in the account's own currency (minor units — no base conversion, since a
-  /// single card's amounts are all in its own currency). Powers the
-  /// credit-card billing-cycle amount.
+  /// What was charged to [accountId] in `[startInclusive, endExclusive)`:
+  /// its expenses plus money moved out of it (a cash withdrawal from a card
+  /// is a charge too). In the account's own currency (minor units — no base
+  /// conversion, since a single card's amounts are all in its own currency).
+  /// Powers the credit-card billing-cycle amount.
   int spendOnAccountInRange(
       int accountId, DateTime startInclusive, DateTime endExclusive) {
     var total = 0;
     for (final e in _expenses) {
-      if (e.accountId == accountId &&
-          e.type == DbConstants.txExpense &&
-          !e.date.isBefore(startInclusive) &&
-          e.date.isBefore(endExclusive)) {
+      if (e.accountId != accountId) continue;
+      if (e.date.isBefore(startInclusive) || !e.date.isBefore(endExclusive)) {
+        continue;
+      }
+      if (e.isExpense || e.isTransfer) total += e.amount;
+    }
+    return total;
+  }
+
+  /// What was paid into [accountId] in `[startInclusive, endExclusive)`:
+  /// transfers in (a card bill paid from the bank) and credits such as
+  /// refunds, in the account's own currency. Paired with
+  /// [spendOnAccountInRange] so a paid card statement stops being "due".
+  int paidToAccountInRange(
+      int accountId, DateTime startInclusive, DateTime endExclusive) {
+    var total = 0;
+    for (final e in _expenses) {
+      if (e.date.isBefore(startInclusive) || !e.date.isBefore(endExclusive)) {
+        continue;
+      }
+      if (e.isTransfer && e.toAccountId == accountId) {
+        total += e.receivedAmount;
+      } else if (e.isIncome && e.accountId == accountId) {
         total += e.amount;
       }
     }

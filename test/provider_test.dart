@@ -186,4 +186,42 @@ void main() {
       expect(notifications, 1);
     });
   });
+
+  group('ExpenseProvider credit-card charges and payments', () {
+    setUp(() async => DBService().clearAll());
+
+    test('charges include money moved out; payments include money moved in',
+        () async {
+      final d = DateTime(2026, 3, 10);
+      Expense row(String type, int amount,
+              {int? from, int? to, int? toAmount}) =>
+          Expense(
+            description: type,
+            amount: amount,
+            date: d,
+            category: type,
+            paymentMode: 'Other',
+            type: type,
+            accountId: from,
+            toAccountId: to,
+            toAmount: toAmount,
+          );
+      const card = 7, bank = 3;
+      for (final e in [
+        row(DbConstants.txExpense, 40000, from: card), // purchase
+        row(DbConstants.txTransfer, 5000, from: card, to: bank), // cash out
+        row(DbConstants.txTransfer, 30000, from: bank, to: card), // bill paid
+        row(DbConstants.txIncome, 2000, from: card), // refund
+        row(DbConstants.txExpense, 999, from: bank), // not the card
+      ]) {
+        await DBService().insertExpense(e);
+      }
+      final provider = ExpenseProvider();
+      await provider.ensureYearLoaded(2026);
+
+      final start = DateTime(2026, 3, 1), end = DateTime(2026, 4, 1);
+      expect(provider.spendOnAccountInRange(card, start, end), 45000);
+      expect(provider.paidToAccountInRange(card, start, end), 32000);
+    });
+  });
 }
