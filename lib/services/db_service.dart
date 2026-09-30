@@ -1108,7 +1108,7 @@ class DBService {
       'FROM ${DbConstants.tableExpenses} '
       'WHERE ${DbConstants.colType} = ? AND ${DbConstants.colDate} >= ? '
       'AND ${DbConstants.colCategory} IS NOT NULL '
-      'AND ${DbConstants.colCategory} != "" '
+      "AND ${DbConstants.colCategory} != '' "
       'GROUP BY ${DbConstants.colCategory} '
       'ORDER BY n DESC LIMIT ?',
       [type, cutoff, limit],
@@ -1421,12 +1421,10 @@ class DBService {
       final amt = ((row['amt'] ?? 0) as num).toDouble();
       // The holding grows by what was invested; the account it was paid from
       // shrinks by the same (a card's owed balance grows), so buying with
-      // your own money leaves net worth where it was.
-      var delta = amt;
-      if (isLiveAccount(row['accountId'])) {
-        delta -= amt * rateOf(row['accountId']);
-      }
-      addDelta(row['ym'], delta);
+      // your own money leaves net worth where it was. Investment amounts are
+      // already in the base currency (see getAccountFlows, which converts
+      // the account's side), so the two legs cancel exactly.
+      if (!isLiveAccount(row['accountId'])) addDelta(row['ym'], amt);
     }
 
     String ymKey(DateTime d) =>
@@ -1487,16 +1485,23 @@ class DBService {
     }
 
     // Investments paid from an account leave it like an expense (a
-    // withdrawal, stored negative, comes back in).
+    // withdrawal, stored negative, comes back in). The investments ledger is
+    // kept in the base currency, so a foreign account is debited the
+    // converted amount: ₹8,300 into a fund from a USD account at 83 is $100
+    // out of it, not $8,300.
     final invRows = await db.rawQuery(
-        'SELECT ${DbConstants.colAccountId} AS accountId, '
-        'SUM(${DbConstants.colAmount}) AS amt '
-        'FROM ${DbConstants.tableInvestments} '
-        'WHERE ${DbConstants.colAccountId} IS NOT NULL '
-        'GROUP BY accountId');
+        'SELECT i.${DbConstants.colAccountId} AS accountId, '
+        'SUM(i.${DbConstants.colAmount}) AS amt, '
+        'a.${DbConstants.colRate} AS rate '
+        'FROM ${DbConstants.tableInvestments} i '
+        'JOIN ${DbConstants.tableAccounts} a '
+        'ON a.${DbConstants.colId} = i.${DbConstants.colAccountId} '
+        'GROUP BY i.${DbConstants.colAccountId}');
     for (final row in invRows) {
       final id = row['accountId'] as int;
-      flows[id] = (flows[id] ?? 0) - ((row['amt'] ?? 0) as num).toDouble();
+      final amt = ((row['amt'] ?? 0) as num).toDouble();
+      final rate = ((row['rate'] ?? 1) as num).toDouble();
+      flows[id] = (flows[id] ?? 0) - (rate > 0 ? amt / rate : amt);
     }
 
     return flows.map((id, v) => MapEntry(id, v.round()));

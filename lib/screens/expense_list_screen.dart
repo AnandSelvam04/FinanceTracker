@@ -848,10 +848,15 @@ class _InvestmentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final i = investment;
+    // Shown as it moved the account: in the account's currency, converted
+    // from the base-currency amount the investment is recorded in.
+    final account = context.read<AccountProvider>().accountById(i.accountId);
+    String money(int base) => account == null
+        ? formatMoney(base)
+        : formatMoneyIn(account.symbol, fromBaseMinor(base, account.rate));
     // Money out of the account for a contribution, back in for a withdrawal.
-    final amount = i.isWithdrawal
-        ? '+${formatMoney(-i.amount)}'
-        : '-${formatMoney(i.amount)}';
+    final amount =
+        i.isWithdrawal ? '+${money(-i.amount)}' : '-${money(i.amount)}';
     return Card(
       margin: EdgeInsets.zero,
       child: ListTile(

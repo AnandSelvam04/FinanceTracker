@@ -112,4 +112,36 @@ void main() {
     expect(posted.every((i) => i.accountId == bank), isTrue);
     expect(await balance(bank), 80000);
   });
+  test('a foreign account is debited the converted amount', () async {
+    final db = DBService();
+    // A USD account at 83 base units per dollar, holding $1,000.
+    final usd = await db.insertAccount(Account(
+        name: 'Chase',
+        type: 'bank',
+        openingBalance: 100000,
+        currency: '\$',
+        rate: 83));
+    // ₹8,300 (base currency) into a fund from it.
+    await db.insertInvestment(Investment(
+        name: 'S&P',
+        amount: 830000,
+        date: DateTime(2026, 4, 2),
+        type: 'Stocks',
+        accountId: usd));
+    // $100 out, not $8,300.
+    expect(await balance(usd), 90000);
+
+    // Money only moved between holdings: net worth stays at $1,000 = ₹83,000.
+    final series = await db.netWorthSeries(1, now: DateTime(2026, 4, 30));
+    expect(series.single.value, 8300000);
+
+    // On a card's statement it is the converted charge too.
+    final provider = InvestmentProvider();
+    await provider.fetchInvestments();
+    expect(
+        provider.chargedToAccountInRange(
+            usd, DateTime(2026, 4, 1), DateTime(2026, 5, 1),
+            rate: 83),
+        10000);
+  });
 }

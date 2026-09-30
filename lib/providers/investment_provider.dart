@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/investment.dart';
 import '../services/db_service.dart';
+import '../utils/currency_format.dart';
 
 /// The time buckets the per-type investment breakdown can be grouped into.
 enum InvestmentPeriod { weekly, monthly, yearly }
@@ -170,14 +171,19 @@ class InvestmentProvider extends ChangeNotifier {
 
   /// What was invested from [accountId] with a date in [from, to) — for a
   /// credit card, the investment charges that land on its statement.
-  int chargedToAccountInRange(int accountId, DateTime from, DateTime to) {
+  ///
+  /// Investments are recorded in the base currency; pass the account's
+  /// [rate] to get the charge in the account's own currency, the unit its
+  /// statement and spend are in.
+  int chargedToAccountInRange(int accountId, DateTime from, DateTime to,
+      {double rate = 1.0}) {
     var total = 0;
     for (final i in _investments) {
       if (i.accountId != accountId) continue;
       if (i.date.isBefore(from) || !i.date.isBefore(to)) continue;
       total += i.amount;
     }
-    return total;
+    return fromBaseMinor(total, rate);
   }
 
   Future<void> fetchInvestments() async {

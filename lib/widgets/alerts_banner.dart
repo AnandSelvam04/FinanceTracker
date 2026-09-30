@@ -47,7 +47,8 @@ class AlertsBanner extends StatelessWidget {
           // Investments bought on the card are on its statement too.
           spendInRange: (id, from, to) =>
               expenses.spendOnAccountInRange(id, from, to) +
-              investments.chargedToAccountInRange(id, from, to),
+              investments.chargedToAccountInRange(id, from, to,
+                  rate: accounts.accountById(id)?.rate ?? 1.0),
           paidInRange: expenses.paidToAccountInRange,
         );
 

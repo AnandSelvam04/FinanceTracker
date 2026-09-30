@@ -98,6 +98,12 @@ String formatMoneyRounded(int minor) =>
 /// minor units using [rate] (base units per 1 account-currency unit).
 int toBaseMinor(int amount, double rate) => (amount * rate).round();
 
+/// The inverse of [toBaseMinor]: a base-currency [amount] (minor units) in an
+/// account's currency. A non-positive [rate] is treated as 1.0 rather than
+/// dividing by it.
+int fromBaseMinor(int amount, double rate) =>
+    rate <= 0 || rate == 1.0 ? amount : (amount / rate).round();
+
 /// A major-unit string (e.g. "12.50") for pre-filling edit fields.
 String minorToEditString(int minor) => (minor / 100).toStringAsFixed(2);
 

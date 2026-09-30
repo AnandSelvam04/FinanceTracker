@@ -27,9 +27,13 @@ class PaidFromField extends StatelessWidget {
   /// What saving against [account] will do, in one line.
   static String effectOf(Account? account, {bool withdrawal = false}) {
     if (account == null) return 'Not taken from any account balance';
-    if (withdrawal) return 'Adds the amount back to ${account.name}';
+    // Investments are recorded in the base currency; a foreign account
+    // moves by the converted amount.
+    final converted =
+        account.isForeign ? ', converted to ${account.symbol}' : '';
+    if (withdrawal) return 'Adds the amount back to ${account.name}$converted';
     if (account.type != 'credit_card') {
-      return 'Lowers the ${account.name} balance by this amount';
+      return 'Lowers the ${account.name} balance by this amount$converted';
     }
     return account.hasBillingCycle
         ? 'Added to what you owe on ${account.name}: it is on the card\'s '
