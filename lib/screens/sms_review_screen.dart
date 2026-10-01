@@ -1030,9 +1030,9 @@ class _DraftCardState extends State<_DraftCard> {
               _Notice(
                 icon: Icons.credit_score,
                 color: transferColor(context),
-                text: 'A payment into your credit card — recorded as a '
-                    'transfer so the bill isn\'t counted as income. Pick the '
-                    'account you paid from.',
+                text: 'A credit card bill payment — recorded as a transfer '
+                    'from your bank to the card, so it isn\'t counted as '
+                    'spending or income.',
               )
             else if (parsed.isTransfer)
               _Notice(
@@ -1183,7 +1183,9 @@ class _DraftCardState extends State<_DraftCard> {
                                   errorText: draft.needsDestination
                                       ? (parsed.toLast4 != null
                                           ? 'No account with ••${parsed.toLast4}'
-                                          : 'Pick the receiving account')
+                                          : (draft.isCardPayment
+                                              ? 'Pick the card you paid'
+                                              : 'Pick the receiving account'))
                                       : null,
                                   onChanged: (v) {
                                     draft.toAccountId = v;

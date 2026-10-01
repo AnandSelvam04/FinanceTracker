@@ -82,8 +82,7 @@ void main() {
     }
 
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('payment into your credit card'),
-        findsOneWidget);
+    expect(find.textContaining('credit card bill payment'), findsOneWidget);
     expect(find.text('Pick the account you paid from'), findsOneWidget);
     expect(find.textContaining('A refund'), findsOneWidget);
     expect(find.textContaining(r'Charged in $'), findsOneWidget);

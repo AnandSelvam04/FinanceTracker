@@ -276,9 +276,11 @@ class _ImportScreenState extends State<ImportScreen> {
             contentPadding: EdgeInsets.zero,
             title: Text(
                 e.description.isEmpty ? '(no description)' : e.description),
-            subtitle:
-                Text('${e.category} · ${formatShortDate(e.date)} · ${e.type}'),
-            trailing: Text(formatMoney(e.amount)),
+            subtitle: Text('${e.category} · ${formatShortDate(e.date)} · '
+                '${e.isRefund ? 'refund' : e.type}'),
+            trailing: Text(e.isRefund
+                ? '+${formatMoney(-e.amount)}'
+                : formatMoney(e.amount)),
           ),
         Padding(
           padding: const EdgeInsets.only(top: 4),

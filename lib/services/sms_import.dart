@@ -97,6 +97,26 @@ class SmsImport {
   /// payment of the bill, so it stays income.
   static final _cashback = RegExp(r'\b(cashback|cash back|reward|rewards)\b');
 
+  /// Wording that marks a debit as a purchase made *with* a card, which no
+  /// card-bill phrase elsewhere in the message turns into a bill payment.
+  static final _purchase = RegExp(r'\b(spent|purchase|shopping)\b');
+
+  /// A debit that pays a credit card's bill: "towards Credit Card bill",
+  /// "HDFC Credit Card payment", "paid to CRED". Banks often text this without
+  /// the card's number, so it can't be told apart as a transfer from the
+  /// account numbers alone — and booked as an expense it counts the card's
+  /// spending a second time. Checked on the text *before* "credit card" is
+  /// blanked out for direction-finding, since here it is the whole point.
+  ///
+  /// "card payment" alone is not enough ("card payment of Rs.500 at AMAZON"
+  /// is a purchase), so the card has to be named as a credit card or "CC", or
+  /// be the object of a bill/dues/outstanding.
+  static final _cardBillPayment = RegExp(
+      r'\b(?:credit\s*card|cc)\s*(?:bill|dues?|payment|outstanding)\b'
+      r'|\bcard\s*(?:bill|dues|outstanding)\b'
+      r'|\b(?:to|towards|for)\s+(?:your\s+)?(?:[a-z]+\s+){0,2}(?:credit\s*card|cc)\b'
+      r'|\bcred(?:\.club)?\b');
+
   /// Words that mark the amount right after them as a balance or a limit
   /// rather than the transaction amount.
   static final _balanceContext = RegExp(
@@ -252,6 +272,9 @@ class SmsImport {
       paymentMode: paymentModeOf(raw),
       isRefund: refund,
       isCashback: type == DbConstants.txIncome && _cashback.hasMatch(lower),
+      isCardBillPayment: type == DbConstants.txExpense &&
+          _cardBillPayment.hasMatch(raw) &&
+          !_purchase.hasMatch(raw),
     );
   }
 
@@ -633,6 +656,11 @@ class ParsedSms {
   /// A cashback or reward credit — income, never a card bill payment.
   final bool isCashback;
 
+  /// A debit whose wording says it paid a credit card's bill. Whether it
+  /// becomes a transfer depends on the account it left (a charge *on* a card
+  /// isn't a bill payment) — see [asBillPaymentFromBank].
+  final bool isCardBillPayment;
+
   /// Merchant or counterparty, falling back to the sender id.
   final String description;
 
@@ -668,6 +696,7 @@ class ParsedSms {
     this.paymentMode,
     this.isRefund = false,
     this.isCashback = false,
+    this.isCardBillPayment = false,
   });
 
   bool get isExpense => type == DbConstants.txExpense;
@@ -703,6 +732,24 @@ class ParsedSms {
         alsoCoversRefs: alsoCoversRefs,
       );
 
+  /// This debit re-read as a payment from the bank account it names *into* a
+  /// credit card: a transfer whose destination card the message didn't name,
+  /// so the review screen asks for it. Booked as an expense it would count
+  /// the card's purchases a second time.
+  ParsedSms asBillPaymentFromBank() => ParsedSms(
+        amount: amount,
+        currency: currency,
+        type: DbConstants.txTransfer,
+        description: 'Card payment',
+        last4: last4,
+        toLast4: toLast4,
+        date: date,
+        sender: sender,
+        body: body,
+        sourceRef: sourceRef,
+        alsoCoversRefs: alsoCoversRefs,
+      );
+
   ParsedSms copyWith({
     String? type,
     String? description,
@@ -724,6 +771,7 @@ class ParsedSms {
         paymentMode: paymentMode,
         isRefund: isRefund,
         isCashback: isCashback,
+        isCardBillPayment: isCardBillPayment,
       );
 
   /// The account whose [Account.last4] this message names, or null when the
