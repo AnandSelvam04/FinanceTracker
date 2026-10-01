@@ -1,13 +1,16 @@
 import 'dart:io';
 
 import 'package:another_telephony/telephony.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/account.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
 import '../services/db_service.dart';
 import '../utils/app_logger.dart';
+import '../utils/currency_format.dart';
 import 'category_memory.dart';
+import 'merchant_categories.dart';
 import 'sms_import.dart';
 
 /// Reads the device SMS inbox and hands each message to [SmsImport].
@@ -18,14 +21,113 @@ import 'sms_import.dart';
 class SmsService {
   SmsService._();
 
-  /// How far back a scan looks.
+  /// How far back a scan looks when there is no earlier review to go from.
   ///
   /// Deliberately short: it keeps the first run from dumping months of history
-  /// into the queue, and keeps each scan to what has happened since you last
-  /// looked. The trade is that a message older than this is never offered, so
-  /// going more than a couple of days without opening the screen means those
-  /// transactions have to be entered by hand.
+  /// into the queue. After that the review screen scans from the last time the
+  /// queue was cleared instead (see [scanStartSince]), so a gap of a week
+  /// between visits no longer loses the week's alerts.
   static const defaultWindow = Duration(days: 2);
+
+  /// The furthest back a "since last review" scan reaches, however long ago
+  /// that review was — the same cap as the widest preset, so coming back after
+  /// months doesn't bury the queue under a season of alerts.
+  static const maxCatchUp = Duration(days: 30);
+
+  /// Overlap kept before the last review, for alerts that arrive late (banks
+  /// sometimes text hours after the payment). Anything already imported or
+  /// dismissed is filtered out anyway, so the overlap costs nothing.
+  static const _reviewOverlap = Duration(days: 1);
+
+  static const _kReviewedThrough = 'smsReviewedThrough';
+  static const _kIgnoredMerchants = 'smsIgnoredMerchants';
+
+  /// Where a default scan starts: a day before [reviewedThrough] — the moment
+  /// the review queue was last left empty — but never less than
+  /// [defaultWindow] ago nor more than [maxCatchUp] ago. With no review yet,
+  /// just [defaultWindow].
+  static DateTime scanStartSince(DateTime? reviewedThrough, DateTime now) {
+    final shortest = now.subtract(defaultWindow);
+    if (reviewedThrough == null) return shortest;
+    final earliest = now.subtract(maxCatchUp);
+    final start = reviewedThrough.subtract(_reviewOverlap);
+    if (start.isAfter(shortest)) return shortest;
+    if (start.isBefore(earliest)) return earliest;
+    return start;
+  }
+
+  /// When the review queue was last left empty, or null if it never was.
+  ///
+  /// Recorded only once every found message has been imported or dismissed:
+  /// moving it forward on every scan would skip messages the user looked at
+  /// but left for later.
+  static Future<DateTime?> reviewedThrough() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ms = prefs.getInt(_kReviewedThrough);
+      return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+    } catch (e, s) {
+      AppLogger.error('Reading the SMS review mark failed', e, s);
+      return null;
+    }
+  }
+
+  /// Records that every message up to [at] has been dealt with. Never moves the
+  /// mark backwards, so a narrow custom-range scan can't undo a wider one.
+  static Future<void> markReviewedThrough(DateTime at) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final current = prefs.getInt(_kReviewedThrough);
+      final ms = at.millisecondsSinceEpoch;
+      if (current != null && current >= ms) return;
+      await prefs.setInt(_kReviewedThrough, ms);
+    } catch (e, s) {
+      AppLogger.error('Saving the SMS review mark failed', e, s);
+    }
+  }
+
+  /// Merchants the user chose to never be offered again, as
+  /// [CategoryMemory.merchantKey]s.
+  static Future<Set<String>> ignoredMerchants() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return (prefs.getStringList(_kIgnoredMerchants) ?? const []).toSet();
+    } catch (e, s) {
+      AppLogger.error('Reading ignored SMS merchants failed', e, s);
+      return <String>{};
+    }
+  }
+
+  static Future<void> _saveIgnoredMerchants(Set<String> keys) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_kIgnoredMerchants, keys.toList()..sort());
+    } catch (e, s) {
+      AppLogger.error('Saving ignored SMS merchants failed', e, s);
+    }
+  }
+
+  /// Stops offering messages from the merchant named [description] (a wallet
+  /// top-up, an EMI already tracked as a recurring rule). Returns the key it
+  /// was stored under, or null when the name has nothing to key on.
+  static Future<String?> ignoreMerchant(String description) async {
+    final key = CategoryMemory.merchantKey(description);
+    if (key.isEmpty) return null;
+    await _saveIgnoredMerchants({...await ignoredMerchants(), key});
+    return key;
+  }
+
+  /// Offers messages from the merchant stored under [key] again.
+  static Future<void> unignoreMerchant(String key) async {
+    final keys = await ignoredMerchants();
+    if (keys.remove(key)) await _saveIgnoredMerchants(keys);
+  }
+
+  /// Whether [parsed] comes from a merchant in [ignored]. A transfer names no
+  /// merchant, so it is never hidden this way.
+  static bool isIgnored(ParsedSms parsed, Set<String> ignored) =>
+      !parsed.isTransfer &&
+      ignored.contains(CategoryMemory.merchantKey(parsed.description));
 
   /// Whether the user has switched SMS import on in Settings. Mirrored here
   /// from SettingsProvider so the service can refuse to read the inbox
@@ -52,6 +154,8 @@ class SmsService {
   /// Android shows the dialog only until the user has answered it.
   static Future<bool> requestPermission() async {
     if (!isSupported || !enabled) return false;
+    // A test's stand-in inbox needs no permission (see [isSupported]).
+    if (inboxOverride != null) return true;
     try {
       return await Telephony.instance.requestSmsPermissions ?? false;
     } catch (e, s) {
@@ -67,9 +171,10 @@ class SmsService {
   ///
   /// The scanned window is the last [window] by default. Pass [from] (and
   /// optionally [to]) to scan an explicit date range instead — the review
-  /// screen uses this so a user who missed the two-day default can still pull
-  /// in older messages. Pass [includeDismissed] to surface messages the user
-  /// rejected earlier, so a wrongly dismissed one can be recovered.
+  /// screen uses this to scan since the last review, and so a user can pull in
+  /// older messages. Pass [includeDismissed] to surface messages the user
+  /// rejected earlier (and those from ignored merchants), so a wrongly
+  /// dismissed one can be recovered.
   static Future<List<ParsedSms>> scan({
     Duration window = defaultWindow,
     DateTime? now,
@@ -83,6 +188,8 @@ class SmsService {
     final lower = from ?? (now ?? DateTime.now()).subtract(window);
     final seen =
         await DBService().existingSourceRefs(includeIgnored: !includeDismissed);
+    final ignored =
+        includeDismissed ? const <String>{} : await ignoredMerchants();
 
     final parsed = <ParsedSms>[];
     for (final sms in await _inbox()) {
@@ -94,6 +201,7 @@ class SmsService {
         receivedAt: sms.receivedAt,
       );
       if (candidate == null || seen.contains(candidate.sourceRef)) continue;
+      if (isIgnored(candidate, ignored)) continue;
       parsed.add(candidate);
     }
     // Pair up the two alerts one movement produces before sorting, so a card
@@ -101,6 +209,19 @@ class SmsService {
     final collapsed = SmsImport.collapseTransferPairs(parsed)
       ..sort((a, b) => b.date.compareTo(a.date));
     return collapsed;
+  }
+
+  /// How many new transaction alerts are waiting since the last review, for
+  /// the badge on the dashboard's Import SMS shortcut. Zero when import is off
+  /// or the permission hasn't been granted: this never asks for it (a refused
+  /// inbox read is caught in [_inbox] and reads as empty), so opening the
+  /// dashboard can't pop a permission dialog.
+  static Future<int> pendingCount({DateTime? now}) async {
+    if (!isSupported || !enabled) return 0;
+    final at = now ?? DateTime.now();
+    final found =
+        await scan(now: at, from: scanStartSince(await reviewedThrough(), at));
+    return found.length;
   }
 
   /// Reads raw inbox rows, translating the plugin's message type into
@@ -160,6 +281,15 @@ class SmsDraft {
   /// a name the user recognises before it is posted.
   String description;
 
+  /// How the payment was made. Starts from the message ("by UPI") or, failing
+  /// that, the matched account's type; editable on the review screen.
+  String paymentMode;
+
+  /// The amount in the account's currency, entered on the review screen when
+  /// the message quoted a foreign charge ("USD 12.99" on a rupee card) whose
+  /// converted figure only the bank knows. Null means use the parsed amount.
+  int? amountOverride;
+
   /// When true, this debit is recorded as a contribution to the investments
   /// ledger (a SIP, a stock purchase) instead of as spending. Only offered for
   /// plain expense drafts — see [canBeInvestment].
@@ -178,6 +308,18 @@ class SmsDraft {
   /// than from the default. Shown on the card so a wrong recall is obvious.
   final String? recalledCategory;
 
+  /// Set when [category] is a guess from the merchant's name (see
+  /// [MerchantCategories]) because it has never been filed before.
+  final String? guessedCategory;
+
+  /// How many accounts share the last four digits the message named. Above
+  /// one, no account was picked, and the card says why.
+  final int sameLast4Count;
+
+  /// Set when a credit on a credit card was re-read as a payment of its bill
+  /// (see [ParsedSms.asCardPayment]).
+  final bool isCardPayment;
+
   /// Set when this merchant+amount has recurred monthly in the history, so the
   /// card can offer to create a recurring rule from it.
   final bool recurringSuggested;
@@ -192,16 +334,28 @@ class SmsDraft {
     this.toAccountId,
     required this.category,
     String? description,
+    String? paymentMode,
     this.selected = true,
     this.duplicateOf,
     this.recalledCategory,
+    this.guessedCategory,
+    this.sameLast4Count = 0,
+    this.isCardPayment = false,
     this.asInvestment = false,
     this.investmentType = Investment.defaultType,
     this.recurringSuggested = false,
     this.createRecurring = false,
-  }) : description = description ?? parsed.description;
+  })  : description = description ?? parsed.description,
+        paymentMode = paymentMode ?? parsed.paymentModeFor(null);
 
   bool get isTransfer => parsed.isTransfer;
+
+  /// A refund, saved as a negative expense against [category].
+  bool get isRefund => parsed.isRefund;
+
+  /// Whether the row is filed under spending categories: a debit, or a refund
+  /// taking a debit back.
+  bool get usesExpenseCategories => parsed.isExpense || parsed.isRefund;
 
   /// Whether the user may reclassify this draft as an investment. Only a plain
   /// debit qualifies — an incoming credit or a transfer between accounts is not
@@ -212,32 +366,74 @@ class SmsDraft {
   /// would debit the source and credit nothing.
   bool get needsDestination => isTransfer && toAccountId == null;
 
+  /// …and without a source it would credit the destination out of thin air —
+  /// the case for a card bill payment, whose message names only the card.
+  bool get needsSource => isTransfer && accountId == null;
+
+  /// Whether the parsed amount is in a different currency from [account] (or
+  /// the base currency, with no account), so it can't be saved as it stands.
+  bool isForeignFor(Account? account) =>
+      parsed.currency != (account?.symbol ?? CurrencyFormat.symbol);
+
+  /// Whether this draft still needs its amount entered in [account]'s currency
+  /// before it can be imported.
+  bool needsAmountFor(Account? account) =>
+      isForeignFor(account) && amountOverride == null;
+
+  /// The amount to save, in the account's currency.
+  int get amount => amountOverride ?? parsed.amount;
+
   /// Builds a draft with both accounts pre-resolved from the message, the
-  /// category recalled from how this merchant was filed before, and a flag
-  /// when [existing] already contains a matching hand-entered row.
+  /// category recalled from how this merchant was filed before (or guessed
+  /// from its name), and a flag when [existing] already contains a matching
+  /// hand-entered row. [claimed] collects the rows already matched to other
+  /// drafts in the same scan, so one row isn't the duplicate of several.
   factory SmsDraft.from(
     ParsedSms parsed,
     List<Account> accounts, {
     List<Expense> existing = const [],
     CategoryMemory memory = const CategoryMemory.empty(),
     bool recurringSuggested = false,
+    Set<Object>? claimed,
   }) {
-    final accountId = parsed.matchAccount(accounts)?.id;
-    final duplicate = SmsImport.findDuplicate(parsed, accountId, existing);
+    // Money arriving on a credit card that is neither a refund nor cashback
+    // is the bill being paid. As income it would count the card bill as
+    // earnings; as a transfer it clears what the card owes.
+    final landedOn = parsed.matchAccount(accounts);
+    final cardPayment =
+        parsed.couldBeCardPayment && landedOn?.type == 'credit_card';
+    if (cardPayment) parsed = parsed.asCardPayment();
+
+    final account = parsed.matchAccount(accounts);
+    final accountId = account?.id;
+    final duplicate =
+        SmsImport.findDuplicate(parsed, accountId, existing, claimed: claimed);
     final remembered =
         parsed.isTransfer ? null : memory.categoryFor(parsed.description);
-    return SmsDraft(
+    final spending = parsed.isExpense || parsed.isRefund;
+    final guessed = parsed.isTransfer || remembered != null || !spending
+        ? null
+        : MerchantCategories.guess(parsed.description);
+    final draft = SmsDraft(
       parsed: parsed,
       accountId: accountId,
       toAccountId: parsed.matchToAccount(accounts)?.id,
       category: parsed.isTransfer
           ? 'Transfer'
-          : (remembered ?? (parsed.isExpense ? 'Other' : 'Income')),
+          : (remembered ?? guessed ?? (spending ? 'Other' : 'Income')),
+      paymentMode: parsed.paymentModeFor(account),
       recalledCategory: remembered,
+      guessedCategory: guessed,
+      sameLast4Count: parsed.accountsWithLast4(accounts),
+      isCardPayment: cardPayment,
       selected: duplicate == null,
       duplicateOf: duplicate,
       recurringSuggested: recurringSuggested,
     );
+    // A foreign charge can't be saved until its amount is entered in the
+    // account's currency, so it starts unticked rather than blocking Import.
+    if (draft.needsAmountFor(account)) draft.selected = false;
+    return draft;
   }
 
   Expense toExpense() => parsed.toExpense(
@@ -245,6 +441,8 @@ class SmsDraft {
         category: category,
         toAccountId: toAccountId,
         description: description,
+        amount: amount,
+        paymentMode: paymentMode,
       );
 
   /// The draft as a contribution ready to insert into the investments ledger.
@@ -252,7 +450,7 @@ class SmsDraft {
   /// date carry over, and [investmentType] picks the instrument.
   Investment toInvestment() => Investment(
         name: description,
-        amount: parsed.amount,
+        amount: amount,
         date: parsed.date,
         type: investmentType,
         // The account the SMS debited: the purchase leaves that balance.

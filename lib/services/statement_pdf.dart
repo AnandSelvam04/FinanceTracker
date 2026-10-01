@@ -53,6 +53,8 @@ class StatementPdf {
     String signed(Expense e) {
       if (e.isIncome) return '+${formatMoney(base(e))}';
       if (e.isTransfer) return formatMoney(base(e));
+      // A refund is a negative expense: money back, not "-₹-500".
+      if (e.isRefund) return '+${formatMoney(-base(e))}';
       return '-${formatMoney(base(e))}';
     }
 

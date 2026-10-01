@@ -43,6 +43,11 @@ class Expense {
   bool get isIncome => type == DbConstants.txIncome;
   bool get isTransfer => type == DbConstants.txTransfer;
 
+  /// Money back from a merchant: an expense stored with a negative amount, so
+  /// it comes off its category's spending (and its budget) and adds back to
+  /// the account, rather than reading as income. Imported from refund SMS.
+  bool get isRefund => isExpense && amount < 0;
+
   /// Amount received by the destination account of a transfer.
   int get receivedAmount => toAmount ?? amount;
 

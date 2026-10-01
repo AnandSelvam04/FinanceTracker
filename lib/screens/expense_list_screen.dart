@@ -163,12 +163,16 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   /// Amounts are stored in their source account's currency, so formatting them
   /// with the base symbol labelled a $100 expense as "₹100.00". Rows with no
   /// account fall back to the base symbol, which is what they are.
+  ///
+  /// A refund (stored negative) is formatted by its size, [Expense.amount]'s
+  /// absolute value, since callers put the sign in front themselves.
   String _rowAmount(BuildContext context, Expense expense) {
     final account =
         context.read<AccountProvider>().accountById(expense.accountId);
+    final amount = expense.amount.abs();
     return account == null
-        ? formatMoney(expense.amount)
-        : formatMoneyIn(account.symbol, expense.amount);
+        ? formatMoney(amount)
+        : formatMoneyIn(account.symbol, amount);
   }
 
   Future<bool> _confirmDelete(Expense expense) async {
@@ -644,21 +648,26 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     // Set.add returns true only the first time this row is built, so each row
     // fades in once and does not replay when it scrolls back into view.
     final firstAppearance = _animatedRows.add(rowKey);
-    final amountColor = expense.isIncome
+    final amountColor = expense.isIncome || expense.isRefund
         ? incomeColor(context)
         : expense.isTransfer
             ? transferColor(context)
             : expenseColor(context);
-    final amount = expense.isIncome
+    // A refund is stored negative; show it as money back, not "-₹-500".
+    final amount = expense.isRefund
         ? '+${_rowAmount(context, expense)}'
-        : expense.isTransfer
-            ? _rowAmount(context, expense)
-            : '-${_rowAmount(context, expense)}';
+        : expense.isIncome
+            ? '+${_rowAmount(context, expense)}'
+            : expense.isTransfer
+                ? _rowAmount(context, expense)
+                : '-${_rowAmount(context, expense)}';
     final detail = expense.isTransfer
         ? 'Transfer'
-        : expense.isIncome
-            ? '${expense.category} · Income'
-            : '${expense.category} · ${expense.paymentMode}';
+        : expense.isRefund
+            ? '${expense.category} · Refund'
+            : expense.isIncome
+                ? '${expense.category} · Income'
+                : '${expense.category} · ${expense.paymentMode}';
     // Swiping is the only way to delete here, and a Dismissible exposes no
     // action to TalkBack or switch access — so those users could not delete a
     // transaction at all. Publish a custom semantics action and a long-press,

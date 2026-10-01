@@ -2,6 +2,7 @@ import '../models/account.dart';
 import '../models/expense.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import 'category_memory.dart';
 
 /// Turns bank transaction alerts into draft transactions.
 ///
@@ -62,14 +63,39 @@ class SmsImport {
   static final _notATransaction = RegExp(
       r'\b(otp|one[ -]?time password|password|verification code|will be debited|will be credited|has been requested|requesting|request for|failed|declined|reversed|due on|minimum amount due|statement is ready|e-?statement|offer|cashback offer|discount|sale|win|congratulations|apply now|click here|dear customer,? your bal)\b');
 
-  /// A currency amount: "Rs.499.00", "INR 1,234.56", "₹499", "Rs 2,150/-".
+  /// A currency amount: "Rs.499.00", "INR 1,234.56", "₹499", "Rs 2,150/-",
+  /// and the foreign charges a card abroad or on a foreign site texts about:
+  /// "USD 12.99", "\$12.99", "EUR 20", "£5".
   ///
-  /// The `\b` before the `rs`/`inr` markers keeps the "rs" inside an ordinary
+  /// The `\b` before the lettered markers keeps the "rs" inside an ordinary
   /// word from starting a match — without it "…for cars 5000 debited…" reads
-  /// "rs 5000" as ₹5000. `₹` is not a word character, so it needs no boundary.
+  /// "rs 5000" as ₹5000. The symbols are not word characters, so they need no
+  /// boundary. Group 1 is the currency marker, group 2 the figure.
   static final _amount = RegExp(
-      r'(?:\brs\.?|\binr|₹)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)',
+      r'(\brs\.?|\binr|₹|\b(?:usd|eur|gbp|aed|sgd|jpy|aud|cad)|[\$€£¥])'
+      r'\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)',
       caseSensitive: false);
+
+  /// The rupee, which every "Rs"/"INR"/"₹" alert is in.
+  static const rupee = '₹';
+
+  /// Currency markers mapped to the symbols accounts are held in (see
+  /// SettingsProvider.currencyOptions), so a charge can be compared with the
+  /// account it lands on. A code no account can be held in keeps its own name
+  /// and so never matches — the review screen then asks for the ₹ amount.
+  static const _currencySymbols = {
+    'rs': rupee, 'rs.': rupee, 'inr': rupee, '₹': rupee, //
+    'usd': r'$', r'$': r'$', 'eur': '€', '€': '€', 'gbp': '£', '£': '£',
+    'jpy': '¥', '¥': '¥', 'aud': r'A$', 'cad': r'C$',
+  };
+
+  /// A refund of an earlier purchase. Money back from a merchant is spending
+  /// undone, not income, so it is filed against the purchase's category.
+  static final _refund = RegExp(r'\brefund(?:ed)?\b');
+
+  /// Cashback and rewards credited to a card: real money in, but not a
+  /// payment of the bill, so it stays income.
+  static final _cashback = RegExp(r'\b(cashback|cash back|reward|rewards)\b');
 
   /// Words that mark the amount right after them as a balance or a limit
   /// rather than the transaction amount.
@@ -172,17 +198,17 @@ class SmsImport {
     // "Credit card" / "debit card" name the instrument, not the direction.
     // Blanking them out first stops "spent on your Credit Card" reading as
     // income, which is the single most common way this goes wrong.
-    final lower = text
-        .toLowerCase()
-        .replaceAll(RegExp(r'\b(credit|debit)\s*card\b'), ' card ');
+    final raw = text.toLowerCase();
+    final lower =
+        raw.replaceAll(RegExp(r'\b(credit|debit)\s*card\b'), ' card ');
 
     if (_notATransaction.hasMatch(lower)) return null;
 
     var type = _directionOf(lower);
     if (type == null) return null;
 
-    final amount = _amountOf(text);
-    if (amount == null) return null;
+    final money = _amountOf(text);
+    if (money == null) return null;
 
     final refs = _accountRefsOf(text, isCredit: type == DbConstants.txIncome);
     var last4 = refs.source;
@@ -207,19 +233,43 @@ class SmsImport {
       toLast4 = null;
     }
 
+    final refund = type == DbConstants.txIncome && _refund.hasMatch(lower);
     return ParsedSms(
-      amount: amount,
+      amount: money.amount,
+      currency: money.currency,
       type: type,
       description: isTransfer
           ? 'Transfer'
-          : (_merchantOf(text) ?? _prettySender(sender)),
+          : (_merchantOf(text) ??
+              (refund ? _refundMerchantOf(text) : null) ??
+              _prettySender(sender)),
       last4: last4,
       toLast4: toLast4,
       date: plausibleDate(_dateOf(text), receivedAt),
       sender: sender,
       body: text,
       sourceRef: sourceRefFor(sender, receivedAt, body),
+      paymentMode: paymentModeOf(raw),
+      isRefund: refund,
+      isCashback: type == DbConstants.txIncome && _cashback.hasMatch(lower),
     );
+  }
+
+  /// How the money was paid, when the message says so: a UPI payment (even one
+  /// made with a RuPay credit card, the way the Add Expense screen files it),
+  /// a named credit or debit card, or an ATM withdrawal in cash. Null when the
+  /// message doesn't say — the review screen then goes by the account's type.
+  ///
+  /// [raw] is the lower-cased message *before* "credit card"/"debit card" are
+  /// blanked out for direction-finding, since here they are the whole point.
+  static String? paymentModeOf(String raw) {
+    if (RegExp(r'\b(upi|vpa)\b').hasMatch(raw) || _bareVpa.hasMatch(raw)) {
+      return 'UPI';
+    }
+    if (RegExp(r'\bcredit\s*card\b').hasMatch(raw)) return 'Credit Card';
+    if (RegExp(r'\bdebit\s*card\b').hasMatch(raw)) return 'Debit Card';
+    if (RegExp(r'\b(atm|cash withdrawal)\b').hasMatch(raw)) return 'Cash';
+    return null;
   }
 
   /// An unambiguous credit phrase settles it; otherwise whichever direction
@@ -296,13 +346,17 @@ class SmsImport {
   /// Alerts routinely quote two figures — "Rs.499 debited ... Avl Bal
   /// Rs.12,340" — and taking the wrong one silently books a transaction two
   /// orders of magnitude too large.
-  static int? _amountOf(String text) {
+  static ({int amount, String currency})? _amountOf(String text) {
     for (final match in _amount.allMatches(text)) {
       final before = text.substring(0, match.start);
       if (_balanceContext.hasMatch(before)) continue;
-      final major = double.tryParse(match.group(1)!.replaceAll(',', ''));
+      final major = double.tryParse(match.group(2)!.replaceAll(',', ''));
       if (major == null || !isAmountInRange(major) || major <= 0) continue;
-      return rupeesToMinor(major);
+      final marker = match.group(1)!.toLowerCase();
+      return (
+        amount: rupeesToMinor(major),
+        currency: _currencySymbols[marker] ?? marker.toUpperCase(),
+      );
     }
     return null;
   }
@@ -327,6 +381,21 @@ class SmsImport {
       if (name.length >= 2 && RegExp(r'[A-Za-z]').hasMatch(name)) return name;
     }
     return null;
+  }
+
+  /// The merchant a refund came back from: "Refund of Rs.500 … from AMAZON".
+  /// Only tried for refunds — in other credits "from" names the sender's
+  /// bank or a person, which the sender id fallback describes as well.
+  static String? _refundMerchantOf(String text) {
+    final match =
+        RegExp('\\b(?:from|by)\\s+($_merchantWord(?:\\s+$_merchantWord){0,3})')
+            .firstMatch(text);
+    if (match == null) return null;
+    final name = match
+        .group(1)!
+        .replaceFirst(RegExp(r'\s+(on|dated)$', caseSensitive: false), '')
+        .trim();
+    return name.length >= 2 && RegExp(r'[A-Za-z]').hasMatch(name) ? name : null;
   }
 
   /// How far before the SMS arrived a date in its body is still taken as the
@@ -440,6 +509,7 @@ class SmsImport {
   static bool _absorbs(ParsedSms transfer, ParsedSms other) =>
       transfer.isTransfer &&
       !other.isTransfer &&
+      !other.isRefund &&
       other.last4 != null &&
       (other.last4 == transfer.last4 || other.last4 == transfer.toLast4);
 
@@ -448,6 +518,9 @@ class SmsImport {
     if (debit.type != DbConstants.txExpense) return null;
     if (credit.type != DbConstants.txIncome) return null;
     if (debit.isTransfer || credit.isTransfer) return null;
+    // A refund landing on a card the same week as an unrelated debit of the
+    // same amount is money back from a merchant, not one end of a transfer.
+    if (credit.isRefund || credit.isCashback) return null;
     final from = debit.last4;
     final to = credit.last4;
     if (from == null || to == null || from == to) return null;
@@ -470,24 +543,62 @@ class SmsImport {
   /// the sourceRef check, and matching against those would flag a legitimate
   /// second purchase of the same amount. Rows from a CSV statement are still
   /// considered — the same spend often arrives both ways.
+  ///
+  /// [claimed] holds the rows already matched to other messages in the same
+  /// scan: one hand-entered ₹100 lunch is the duplicate of one ₹100 alert,
+  /// not of every ₹100 alert that day. The row returned is added to it. When
+  /// several rows qualify, one naming the same merchant wins, then the one
+  /// closest in date.
   static Expense? findDuplicate(
     ParsedSms parsed,
     int? accountId,
     List<Expense> existing, {
     Duration window = const Duration(days: 2),
+    Set<Object>? claimed,
   }) {
+    final wanted = parsed.signedAmount;
+    final type = parsed.recordedType;
+    Expense? best;
+    var bestMerchant = false;
+    Duration? bestGap;
     for (final e in existing) {
       if (e.sourceRef?.startsWith(_smsRefPrefix) ?? false) continue;
-      if (e.amount != parsed.amount || e.type != parsed.type) continue;
-      if (e.date.difference(parsed.date).abs() > window) continue;
+      if (e.amount != wanted || e.type != type) continue;
+      final gap = e.date.difference(parsed.date).abs();
+      if (gap > window) continue;
       // An unset account on either side is not evidence of a different
       // transaction, so it does not rule the match out.
       if (accountId != null && e.accountId != null && e.accountId != accountId) {
         continue;
       }
-      return e;
+      if (claimed != null && claimed.contains(_claimKey(e))) continue;
+      // A different name is not proof of a different purchase — "Lunch"
+      // typed by hand is the same ₹499 as "SWIGGY" in the alert — so it only
+      // ranks the candidates rather than ruling one out.
+      final sameMerchant = sameMerchantName(e.description, parsed.description);
+      final better = best == null ||
+          (sameMerchant && !bestMerchant) ||
+          (sameMerchant == bestMerchant && gap < bestGap!);
+      if (better) {
+        best = e;
+        bestMerchant = sameMerchant;
+        bestGap = gap;
+      }
     }
-    return null;
+    if (best != null) claimed?.add(_claimKey(best));
+    return best;
+  }
+
+  static Object _claimKey(Expense e) => e.id ?? e;
+
+  /// Whether two descriptions name the same merchant once a bank's noise is
+  /// stripped ("SWIGGY 88213" and "Swiggy"), allowing one to contain the other
+  /// ("AMAZON PAY" and "Amazon").
+  static bool sameMerchantName(String a, String b) {
+    final ka = CategoryMemory.merchantKey(a);
+    final kb = CategoryMemory.merchantKey(b);
+    if (ka.length < 3 || kb.length < 3) return false;
+    return ka == kb || ka.contains(kb) || kb.contains(ka);
   }
 
   /// "VM-HDFCBK" / "AD-ICICIB-S" -> "HDFCBK". Sender ids are prefixed with the
@@ -503,8 +614,24 @@ class ParsedSms {
   /// Minor units, always positive; [type] carries the direction.
   final int amount;
 
+  /// Symbol of the currency [amount] is in — [SmsImport.rupee] for an ordinary
+  /// alert, "\$" for "USD 12.99" — so a foreign charge is not filed as rupees.
+  final String currency;
+
   /// [DbConstants.txExpense] or [DbConstants.txIncome].
   final String type;
+
+  /// How the payment was made, when the message says ("UPI", "Credit Card",
+  /// "Debit Card", "Cash"); null when it doesn't.
+  final String? paymentMode;
+
+  /// A credit that is money back from a merchant. Recorded as a negative
+  /// expense so it offsets the purchase's category instead of reading as
+  /// income.
+  final bool isRefund;
+
+  /// A cashback or reward credit — income, never a card bill payment.
+  final bool isCashback;
 
   /// Merchant or counterparty, falling back to the sender id.
   final String description;
@@ -528,6 +655,7 @@ class ParsedSms {
 
   const ParsedSms({
     required this.amount,
+    this.currency = SmsImport.rupee,
     required this.type,
     required this.description,
     required this.last4,
@@ -537,10 +665,43 @@ class ParsedSms {
     required this.body,
     required this.sourceRef,
     this.alsoCoversRefs = const [],
+    this.paymentMode,
+    this.isRefund = false,
+    this.isCashback = false,
   });
 
   bool get isExpense => type == DbConstants.txExpense;
   bool get isTransfer => type == DbConstants.txTransfer;
+
+  /// The type the row is saved as: a refund is a (negative) expense.
+  String get recordedType => isRefund ? DbConstants.txExpense : type;
+
+  /// The amount the row is saved with: negative for a refund, so it takes the
+  /// purchase back out of its category's total and the account's spend.
+  int get signedAmount => isRefund ? -amount : amount;
+
+  /// A credit that landed on a credit card and is neither a refund nor
+  /// cashback: a payment of the card's bill. See [asCardPayment].
+  bool get couldBeCardPayment =>
+      type == DbConstants.txIncome && !isRefund && !isCashback;
+
+  /// This credit re-read as a bill payment *into* the card it names: a
+  /// transfer whose source (the bank account that paid) the message doesn't
+  /// say, so the review screen asks for it. Booked as income it would inflate
+  /// the month's income by the size of the card bill.
+  ParsedSms asCardPayment() => ParsedSms(
+        amount: amount,
+        currency: currency,
+        type: DbConstants.txTransfer,
+        description: 'Card payment',
+        last4: null,
+        toLast4: last4,
+        date: date,
+        sender: sender,
+        body: body,
+        sourceRef: sourceRef,
+        alsoCoversRefs: alsoCoversRefs,
+      );
 
   ParsedSms copyWith({
     String? type,
@@ -550,6 +711,7 @@ class ParsedSms {
   }) =>
       ParsedSms(
         amount: amount,
+        currency: currency,
         type: type ?? this.type,
         description: description ?? this.description,
         last4: last4,
@@ -559,6 +721,9 @@ class ParsedSms {
         body: body,
         sourceRef: sourceRef,
         alsoCoversRefs: alsoCoversRefs ?? this.alsoCoversRefs,
+        paymentMode: paymentMode,
+        isRefund: isRefund,
+        isCashback: isCashback,
       );
 
   /// The account whose [Account.last4] this message names, or null when the
@@ -579,23 +744,43 @@ class ParsedSms {
     return matches.length == 1 ? matches.first : null;
   }
 
+  /// How many accounts carry the last four digits this message names. More
+  /// than one is why no account was picked, and the review screen says so.
+  int accountsWithLast4(List<Account> accounts) =>
+      last4 == null ? 0 : accounts.where((a) => a.last4 == last4).length;
+
+  /// The payment mode to save: what the message said, else what the account
+  /// implies (a charge on a credit-card account is a card payment), else
+  /// "Other". Income carries none, as it always has.
+  String paymentModeFor(Account? account) {
+    if (!isExpense && !isRefund) return '';
+    return paymentMode ??
+        (account?.type == 'credit_card' ? 'Credit Card' : 'Other');
+  }
+
   /// The draft as a transaction ready to insert. [description] overrides the
-  /// parsed merchant/sender when the user edited it on the review screen.
+  /// parsed merchant/sender when the user edited it on the review screen, and
+  /// [amount] the parsed figure when a foreign charge had to be re-entered in
+  /// the account's currency. [paymentMode] defaults to the message's own.
   Expense toExpense({
     required int? accountId,
     required String category,
     int? toAccountId,
     String? description,
-  }) =>
-      Expense(
-        description: description ?? this.description,
-        amount: amount,
-        date: date,
-        category: category,
-        paymentMode: isExpense ? 'Other' : '',
-        type: type,
-        accountId: accountId,
-        toAccountId: isTransfer ? toAccountId : null,
-        sourceRef: sourceRef,
-      );
+    int? amount,
+    String? paymentMode,
+  }) {
+    final positive = amount ?? this.amount;
+    return Expense(
+      description: description ?? this.description,
+      amount: isRefund ? -positive : positive,
+      date: date,
+      category: category,
+      paymentMode: paymentMode ?? paymentModeFor(null),
+      type: recordedType,
+      accountId: accountId,
+      toAccountId: isTransfer ? toAccountId : null,
+      sourceRef: sourceRef,
+    );
+  }
 }

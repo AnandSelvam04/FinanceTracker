@@ -94,7 +94,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final copy = widget.duplicateOf;
     if (copy != null) {
       _txType = copy.isIncome ? DbConstants.txIncome : DbConstants.txExpense;
-      _amountController.text = minorToEditString(copy.amount);
+      // A refund is stored negative; its copy starts as a spend of that size.
+      _amountController.text = minorToEditString(copy.amount.abs());
       _descriptionController.text = copy.description;
       _categoryController.text = copy.category;
       // Only keep an account that still exists: a dropdown whose value

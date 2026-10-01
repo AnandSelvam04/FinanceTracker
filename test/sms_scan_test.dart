@@ -7,6 +7,7 @@ import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/services/sms_import.dart';
 import 'package:finance_tracker/services/sms_service.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// Covers the part of [SmsService] that is not the plugin: the window cutoff
@@ -119,7 +120,9 @@ void main() {
 
     final amazon = drafts.firstWhere((d) => d.parsed.description == 'AMAZON');
     expect(amazon.accountId, 2);
-    expect(amazon.category, 'Other');
+    // Never filed before, so the category is guessed from the name.
+    expect(amazon.category, 'Shopping');
+    expect(amazon.guessedCategory, 'Shopping');
     expect(amazon.selected, isTrue);
 
     // XX9999 belongs to no account, so it is left for the user to pick.
@@ -742,5 +745,106 @@ void main() {
     test('the default window is two days', () {
       expect(SmsService.defaultWindow, const Duration(days: 2));
     });
+  });
+
+  group('ignoring a merchant', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('hides its messages from later scans until undone', () async {
+      SmsService.inboxOverride = () async => [
+            sms('Rs.500 debited from A/c XX4821 to PAYTM WALLET'),
+            sms('Rs.499 debited from A/c XX4821 to SWIGGY'),
+            sms('Rs.200 debited from A/c XX4821 to PAYTM WALLET 7731',
+                daysAgo: 0),
+          ];
+
+      final key = await SmsService.ignoreMerchant('PAYTM WALLET');
+      expect(key, 'PAYTM WALLET');
+      final found = await SmsService.scan(now: now);
+      expect(found.map((f) => f.description), ['SWIGGY']);
+
+      // "Show dismissed" brings them back so a mistake can be undone.
+      expect(
+          (await SmsService.scan(now: now, includeDismissed: true)).length, 3);
+
+      await SmsService.unignoreMerchant(key!);
+      expect((await SmsService.scan(now: now)).length, 3);
+    });
+
+    test('never hides a transfer', () async {
+      final transfer = SmsImport.parse(
+        sender: 'VM-HDFCBK',
+        body: 'Rs.5,000 transferred from A/c XX4821 to A/c XX9012',
+        receivedAt: now,
+      )!;
+      expect(transfer.isTransfer, isTrue);
+      expect(SmsService.isIgnored(transfer, {'TRANSFER'}), isFalse);
+    });
+  });
+
+  group('the review mark', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('starts unset and never moves backwards', () async {
+      expect(await SmsService.reviewedThrough(), isNull);
+      final later = DateTime(2025, 8, 10);
+      await SmsService.markReviewedThrough(later);
+      await SmsService.markReviewedThrough(DateTime(2025, 8, 1));
+      expect(await SmsService.reviewedThrough(), later);
+    });
+
+    test('the pending count covers everything since it', () async {
+      SmsService.inboxOverride = () async => [
+            sms('Rs.100 debited from A/c XX4821 to ONE', daysAgo: 1),
+            sms('Rs.200 debited from A/c XX4821 to TWO', daysAgo: 6),
+            sms('Rs.300 debited from A/c XX4821 to THREE', daysAgo: 20),
+          ];
+
+      // No review yet: just the default two days.
+      expect(await SmsService.pendingCount(now: now), 1);
+
+      // Reviewed a week ago: everything from a day before that.
+      await SmsService.markReviewedThrough(
+          now.subtract(const Duration(days: 7)));
+      expect(await SmsService.pendingCount(now: now), 2);
+    });
+
+    test('the pending count is zero with import switched off', () async {
+      SmsService.inboxOverride = () async =>
+          [sms('Rs.100 debited from A/c XX4821 to ONE', daysAgo: 1)];
+      SmsService.enabled = false;
+      expect(await SmsService.pendingCount(now: now), 0);
+    });
+  });
+
+  test('an imported refund lowers the category and returns to the account',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final cardId = await DBService().insertAccount(
+        Account(name: 'HDFC Card', type: 'credit_card', last4: '5678'));
+    final accounts = [
+      Account(id: cardId, name: 'HDFC Card', type: 'credit_card', last4: '5678')
+    ];
+    SmsService.inboxOverride = () async => [
+          // Same day as the refund: [now] is the 1st, so a day earlier would
+          // fall in the previous month.
+          sms('Rs.2,000 spent on Credit Card XX5678 at AMAZON', daysAgo: 0),
+          sms('Refund of Rs.500 credited to your Card XX5678 from AMAZON',
+              daysAgo: 0),
+        ];
+
+    final drafts = [
+      for (final p in await SmsService.scan(now: now))
+        SmsDraft.from(p, accounts)
+    ];
+    expect(drafts.length, 2);
+    await DBService().insertExpenses([for (final d in drafts) d.toExpense()]);
+
+    final provider = ExpenseProvider();
+    await provider.ensureYearLoaded(now.year);
+    expect(provider.spentForCategoryInMonth(now.year, now.month, 'Shopping'),
+        150000);
+    final flows = await DBService().getAccountFlows();
+    expect(flows[cardId], -150000);
   });
 }

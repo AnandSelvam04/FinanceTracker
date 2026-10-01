@@ -37,8 +37,9 @@ class SmsReviewScreen extends StatefulWidget {
   State<SmsReviewScreen> createState() => _SmsReviewScreenState();
 }
 
-/// The preset spans offered before falling back to a custom date range.
-enum _ScanSpan { twoDays, week, month, custom }
+/// The spans a scan can cover: everything since the queue was last cleared
+/// (the default), the presets, or a custom date range.
+enum _ScanSpan { sinceReview, twoDays, week, month, custom }
 
 class _SmsReviewScreenState extends State<SmsReviewScreen> {
   static const _expenseCategories = [
@@ -65,8 +66,18 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
 
   /// Which span the next scan covers. [_customRange] carries the dates when
   /// this is [_ScanSpan.custom].
-  _ScanSpan _span = _ScanSpan.twoDays;
+  _ScanSpan _span = _ScanSpan.sinceReview;
   DateTimeRange? _customRange;
+
+  /// Where a [_ScanSpan.sinceReview] scan starts, worked out from the stored
+  /// review mark when the scan runs.
+  DateTime? _sinceReviewFrom;
+
+  /// When the last scan ran, and whether it reached back at least to the
+  /// review mark (so emptying its queue means everything up to then has been
+  /// dealt with and the mark may move forward to it).
+  DateTime? _scannedAt;
+  bool _scanCoversBacklog = false;
 
   /// Whether the scan also surfaces messages the user dismissed before, so a
   /// wrongly dismissed one can be pulled back in and imported.
@@ -76,6 +87,22 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _scan());
+  }
+
+  @override
+  void dispose() {
+    // Leaving with the queue empty means every message the scan found was
+    // imported or dismissed, so the next default scan can start from here.
+    // Done on the way out rather than per action, so an Undo that puts a
+    // message back before leaving keeps it inside the next scan.
+    final scannedAt = _scannedAt;
+    if (scannedAt != null &&
+        _scanCoversBacklog &&
+        !_loading &&
+        _drafts.isEmpty) {
+      SmsService.markReviewedThrough(scannedAt);
+    }
+    super.dispose();
   }
 
   /// Built-in investment types plus any the user already uses, "Other" last —
@@ -93,26 +120,36 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
   /// upper bound is null for the presets (they run up to now).
   ({DateTime? from, DateTime? to, Duration window, String label}) get _range {
     switch (_span) {
+      case _ScanSpan.sinceReview:
+        final from = _sinceReviewFrom;
+        return (
+          from: from,
+          to: null,
+          window: SmsService.defaultWindow,
+          label: from == null
+              ? 'in the last 2 days'
+              : 'since ${formatShortDate(from)}'
+        );
       case _ScanSpan.twoDays:
         return (
           from: null,
           to: null,
           window: const Duration(days: 2),
-          label: 'the last 2 days'
+          label: 'in the last 2 days'
         );
       case _ScanSpan.week:
         return (
           from: null,
           to: null,
           window: const Duration(days: 7),
-          label: 'the last 7 days'
+          label: 'in the last 7 days'
         );
       case _ScanSpan.month:
         return (
           from: null,
           to: null,
           window: const Duration(days: 30),
-          label: 'the last 30 days'
+          label: 'in the last 30 days'
         );
       case _ScanSpan.custom:
         final r = _customRange!;
@@ -122,7 +159,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
           from: DateTime(r.start.year, r.start.month, r.start.day),
           to: to,
           window: SmsService.defaultWindow,
-          label: '${formatShortDate(r.start)} – ${formatShortDate(r.end)}'
+          label: 'in ${formatShortDate(r.start)} – ${formatShortDate(r.end)}'
         );
     }
   }
@@ -145,8 +182,13 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
       return;
     }
 
+    final now = DateTime.now();
+    final reviewedThrough = await SmsService.reviewedThrough();
+    final backlogStart = SmsService.scanStartSince(reviewedThrough, now);
+    _sinceReviewFrom = backlogStart;
     final range = _range;
     final found = await SmsService.scan(
+      now: now,
       window: range.window,
       from: range.from,
       to: range.to,
@@ -156,7 +198,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     // can be flagged rather than silently recorded twice. Bounded to the
     // window the candidates can fall in (plus the duplicate tolerance either
     // side) rather than reading a ledger that grows without limit.
-    final now = DateTime.now();
     final lower = range.from ?? now.subtract(range.window);
     final upper = range.to ?? now;
     final existing = await DBService().getExpensesByDateRange(
@@ -174,13 +215,19 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
       now.add(const Duration(days: 1)),
     );
     if (!mounted) return;
+    // Shared across the drafts so one hand-entered row is flagged as the
+    // duplicate of at most one message.
+    final claimed = <Object>{};
     setState(() {
       _permissionDenied = false;
+      _scannedAt = now;
+      _scanCoversBacklog = range.to == null && !lower.isAfter(backlogStart);
       _drafts = [
         for (final p in found)
           SmsDraft.from(p, accountProvider.accounts,
               existing: existing,
               memory: memory,
+              claimed: claimed,
               recurringSuggested: p.isExpense &&
                   RecurringDetector.looksMonthly(
                       p.description, p.amount, history,
@@ -234,9 +281,35 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
       ));
       return;
     }
+    // …and one with no source would credit the destination out of nothing:
+    // a card bill payment names only the card, not the bank that paid it.
+    final noSource = chosen.where((d) => d.needsSource).length;
+    if (noSource > 0) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('$noSource transfer'
+            '${noSource == 1 ? ' needs the account' : 's need the accounts'} '
+            'it was paid from.'),
+      ));
+      return;
+    }
 
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
+    // A foreign charge ("USD 12.99") saved as it stands would be filed as
+    // 12.99 in the account's own currency.
+    final noAmount = chosen
+        .where((d) =>
+            !d.isTransfer &&
+            d.needsAmountFor(accountProvider.accountById(d.accountId)))
+        .length;
+    if (noAmount > 0) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Enter the amount in your account\'s currency for '
+            '$noAmount foreign charge${noAmount == 1 ? '' : 's'}.'),
+      ));
+      return;
+    }
+
     final investmentProvider = context.read<InvestmentProvider>();
     final recurringProvider = context.read<RecurringProvider>();
 
@@ -271,7 +344,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
       for (final d in recurringDrafts) {
         await recurringProvider.addRule(RecurringRule(
           description: d.description,
-          amount: d.parsed.amount,
+          amount: d.amount,
           category: d.category,
           type: DbConstants.txExpense,
           accountId: d.accountId,
@@ -370,6 +443,102 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     ));
   }
 
+  /// Stops offering messages from [draft]'s merchant, and drops every draft
+  /// from it now. Undo brings the merchant and its drafts back.
+  Future<void> _ignoreMerchant(SmsDraft draft) async {
+    final name = draft.parsed.description;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Always ignore $name?'),
+        content: const Text('Messages from this merchant won\'t be offered '
+            'again. Transactions already imported are kept. You can undo this '
+            'from Ignored merchants in the menu.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Ignore')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final key = await SmsService.ignoreMerchant(name);
+    if (key == null || !mounted) return;
+    final removed = [
+      for (var i = 0; i < _drafts.length; i++)
+        if (SmsService.isIgnored(_drafts[i].parsed, {key}))
+          (index: i, draft: _drafts[i]),
+    ];
+    setState(() =>
+        _drafts.removeWhere((d) => SmsService.isIgnored(d.parsed, {key})));
+    messenger.clearSnackBars();
+    messenger.showSnackBar(SnackBar(
+      content: Text('Ignoring $name.'),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          await SmsService.unignoreMerchant(key);
+          if (!mounted) return;
+          setState(() {
+            for (final r in removed) {
+              _drafts.insert(r.index.clamp(0, _drafts.length), r.draft);
+            }
+          });
+        },
+      ),
+    ));
+  }
+
+  /// Lists the ignored merchants, each with a button to offer it again.
+  Future<void> _manageIgnoredMerchants() async {
+    var keys = (await SmsService.ignoredMerchants()).toList()..sort();
+    if (!mounted) return;
+    var changed = false;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Ignored merchants'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: keys.isEmpty
+                ? const Text('None. Use "Always ignore" on a message to stop '
+                    'seeing a merchant.')
+                : ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final k in keys)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(k),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.undo),
+                            tooltip: 'Show again',
+                            onPressed: () async {
+                              await SmsService.unignoreMerchant(k);
+                              changed = true;
+                              setDialogState(() => keys = [...keys]..remove(k));
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close')),
+          ],
+        ),
+      ),
+    );
+    if (changed && mounted) await _scan();
+  }
+
   /// Selects or clears every draft at once.
   void _setAllSelected(bool selected) {
     setState(() {
@@ -436,6 +605,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
             enabled: !busy,
             onSelected: _selectSpan,
             itemBuilder: (context) => [
+              _spanItem(_ScanSpan.sinceReview, 'Since last review'),
               _spanItem(_ScanSpan.twoDays, 'Last 2 days'),
               _spanItem(_ScanSpan.week, 'Last 7 days'),
               _spanItem(_ScanSpan.month, 'Last 30 days'),
@@ -460,6 +630,15 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
             icon: const Icon(Icons.refresh),
             tooltip: 'Rescan inbox',
             onPressed: busy ? null : _scan,
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'More',
+            enabled: !busy,
+            onSelected: (_) => _manageIgnoredMerchants(),
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                  value: 'ignored', child: Text('Ignored merchants…')),
+            ],
           ),
         ],
       ),
@@ -495,12 +674,15 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
                           key: ValueKey(_drafts[i].parsed.sourceRef),
                           draft: _drafts[i],
                           accounts: context.watch<AccountProvider>().accounts,
-                          categories: _drafts[i].parsed.isExpense
+                          categories: _drafts[i].usesExpenseCategories
                               ? _expenseCategories
                               : _incomeCategories,
                           investmentTypes: _investmentTypes,
                           onChanged: () => setState(() {}),
                           onDismiss: () => _dismiss(_drafts[i]),
+                          onIgnoreMerchant: _drafts[i].isTransfer
+                              ? null
+                              : () => _ignoreMerchant(_drafts[i]),
                           onShowRaw: () => _showRawMessage(_drafts[i]),
                         ),
                       ),
@@ -566,7 +748,7 @@ class _EmptyState extends StatelessWidget {
           'bank transaction alerts. Nothing is sent anywhere — messages are '
           'read on this device only.';
     } else {
-      message = 'No new transactions found in $rangeLabel. Messages you '
+      message = 'No new transactions found $rangeLabel. Messages you '
           'already imported${includeDismissed ? '' : ' or dismissed'} are not '
           'shown again.'
           '${includeDismissed ? '' : ' Widen the range or show dismissed '
@@ -606,6 +788,9 @@ class _DraftCard extends StatefulWidget {
   final VoidCallback onDismiss;
   final VoidCallback onShowRaw;
 
+  /// Null hides "Always ignore" (a transfer names no merchant to ignore).
+  final VoidCallback? onIgnoreMerchant;
+
   const _DraftCard({
     super.key,
     required this.draft,
@@ -615,6 +800,7 @@ class _DraftCard extends StatefulWidget {
     required this.onChanged,
     required this.onDismiss,
     required this.onShowRaw,
+    this.onIgnoreMerchant,
   });
 
   @override
@@ -631,10 +817,18 @@ class _DraftCardState extends State<_DraftCard> {
   final _customCategory = TextEditingController();
   final _customInvestType = TextEditingController();
 
+  /// The amount in the account's currency, for a foreign charge.
+  final _convertedAmount = TextEditingController();
+
+  static const _paymentModes = [
+    'Cash', 'Credit Card', 'Debit Card', 'UPI', 'Other', //
+  ];
+
   @override
   void dispose() {
     _customCategory.dispose();
     _customInvestType.dispose();
+    _convertedAmount.dispose();
     // The description field's controller belongs to its Autocomplete, which
     // disposes it — nothing to dispose here.
     super.dispose();
@@ -713,6 +907,13 @@ class _DraftCardState extends State<_DraftCard> {
     );
   }
 
+  Account? _accountById(int? id) {
+    for (final a in widget.accounts) {
+      if (a.id == id) return a;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final draft = widget.draft;
@@ -728,6 +929,14 @@ class _DraftCardState extends State<_DraftCard> {
     // doesn't apply there.
     final unmatchedLast4 =
         parsed.last4 != null && draft.accountId == null && !draft.asInvestment;
+    final unmatchedText = draft.sameLast4Count > 1
+        ? '${draft.sameLast4Count} accounts end in ••${parsed.last4} — pick one'
+        : 'No account with ••${parsed.last4}';
+    final account = _accountById(draft.accountId);
+    // A charge quoted in another currency than the account's own needs the
+    // converted figure, which only the bank's statement will show.
+    final foreign = !parsed.isTransfer && draft.isForeignFor(account);
+    final accountSymbol = account?.symbol ?? CurrencyFormat.symbol;
 
     return Card(
       child: Padding(
@@ -802,7 +1011,7 @@ class _DraftCardState extends State<_DraftCard> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '$sign${formatMoney(parsed.amount)}',
+                  '$sign${parsed.currency == CurrencyFormat.symbol ? formatMoney(parsed.amount) : formatMoneyIn(parsed.currency, parsed.amount)}',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -817,12 +1026,34 @@ class _DraftCardState extends State<_DraftCard> {
                 text: 'Looks like "${draft.duplicateOf!.description}", which '
                     'you already entered. Left unchecked.',
               ),
-            if (parsed.isTransfer)
+            if (draft.isCardPayment)
+              _Notice(
+                icon: Icons.credit_score,
+                color: transferColor(context),
+                text: 'A payment into your credit card — recorded as a '
+                    'transfer so the bill isn\'t counted as income. Pick the '
+                    'account you paid from.',
+              )
+            else if (parsed.isTransfer)
               _Notice(
                 icon: Icons.swap_horiz,
                 color: transferColor(context),
                 text: 'Money moved between your accounts — recorded as a '
                     'transfer, so it is not counted as spending.',
+              ),
+            if (draft.isRefund)
+              _Notice(
+                icon: Icons.assignment_return,
+                color: incomeColor(context),
+                text: 'A refund — taken off ${draft.category}\'s spending '
+                    'rather than counted as income.',
+              ),
+            if (foreign)
+              _Notice(
+                icon: Icons.currency_exchange,
+                color: warningColor(context),
+                text: 'Charged in ${parsed.currency}. Enter what it cost in '
+                    '$accountSymbol — it\'s on your statement.',
               ),
             if (draft.asInvestment)
               _Notice(
@@ -836,6 +1067,14 @@ class _DraftCardState extends State<_DraftCard> {
                 icon: Icons.history,
                 color: mutedTextColor(context),
                 text: 'Filed as ${draft.recalledCategory} last time.',
+              )
+            else if (draft.guessedCategory != null &&
+                !draft.asInvestment &&
+                draft.category == draft.guessedCategory)
+              _Notice(
+                icon: Icons.lightbulb_outline,
+                color: mutedTextColor(context),
+                text: 'Category guessed from the merchant name.',
               ),
             // Only a plain debit can be reclassified as an investment.
             if (draft.canBeInvestment)
@@ -923,8 +1162,10 @@ class _DraftCardState extends State<_DraftCard> {
                             label: parsed.isTransfer ? 'From' : 'Account',
                             value: draft.accountId,
                             errorText: unmatchedLast4
-                                ? 'No account with ••${parsed.last4}'
-                                : null,
+                                ? unmatchedText
+                                : (draft.needsSource
+                                    ? 'Pick the account you paid from'
+                                    : null),
                             onChanged: (v) {
                               draft.accountId = v;
                               widget.onChanged();
@@ -966,14 +1207,81 @@ class _DraftCardState extends State<_DraftCard> {
                       ],
                     ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            if (foreign || (draft.usesExpenseCategories && !draft.asInvestment))
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (foreign)
+                      Expanded(
+                        child: TextField(
+                          controller: _convertedAmount,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          decoration: InputDecoration(
+                            labelText: 'Amount in $accountSymbol',
+                            isDense: true,
+                            errorText:
+                                draft.needsAmountFor(account) && draft.selected
+                                    ? 'Required'
+                                    : null,
+                          ),
+                          onChanged: (t) {
+                            final minor = parseMinor(t.trim());
+                            draft.amountOverride =
+                                minor != null && minor > 0 ? minor : null;
+                            // Entering the amount is what the unticked row
+                            // was waiting for.
+                            if (draft.amountOverride != null) {
+                              draft.selected = true;
+                            }
+                            widget.onChanged();
+                          },
+                        ),
+                      ),
+                    if (foreign &&
+                        draft.usesExpenseCategories &&
+                        !draft.asInvestment)
+                      const SizedBox(width: 12),
+                    if (draft.usesExpenseCategories && !draft.asInvestment)
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue:
+                              _paymentModes.contains(draft.paymentMode)
+                                  ? draft.paymentMode
+                                  : 'Other',
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                              labelText: 'Payment mode', isDense: true),
+                          items: [
+                            for (final m in _paymentModes)
+                              DropdownMenuItem(value: m, child: Text(m)),
+                          ],
+                          onChanged: (v) {
+                            if (v == null) return;
+                            draft.paymentMode = v;
+                            widget.onChanged();
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            Wrap(
+              alignment: WrapAlignment.end,
               children: [
                 TextButton.icon(
                   icon: const Icon(Icons.article_outlined, size: 16),
                   label: const Text('Message'),
                   onPressed: widget.onShowRaw,
                 ),
+                if (widget.onIgnoreMerchant != null)
+                  TextButton.icon(
+                    icon: const Icon(Icons.block, size: 16),
+                    label: const Text('Always ignore'),
+                    onPressed: widget.onIgnoreMerchant,
+                  ),
                 TextButton.icon(
                   icon: const Icon(Icons.close, size: 16),
                   label: const Text('Dismiss'),
