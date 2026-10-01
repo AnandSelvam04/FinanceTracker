@@ -316,8 +316,9 @@ class SmsDraft {
   /// one, no account was picked, and the card says why.
   final int sameLast4Count;
 
-  /// Set when a credit on a credit card was re-read as a payment of its bill
-  /// (see [ParsedSms.asCardPayment]).
+  /// Set when this message was re-read as a credit card bill payment: a
+  /// credit on the card (see [ParsedSms.asCardPayment]) or a bank debit
+  /// towards one (see [ParsedSms.asBillPaymentFromBank]).
   final bool isCardPayment;
 
   /// Set when this merchant+amount has recurred monthly in the history, so the
@@ -399,10 +400,16 @@ class SmsDraft {
     // Money arriving on a credit card that is neither a refund nor cashback
     // is the bill being paid. As income it would count the card bill as
     // earnings; as a transfer it clears what the card owes.
-    final landedOn = parsed.matchAccount(accounts);
-    final cardPayment =
-        parsed.couldBeCardPayment && landedOn?.type == 'credit_card';
-    if (cardPayment) parsed = parsed.asCardPayment();
+    final named = parsed.matchAccount(accounts);
+    final paidIntoCard =
+        parsed.couldBeCardPayment && named?.type == 'credit_card';
+    // The bank's side of the same payment, often texted without the card's
+    // number. A debit *on* a card is a purchase, whatever it says.
+    final paidFromBank =
+        parsed.isCardBillPayment && named?.type != 'credit_card';
+    if (paidIntoCard) parsed = parsed.asCardPayment();
+    if (paidFromBank) parsed = parsed.asBillPaymentFromBank();
+    final cardPayment = paidIntoCard || paidFromBank;
 
     final account = parsed.matchAccount(accounts);
     final accountId = account?.id;
@@ -417,7 +424,8 @@ class SmsDraft {
     final draft = SmsDraft(
       parsed: parsed,
       accountId: accountId,
-      toAccountId: parsed.matchToAccount(accounts)?.id,
+      toAccountId: parsed.matchToAccount(accounts)?.id ??
+          (paidFromBank ? _onlyCreditCard(accounts)?.id : null),
       category: parsed.isTransfer
           ? 'Transfer'
           : (remembered ?? guessed ?? (spending ? 'Other' : 'Income')),
@@ -434,6 +442,13 @@ class SmsDraft {
     // account's currency, so it starts unticked rather than blocking Import.
     if (draft.needsAmountFor(account)) draft.selected = false;
     return draft;
+  }
+
+  /// The user's one credit card, when they have exactly one — the card a
+  /// bill payment that names none must have paid. Null with none or several.
+  static Account? _onlyCreditCard(List<Account> accounts) {
+    final cards = accounts.where((a) => a.type == 'credit_card').toList();
+    return cards.length == 1 ? cards.single : null;
   }
 
   Expense toExpense() => parsed.toExpense(

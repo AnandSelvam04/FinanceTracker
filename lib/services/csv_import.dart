@@ -48,6 +48,16 @@ class CsvImportResult {
   }
 }
 
+/// A credit that is money back from a merchant rather than income: a refund,
+/// a reversed charge, a chargeback. Matched on the row's description.
+final _refundWords = RegExp(r'\b(refund(?:ed)?|reversal|reversed|chargeback)\b',
+    caseSensitive: false);
+
+/// Whether a credit described as [description] is a refund. Like the SMS
+/// importer, such a credit is saved as a negative expense, so it comes off
+/// its category's spending (and budget) instead of counting as income.
+bool isCsvRefund(String description) => _refundWords.hasMatch(description);
+
 /// Prefix of the [Expense.sourceRef] given to CSV-imported rows.
 const csvSourceRefPrefix = 'csv:';
 
@@ -107,13 +117,20 @@ CsvImportResult parseCsvExpenses(
       continue;
     }
     final category = cell(row, mapping.categoryCol);
-    final type = signIndicatesType
+    final description = cell(row, mapping.descriptionCol);
+    var type = signIndicatesType
         ? (amount < 0 ? DbConstants.txExpense : DbConstants.txIncome)
         : _normalizeType(cell(row, mapping.typeCol), mapping.defaultType);
+    // A refund arrives as a credit; filed as income it would inflate the
+    // month's earnings while the purchase still counted in full.
+    final refund = type == DbConstants.txIncome && isCsvRefund(description);
+    if (refund) type = DbConstants.txExpense;
     final expense = Expense(
-      description: cell(row, mapping.descriptionCol),
-      // Direction lives in `type`; the stored amount is always positive.
-      amount: rupeesToMinor(amount.abs()),
+      description: description,
+      // Direction lives in `type`, so the stored amount is positive — except
+      // for a refund, which is a negative expense (see [Expense.isRefund]).
+      amount:
+          refund ? -rupeesToMinor(amount.abs()) : rupeesToMinor(amount.abs()),
       date: date,
       category: category.isEmpty ? mapping.defaultCategory : category,
       paymentMode: 'Other',
