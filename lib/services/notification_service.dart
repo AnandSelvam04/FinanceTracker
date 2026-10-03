@@ -33,6 +33,7 @@ class NotificationService {
   static const _budgetIdBase = 50000;
   static const _billIdBase = 100000;
   static const _creditIdBase = 200000;
+  static const _dailyReminderId = 300000;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -177,6 +178,49 @@ class NotificationService {
     } catch (e, st) {
       AppLogger.error('Scheduling credit card reminders failed', e, st);
     }
+  }
+
+  /// (Re)schedules the daily "log today's spending" reminder at [minutes]
+  /// after midnight, or cancels it when [minutes] is null. Repeats every day;
+  /// when [loggedToday], the first one is tomorrow's, so a day that already
+  /// has an entry isn't nagged. Re-armed whenever the data changes, so adding
+  /// a transaction later in the day moves it past today too.
+  Future<void> scheduleDailyReminder(int? minutes,
+      {required bool loggedToday}) async {
+    if (!_initialized || !_tzReady) return;
+    try {
+      await _plugin.cancel(_dailyReminderId);
+      if (minutes == null) return;
+      final now = tz.TZDateTime.now(tz.local);
+      final when = nextDailyReminder(now, minutes, loggedToday: loggedToday);
+      await _plugin.zonedSchedule(
+        _dailyReminderId,
+        'Anything to log today?',
+        'Take a few seconds to add today\'s spending.',
+        tz.TZDateTime(
+            tz.local, when.year, when.month, when.day, when.hour, when.minute),
+        _details(),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        // Repeat at this time every day.
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    } catch (e, st) {
+      AppLogger.error('Scheduling the daily reminder failed', e, st);
+    }
+  }
+
+  /// When the next daily reminder at [minutes] after midnight should fire,
+  /// given [now]: today if that time is still ahead and nothing was logged
+  /// today, otherwise tomorrow.
+  static DateTime nextDailyReminder(DateTime now, int minutes,
+      {required bool loggedToday}) {
+    final today =
+        DateTime(now.year, now.month, now.day, minutes ~/ 60, minutes % 60);
+    if (!loggedToday && today.isAfter(now)) return today;
+    return DateTime(
+        now.year, now.month, now.day + 1, minutes ~/ 60, minutes % 60);
   }
 
   String _dueLabel(int daysBefore) => daysBefore <= 0

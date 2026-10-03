@@ -90,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _settings = context.read<SettingsProvider>()
         ..addListener(_onSettingsChanged);
       _notificationsWereOn = _settings!.notificationsEnabled;
+      _reminderWas = _settings!.dailyReminderMinutes;
       // Paying a card bill, adding a spend or a SIP contribution changes
       // what the card and budget reminders should say. They used to be
       // worked out only at launch, so a paid card still got its "payment
@@ -109,6 +110,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   RecurringProvider? _recurring;
   SettingsProvider? _settings;
   bool _notificationsWereOn = false;
+  int? _reminderWas;
   List<ChangeNotifier> _dataSources = const [];
   Timer? _resync;
 
@@ -136,11 +138,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _onSettingsChanged() {
     final on = _settings?.notificationsEnabled ?? false;
+    final reminder = _settings?.dailyReminderMinutes;
     // Turning them off already cancels everything (Settings does that).
     if (on && !_notificationsWereOn && mounted) {
       _syncNotifications(requestPermission: false);
+    } else if (on && reminder != _reminderWas && mounted) {
+      // The daily reminder was switched on/off or moved to another time.
+      _syncNotifications(requestPermission: false);
     }
     _notificationsWereOn = on;
+    _reminderWas = reminder;
   }
 
   @override
@@ -250,6 +257,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       totalSpent: () => expenses.totalForMonth(now.year, now.month),
     );
     await service.notifyBudgetAlerts(alerts, year: now.year, month: now.month);
+    await service.scheduleDailyReminder(
+      settings.dailyReminderMinutes,
+      loggedToday:
+          expenses.expenses.any((e) => DateUtils.isSameDay(e.date, now)),
+    );
   }
 
   Future<void> _quickAddTemplate(TxTemplate template) async {

@@ -8,6 +8,7 @@ import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/hero_total_card.dart';
+import 'account_detail_screen.dart';
 import 'add_transfer_screen.dart';
 import '../widgets/dispose_with_route.dart';
 
@@ -270,6 +271,23 @@ class _AccountsScreenState extends State<AccountsScreen> {
     );
   }
 
+  Future<void> _openStatement(Account account) async {
+    final action = await Navigator.push<AccountDetailAction>(
+      context,
+      MaterialPageRoute(builder: (_) => AccountDetailScreen(account: account)),
+    );
+    if (!mounted || action == null) return;
+    // Act on the current copy: it may have been edited since.
+    final current =
+        context.read<AccountProvider>().accountById(account.id) ?? account;
+    switch (action) {
+      case AccountDetailAction.edit:
+        await _showAccountDialog(account: current);
+      case AccountDetailAction.delete:
+        await _confirmDelete(current);
+    }
+  }
+
   Future<void> _confirmDelete(Account account) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -400,14 +418,15 @@ class _AccountsScreenState extends State<AccountsScreen> {
                                       ? expenseColor(context)
                                       : null),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              tooltip: 'Delete account',
-                              onPressed: () => _confirmDelete(account),
-                            ),
+                            const SizedBox(width: 4),
+                            Icon(Icons.chevron_right,
+                                color: mutedTextColor(context)),
                           ],
                         ),
-                        onTap: () => _showAccountDialog(account: account),
+                        // Opens the account's statement; edit and delete
+                        // live in its app bar (a bin on every row was one
+                        // stray tap from deleting an account).
+                        onTap: () => _openStatement(account),
                       ),
                     );
                   },

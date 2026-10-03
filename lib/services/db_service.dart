@@ -754,6 +754,22 @@ class DBService {
     }
   }
 
+  /// Every transaction that moves [accountId]'s balance — paid from it, paid
+  /// into it, or a transfer out of or into it — newest first, across all
+  /// years. Powers the account statement, which needs the full history for
+  /// its running balance to start from the opening balance.
+  Future<List<Expense>> getExpensesForAccount(int accountId) async {
+    final db = await database;
+    final maps = await db.query(
+      DbConstants.tableExpenses,
+      where: '${DbConstants.colAccountId} = ? OR '
+          '(${DbConstants.colType} = ? AND ${DbConstants.colToAccountId} = ?)',
+      whereArgs: [accountId, DbConstants.txTransfer, accountId],
+      orderBy: '${DbConstants.colDate} DESC',
+    );
+    return [for (final m in maps) Expense.fromMap(m)];
+  }
+
   Future<int> updateExpense(Expense expense) async {
     final db = await database;
     try {

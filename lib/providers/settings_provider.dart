@@ -16,6 +16,7 @@ class SettingsProvider extends ChangeNotifier {
   static const _kNotificationsEnabled = 'notificationsEnabled';
   static const _kSmsImportEnabled = 'smsImportEnabled';
   static const _kSeedColor = 'seedColorValue';
+  static const _kDailyReminder = 'dailyReminderMinutes';
 
   /// Accent colours the user can choose from; the first is the app default.
   static const List<Color> seedOptions = [
@@ -36,6 +37,7 @@ class SettingsProvider extends ChangeNotifier {
   int? _defaultAccountId;
   bool _alertsEnabled = true;
   bool _notificationsEnabled = true;
+  int? _dailyReminderMinutes;
 
   /// Off by default: reading the SMS inbox is the app's most intrusive
   /// permission, so it stays inert until the user turns it on.
@@ -61,6 +63,10 @@ class SettingsProvider extends ChangeNotifier {
 
   bool get smsImportEnabled => _smsImportEnabled;
 
+  /// Time of the daily "log today's spending" reminder, as minutes after
+  /// midnight; null when it is off (the default).
+  int? get dailyReminderMinutes => _dailyReminderMinutes;
+
   static const currencyOptions = ['₹', '\$', '€', '£', '¥', '₨', 'A\$', 'C\$'];
 
   Future<void> load() async {
@@ -73,6 +79,7 @@ class SettingsProvider extends ChangeNotifier {
     _alertsEnabled = prefs.getBool(_kAlertsEnabled) ?? true;
     _notificationsEnabled = prefs.getBool(_kNotificationsEnabled) ?? true;
     _smsImportEnabled = prefs.getBool(_kSmsImportEnabled) ?? false;
+    _dailyReminderMinutes = prefs.getInt(_kDailyReminder);
     final storedSeed = prefs.getInt(_kSeedColor);
     _seedColor = storedSeed != null ? Color(storedSeed) : AppTheme.seed;
     SmsService.enabled = _smsImportEnabled;
@@ -91,6 +98,18 @@ class SettingsProvider extends ChangeNotifier {
     _notificationsEnabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kNotificationsEnabled, value);
+    notifyListeners();
+  }
+
+  /// Turns the daily reminder on at [minutes] after midnight, or off (null).
+  Future<void> setDailyReminderMinutes(int? minutes) async {
+    _dailyReminderMinutes = minutes;
+    final prefs = await SharedPreferences.getInstance();
+    if (minutes == null) {
+      await prefs.remove(_kDailyReminder);
+    } else {
+      await prefs.setInt(_kDailyReminder, minutes);
+    }
     notifyListeners();
   }
 
@@ -162,6 +181,7 @@ class SettingsProvider extends ChangeNotifier {
     _kDefaultAccount: int,
     _kAlertsEnabled: bool,
     _kNotificationsEnabled: bool,
+    _kDailyReminder: int,
   };
 
   /// The backed-up preferences currently set.
