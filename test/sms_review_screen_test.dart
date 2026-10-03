@@ -88,16 +88,68 @@ void main() {
     expect(find.textContaining(r'Charged in $'), findsOneWidget);
     expect(find.text('Amount in ₹'), findsOneWidget);
     expect(find.text('2 accounts end in ••1111 — pick one'), findsOneWidget);
-    expect(find.text('Category guessed from the merchant name.'),
-        findsWidgets);
+    expect(find.text('Category guessed from the merchant name.'), findsWidgets);
     expect(find.text('Payment mode'), findsWidgets);
     expect(find.text('Always ignore'), findsNWidgets(3));
     // The foreign charge starts unticked; the rest are ready to import.
     expect(find.text('Import 3 selected'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
-    await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester
+        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pump();
+    await tester.binding.setSurfaceSize(null);
+  }, timeout: const Timeout(Duration(seconds: 45)));
+
+  testWidgets(
+      'an investment debit arrives set to Investment, paid from its '
+      'account', (tester) async {
+    final now = DateTime.now();
+    SmsService.inboxOverride = () async => [
+          RawSms(
+              sender: 'VM-HDFCBK',
+              body: 'Rs.5,000 debited from A/c XX4821 to ZERODHA',
+              receivedAt: now.subtract(const Duration(minutes: 1))),
+        ];
+    final accounts = (await tester.runAsync(() async {
+      await DBService().insertAccount(
+          Account(name: 'HDFC Savings', type: 'bank', last4: '4821'));
+      final a = AccountProvider();
+      await a.fetchAccounts();
+      return a;
+    }))!;
+
+    await tester.binding.setSurfaceSize(const Size(360, 1600));
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+        ChangeNotifierProvider(create: (_) => ExpenseProvider()),
+        ChangeNotifierProvider(create: (_) => InvestmentProvider()),
+        ChangeNotifierProvider(create: (_) => RecurringProvider()),
+      ],
+      child: const MaterialApp(home: SmsReviewScreen()),
+    ));
+    for (var i = 0; i < 20 && find.byType(Card).evaluate().isEmpty; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
+
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('Looks like an investment (Stocks)'),
+        findsOneWidget);
+    expect(find.text('Paid from'), findsOneWidget);
+    expect(find.text('HDFC Savings'), findsOneWidget);
+    expect(find.text('Investment type'), findsOneWidget);
+    // Switching back to Expense brings the category and payment mode back.
+    await tester.tap(find.text('Expense'));
+    await tester.pump();
+    expect(find.text('Category'), findsOneWidget);
+    expect(find.text('Paid from'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester
+        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
     await tester.pump();
     await tester.binding.setSurfaceSize(null);
   }, timeout: const Timeout(Duration(seconds: 45)));
