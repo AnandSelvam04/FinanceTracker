@@ -797,6 +797,35 @@ class DBService {
     }
   }
 
+  /// Deletes every row in [ids] in one transaction (the Transactions tab's
+  /// bulk delete). Returns how many were removed.
+  Future<int> deleteExpenses(Iterable<int> ids) async {
+    final list = ids.toList();
+    if (list.isEmpty) return 0;
+    final db = await database;
+    return db.delete(DbConstants.tableExpenses,
+        where:
+            '${DbConstants.colId} IN (${List.filled(list.length, '?').join(',')})',
+        whereArgs: list);
+  }
+
+  /// Files every row in [ids] under [category] in one statement (bulk
+  /// recategorise). Transfers are skipped: their category is fixed. Returns
+  /// how many rows changed.
+  Future<int> setCategory(Iterable<int> ids, String category) async {
+    final list = ids.toList();
+    if (list.isEmpty || category.trim().isEmpty) return 0;
+    final db = await database;
+    return db.update(
+      DbConstants.tableExpenses,
+      {DbConstants.colCategory: category.trim()},
+      where:
+          '${DbConstants.colId} IN (${List.filled(list.length, '?').join(',')}) '
+          'AND ${DbConstants.colType} != ?',
+      whereArgs: [...list, DbConstants.txTransfer],
+    );
+  }
+
   Future<void> clearExpenses() async {
     final db = await database;
     await db.delete(DbConstants.tableExpenses);
