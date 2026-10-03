@@ -17,6 +17,14 @@ void main() {
     expect(parseMinor('abc'), isNull);
   });
 
+  test('amount inputs accept the digit grouping amounts are shown with', () {
+    expect(parseMinor('1,250.50'), 125050);
+    expect(parseMinor('12,34,567'), 123456700);
+    expect(parseMinor('1 250'), 125000);
+    expect(validateAmountField('1,250'), isNull);
+    expect(validateAmountField('1,2a'), 'Enter a valid amount');
+  });
+
   test('minorToEditString and formatMoney round-trip', () {
     expect(minorToEditString(12050), '120.50');
     expect(formatMoney(12050), '₹120.50');
@@ -89,8 +97,8 @@ void main() {
     });
 
     test('agrees with formatMoneyIn when positive', () {
-      expect(formatMoneySignedIn('\u20b9', 1234),
-          formatMoneyIn('\u20b9', 1234));
+      expect(
+          formatMoneySignedIn('\u20b9', 1234), formatMoneyIn('\u20b9', 1234));
     });
   });
 }

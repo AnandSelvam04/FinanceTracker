@@ -10,6 +10,7 @@ import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../services/category_memory.dart';
 import '../services/db_service.dart';
+import '../services/investment_merchants.dart';
 import '../services/recurring_detector.dart';
 import '../services/recurring_service.dart';
 import '../services/sms_service.dart';
@@ -208,6 +209,9 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     // with its category already set.
     final memory =
         CategoryMemory.fromRows(await DBService().merchantCategoryCounts());
+    // Merchants imported as investments before (a SIP, a broker), so their
+    // alerts arrive already set to Investment with the same type and name.
+    final investmentMemory = await SmsService.investmentMerchants();
     // Just over a year of history, so a monthly charge can be recognised across
     // enough prior months to suggest turning it into a recurring rule.
     final history = await DBService().getExpensesByDateRange(
@@ -228,6 +232,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
               existing: existing,
               memory: memory,
               claimed: claimed,
+              investmentMemory: investmentMemory,
               recurringSuggested: p.isExpense &&
                   RecurringDetector.looksMonthly(
                       p.description, p.amount, history,
@@ -367,6 +372,12 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
       // rescan from re-offering them.
       await DBService()
           .unignoreSourceRefs([for (final d in txDrafts) d.parsed.sourceRef]);
+      // Learn from the choice: a merchant imported as an investment arrives
+      // pre-set next time; one switched back to Expense stops doing so.
+      await SmsService.rememberInvestmentChoices(
+        investments: investmentDrafts,
+        expenses: txDrafts.where((d) => d.canBeInvestment),
+      );
       await expenseProvider.reloadLoadedYears();
       await accountProvider.refreshBalances();
       if (!mounted) return;
@@ -550,7 +561,8 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
 
   /// Applies one account to every draft that has an account field (its source
   /// account), so a queue of alerts from the same card doesn't need the
-  /// account picked row by row. Investments carry no account and are skipped.
+  /// account picked row by row. An investment's account is the one it was paid
+  /// from, so it is set too.
   Future<void> _applyAccountToAll() async {
     final accounts = context.read<AccountProvider>().accounts;
     if (accounts.isEmpty) return;
@@ -570,7 +582,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     if (chosen == null || !mounted) return;
     setState(() {
       for (final d in _drafts) {
-        if (!d.asInvestment) d.accountId = chosen;
+        d.accountId = chosen;
       }
     });
   }
@@ -918,17 +930,18 @@ class _DraftCardState extends State<_DraftCard> {
   Widget build(BuildContext context) {
     final draft = widget.draft;
     final parsed = draft.parsed;
-    // A transfer is neither a gain nor a loss, so it gets neither colour.
-    final amountColor = parsed.isTransfer
+    // A transfer is neither a gain nor a loss, so it gets neither colour; nor
+    // does money being invested, which is still yours.
+    final amountColor = parsed.isTransfer || draft.asInvestment
         ? null
         : (parsed.isExpense ? expenseColor(context) : incomeColor(context));
-    final sign = parsed.isTransfer ? '' : (parsed.isExpense ? '−' : '+');
+    final sign = draft.asInvestment
+        ? '−'
+        : (parsed.isTransfer ? '' : (parsed.isExpense ? '−' : '+'));
     // A message that named an account we could not resolve is the case most
     // likely to be filed wrongly, so it is called out rather than left to be
-    // noticed in the dropdown. An investment carries no account, so the flag
-    // doesn't apply there.
-    final unmatchedLast4 =
-        parsed.last4 != null && draft.accountId == null && !draft.asInvestment;
+    // noticed in the dropdown. An investment is paid from an account too.
+    final unmatchedLast4 = parsed.last4 != null && draft.accountId == null;
     final unmatchedText = draft.sameLast4Count > 1
         ? '${draft.sameLast4Count} accounts end in ••${parsed.last4} — pick one'
         : 'No account with ••${parsed.last4}';
@@ -1019,6 +1032,53 @@ class _DraftCardState extends State<_DraftCard> {
                 ),
               ],
             ),
+            // The first decision on a debit, so it leads the card: what this
+            // money was. Investment keeps it out of spending and budgets and
+            // files it in the investments ledger instead.
+            if (draft.canBeInvestment)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 0, 4),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<bool>(
+                    showSelectedIcon: false,
+                    style: const ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                    segments: [
+                      ButtonSegment(
+                          value: false,
+                          label:
+                              Text(parsed.isTransfer ? 'Transfer' : 'Expense'),
+                          icon: Icon(
+                              parsed.isTransfer
+                                  ? Icons.swap_horiz
+                                  : Icons.remove_circle_outline,
+                              size: 16)),
+                      const ButtonSegment(
+                          value: true,
+                          label: Text('Investment'),
+                          icon: Icon(Icons.trending_up, size: 16)),
+                    ],
+                    selected: {draft.asInvestment},
+                    onSelectionChanged: (s) {
+                      setState(() {
+                        draft.asInvestment = s.first;
+                        // Switching by hand: start from the type the name
+                        // suggests rather than always "Stocks".
+                        if (draft.asInvestment &&
+                            draft.investmentSuggestion ==
+                                InvestmentSuggestion.none) {
+                          draft.investmentType = InvestmentMerchants.guessType(
+                                  draft.parsed.description) ??
+                              draft.investmentType;
+                        }
+                      });
+                      widget.onChanged();
+                    },
+                  ),
+                ),
+              ),
             if (draft.duplicateOf != null)
               _Notice(
                 icon: Icons.content_copy,
@@ -1034,7 +1094,7 @@ class _DraftCardState extends State<_DraftCard> {
                     'from your bank to the card, so it isn\'t counted as '
                     'spending or income.',
               )
-            else if (parsed.isTransfer)
+            else if (parsed.isTransfer && !draft.asInvestment)
               _Notice(
                 icon: Icons.swap_horiz,
                 color: transferColor(context),
@@ -1057,10 +1117,22 @@ class _DraftCardState extends State<_DraftCard> {
               ),
             if (draft.asInvestment)
               _Notice(
-                icon: Icons.trending_up,
+                icon: draft.investmentSuggestion ==
+                        InvestmentSuggestion.remembered
+                    ? Icons.history
+                    : Icons.trending_up,
                 color: mutedTextColor(context),
-                text: 'Recorded as an investment contribution, not as '
-                    'spending.',
+                text: switch (draft.investmentSuggestion) {
+                  InvestmentSuggestion.remembered =>
+                    'Imported as an investment last time — added to '
+                        '${draft.investmentType}, not counted as spending.',
+                  InvestmentSuggestion.guessed =>
+                    'Looks like an investment (${draft.investmentType}) from '
+                        'the merchant name — not counted as spending. Switch '
+                        'to Expense if it isn\'t.',
+                  InvestmentSuggestion.none =>
+                    'Added to your investments, not counted as spending.',
+                },
               ),
             if (draft.recalledCategory != null && !draft.asInvestment)
               _Notice(
@@ -1075,32 +1147,6 @@ class _DraftCardState extends State<_DraftCard> {
                 icon: Icons.lightbulb_outline,
                 color: mutedTextColor(context),
                 text: 'Category guessed from the merchant name.',
-              ),
-            // Only a plain debit can be reclassified as an investment.
-            if (draft.canBeInvestment)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 0, 0),
-                child: SegmentedButton<bool>(
-                  showSelectedIcon: false,
-                  style: const ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                  segments: const [
-                    ButtonSegment(
-                        value: false,
-                        label: Text('Expense'),
-                        icon: Icon(Icons.remove_circle_outline, size: 16)),
-                    ButtonSegment(
-                        value: true,
-                        label: Text('Investment'),
-                        icon: Icon(Icons.trending_up, size: 16)),
-                  ],
-                  selected: {draft.asInvestment},
-                  onSelectionChanged: (s) {
-                    setState(() => draft.asInvestment = s.first);
-                    widget.onChanged();
-                  },
-                ),
               ),
             // Offered only when the history says this charge repeats monthly and
             // the draft is still a plain expense (an investment isn't modelled
@@ -1140,20 +1186,43 @@ class _DraftCardState extends State<_DraftCard> {
             Padding(
               padding: const EdgeInsets.only(left: 8),
               child: draft.asInvestment
-                  // An investment has no account and no category; the user
-                  // picks the instrument instead.
-                  ? _pickerWithOther(
-                      label: 'Investment type',
-                      current: draft.investmentType,
-                      options: widget.investmentTypes,
-                      isOther: _investTypeOther,
-                      controller: _customInvestType,
-                      onOtherChanged: (v) =>
-                          setState(() => _investTypeOther = v),
-                      onValue: (v) {
-                        draft.investmentType = v;
-                        widget.onChanged();
-                      },
+                  // An investment has no category: the account it was paid
+                  // from (whose balance it leaves) and the instrument instead.
+                  ? Row(
+                      // Keyed apart from the expense row of the same shape, so
+                      // switching never hands the category dropdown's state to
+                      // the investment-type one.
+                      key: const ValueKey('investment-fields'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _accountDropdown(
+                            label: 'Paid from',
+                            value: draft.accountId,
+                            errorText: unmatchedLast4 ? unmatchedText : null,
+                            onChanged: (v) {
+                              draft.accountId = v;
+                              widget.onChanged();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _pickerWithOther(
+                            label: 'Investment type',
+                            current: draft.investmentType,
+                            options: widget.investmentTypes,
+                            isOther: _investTypeOther,
+                            controller: _customInvestType,
+                            onOtherChanged: (v) =>
+                                setState(() => _investTypeOther = v),
+                            onValue: (v) {
+                              draft.investmentType = v;
+                              widget.onChanged();
+                            },
+                          ),
+                        ),
+                      ],
                     )
                   : Row(
                       children: [

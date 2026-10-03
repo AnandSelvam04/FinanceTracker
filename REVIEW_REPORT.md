@@ -8,6 +8,11 @@
 > partly closed at the time. Backups still went to Drive in plaintext, and the
 > report totals still summed foreign-currency rows raw. Both were finished
 > later; see the commits following this file's own.
+>
+> Item 2.2 (localization, en + ta) no longer holds: the localization layer
+> and the Tamil translations were removed on purpose in `1fa7d73`, and the
+> app is English-only. Likewise the release-signing note in item 3 is
+> superseded: CI now signs from repository secrets (`docs/SIGNING.md`).
 
 _Updated: July 2026 (branch `claude/app-improvement-analysis-2q29is`)._
 

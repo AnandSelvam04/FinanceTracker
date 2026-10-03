@@ -166,7 +166,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                             decimal: true),
                         validator: (value) {
                           if (value == null || value.isEmpty) return null;
-                          return double.tryParse(value) == null
+                          // Out-of-range used to pass here and then save as 0.
+                          return parseMinor(value) == null
                               ? 'Invalid number'
                               : null;
                         },

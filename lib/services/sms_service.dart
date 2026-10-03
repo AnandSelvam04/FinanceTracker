@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:another_telephony/telephony.dart';
@@ -10,6 +11,7 @@ import '../services/db_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/currency_format.dart';
 import 'category_memory.dart';
+import 'investment_merchants.dart';
 import 'merchant_categories.dart';
 import 'sms_import.dart';
 
@@ -41,6 +43,7 @@ class SmsService {
 
   static const _kReviewedThrough = 'smsReviewedThrough';
   static const _kIgnoredMerchants = 'smsIgnoredMerchants';
+  static const _kInvestmentMerchants = 'smsInvestmentMerchants';
 
   /// Where a default scan starts: a day before [reviewedThrough] — the moment
   /// the review queue was last left empty — but never less than
@@ -121,6 +124,62 @@ class SmsService {
   static Future<void> unignoreMerchant(String key) async {
     final keys = await ignoredMerchants();
     if (keys.remove(key)) await _saveIgnoredMerchants(keys);
+  }
+
+  /// Merchants the user imported as an investment, as
+  /// [CategoryMemory.merchantKey] → the type and holding name used, so the
+  /// next alert from the same merchant arrives already set up that way.
+  static Future<Map<String, InvestmentHint>> investmentMerchants() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kInvestmentMerchants);
+      if (raw == null) return {};
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      return {
+        for (final e in map.entries)
+          if (e.value is Map)
+            e.key: InvestmentHint(
+              type: (e.value as Map)['type'] as String? ?? '',
+              name: (e.value as Map)['name'] as String? ?? '',
+            ),
+      }..removeWhere((_, h) => h.type.isEmpty);
+    } catch (e, s) {
+      AppLogger.error('Reading SMS investment merchants failed', e, s);
+      return {};
+    }
+  }
+
+  /// Records how each imported draft was filed: [investments] as their merchant
+  /// → type/name, and [expenses] removed from the map, so switching a merchant
+  /// back to Expense stops it being pre-set as an investment.
+  static Future<void> rememberInvestmentChoices({
+    required Iterable<SmsDraft> investments,
+    required Iterable<SmsDraft> expenses,
+  }) async {
+    final map = await investmentMerchants();
+    var changed = false;
+    for (final d in expenses) {
+      changed |=
+          map.remove(CategoryMemory.merchantKey(d.parsed.description)) != null;
+    }
+    for (final d in investments) {
+      final key = CategoryMemory.merchantKey(d.parsed.description);
+      if (key.isEmpty) continue;
+      map[key] = InvestmentHint(type: d.investmentType, name: d.description);
+      changed = true;
+    }
+    if (!changed) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          _kInvestmentMerchants,
+          jsonEncode({
+            for (final e in map.entries)
+              e.key: {'type': e.value.type, 'name': e.value.name},
+          }));
+    } catch (e, s) {
+      AppLogger.error('Saving SMS investment merchants failed', e, s);
+    }
   }
 
   /// Whether [parsed] comes from a merchant in [ignored]. A transfer names no
@@ -299,6 +358,12 @@ class SmsDraft {
   /// …). Ignored unless [asInvestment] is set.
   String investmentType;
 
+  /// Why the draft arrived already set as an investment, if it did: this
+  /// merchant was imported as one before, or its name looks like one. Shown on
+  /// the card so the user can see (and undo) the choice.
+  InvestmentSuggestion get investmentSuggestion => _investmentSuggestion;
+  InvestmentSuggestion _investmentSuggestion;
+
   /// A hand-entered transaction this message appears to duplicate. Set means
   /// the draft starts unselected — importing it would record the same spend
   /// twice.
@@ -344,10 +409,12 @@ class SmsDraft {
     this.isCardPayment = false,
     this.asInvestment = false,
     this.investmentType = Investment.defaultType,
+    InvestmentSuggestion investmentSuggestion = InvestmentSuggestion.none,
     this.recurringSuggested = false,
     this.createRecurring = false,
   })  : description = description ?? parsed.description,
-        paymentMode = paymentMode ?? parsed.paymentModeFor(null);
+        paymentMode = paymentMode ?? parsed.paymentModeFor(null),
+        _investmentSuggestion = investmentSuggestion;
 
   bool get isTransfer => parsed.isTransfer;
 
@@ -358,18 +425,22 @@ class SmsDraft {
   /// taking a debit back.
   bool get usesExpenseCategories => parsed.isExpense || parsed.isRefund;
 
-  /// Whether the user may reclassify this draft as an investment. Only a plain
-  /// debit qualifies — an incoming credit or a transfer between accounts is not
-  /// money being invested.
-  bool get canBeInvestment => parsed.isExpense;
+  /// Whether the user may reclassify this draft as an investment: money going
+  /// out — a debit, or a bank-to-bank movement (a top-up of a trading or
+  /// investment account reads like one). Not an incoming credit or a refund,
+  /// and not a card bill payment, which only settles what was already spent.
+  bool get canBeInvestment =>
+      parsed.isExpense || (parsed.isTransfer && !isCardPayment);
 
   /// A transfer needs both ends to post correctly; without a destination it
-  /// would debit the source and credit nothing.
-  bool get needsDestination => isTransfer && toAccountId == null;
+  /// would debit the source and credit nothing. Not once it is being recorded
+  /// as an investment, which has no destination account.
+  bool get needsDestination =>
+      isTransfer && !asInvestment && toAccountId == null;
 
   /// …and without a source it would credit the destination out of thin air —
   /// the case for a card bill payment, whose message names only the card.
-  bool get needsSource => isTransfer && accountId == null;
+  bool get needsSource => isTransfer && !asInvestment && accountId == null;
 
   /// Whether the parsed amount is in a different currency from [account] (or
   /// the base currency, with no account), so it can't be saved as it stands.
@@ -396,6 +467,7 @@ class SmsDraft {
     CategoryMemory memory = const CategoryMemory.empty(),
     bool recurringSuggested = false,
     Set<Object>? claimed,
+    Map<String, InvestmentHint> investmentMemory = const {},
   }) {
     // Money arriving on a credit card that is neither a refund nor cashback
     // is the bill being paid. As income it would count the card bill as
@@ -438,10 +510,33 @@ class SmsDraft {
       duplicateOf: duplicate,
       recurringSuggested: recurringSuggested,
     );
+    draft._suggestInvestment(investmentMemory);
     // A foreign charge can't be saved until its amount is entered in the
     // account's currency, so it starts unticked rather than blocking Import.
     if (draft.needsAmountFor(account)) draft.selected = false;
     return draft;
+  }
+
+  /// Pre-sets the draft as an investment when this merchant was imported as
+  /// one before (taking the same type and holding name), or — for a plain
+  /// debit — when its name is a known investment platform. Left alone when the
+  /// message matches a hand-entered expense, which says how the user files it.
+  void _suggestInvestment(Map<String, InvestmentHint> memory) {
+    if (!canBeInvestment || duplicateOf != null) return;
+    final hint = memory[CategoryMemory.merchantKey(parsed.description)];
+    if (hint != null) {
+      asInvestment = true;
+      investmentType = hint.type;
+      if (hint.name.trim().isNotEmpty) description = hint.name;
+      _investmentSuggestion = InvestmentSuggestion.remembered;
+      return;
+    }
+    if (!parsed.isExpense) return;
+    final guess = InvestmentMerchants.guessType(parsed.description);
+    if (guess == null) return;
+    asInvestment = true;
+    investmentType = guess;
+    _investmentSuggestion = InvestmentSuggestion.guessed;
   }
 
   /// The user's one credit card, when they have exactly one — the card a
@@ -472,3 +567,17 @@ class SmsDraft {
         accountId: accountId,
       );
 }
+
+/// How a merchant was last imported as an investment, remembered so its next
+/// alert arrives set up the same way. See [SmsService.investmentMerchants].
+class InvestmentHint {
+  final String type;
+
+  /// The holding name the contribution was saved under ("Nifty 50"); may be
+  /// empty, in which case the message's own merchant name is kept.
+  final String name;
+  const InvestmentHint({required this.type, required this.name});
+}
+
+/// Why an SMS draft arrived pre-set as an investment.
+enum InvestmentSuggestion { none, remembered, guessed }

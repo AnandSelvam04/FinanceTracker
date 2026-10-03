@@ -127,7 +127,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (copy == null &&
           defaultId != null &&
           context.read<AccountProvider>().accountById(defaultId) != null) {
-        setState(() => _accountId = defaultId);
+        setState(() => _selectAccount(defaultId));
       }
       final expenseFreq =
           await DBService().frequentCategories(DbConstants.txExpense);
@@ -159,6 +159,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   bool get _isIncome => _txType == DbConstants.txIncome;
+
+  /// The payment mode an account of [type] implies, or null when it doesn't
+  /// pin one down (a bank account may be a debit card, UPI, or a transfer).
+  static String? _paymentModeFor(String? type) => switch (type) {
+        'cash' => 'Cash',
+        'credit_card' => 'Credit Card',
+        'upi' => 'UPI',
+        _ => null,
+      };
+
+  /// Selects [id] as the account and lines the payment mode up with it, so
+  /// choosing a credit card no longer leaves the expense filed as "Cash".
+  void _selectAccount(int? id) {
+    _accountId = id;
+    final mode =
+        _paymentModeFor(context.read<AccountProvider>().accountById(id)?.type);
+    if (mode != null) _selectedPaymentMode = mode;
+  }
 
   static IconData _paymentIcon(String mode) {
     switch (mode) {
@@ -198,6 +216,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (isSameCategory(typed, c)) return c;
     }
     return typed;
+  }
+
+  /// The description to save: what was typed, or the category when blank.
+  String get _resolvedDescription {
+    final typed = _descriptionController.text.trim();
+    return typed.isEmpty ? _resolvedCategory : typed;
   }
 
   // --- Receipt scanning ------------------------------------------------------
@@ -410,10 +434,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                // Optional: a blank description saves as the category, so a
+                // quick "250, Food" entry needs no extra typing.
+                decoration: const InputDecoration(
+                    labelText: 'Description (optional)'),
                 textInputAction: TextInputAction.next,
-                validator: (value) =>
-                    value!.isEmpty ? 'Enter a description' : null,
               ),
               const SizedBox(height: 4),
               DateFieldRow(
@@ -459,7 +484,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ...accounts.map((a) => DropdownMenuItem<int?>(
                         value: a.id, child: Text(a.name))),
                   ],
-                  onChanged: (value) => setState(() => _accountId = value),
+                  onChanged: (value) => setState(() => _selectAccount(value)),
                 ),
               ],
               if (!_isIncome) ...[
@@ -507,9 +532,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           if (_formKey.currentState!.validate()) {
                             setState(() => _isSaving = true);
                             final expense = Expense(
-                              description: _descriptionController.text,
-                              amount: rupeesToMinor(
-                                  double.parse(_amountController.text)),
+                              description: _resolvedDescription,
+                              amount: parseMinor(_amountController.text)!,
                               date: _selectedDate,
                               category: _resolvedCategory,
                               paymentMode:
@@ -527,13 +551,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                               await accountProvider.refreshBalances();
                               if (_saveAsTemplate) {
                                 await templateProvider.addTemplate(TxTemplate(
-                                  name: _descriptionController.text,
-                                  description: _descriptionController.text,
-                                  amount: rupeesToMinor(
-                                      double.parse(_amountController.text)),
+                                  name: _resolvedDescription,
+                                  description: _resolvedDescription,
+                                  amount: parseMinor(_amountController.text)!,
                                   category: _resolvedCategory,
                                   type: _txType,
                                   accountId: _accountId,
+                                  paymentMode: _isIncome
+                                      ? null
+                                      : _selectedPaymentMode,
                                 ));
                               }
                               HapticFeedback.lightImpact();

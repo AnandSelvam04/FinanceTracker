@@ -35,6 +35,7 @@ import '../widgets/skeleton.dart';
 import '../widgets/transaction_edit_sheet.dart';
 import 'add_expense_screen.dart';
 import 'add_investment_screen.dart';
+import 'add_transfer_screen.dart';
 import 'expense_list_screen.dart';
 import 'investments_screen.dart';
 import 'more_screen.dart';
@@ -260,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       amount: template.amount,
       date: DateTime.now(),
       category: template.category,
-      paymentMode: 'Other',
+      paymentMode: template.paymentMode ?? 'Other',
       type: template.type,
       accountId: template.accountId,
     );
@@ -290,6 +291,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             context,
             MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
           ),
+          onSeeAllTransactions: () => setState(() => _selectedIndex = 1),
           onMonthChanged: (y, m) {
             setState(() {
               _selectedYear = y;
@@ -353,6 +355,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 subtitle: 'Say "Spent 250 on lunch"',
                 onTap: () => open(
                     const AddExpenseScreen(autoStart: AddExpenseAction.voice)),
+              ),
+              // Transfers (card bill payments, cash withdrawals) used to be
+              // reachable only from More → Accounts.
+              _AddOption(
+                icon: Icons.swap_horiz,
+                color: scheme.secondary,
+                title: 'Transfer',
+                subtitle: 'Move money between your accounts',
+                onTap: () => open(const AddTransferScreen()),
               ),
               _AddOption(
                 icon: Icons.trending_up,
@@ -433,6 +444,7 @@ class _DashboardView extends StatelessWidget {
   final Future<void> Function(TxTemplate template) onQuickAdd;
   final Future<void> Function() onRefresh;
   final VoidCallback onAddExpense;
+  final VoidCallback onSeeAllTransactions;
 
   const _DashboardView({
     required this.selectedYear,
@@ -443,6 +455,7 @@ class _DashboardView extends StatelessWidget {
     required this.onQuickAdd,
     required this.onRefresh,
     required this.onAddExpense,
+    required this.onSeeAllTransactions,
   });
 
   /// Opens the transactions that make up one category's slice for the current
@@ -516,11 +529,11 @@ class _DashboardView extends StatelessWidget {
                 children: [
                   const AlertsBanner(),
                   const NetWorthCard(),
-                  const _ShortcutsRow(),
                   _QuickAddRow(onQuickAdd: onQuickAdd),
                   MonthSelector(
                     initialYear: selectedYear,
                     initialMonth: selectedMonth,
+                    yearOnly: yearView,
                     onChanged: onMonthChanged,
                   ),
                   const SizedBox(height: 12),
@@ -620,6 +633,13 @@ class _DashboardView extends StatelessWidget {
                       ExpenseTrendsChart(provider: provider),
                     ],
                   ],
+                  // Below the period figures rather than above them, so the
+                  // month's spend sits near the top of the screen.
+                  const _ShortcutsRow(),
+                  _RecentTransactions(
+                    provider: provider,
+                    onSeeAll: onSeeAllTransactions,
+                  ),
                 ],
               ),
             ),
@@ -627,6 +647,127 @@ class _DashboardView extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// The latest few transactions, whatever period the charts above show — so
+/// "did that payment go in?" is answered on the dashboard, without switching
+/// to the Transactions tab and scrolling. Hidden until there is something.
+class _RecentTransactions extends StatelessWidget {
+  final ExpenseProvider provider;
+  final VoidCallback onSeeAll;
+  const _RecentTransactions({required this.provider, required this.onSeeAll});
+
+  static const _count = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    // Rows are kept newest first; skip anything dated ahead of today.
+    final rows = provider.expenses
+        .where((e) => !e.date.isAfter(now))
+        .take(_count)
+        .toList();
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final accounts = context.watch<AccountProvider>();
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Expanded(child: SectionHeader('Recent transactions')),
+              TextButton(onPressed: onSeeAll, child: const Text('See all')),
+            ],
+          ),
+          Card(
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (final e in rows)
+                  _RecentRow(
+                    expense: e,
+                    symbol: accounts.accountById(e.accountId)?.symbol,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One compact row in [_RecentTransactions]; tap for edit/duplicate/delete.
+class _RecentRow extends StatelessWidget {
+  final Expense expense;
+
+  /// The source account's currency symbol; null for the base currency.
+  final String? symbol;
+  const _RecentRow({required this.expense, this.symbol});
+
+  @override
+  Widget build(BuildContext context) {
+    final e = expense;
+    final magnitude = symbol == null
+        ? formatMoney(e.amount.abs())
+        : formatMoneyIn(symbol!, e.amount.abs());
+    // Same sign and colour conventions as the Transactions list.
+    final moneyIn = e.isIncome || e.isRefund;
+    final amount =
+        e.isTransfer ? magnitude : '${moneyIn ? '+' : '-'}$magnitude';
+    final color = moneyIn
+        ? incomeColor(context)
+        : e.isTransfer
+            ? transferColor(context)
+            : expenseColor(context);
+    return ListTile(
+      dense: true,
+      leading: e.isTransfer
+          ? CircleAvatar(
+              radius: 16,
+              backgroundColor: transferAvatarColor(context),
+              child: Icon(Icons.swap_horiz,
+                  size: 18, color: transferColor(context)),
+            )
+          : CategoryAvatar(category: e.category, radius: 16),
+      title: Text(
+        e.description.isEmpty ? '(no description)' : e.description,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        '${e.isTransfer ? 'Transfer' : e.category} · ${formatDateWithDay(e.date)}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Text(amount,
+          style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+      onTap: () => transactionRowActions(context, e,
+          onDelete: () => _deleteWithUndo(context, e)),
+    );
+  }
+
+  /// Deletes [e] (picked explicitly from the row's action sheet) and offers
+  /// an Undo that puts the same row back.
+  static Future<void> _deleteWithUndo(BuildContext context, Expense e) async {
+    final expenses = context.read<ExpenseProvider>();
+    final accounts = context.read<AccountProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    await expenses.deleteExpense(e.id!);
+    await accounts.refreshBalances();
+    messenger.showSnackBar(SnackBar(
+      content: const Text('Transaction deleted'),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          await expenses.addExpense(e);
+          await accounts.refreshBalances();
+        },
+      ),
+    ));
   }
 }
 
@@ -913,7 +1054,7 @@ class _ShortcutsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final smsEnabled = context.watch<SettingsProvider>().smsImportEnabled;
     return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      padding: const EdgeInsets.only(top: 16),
       child: Row(
         children: [
           Expanded(

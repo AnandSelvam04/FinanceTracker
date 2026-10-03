@@ -48,8 +48,15 @@ jobs:
           echo "sha=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
       # x86_64 only. --split-per-abi keeps the per-ABI output name
       # (app-x86_64-release.apk) instead of a generic app-release.apk.
-      # Signed with the real release key: android/key.properties and the
-      # keystore are committed on purpose (see android/app/build.gradle.kts).
+      - name: Write release signing key from secrets
+        run: .github/scripts/setup-signing.sh
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      # Signed with the release key written by the step above, from
+      # repository secrets (docs/SIGNING.md).
       - run: |
           flutter build apk --release --split-per-abi \
             --target-platform android-x64 \

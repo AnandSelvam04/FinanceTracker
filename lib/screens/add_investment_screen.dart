@@ -313,8 +313,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                             final enteredName = _nameController.text.trim();
                             // The field holds a positive magnitude; a withdrawal
                             // is stored negative so the type total drops.
-                            final magnitude = rupeesToMinor(
-                                double.parse(_amountController.text));
+                            final magnitude = parseMinor(_amountController.text)!;
                             final signedAmount =
                                 _isWithdrawal ? -magnitude : magnitude;
                             final investment = Investment(

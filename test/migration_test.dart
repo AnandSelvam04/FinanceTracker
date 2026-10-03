@@ -123,7 +123,8 @@ void main() {
     // expenses and accounts from a fixed column list, so these must be added
     // after it — if the order ever flips, the ALTERs fail on a duplicate
     // column and every upgrading install is left unopenable.
-    expect(await affinityOf(DbConstants.tableExpenses, DbConstants.colSourceRef),
+    expect(
+        await affinityOf(DbConstants.tableExpenses, DbConstants.colSourceRef),
         'TEXT');
     expect(await affinityOf(DbConstants.tableAccounts, DbConstants.colLast4),
         'TEXT');
@@ -149,8 +150,15 @@ void main() {
             DbConstants.tableInvestments, DbConstants.colAccountId),
         'INTEGER');
 
-    final tables = await db.rawQuery(
-        "SELECT name FROM sqlite_master WHERE type = 'table'");
+    // v16 lets templates remember their payment mode, after the v9 rebuild
+    // of the templates table.
+    expect(
+        await affinityOf(
+            DbConstants.tableTemplates, DbConstants.colPaymentMode),
+        'TEXT');
+
+    final tables = await db
+        .rawQuery("SELECT name FROM sqlite_master WHERE type = 'table'");
     expect(tables.map((r) => r['name']), contains(DbConstants.tableSmsIgnored));
 
     // Rows that predate the column read back as null rather than failing.

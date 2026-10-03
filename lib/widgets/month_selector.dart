@@ -7,11 +7,16 @@ class MonthSelector extends StatefulWidget {
   final void Function(int year, int month) onChanged;
   final int initialYear;
   final int initialMonth;
+
+  /// Step and show whole years instead of months — for the dashboard's Year
+  /// view, where a "September 2026" label misread as a monthly figure.
+  final bool yearOnly;
   const MonthSelector({
     super.key,
     required this.onChanged,
     required this.initialYear,
     required this.initialMonth,
+    this.yearOnly = false,
   });
 
   @override
@@ -31,14 +36,9 @@ class _MonthSelectorState extends State<MonthSelector> {
 
   void _changeMonth(int delta) {
     setState(() {
-      month += delta;
-      if (month > 12) {
-        month = 1;
-        year++;
-      } else if (month < 1) {
-        month = 12;
-        year--;
-      }
+      final total = year * 12 + (month - 1) + delta;
+      year = total ~/ 12;
+      month = total % 12 + 1;
       widget.onChanged(year, month);
     });
   }
@@ -50,15 +50,15 @@ class _MonthSelectorState extends State<MonthSelector> {
       children: [
         IconButton(
           icon: const Icon(Icons.chevron_left),
-          tooltip: 'Previous month',
-          onPressed: () => _changeMonth(-1),
+          tooltip: widget.yearOnly ? 'Previous year' : 'Previous month',
+          onPressed: () => _changeMonth(widget.yearOnly ? -12 : -1),
         ),
         // A fixed width keeps the arrows from shifting as month names change
         // length ("May" vs "September").
         SizedBox(
           width: 150,
           child: Text(
-            formatMonthYear(year, month),
+            widget.yearOnly ? '$year' : formatMonthYear(year, month),
             textAlign: TextAlign.center,
             style: Theme.of(context)
                 .textTheme
@@ -68,8 +68,8 @@ class _MonthSelectorState extends State<MonthSelector> {
         ),
         IconButton(
           icon: const Icon(Icons.chevron_right),
-          tooltip: 'Next month',
-          onPressed: () => _changeMonth(1),
+          tooltip: widget.yearOnly ? 'Next year' : 'Next month',
+          onPressed: () => _changeMonth(widget.yearOnly ? 12 : 1),
         ),
       ],
     );
