@@ -7,9 +7,10 @@ mode — nothing is published or reviewed.
 
 ## Your app's values (fill these into the console)
 
-This repo is now set up with a **permanent signing key** (committed at
-`android/app/finance-release.jks`), so every build has the **same** fingerprint
-below. Register these once and Drive keeps working across all future builds.
+CI signs every build with the **same** release key (supplied through
+repository secrets, see `docs/SIGNING.md`), so every build has the same
+fingerprint. The SHA-1 below belongs to the key that used to be committed; if
+you rotate to a new key, register the new key's SHA-1 instead.
 
 | Field | Value |
 |-------|-------|

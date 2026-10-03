@@ -54,8 +54,15 @@ jobs:
       # and dropping armeabi-v7a/x86_64 cuts most of the build time. Keep
       # --split-per-abi even with a single target so the output keeps its
       # per-ABI name (app-arm64-v8a-release.apk) rather than app-release.apk.
-      # Signed with the real release key: android/key.properties and the
-      # keystore are committed on purpose (see android/app/build.gradle.kts).
+      - name: Write release signing key from secrets
+        run: .github/scripts/setup-signing.sh
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      # Signed with the release key written by the step above, from
+      # repository secrets (docs/SIGNING.md).
       - run: |
           flutter build apk --release --split-per-abi \
             --target-platform android-arm64 \

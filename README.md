@@ -64,7 +64,7 @@ Both jobs are gated on `github.event.repository.private == false`, so GitHub Act
 - Backups to Drive: create OAuth credentials and configure the consent screen before shipping; current packages are present but require proper credentials.
 - Budgets: budgets are month- and category-scoped; adjust DB versioning if schema changes further.
 - Version: shown at the foot of the More tab and under Settings > About (tap to copy). Read from the installed package via `package_info_plus`, so it is correct for any build; CI additionally injects the commit SHA via `--dart-define`, which is appended only when known.
-- Release signing: `android/key.properties` and the keystore are committed on purpose, so the Drive OAuth SHA-1 stays stable across rebuilds. See the comment in `android/app/build.gradle.kts` for what that trades away — do not copy the pattern for a Play Store release.
+- Release signing: CI signs with a key from repository secrets (`ANDROID_KEYSTORE_BASE64` and friends); see `docs/SIGNING.md` for setup and for retiring the key that used to be committed.
 - SMS import: needs the `READ_SMS` runtime permission, granted on first use of **More > Import from SMS**. Messages are parsed entirely on-device and never leave it.
 
   Declaring `READ_SMS` makes the app ineligible for Play Store distribution — store policy restricts that permission to apps whose core function is SMS handling. This build is signed and sideloaded (see the release-signing note above), so that is a deliberate trade rather than an oversight. Removing the permission from `AndroidManifest.xml` and the `another_telephony` dependency from `pubspec.yaml` reverts it; the rest of the app is unaffected.
