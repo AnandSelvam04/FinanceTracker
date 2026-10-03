@@ -85,7 +85,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
   /// the user only has to adjust it when the actual rate differed.
   void _suggestToAmount(Account? from, Account? to) {
     if (from == null || to == null || to.rate == 0) return;
-    final amount = double.tryParse(_amountController.text);
+    final amount = parseMajor(_amountController.text);
     if (amount == null) return;
     final received = amount * from.rate / to.rate;
     _toAmountController.text = received.toStringAsFixed(2);
@@ -236,7 +236,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
         from != null && to != null && from.symbol != to.symbol;
     final transfer = Expense(
       description: note.isEmpty ? 'Transfer' : note,
-      amount: rupeesToMinor(double.parse(_amountController.text)),
+      amount: parseMinor(_amountController.text)!,
       date: _selectedDate,
       category: 'Transfer',
       paymentMode: 'Other',
@@ -245,7 +245,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
       toAccountId: _toAccountId,
       // Destination-currency amount, only for cross-currency transfers.
       toAmount: crossCurrency
-          ? rupeesToMinor(double.parse(_toAmountController.text))
+          ? parseMinor(_toAmountController.text)!
           : null,
     );
     final expenseProvider = context.read<ExpenseProvider>();

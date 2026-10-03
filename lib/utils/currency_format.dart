@@ -29,10 +29,18 @@ int rupeesToMinor(double major) => (major * 100).round();
 /// Converts minor units back to a major-unit double for display/parsing.
 double minorToMajor(int minor) => minor / 100;
 
+/// Parses a user-entered major-unit amount, or null if it isn't a number.
+///
+/// Tolerates the digit grouping amounts are shown with ("1,250.50",
+/// "12,34,567", "1 250"), so a figure pasted from a bank alert or copied off
+/// this app's own screens is accepted rather than rejected as invalid.
+double? parseMajor(String input) =>
+    double.tryParse(input.trim().replaceAll(RegExp(r'[,\s]'), ''));
+
 /// Parses a user-entered amount string into minor units, or null if it isn't a
 /// number or is out of range.
 int? parseMinor(String input) {
-  final major = double.tryParse(input.trim());
+  final major = parseMajor(input);
   if (major == null || !isAmountInRange(major)) return null;
   return rupeesToMinor(major);
 }
@@ -111,7 +119,7 @@ String minorToEditString(int minor) => (minor / 100).toStringAsFixed(2);
 String? validateAmountField(String? value, {bool allowZero = false}) {
   final text = value?.trim() ?? '';
   if (text.isEmpty) return 'Enter an amount';
-  final major = double.tryParse(text);
+  final major = parseMajor(text);
   if (major == null) return 'Enter a valid amount';
   if (!isAmountInRange(major)) return 'That amount is too large';
   if (major < 0) return 'Enter a positive amount';

@@ -127,7 +127,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (copy == null &&
           defaultId != null &&
           context.read<AccountProvider>().accountById(defaultId) != null) {
-        setState(() => _accountId = defaultId);
+        setState(() => _selectAccount(defaultId));
       }
       final expenseFreq =
           await DBService().frequentCategories(DbConstants.txExpense);
@@ -159,6 +159,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   bool get _isIncome => _txType == DbConstants.txIncome;
+
+  /// The payment mode an account of [type] implies, or null when it doesn't
+  /// pin one down (a bank account may be a debit card, UPI, or a transfer).
+  static String? _paymentModeFor(String? type) => switch (type) {
+        'cash' => 'Cash',
+        'credit_card' => 'Credit Card',
+        'upi' => 'UPI',
+        _ => null,
+      };
+
+  /// Selects [id] as the account and lines the payment mode up with it, so
+  /// choosing a credit card no longer leaves the expense filed as "Cash".
+  void _selectAccount(int? id) {
+    _accountId = id;
+    final mode =
+        _paymentModeFor(context.read<AccountProvider>().accountById(id)?.type);
+    if (mode != null) _selectedPaymentMode = mode;
+  }
 
   static IconData _paymentIcon(String mode) {
     switch (mode) {
@@ -459,7 +477,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ...accounts.map((a) => DropdownMenuItem<int?>(
                         value: a.id, child: Text(a.name))),
                   ],
-                  onChanged: (value) => setState(() => _accountId = value),
+                  onChanged: (value) => setState(() => _selectAccount(value)),
                 ),
               ],
               if (!_isIncome) ...[
@@ -508,8 +526,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             setState(() => _isSaving = true);
                             final expense = Expense(
                               description: _descriptionController.text,
-                              amount: rupeesToMinor(
-                                  double.parse(_amountController.text)),
+                              amount: parseMinor(_amountController.text)!,
                               date: _selectedDate,
                               category: _resolvedCategory,
                               paymentMode:
@@ -529,8 +546,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                 await templateProvider.addTemplate(TxTemplate(
                                   name: _descriptionController.text,
                                   description: _descriptionController.text,
-                                  amount: rupeesToMinor(
-                                      double.parse(_amountController.text)),
+                                  amount: parseMinor(_amountController.text)!,
                                   category: _resolvedCategory,
                                   type: _txType,
                                   accountId: _accountId,
