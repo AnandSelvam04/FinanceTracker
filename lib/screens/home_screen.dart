@@ -529,7 +529,6 @@ class _DashboardView extends StatelessWidget {
                 children: [
                   const AlertsBanner(),
                   const NetWorthCard(),
-                  const _ShortcutsRow(),
                   _QuickAddRow(onQuickAdd: onQuickAdd),
                   MonthSelector(
                     initialYear: selectedYear,
@@ -634,6 +633,9 @@ class _DashboardView extends StatelessWidget {
                       ExpenseTrendsChart(provider: provider),
                     ],
                   ],
+                  // Below the period figures rather than above them, so the
+                  // month's spend sits near the top of the screen.
+                  const _ShortcutsRow(),
                   _RecentTransactions(
                     provider: provider,
                     onSeeAll: onSeeAllTransactions,
@@ -743,8 +745,29 @@ class _RecentRow extends StatelessWidget {
       ),
       trailing: Text(amount,
           style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-      onTap: () => transactionRowActions(context, e),
+      onTap: () => transactionRowActions(context, e,
+          onDelete: () => _deleteWithUndo(context, e)),
     );
+  }
+
+  /// Deletes [e] (picked explicitly from the row's action sheet) and offers
+  /// an Undo that puts the same row back.
+  static Future<void> _deleteWithUndo(BuildContext context, Expense e) async {
+    final expenses = context.read<ExpenseProvider>();
+    final accounts = context.read<AccountProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    await expenses.deleteExpense(e.id!);
+    await accounts.refreshBalances();
+    messenger.showSnackBar(SnackBar(
+      content: const Text('Transaction deleted'),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          await expenses.addExpense(e);
+          await accounts.refreshBalances();
+        },
+      ),
+    ));
   }
 }
 
@@ -1031,7 +1054,7 @@ class _ShortcutsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final smsEnabled = context.watch<SettingsProvider>().smsImportEnabled;
     return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      padding: const EdgeInsets.only(top: 16),
       child: Row(
         children: [
           Expanded(

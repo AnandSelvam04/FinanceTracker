@@ -218,6 +218,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     return typed;
   }
 
+  /// The description to save: what was typed, or the category when blank.
+  String get _resolvedDescription {
+    final typed = _descriptionController.text.trim();
+    return typed.isEmpty ? _resolvedCategory : typed;
+  }
+
   // --- Receipt scanning ------------------------------------------------------
 
   /// Asks whether to use the camera or the gallery, then runs OCR and pre-fills
@@ -428,10 +434,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                // Optional: a blank description saves as the category, so a
+                // quick "250, Food" entry needs no extra typing.
+                decoration: const InputDecoration(
+                    labelText: 'Description (optional)'),
                 textInputAction: TextInputAction.next,
-                validator: (value) =>
-                    value!.isEmpty ? 'Enter a description' : null,
               ),
               const SizedBox(height: 4),
               DateFieldRow(
@@ -525,7 +532,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           if (_formKey.currentState!.validate()) {
                             setState(() => _isSaving = true);
                             final expense = Expense(
-                              description: _descriptionController.text,
+                              description: _resolvedDescription,
                               amount: parseMinor(_amountController.text)!,
                               date: _selectedDate,
                               category: _resolvedCategory,
@@ -544,8 +551,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                               await accountProvider.refreshBalances();
                               if (_saveAsTemplate) {
                                 await templateProvider.addTemplate(TxTemplate(
-                                  name: _descriptionController.text,
-                                  description: _descriptionController.text,
+                                  name: _resolvedDescription,
+                                  description: _resolvedDescription,
                                   amount: parseMinor(_amountController.text)!,
                                   category: _resolvedCategory,
                                   type: _txType,
