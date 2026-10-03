@@ -12,6 +12,10 @@ class TxTemplate {
   final String type; // expense | income
   final int? accountId;
 
+  /// Payment mode the quick add posts with (expenses); null for income and
+  /// for templates saved before schema v16, which post as "Other".
+  final String? paymentMode;
+
   TxTemplate({
     this.id,
     required this.name,
@@ -20,6 +24,7 @@ class TxTemplate {
     required this.category,
     this.type = DbConstants.txExpense,
     this.accountId,
+    this.paymentMode,
   });
 
   Map<String, dynamic> toMap() => {
@@ -30,6 +35,7 @@ class TxTemplate {
         DbConstants.colCategory: category,
         DbConstants.colType: type,
         DbConstants.colAccountId: accountId,
+        DbConstants.colPaymentMode: paymentMode,
       };
 
   factory TxTemplate.fromMap(Map<String, dynamic> map) => TxTemplate(
@@ -40,5 +46,7 @@ class TxTemplate {
         category: map[DbConstants.colCategory] ?? 'Other',
         type: map[DbConstants.colType] ?? DbConstants.txExpense,
         accountId: map[DbConstants.colAccountId],
+        // Rows/backups from before schema v16 have no paymentMode column.
+        paymentMode: map[DbConstants.colPaymentMode] as String?,
       );
 }

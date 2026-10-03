@@ -550,6 +550,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                   category: _resolvedCategory,
                                   type: _txType,
                                   accountId: _accountId,
+                                  paymentMode: _isIncome
+                                      ? null
+                                      : _selectedPaymentMode,
                                 ));
                               }
                               HapticFeedback.lightImpact();

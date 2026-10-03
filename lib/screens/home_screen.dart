@@ -261,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       amount: template.amount,
       date: DateTime.now(),
       category: template.category,
-      paymentMode: 'Other',
+      paymentMode: template.paymentMode ?? 'Other',
       type: template.type,
       accountId: template.accountId,
     );

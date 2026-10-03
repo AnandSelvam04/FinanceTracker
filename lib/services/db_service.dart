@@ -346,6 +346,18 @@ class DBService {
       }
       await _createInvestmentValuesTable(db);
     }
+    if (oldVersion < 16) {
+      // Quick-add templates remember the payment mode; they used to post as
+      // "Other" whatever the original was. After the v9 rebuild, which
+      // recreates templates without it. Guarded like v12/v13.
+      final hasTemplates = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableTemplates]);
+      if (hasTemplates.isNotEmpty) {
+        await db.execute('ALTER TABLE ${DbConstants.tableTemplates} '
+            'ADD COLUMN ${DbConstants.colPaymentMode} TEXT');
+      }
+    }
   }
 
   /// v9: give every money column INTEGER affinity.
@@ -617,7 +629,8 @@ class DBService {
         ${DbConstants.colAmount} INTEGER,
         ${DbConstants.colCategory} TEXT,
         ${DbConstants.colType} TEXT NOT NULL DEFAULT '${DbConstants.txExpense}',
-        ${DbConstants.colAccountId} INTEGER
+        ${DbConstants.colAccountId} INTEGER,
+        ${DbConstants.colPaymentMode} TEXT
       )
     ''');
   }
