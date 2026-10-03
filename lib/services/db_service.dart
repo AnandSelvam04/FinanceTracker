@@ -14,6 +14,7 @@ import '../models/recurring_rule.dart';
 import '../models/savings_goal.dart';
 import '../models/tx_template.dart';
 import '../utils/app_logger.dart';
+import '../utils/category_suggestions.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 
@@ -339,9 +340,9 @@ class DBService {
           "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
           [DbConstants.tableInvestments]);
       if (hasInvestments.isNotEmpty) {
-        await db.execute(
-            'ALTER TABLE ${DbConstants.tableInvestments} ADD COLUMN '
-            '${DbConstants.colAccountId} INTEGER');
+        await db
+            .execute('ALTER TABLE ${DbConstants.tableInvestments} ADD COLUMN '
+                '${DbConstants.colAccountId} INTEGER');
       }
       await _createInvestmentValuesTable(db);
     }
@@ -1116,6 +1117,109 @@ class DBService {
     return maps.map((m) => m['category'] as String).toList();
   }
 
+  /// Every category used on [type] rows (expense or income) with how many
+  /// transactions carry it, most-used first. Spellings are kept as stored, so
+  /// "Food" and "food " show up separately — which is what the categories
+  /// screen needs to offer merging them.
+  Future<List<({String category, int count})>> categoryUsage(
+      String type) async {
+    final db = await database;
+    final maps = await db.rawQuery(
+      'SELECT ${DbConstants.colCategory} AS category, COUNT(*) AS n '
+      'FROM ${DbConstants.tableExpenses} '
+      'WHERE ${DbConstants.colType} = ? '
+      'AND ${DbConstants.colCategory} IS NOT NULL '
+      "AND trim(${DbConstants.colCategory}) != '' "
+      'GROUP BY ${DbConstants.colCategory} '
+      'ORDER BY n DESC, ${DbConstants.colCategory} COLLATE NOCASE',
+      [type],
+    );
+    return [
+      for (final m in maps)
+        (category: m['category'] as String, count: (m['n'] as num).toInt()),
+    ];
+  }
+
+  /// Renames category [from] to [to] on every [type] row (expense or income),
+  /// merging it into [to] when that category already exists. Returns the
+  /// number of transactions moved.
+  ///
+  /// [from] matches ignoring case and surrounding spaces, the same leniency
+  /// budgets use, so every spelling of it moves together. Recurring rules and
+  /// quick-add templates of the same type move too, or they would recreate the
+  /// old category the next time they post. For expenses, budgets follow: a
+  /// month where both categories had a cap ends with one cap of their sum,
+  /// rather than two caps the budgets screen would resolve arbitrarily.
+  /// Merchant category memory needs no update; it is derived from these rows.
+  Future<int> renameCategory(String from, String to,
+      {required String type}) async {
+    final target = to.trim();
+    if (target.isEmpty || from == target) return 0;
+    final db = await database;
+    const matches = 'lower(trim(${DbConstants.colCategory})) = lower(trim(?))';
+    return db.transaction((txn) async {
+      final moved = await txn.update(
+        DbConstants.tableExpenses,
+        {DbConstants.colCategory: target},
+        where: '${DbConstants.colType} = ? AND $matches',
+        whereArgs: [type, from],
+      );
+      await txn.update(
+        DbConstants.tableRecurringRules,
+        {DbConstants.colCategory: target},
+        where: '${DbConstants.colType} = ? '
+            'AND ${DbConstants.colIsInvestment} = 0 AND $matches',
+        whereArgs: [type, from],
+      );
+      await txn.update(
+        DbConstants.tableTemplates,
+        {DbConstants.colCategory: target},
+        where: '${DbConstants.colType} = ? AND $matches',
+        whereArgs: [type, from],
+      );
+      if (type == DbConstants.txExpense &&
+          normalizeCategory(from) !=
+              normalizeCategory(Budget.overallCategory)) {
+        final sources = await txn.query(DbConstants.tableBudgets,
+            columns: [DbConstants.colId], where: matches, whereArgs: [from]);
+        for (final source in sources) {
+          // Re-read each row: an earlier iteration may have merged into it
+          // (several spellings of [from] in one month) or deleted it.
+          final current = await txn.query(DbConstants.tableBudgets,
+              where: '${DbConstants.colId} = ?',
+              whereArgs: [source[DbConstants.colId]]);
+          if (current.isEmpty) continue;
+          final b = Budget.fromMap(current.first);
+          final existing = await txn.query(
+            DbConstants.tableBudgets,
+            where: '${DbConstants.colId} != ? AND ${DbConstants.colYear} = ? '
+                'AND ${DbConstants.colMonth} = ? AND $matches',
+            whereArgs: [b.id, b.year, b.month, target],
+            limit: 1,
+          );
+          if (existing.isEmpty) {
+            await txn.update(
+                DbConstants.tableBudgets, {DbConstants.colCategory: target},
+                where: '${DbConstants.colId} = ?', whereArgs: [b.id]);
+          } else {
+            final other = Budget.fromMap(existing.first);
+            await txn.update(
+                DbConstants.tableBudgets,
+                {
+                  DbConstants.colCategory: target,
+                  DbConstants.colAmount: other.amount + b.amount,
+                },
+                where: '${DbConstants.colId} = ?',
+                whereArgs: [other.id]);
+            await txn.delete(DbConstants.tableBudgets,
+                where: '${DbConstants.colId} = ?', whereArgs: [b.id]);
+          }
+        }
+      }
+      return moved;
+    });
+  }
+
   // Budget CRUD
   Future<int> insertBudget(Budget budget) async {
     final db = await database;
@@ -1488,12 +1592,12 @@ class DBService {
 
     // Investments paid from an account leave it like an expense (a
     // withdrawal, stored negative, comes back in).
-    final invRows = await db.rawQuery(
-        'SELECT ${DbConstants.colAccountId} AS accountId, '
-        'SUM(${DbConstants.colAmount}) AS amt '
-        'FROM ${DbConstants.tableInvestments} '
-        'WHERE ${DbConstants.colAccountId} IS NOT NULL '
-        'GROUP BY accountId');
+    final invRows =
+        await db.rawQuery('SELECT ${DbConstants.colAccountId} AS accountId, '
+            'SUM(${DbConstants.colAmount}) AS amt '
+            'FROM ${DbConstants.tableInvestments} '
+            'WHERE ${DbConstants.colAccountId} IS NOT NULL '
+            'GROUP BY accountId');
     for (final row in invRows) {
       final id = row['accountId'] as int;
       flows[id] = (flows[id] ?? 0) - ((row['amt'] ?? 0) as num).toDouble();
