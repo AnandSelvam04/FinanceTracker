@@ -40,7 +40,7 @@ lib/
   main.dart                 # App entry, providers, theming, AuthGate, onboarding wrapper
   models/                   # Expense (expense/income/transfer), account, investment, budget, recurring rule, template, savings goal
   providers/                # Expense, Investment, Budget, Account, Recurring, Template, Goal providers
-  services/                 # DB (schema v16, migrations), backup + crypto, auth, notifications, recurring, CSV + SMS import, PDF statement
+  services/                 # DB (schema v17, migrations), backup + crypto, auth, notifications, recurring, CSV + SMS import, PDF statement
   screens/                  # UI screens (home, add expense/transfer, accounts, budgets, recurring, insights, backups, list)
   widgets/                  # Charts (pie, trends, cash flow, category trend), month selector
   utils/                    # DbConstants, category colors, currency format, logger

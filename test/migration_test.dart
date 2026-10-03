@@ -157,6 +157,10 @@ void main() {
             DbConstants.tableTemplates, DbConstants.colPaymentMode),
         'TEXT');
 
+    // v17 adds a note to transactions, after the v9 rebuild of expenses.
+    expect(await affinityOf(DbConstants.tableExpenses, DbConstants.colNote),
+        'TEXT');
+
     final tables = await db
         .rawQuery("SELECT name FROM sqlite_master WHERE type = 'table'");
     expect(tables.map((r) => r['name']), contains(DbConstants.tableSmsIgnored));

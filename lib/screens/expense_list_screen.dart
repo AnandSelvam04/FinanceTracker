@@ -694,8 +694,14 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle:
-                  Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis),
+              // A note, when there is one, gets its own line under the
+              // category so it is readable without opening the row.
+              subtitle: Text(
+                  expense.noteText == null
+                      ? detail
+                      : '$detail\n${expense.noteText}',
+                  maxLines: expense.noteText == null ? 1 : 2,
+                  overflow: TextOverflow.ellipsis),
               trailing: Text(amount,
                   style: TextStyle(
                       fontWeight: FontWeight.bold, color: amountColor)),

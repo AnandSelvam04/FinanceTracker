@@ -57,6 +57,8 @@ List<List<dynamic>> _expenseCsvRows(
         // Names alongside the ids, which mean nothing outside the app.
         'Account',
         'ToAccount',
+        // Last, so the columns before it keep their positions.
+        'Note',
       ],
       ...expenses.map((e) => [
             e.id ?? '',
@@ -75,6 +77,7 @@ List<List<dynamic>> _expenseCsvRows(
                 : minorToMajor(e.toAmount!).toStringAsFixed(2),
             csvSafeCell(accountNames[e.accountId] ?? ''),
             csvSafeCell(accountNames[e.toAccountId] ?? ''),
+            csvSafeCell(e.noteText ?? ''),
           ]),
     ];
 

@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 16;
+  static const int dbVersion = 17;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -20,6 +20,7 @@ class DbConstants {
   // SmsImport.sourceRefFor). Null for hand-entered rows. Lets a rescan of the
   // SMS inbox skip messages that were already imported.
   static const String colSourceRef = 'sourceRef';
+  static const String colNote = 'note';
 
   // Indexes on the expenses table.
   static const String idxExpensesDate = 'idx_expenses_date';

@@ -164,7 +164,8 @@ class DBService {
             ${DbConstants.colAccountId} INTEGER,
             ${DbConstants.colToAccountId} INTEGER,
             ${DbConstants.colToAmount} INTEGER,
-            ${DbConstants.colSourceRef} TEXT
+            ${DbConstants.colSourceRef} TEXT,
+            ${DbConstants.colNote} TEXT
           )
         ''');
     await _createExpenseIndexes(db);
@@ -357,6 +358,12 @@ class DBService {
         await db.execute('ALTER TABLE ${DbConstants.tableTemplates} '
             'ADD COLUMN ${DbConstants.colPaymentMode} TEXT');
       }
+    }
+    if (oldVersion < 17) {
+      // A free-text note on a transaction ("split with Ravi", "warranty till
+      // 2028"). After the v9 rebuild, which recreates expenses without it.
+      await db.execute('ALTER TABLE ${DbConstants.tableExpenses} '
+          'ADD COLUMN ${DbConstants.colNote} TEXT');
     }
   }
 
