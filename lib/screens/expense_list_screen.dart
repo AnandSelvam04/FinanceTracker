@@ -39,6 +39,17 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   int? _selectedMonth = DateTime.now().month;
   String? _typeFilter;
 
+  /// Ids of the rows picked for a bulk action. Non-empty means the screen is
+  /// in selection mode (entered by long-pressing a row).
+  final Set<int> _selected = {};
+  bool get _selecting => _selected.isNotEmpty;
+
+  /// Ids of the transactions the list currently shows, for Select all.
+  List<int> _visibleIds = const [];
+
+  /// Largest first instead of newest first — to find the big spends.
+  bool _sortByAmount = false;
+
   /// Rows already given their entrance animation, keyed by transaction id.
   /// Recycled `ListView` rows rebuild on scroll, so this guards against the
   /// fade-in replaying every time a row scrolls back into view.
@@ -173,6 +184,141 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     return account == null
         ? formatMoney(amount)
         : formatMoneyIn(account.symbol, amount);
+  }
+
+  void _toggleSelected(Expense e) {
+    final id = e.id;
+    if (id == null) return;
+    setState(() =>
+        _selected.contains(id) ? _selected.remove(id) : _selected.add(id));
+  }
+
+  /// The selected rows that are still loaded (a row can vanish under the
+  /// selection if it is edited into another period).
+  List<Expense> get _selectedRows => [
+        for (final e in context.read<ExpenseProvider>().expenses)
+          if (e.id != null && _selected.contains(e.id)) e,
+      ];
+
+  /// The contextual app bar shown while rows are selected.
+  AppBar _selectionBar() {
+    final allSelected =
+        _visibleIds.isNotEmpty && _visibleIds.every(_selected.contains);
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        tooltip: 'Cancel selection',
+        onPressed: () => setState(_selected.clear),
+      ),
+      title: Text('${_selected.length} selected'),
+      actions: [
+        IconButton(
+          icon: Icon(allSelected ? Icons.deselect : Icons.select_all),
+          tooltip: allSelected ? 'Select none' : 'Select all',
+          onPressed: () => setState(() =>
+              allSelected ? _selected.clear() : _selected.addAll(_visibleIds)),
+        ),
+        IconButton(
+          icon: const Icon(Icons.category_outlined),
+          tooltip: 'Change category',
+          onPressed: _bulkRecategorize,
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline),
+          tooltip: 'Delete selected',
+          onPressed: _bulkDelete,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _bulkDelete() async {
+    final rows = _selectedRows;
+    if (rows.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final expenses = context.read<ExpenseProvider>();
+    final accounts = context.read<AccountProvider>();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete ${rows.length} '
+            '${rows.length == 1 ? 'transaction' : 'transactions'}?'),
+        content: const Text('Account balances and totals update to match. '
+            'You can undo straight after.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await DBService().deleteExpenses([for (final e in rows) e.id!]);
+    // Leave selection mode at once, not after the reload below.
+    if (mounted) setState(_selected.clear);
+    await expenses.reloadLoadedYears();
+    await accounts.refreshBalances();
+    messenger.showSnackBar(SnackBar(
+      content: Text('Deleted ${rows.length} '
+          '${rows.length == 1 ? 'transaction' : 'transactions'}'),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          // Same ids, so anything referring to them still lines up.
+          await DBService().insertExpenses(rows);
+          await expenses.reloadLoadedYears();
+          await accounts.refreshBalances();
+        },
+      ),
+    ));
+  }
+
+  Future<void> _bulkRecategorize() async {
+    final rows = _selectedRows;
+    final movable = rows.where((e) => !e.isTransfer).toList();
+    final messenger = ScaffoldMessenger.of(context);
+    if (movable.isEmpty) {
+      messenger.showSnackBar(const SnackBar(
+          content: Text('Transfers have no category to change.')));
+      return;
+    }
+    final expenses = context.read<ExpenseProvider>();
+    final existing = {
+      for (final e in expenses.expenses)
+        if (!e.isTransfer && e.category.trim().isNotEmpty) e.category.trim(),
+    }.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final category = await showDialog<String>(
+      context: context,
+      builder: (_) =>
+          _CategoryPickerDialog(count: movable.length, suggestions: existing),
+    );
+    if (category == null || category.trim().isEmpty) return;
+    final before = [for (final e in movable) (e.id!, e.category)];
+    await DBService().setCategory([for (final e in movable) e.id!], category);
+    if (mounted) setState(_selected.clear);
+    await expenses.reloadLoadedYears();
+    final skipped = rows.length - movable.length;
+    messenger.showSnackBar(SnackBar(
+      content: Text('Moved ${movable.length} to $category'
+          '${skipped > 0 ? ' ($skipped transfer${skipped == 1 ? '' : 's'} skipped)' : ''}'),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          for (final (id, old) in before) {
+            await DBService().setCategory([id], old);
+          }
+          await expenses.reloadLoadedYears();
+        },
+      ),
+    ));
   }
 
   Future<bool> _confirmDelete(Expense expense) async {
@@ -441,201 +587,234 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transactions'),
-        actions: [
-          IconButton(
-            icon: Icon(_hasAdvancedFilters
-                ? Icons.filter_alt
-                : Icons.filter_alt_outlined),
-            tooltip: 'Filters',
-            onPressed: _openFilterSheet,
-          ),
-          IconButton(
-            icon: const Icon(Icons.download),
-            tooltip: 'Download filtered (CSV)',
-            onPressed: _downloadFiltered,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search transactions',
-                prefixIcon: const Icon(Icons.search),
-                // A clear button so a stale query doesn't hide everything with
-                // no obvious way to reset it.
-                suffixIcon: _searchQuery.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.close),
-                        tooltip: 'Clear search',
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      ),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.toLowerCase();
-                });
-              },
-            ),
-          ),
-          // One compact toolbar row: the period opens a picker, and the type
-          // chips sit beside it — instead of two bare dropdowns plus a
-          // separate chip strip stacked down the screen.
-          SizedBox(
-            height: 44,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                ActionChip(
-                  avatar: const Icon(Icons.calendar_month, size: 18),
-                  label: Text(_periodLabel),
-                  onPressed: _showPeriodPicker,
-                ),
-                const SizedBox(width: 8),
-                const _ToolbarDivider(),
-                const SizedBox(width: 8),
-                for (final entry in [
-                  (null, 'All'),
-                  (DbConstants.txExpense, 'Expenses'),
-                  (DbConstants.txIncome, 'Income'),
-                  (DbConstants.txTransfer, 'Transfers'),
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(entry.$2),
-                      selected: _typeFilter == entry.$1,
-                      onSelected: (_) => setState(() => _typeFilter = entry.$1),
-                    ),
+    return PopScope(
+      // Back leaves selection mode before it leaves the screen.
+      canPop: !_selecting,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selecting) setState(_selected.clear);
+      },
+      child: Scaffold(
+        appBar: _selecting
+            ? _selectionBar()
+            : AppBar(
+                title: const Text('Transactions'),
+                actions: [
+                  // Newest first (grouped by day) or largest first, to find
+                  // the big spends.
+                  IconButton(
+                    icon:
+                        Icon(_sortByAmount ? Icons.trending_down : Icons.sort),
+                    tooltip: _sortByAmount
+                        ? 'Sorted: largest first'
+                        : 'Sorted: newest first',
+                    onPressed: () =>
+                        setState(() => _sortByAmount = !_sortByAmount),
                   ),
-                // The filter icon in the app bar was the only sign that
-                // category/account/amount filters were narrowing the list.
-                // Surface them here, with a one-tap clear.
-                if (_hasAdvancedFilters)
-                  InputChip(
-                    avatar: const Icon(Icons.filter_alt, size: 18),
-                    label: const Text('Filters on'),
-                    selected: true,
+                  IconButton(
+                    icon: Icon(_hasAdvancedFilters
+                        ? Icons.filter_alt
+                        : Icons.filter_alt_outlined),
+                    tooltip: 'Filters',
                     onPressed: _openFilterSheet,
-                    onDeleted: () => setState(() {
-                      _categoryFilter = null;
-                      _accountFilter = null;
-                      _minAmount = null;
-                      _maxAmount = null;
-                      _dateRange = null;
-                    }),
-                    deleteButtonTooltipMessage: 'Clear filters',
                   ),
-              ],
+                  IconButton(
+                    icon: const Icon(Icons.download),
+                    tooltip: 'Download filtered (CSV)',
+                    onPressed: _downloadFiltered,
+                  ),
+                ],
+              ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search transactions',
+                  prefixIcon: const Icon(Icons.search),
+                  // A clear button so a stale query doesn't hide everything with
+                  // no obvious way to reset it.
+                  suffixIcon: _searchQuery.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close),
+                          tooltip: 'Clear search',
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        ),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.toLowerCase();
+                  });
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: Consumer2<ExpenseProvider, InvestmentProvider>(
-              builder: (context, provider, investmentProvider, _) {
-                final expenses = _applyFilters(provider.expenses);
-                // With an account chosen, the investments paid from it too:
-                // they move its balance, so the list must show them to add up.
-                final investments =
-                    _filter.investmentsFor(investmentProvider.investments);
-                // Distinguish "still loading" from "nothing here" — otherwise
-                // a cold start shows "No expenses found." for a few frames,
-                // which reads as data loss.
-                if (expenses.isEmpty && provider.isLoading) {
-                  return const ListSkeleton();
-                }
-                if (expenses.isEmpty && investments.isEmpty) {
-                  // Wrapped in a scrollable so pull-to-refresh still works from
-                  // the empty state.
+            // One compact toolbar row: the period opens a picker, and the type
+            // chips sit beside it — instead of two bare dropdowns plus a
+            // separate chip strip stacked down the screen.
+            SizedBox(
+              height: 44,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                children: [
+                  ActionChip(
+                    avatar: const Icon(Icons.calendar_month, size: 18),
+                    label: Text(_periodLabel),
+                    onPressed: _showPeriodPicker,
+                  ),
+                  const SizedBox(width: 8),
+                  const _ToolbarDivider(),
+                  const SizedBox(width: 8),
+                  for (final entry in [
+                    (null, 'All'),
+                    (DbConstants.txExpense, 'Expenses'),
+                    (DbConstants.txIncome, 'Income'),
+                    (DbConstants.txTransfer, 'Transfers'),
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(entry.$2),
+                        selected: _typeFilter == entry.$1,
+                        onSelected: (_) =>
+                            setState(() => _typeFilter = entry.$1),
+                      ),
+                    ),
+                  // The filter icon in the app bar was the only sign that
+                  // category/account/amount filters were narrowing the list.
+                  // Surface them here, with a one-tap clear.
+                  if (_hasAdvancedFilters)
+                    InputChip(
+                      avatar: const Icon(Icons.filter_alt, size: 18),
+                      label: const Text('Filters on'),
+                      selected: true,
+                      onPressed: _openFilterSheet,
+                      onDeleted: () => setState(() {
+                        _categoryFilter = null;
+                        _accountFilter = null;
+                        _minAmount = null;
+                        _maxAmount = null;
+                        _dateRange = null;
+                      }),
+                      deleteButtonTooltipMessage: 'Clear filters',
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: Consumer2<ExpenseProvider, InvestmentProvider>(
+                builder: (context, provider, investmentProvider, _) {
+                  final expenses = _applyFilters(provider.expenses);
+                  // With an account chosen, the investments paid from it too:
+                  // they move its balance, so the list must show them to add up.
+                  final investments =
+                      _filter.investmentsFor(investmentProvider.investments);
+                  // Distinguish "still loading" from "nothing here" — otherwise
+                  // a cold start shows "No expenses found." for a few frames,
+                  // which reads as data loss.
+                  if (expenses.isEmpty && provider.isLoading) {
+                    return const ListSkeleton();
+                  }
+                  if (expenses.isEmpty && investments.isEmpty) {
+                    // Wrapped in a scrollable so pull-to-refresh still works from
+                    // the empty state.
+                    return RefreshIndicator(
+                      onRefresh: () =>
+                          context.read<ExpenseProvider>().reloadLoadedYears(),
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: const [
+                          SizedBox(height: 80),
+                          EmptyState(
+                            icon: Icons.receipt_long_outlined,
+                            title: 'No transactions found',
+                            message:
+                                'Try a different period or clear your filters.',
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  // Flatten into day headers followed by that day's rows (the
+                  // list is already newest-first), so the date is said once per
+                  // day instead of repeated on every row.
+                  final items = <Object>[];
+                  final daySpent = <DateTime, int>{};
+                  DateTime? day;
+                  // Both lists are newest-first; merge them by date.
+                  int size(Object row) => row is Investment
+                      ? row.amount.abs()
+                      : provider.baseAmountOf(row as Expense).abs();
+                  final rows = <Object>[...expenses, ...investments]..sort(
+                      (a, b) => _sortByAmount
+                          ? size(b).compareTo(size(a))
+                          : _dateOf(b).compareTo(_dateOf(a)));
+                  _visibleIds = [
+                    for (final e in expenses)
+                      if (e.id != null) e.id!,
+                  ];
+                  for (final row in rows) {
+                    final d = DateUtils.dateOnly(_dateOf(row));
+                    // Day headers only make sense in date order; sorted by
+                    // amount, each row carries its own date instead.
+                    if (!_sortByAmount && d != day) {
+                      day = d;
+                      items.add(d);
+                    }
+                    items.add(row);
+                    if (row is Expense && row.isExpense) {
+                      daySpent[d] =
+                          (daySpent[d] ?? 0) + provider.baseAmountOf(row);
+                    }
+                  }
+                  final spent = expenses
+                      .where((e) => e.isExpense)
+                      .fold<int>(0, (s, e) => s + provider.baseAmountOf(e));
+                  final income = expenses
+                      .where((e) => e.isIncome)
+                      .fold<int>(0, (s, e) => s + provider.baseAmountOf(e));
                   return RefreshIndicator(
                     onRefresh: () =>
                         context.read<ExpenseProvider>().reloadLoadedYears(),
-                    child: ListView(
+                    child: ListView.builder(
+                      // +1 for the period summary leading the list.
+                      itemCount: items.length + 1,
                       physics: const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(height: 80),
-                        EmptyState(
-                          icon: Icons.receipt_long_outlined,
-                          title: 'No transactions found',
-                          message:
-                              'Try a different period or clear your filters.',
-                        ),
-                      ],
+                      padding:
+                          scrollPadding(context, all: 12, top: 4, fab: true),
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return _PeriodSummary(
+                            count: expenses.length + investments.length,
+                            spent: spent,
+                            income: income,
+                          );
+                        }
+                        final item = items[index - 1];
+                        if (item is DateTime) {
+                          return _DayHeader(
+                              day: item, spent: daySpent[item] ?? 0);
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: item is Investment
+                              ? _InvestmentRow(investment: item)
+                              : _buildRow(context, item as Expense, index),
+                        );
+                      },
                     ),
                   );
-                }
-                // Flatten into day headers followed by that day's rows (the
-                // list is already newest-first), so the date is said once per
-                // day instead of repeated on every row.
-                final items = <Object>[];
-                final daySpent = <DateTime, int>{};
-                DateTime? day;
-                // Both lists are newest-first; merge them by date.
-                final rows = <Object>[...expenses, ...investments]
-                  ..sort((a, b) => _dateOf(b).compareTo(_dateOf(a)));
-                for (final row in rows) {
-                  final d = DateUtils.dateOnly(_dateOf(row));
-                  if (d != day) {
-                    day = d;
-                    items.add(d);
-                  }
-                  items.add(row);
-                  if (row is Expense && row.isExpense) {
-                    daySpent[d] =
-                        (daySpent[d] ?? 0) + provider.baseAmountOf(row);
-                  }
-                }
-                final spent = expenses
-                    .where((e) => e.isExpense)
-                    .fold<int>(0, (s, e) => s + provider.baseAmountOf(e));
-                final income = expenses
-                    .where((e) => e.isIncome)
-                    .fold<int>(0, (s, e) => s + provider.baseAmountOf(e));
-                return RefreshIndicator(
-                  onRefresh: () =>
-                      context.read<ExpenseProvider>().reloadLoadedYears(),
-                  child: ListView.builder(
-                    // +1 for the period summary leading the list.
-                    itemCount: items.length + 1,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: scrollPadding(context, all: 12, top: 4, fab: true),
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return _PeriodSummary(
-                          count: expenses.length + investments.length,
-                          spent: spent,
-                          income: income,
-                        );
-                      }
-                      final item = items[index - 1];
-                      if (item is DateTime) {
-                        return _DayHeader(
-                            day: item, spent: daySpent[item] ?? 0);
-                      }
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: item is Investment
-                            ? _InvestmentRow(investment: item)
-                            : _buildRow(context, item as Expense, index),
-                      );
-                    },
-                  ),
-                );
-              },
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -668,6 +847,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
             : expense.isIncome
                 ? '${expense.category} · Income'
                 : '${expense.category} · ${expense.paymentMode}';
+    final detailLine =
+        _sortByAmount ? '${formatShortDate(expense.date)} · $detail' : detail;
+    final selected = expense.id != null && _selected.contains(expense.id);
     // Swiping is the only way to delete here, and a Dismissible exposes no
     // action to TalkBack or switch access — so those users could not delete a
     // transaction at all. Publish a custom semantics action and a long-press,
@@ -677,16 +859,34 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         customSemanticsActions: {
           const CustomSemanticsAction(label: 'Delete'): () =>
               _confirmDelete(expense),
+          if (expense.id != null)
+            CustomSemanticsAction(label: selected ? 'Deselect' : 'Select'):
+                () => _toggleSelected(expense),
         },
         child: Dismissible(
           key: ValueKey(rowKey),
-          direction: DismissDirection.endToStart,
+          // No swipe-to-delete while picking rows for a bulk action.
+          direction:
+              _selecting ? DismissDirection.none : DismissDirection.endToStart,
           background: const SwipeDeleteBackground(),
           confirmDismiss: (_) => _confirmDelete(expense),
           child: Card(
             margin: EdgeInsets.zero,
+            color: selected
+                ? Theme.of(context).colorScheme.secondaryContainer
+                : null,
             child: ListTile(
-              leading: _CategoryAvatar(expense: expense),
+              leading: _selecting
+                  ? CircleAvatar(
+                      backgroundColor: selected
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                      child: Icon(selected ? Icons.check : null,
+                          color: Theme.of(context).colorScheme.onPrimary),
+                    )
+                  : _CategoryAvatar(expense: expense),
               title: Text(
                   expense.description.isEmpty
                       ? '(no description)'
@@ -694,17 +894,27 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle:
-                  Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis),
+              // A note, when there is one, gets its own line under the
+              // category so it is readable without opening the row.
+              subtitle: Text(
+                  expense.noteText == null
+                      ? detailLine
+                      : '$detailLine\n${expense.noteText}',
+                  maxLines: expense.noteText == null ? 1 : 2,
+                  overflow: TextOverflow.ellipsis),
               trailing: Text(amount,
                   style: TextStyle(
                       fontWeight: FontWeight.bold, color: amountColor)),
               // Edit, Duplicate or Delete — duplicating used to need the
               // edit sheet opened first.
-              onTap: () => transactionRowActions(context, expense,
-                  firstDate: _pickerFirstDate,
-                  onDelete: () => _confirmDelete(expense)),
-              onLongPress: () => _confirmDelete(expense),
+              onTap: _selecting
+                  ? () => _toggleSelected(expense)
+                  : () => transactionRowActions(context, expense,
+                      firstDate: _pickerFirstDate,
+                      onDelete: () => _confirmDelete(expense)),
+              // Long-press starts picking rows for a bulk action; deleting a
+              // single row is in its tap menu and on swipe.
+              onLongPress: () => _toggleSelected(expense),
             ),
           ),
         ));
@@ -888,6 +1098,80 @@ class _InvestmentRow extends StatelessWidget {
           MaterialPageRoute(builder: (_) => InvestmentTypeScreen(type: i.type)),
         ),
       ),
+    );
+  }
+}
+
+/// Asks which category to file the selected rows under: an existing one from
+/// the chips, or a new name typed in.
+class _CategoryPickerDialog extends StatefulWidget {
+  final int count;
+  final List<String> suggestions;
+  const _CategoryPickerDialog({required this.count, required this.suggestions});
+
+  @override
+  State<_CategoryPickerDialog> createState() => _CategoryPickerDialogState();
+}
+
+class _CategoryPickerDialogState extends State<_CategoryPickerDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final typed = _controller.text.trim();
+    return AlertDialog(
+      title: Text('Move ${widget.count} to'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Category'),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (final c in widget.suggestions)
+                  ChoiceChip(
+                    label: Text(c),
+                    selected: c.toLowerCase() == typed.toLowerCase(),
+                    onSelected: (_) => setState(() => _controller.text = c),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel')),
+        FilledButton(
+          onPressed: typed.isEmpty
+              ? null
+              : () {
+                  // Reuse an existing spelling rather than start a near-twin.
+                  final match = widget.suggestions.firstWhere(
+                      (c) => c.toLowerCase() == typed.toLowerCase(),
+                      orElse: () => typed);
+                  Navigator.pop(context, match);
+                },
+          child: const Text('Move'),
+        ),
+      ],
     );
   }
 }

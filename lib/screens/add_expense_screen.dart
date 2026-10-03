@@ -49,6 +49,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _descriptionController = TextEditingController();
   final _amountController = TextEditingController();
   final _categoryController = TextEditingController();
+  final _noteController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   String _selectedPaymentMode = 'Cash';
   String _txType = DbConstants.txExpense;
@@ -97,6 +98,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       // A refund is stored negative; its copy starts as a spend of that size.
       _amountController.text = minorToEditString(copy.amount.abs());
       _descriptionController.text = copy.description;
+      _noteController.text = copy.note ?? '';
       _categoryController.text = copy.category;
       // Only keep an account that still exists: a dropdown whose value
       // matches no item throws. If accounts aren't loaded yet, the check
@@ -155,6 +157,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     _descriptionController.dispose();
     _amountController.dispose();
     _categoryController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -510,6 +513,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 ),
                 const SizedBox(height: 4),
               ],
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _noteController,
+                minLines: 1,
+                maxLines: 3,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Note (optional)',
+                  hintText: 'e.g. split with Ravi, warranty till 2028',
+                ),
+              ),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
@@ -540,6 +554,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                   _isIncome ? 'Other' : _selectedPaymentMode,
                               type: _txType,
                               accountId: _accountId,
+                              note: _noteController.text.trim().isEmpty
+                                  ? null
+                                  : _noteController.text.trim(),
                             );
                             final provider = context.read<ExpenseProvider>();
                             final accountProvider =

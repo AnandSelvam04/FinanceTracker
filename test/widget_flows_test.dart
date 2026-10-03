@@ -224,6 +224,75 @@ void main() {
     await teardownTree(tester);
   }, timeout: testTimeout);
 
+  testWidgets('Transactions: select rows, delete them, sort by amount',
+      (tester) async {
+    final (expenses, accounts) = (await tester.runAsync(() async {
+      for (final (name, amount, daysAgo) in [
+        ('Small', 1000, 0),
+        ('Big', 900000, 1),
+        ('Medium', 50000, 2),
+      ]) {
+        await DBService().insertExpense(Expense(
+          description: name,
+          amount: amount,
+          // Within this month so the default period shows all three.
+          date: DateTime(now.year, now.month, now.day)
+              .subtract(Duration(days: now.day > 3 ? daysAgo : 0)),
+          category: 'Food',
+          paymentMode: 'UPI',
+        ));
+      }
+      final e = ExpenseProvider();
+      await e.ensureYearLoaded(now.year);
+      final a = AccountProvider();
+      await a.fetchAccounts();
+      return (e, a);
+    }))!;
+
+    await pumpScreen(tester, const ExpenseListScreen(), [
+      ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
+      ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      ChangeNotifierProvider<InvestmentProvider>(
+          create: (_) => InvestmentProvider()),
+    ]);
+
+    // Largest first.
+    await tester.tap(find.byTooltip('Sorted: newest first'));
+    await tester.pump();
+    expect(find.byTooltip('Sorted: largest first'), findsOneWidget);
+    double y(String t) => tester.getTopLeft(find.text(t)).dy;
+    expect(y('Big'), lessThan(y('Medium')));
+    expect(y('Medium'), lessThan(y('Small')));
+
+    // Long-press starts selecting; taps then toggle.
+    await tester.longPress(find.text('Small'));
+    await tester.pump();
+    expect(find.text('1 selected'), findsOneWidget);
+    await tester.tap(find.text('Medium'));
+    await tester.pump();
+    expect(find.text('2 selected'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Delete selected'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    // Until the deleted rows are gone and the reload has put the rest back.
+    for (var i = 0;
+        i < 40 &&
+            (find.text('Small').evaluate().isNotEmpty ||
+                find.text('Big').evaluate().isEmpty ||
+                find.text('Deleted 2 transactions').evaluate().isEmpty);
+        i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
+    expect(find.text('Small'), findsNothing);
+    expect(find.text('Medium'), findsNothing);
+    expect(find.text('Big'), findsOneWidget);
+    expect(find.text('2 selected'), findsNothing);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+
   testWidgets('Recurring screen shows a rule and its end date', (tester) async {
     final (recurring, accounts) = (await tester.runAsync(() async {
       await DBService().insertRecurringRule(RecurringRule(

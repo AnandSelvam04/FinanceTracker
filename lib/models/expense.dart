@@ -25,6 +25,16 @@ class Expense {
   /// importing the same message twice.
   final String? sourceRef;
 
+  /// Optional free-text note ("split with Ravi", "warranty till 2028"). Null
+  /// or empty when there is none.
+  final String? note;
+
+  /// [note] trimmed, or null when there is nothing in it.
+  String? get noteText {
+    final n = note?.trim();
+    return n == null || n.isEmpty ? null : n;
+  }
+
   Expense({
     this.id,
     required this.description,
@@ -37,6 +47,7 @@ class Expense {
     this.toAccountId,
     this.toAmount,
     this.sourceRef,
+    this.note,
   });
 
   bool get isExpense => type == DbConstants.txExpense;
@@ -63,6 +74,7 @@ class Expense {
         DbConstants.colToAccountId: toAccountId,
         DbConstants.colToAmount: toAmount,
         DbConstants.colSourceRef: sourceRef,
+        DbConstants.colNote: note,
       };
 
   factory Expense.fromMap(Map<String, dynamic> map) => Expense(
@@ -80,5 +92,7 @@ class Expense {
         toAmount: (map[DbConstants.colToAmount] as num?)?.round(),
         // Rows/backups from before schema v10 have no sourceRef column.
         sourceRef: map[DbConstants.colSourceRef] as String?,
+        // Rows/backups from before schema v17 have no note column.
+        note: map[DbConstants.colNote] as String?,
       );
 }

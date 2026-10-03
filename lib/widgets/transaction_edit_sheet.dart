@@ -86,6 +86,7 @@ Future<void> showEditExpenseSheet(
   final amountController =
       TextEditingController(text: minorToEditString(expense.amount.abs()));
   final categoryController = TextEditingController(text: expense.category);
+  final noteController = TextEditingController(text: expense.note ?? '');
   String paymentMode = expense.paymentMode;
   DateTime selectedDate = expense.date;
   // The builders below shadow `context`; keep the caller's for the split and
@@ -107,7 +108,12 @@ Future<void> showEditExpenseSheet(
     isScrollControlled: true,
     builder: (sheetContext) {
       return DisposeWithRoute(
-        notifiers: [descController, amountController, categoryController],
+        notifiers: [
+          descController,
+          amountController,
+          categoryController,
+          noteController,
+        ],
         child: StatefulBuilder(builder: (context, setModalState) {
           return Padding(
             padding: bottomSheetPadding(context),
@@ -182,6 +188,14 @@ Future<void> showEditExpenseSheet(
                     onChanged: (v) =>
                         setModalState(() => paymentMode = v ?? paymentMode),
                   ),
+                  TextField(
+                    controller: noteController,
+                    minLines: 1,
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration:
+                        const InputDecoration(labelText: 'Note (optional)'),
+                  ),
                   Row(
                     children: [
                       Text('Date: ${formatDateWithDay(selectedDate)}'),
@@ -232,6 +246,9 @@ Future<void> showEditExpenseSheet(
                           // Keep the import link, or the next SMS scan offers
                           // the edited row again as a new transaction.
                           sourceRef: expense.sourceRef,
+                          note: noteController.text.trim().isEmpty
+                              ? null
+                              : noteController.text.trim(),
                         );
                         final provider = context.read<ExpenseProvider>();
                         final accountProvider = context.read<AccountProvider>();
@@ -393,6 +410,9 @@ Future<void> showEditTransferSheet(
                         toAccountId: toId,
                         toAmount: toAmount,
                         sourceRef: transfer.sourceRef,
+                        // Not editable here (the "Note" field above is the
+                        // transfer's description), so keep it as it was.
+                        note: transfer.note,
                       );
                       final expenseProvider = context.read<ExpenseProvider>();
                       final accountProvider = context.read<AccountProvider>();
@@ -508,6 +528,7 @@ class _SplitSheetState extends State<_SplitSheet> {
           // Keep the import link on every part so a rescan still treats the
           // message as handled.
           sourceRef: o.sourceRef,
+          note: o.note,
         ),
     ];
     Navigator.pop(context, parts);

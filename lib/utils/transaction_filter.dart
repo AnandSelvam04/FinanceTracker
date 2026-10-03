@@ -64,6 +64,7 @@ class TransactionFilter {
       e.description,
       e.category,
       e.paymentMode,
+      e.note,
       accountNames[e.accountId],
       accountNames[e.toAccountId],
     ], e.amount);

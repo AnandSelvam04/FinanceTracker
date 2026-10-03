@@ -118,9 +118,15 @@ class ExpenseProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Reloads expenses for a specific year (e.g., after an update)
+  /// Reloads expenses for a specific year (e.g., after an update). A year
+  /// that isn't loaded has nothing to refresh, but listeners are still told
+  /// the data changed — a screen reading the database directly (an account
+  /// statement spans every year) would otherwise miss the edit.
   Future<void> _reloadYear(int year) async {
-    if (!_loadedYears.contains(year)) return;
+    if (!_loadedYears.contains(year)) {
+      notifyListeners();
+      return;
+    }
     _replaceYear(year, await DBService().getExpensesByYear(year));
     notifyListeners();
   }
@@ -153,13 +159,13 @@ class ExpenseProvider extends ChangeNotifier {
 
   /// Returns the total amount spent in a given year (expenses only), in
   /// base-currency minor units.
-  int totalForYear(int year) => _memo(
-      'ty:$year', () => _sumBase(_byYear(year, DbConstants.txExpense)));
+  int totalForYear(int year) =>
+      _memo('ty:$year', () => _sumBase(_byYear(year, DbConstants.txExpense)));
 
   /// Returns the total income received in a given year, in base-currency
   /// minor units.
-  int incomeForYear(int year) => _memo(
-      'iy:$year', () => _sumBase(_byYear(year, DbConstants.txIncome)));
+  int incomeForYear(int year) =>
+      _memo('iy:$year', () => _sumBase(_byYear(year, DbConstants.txIncome)));
 
   /// Returns category totals (base-currency minor units) for a given year
   /// (expenses only). The returned map is cached and shared — treat it as
@@ -176,9 +182,7 @@ class ExpenseProvider extends ChangeNotifier {
     final id = await DBService().insertExpense(expense);
     // If the year is already loaded, reload it to get the new expense
     // (or we could just add it to the list manually, but reloading is safer for consistency)
-    if (_loadedYears.contains(expense.date.year)) {
-      await _reloadYear(expense.date.year);
-    }
+    await _reloadYear(expense.date.year);
     return id;
   }
 
@@ -196,13 +200,14 @@ class ExpenseProvider extends ChangeNotifier {
   }
 
   Future<void> deleteExpense(int id) async {
-    // We need to find the expense first to know its year,
-    // but since we only delete what we see, it must be in _expenses.
+    // The row's year decides what to reload. A row from a year that isn't
+    // loaded (deleted from an account statement) is still deleted.
     final index = _expenses.indexWhere((e) => e.id == id);
+    await DBService().deleteExpense(id);
     if (index != -1) {
-      final year = _expenses[index].date.year;
-      await DBService().deleteExpense(id);
-      await _reloadYear(year);
+      await _reloadYear(_expenses[index].date.year);
+    } else {
+      notifyListeners();
     }
   }
 
@@ -257,7 +262,8 @@ class ExpenseProvider extends ChangeNotifier {
   /// Powers the weekly (and any custom-range) view on the summary screen,
   /// which the month-keyed aggregates above cannot express. Callers must have
   /// loaded every year the range touches (see [ensureYearsLoaded]).
-  List<Expense> expensesInRange(DateTime startInclusive, DateTime endExclusive) {
+  List<Expense> expensesInRange(
+      DateTime startInclusive, DateTime endExclusive) {
     return _expenses
         .where((e) =>
             !e.date.isBefore(startInclusive) && e.date.isBefore(endExclusive))
@@ -322,7 +328,7 @@ class ExpenseProvider extends ChangeNotifier {
   /// as "groceries" — the budgets screen, the dashboard alerts banner, and the
   /// budget notifications all route through it.
   int spentForCategoryInMonth(int year, int month, String category) =>
-      _normalizedCategoryTotalsForMonth(year, month)[
-          normalizeCategory(category)] ??
+      _normalizedCategoryTotalsForMonth(
+          year, month)[normalizeCategory(category)] ??
       0;
 }

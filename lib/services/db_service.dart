@@ -164,7 +164,8 @@ class DBService {
             ${DbConstants.colAccountId} INTEGER,
             ${DbConstants.colToAccountId} INTEGER,
             ${DbConstants.colToAmount} INTEGER,
-            ${DbConstants.colSourceRef} TEXT
+            ${DbConstants.colSourceRef} TEXT,
+            ${DbConstants.colNote} TEXT
           )
         ''');
     await _createExpenseIndexes(db);
@@ -357,6 +358,12 @@ class DBService {
         await db.execute('ALTER TABLE ${DbConstants.tableTemplates} '
             'ADD COLUMN ${DbConstants.colPaymentMode} TEXT');
       }
+    }
+    if (oldVersion < 17) {
+      // A free-text note on a transaction ("split with Ravi", "warranty till
+      // 2028"). After the v9 rebuild, which recreates expenses without it.
+      await db.execute('ALTER TABLE ${DbConstants.tableExpenses} '
+          'ADD COLUMN ${DbConstants.colNote} TEXT');
     }
   }
 
@@ -754,6 +761,22 @@ class DBService {
     }
   }
 
+  /// Every transaction that moves [accountId]'s balance — paid from it, paid
+  /// into it, or a transfer out of or into it — newest first, across all
+  /// years. Powers the account statement, which needs the full history for
+  /// its running balance to start from the opening balance.
+  Future<List<Expense>> getExpensesForAccount(int accountId) async {
+    final db = await database;
+    final maps = await db.query(
+      DbConstants.tableExpenses,
+      where: '${DbConstants.colAccountId} = ? OR '
+          '(${DbConstants.colType} = ? AND ${DbConstants.colToAccountId} = ?)',
+      whereArgs: [accountId, DbConstants.txTransfer, accountId],
+      orderBy: '${DbConstants.colDate} DESC',
+    );
+    return [for (final m in maps) Expense.fromMap(m)];
+  }
+
   Future<int> updateExpense(Expense expense) async {
     final db = await database;
     try {
@@ -772,6 +795,35 @@ class DBService {
     } catch (e) {
       throw Exception('Failed to delete expense: $e');
     }
+  }
+
+  /// Deletes every row in [ids] in one transaction (the Transactions tab's
+  /// bulk delete). Returns how many were removed.
+  Future<int> deleteExpenses(Iterable<int> ids) async {
+    final list = ids.toList();
+    if (list.isEmpty) return 0;
+    final db = await database;
+    return db.delete(DbConstants.tableExpenses,
+        where:
+            '${DbConstants.colId} IN (${List.filled(list.length, '?').join(',')})',
+        whereArgs: list);
+  }
+
+  /// Files every row in [ids] under [category] in one statement (bulk
+  /// recategorise). Transfers are skipped: their category is fixed. Returns
+  /// how many rows changed.
+  Future<int> setCategory(Iterable<int> ids, String category) async {
+    final list = ids.toList();
+    if (list.isEmpty || category.trim().isEmpty) return 0;
+    final db = await database;
+    return db.update(
+      DbConstants.tableExpenses,
+      {DbConstants.colCategory: category.trim()},
+      where:
+          '${DbConstants.colId} IN (${List.filled(list.length, '?').join(',')}) '
+          'AND ${DbConstants.colType} != ?',
+      whereArgs: [...list, DbConstants.txTransfer],
+    );
   }
 
   Future<void> clearExpenses() async {

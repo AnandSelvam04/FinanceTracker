@@ -20,6 +20,26 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  /// Default time for a newly enabled daily reminder: 9 PM, after most of the
+  /// day's spending.
+  static const _defaultReminderMinutes = 21 * 60;
+
+  static String _timeLabel(BuildContext context, int minutes) =>
+      TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60).format(context);
+
+  /// Asks for the reminder time and turns the reminder on at it.
+  Future<void> _chooseReminderTime(SettingsProvider settings) async {
+    final current = settings.dailyReminderMinutes ?? _defaultReminderMinutes;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: current ~/ 60, minute: current % 60),
+      helpText: 'Remind me every day at',
+    );
+    if (picked == null) return;
+    await settings.setDailyReminderMinutes(picked.hour * 60 + picked.minute);
+    await NotificationService.instance.requestPermission();
+  }
+
   /// Auto-lock delay choices, keyed by their value in seconds.
   static Map<int, String> get _lockOptions => {
         0: 'Immediately',
@@ -272,6 +292,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     await NotificationService.instance.cancelAll();
                   }
                 },
+              ),
+              // A plain tile with its own switch, so tapping the row changes
+              // the time while the switch turns it on and off.
+              ListTile(
+                enabled: settings.notificationsEnabled,
+                leading: const Icon(Icons.edit_calendar_outlined),
+                title: const Text('Daily reminder'),
+                subtitle: Text(settings.dailyReminderMinutes == null
+                    ? 'A nudge each day to log your spending'
+                    : 'Every day at '
+                        '${_timeLabel(context, settings.dailyReminderMinutes!)}'
+                        ', skipped once you\'ve added something that day'),
+                onTap: settings.dailyReminderMinutes == null
+                    ? null
+                    : () => _chooseReminderTime(settings),
+                trailing: Switch(
+                  value: settings.dailyReminderMinutes != null,
+                  // It is a notification, so it follows the master switch.
+                  onChanged: settings.notificationsEnabled
+                      ? (v) => v
+                          ? _chooseReminderTime(settings)
+                          : settings.setDailyReminderMinutes(null)
+                      : null,
+                ),
               ),
               const Divider(),
               const SectionHeader('Security',
