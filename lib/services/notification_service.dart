@@ -130,7 +130,7 @@ class NotificationService {
         await _plugin.zonedSchedule(
           _billIdBase + rule.id!,
           'Bill due soon',
-          '${rule.description} ${formatMoney(rule.amount)} is due '
+          '${rule.description} ${formatMoneyExact(rule.amount)} is due '
               '${_dueLabel(daysBefore)}',
           when,
           _details(),
@@ -166,7 +166,7 @@ class NotificationService {
         await _plugin.zonedSchedule(
           _creditIdBase + r.accountId,
           'Credit card payment due',
-          '${r.accountName}: ${formatMoneyIn(r.symbol, r.amountDue)} '
+          '${r.accountName}: ${formatMoneyInExact(r.symbol, r.amountDue)} '
               'due ${_dueLabel(daysBefore)}',
           when,
           _details(),
@@ -263,7 +263,7 @@ class NotificationService {
           await _budgetNotificationId(prefs, a.category),
           a.isOver ? 'Over budget' : 'Budget warning',
           a.isOver
-              ? '${a.category}: over budget by ${formatMoney(a.spent - a.budget)}'
+              ? '${a.category}: over budget by ${formatMoneyExact(a.spent - a.budget)}'
               : '${a.category}: ${(a.ratio * 100).round()}% of budget used',
         );
       }

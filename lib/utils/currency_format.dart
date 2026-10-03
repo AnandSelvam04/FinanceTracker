@@ -4,7 +4,16 @@
 class CurrencyFormat {
   CurrencyFormat._();
   static String symbol = '₹';
+
+  /// When true, the on-screen formatters ([formatMoney] and friends) show
+  /// "₹ •••••" instead of the figure — for opening the app in front of other
+  /// people. Mirrored from `SettingsProvider`. Exports and notifications use
+  /// the `…Exact` variants, which ignore it.
+  static bool hideAmounts = false;
 }
+
+/// What a hidden amount shows: the symbol, so it still reads as money.
+String _masked(String symbol) => '$symbol •••••';
 
 /// Largest amount the app accepts, in major units (one trillion).
 ///
@@ -75,7 +84,14 @@ String _grouped(int minor, int decimals, String symbol) {
 }
 
 /// Formats minor units with the configured currency symbol and 2 decimals.
-String formatMoney(int minor) =>
+/// Masked while [CurrencyFormat.hideAmounts] is on.
+String formatMoney(int minor) => CurrencyFormat.hideAmounts
+    ? _masked(CurrencyFormat.symbol)
+    : formatMoneyExact(minor);
+
+/// [formatMoney] that always shows the figure: for PDF statements, CSV and
+/// notifications, which must not depend on what the screen is hiding.
+String formatMoneyExact(int minor) =>
     '${CurrencyFormat.symbol}${_grouped(minor, 2, CurrencyFormat.symbol)}';
 
 /// Formats a possibly-negative amount with the minus sign *before* the
@@ -84,23 +100,36 @@ String formatMoney(int minor) =>
 /// [formatMoney] puts the symbol first, so a negative value comes out as
 /// "₹-75.00". Use this wherever the amount can legitimately be negative
 /// (net totals, net worth, balances).
-String formatMoneySigned(int minor) =>
-    '${minor < 0 ? '-' : ''}${formatMoney(minor.abs())}';
+String formatMoneySigned(int minor) => CurrencyFormat.hideAmounts
+    ? _masked(CurrencyFormat.symbol)
+    : formatMoneySignedExact(minor);
+
+/// [formatMoneySigned] that always shows the figure (see [formatMoneyExact]).
+String formatMoneySignedExact(int minor) =>
+    '${minor < 0 ? '-' : ''}${formatMoneyExact(minor.abs())}';
 
 /// Like [formatMoney] but with an explicit [symbol], for accounts held in a
 /// currency other than the app's base currency.
-String formatMoneyIn(String symbol, int minor) =>
+String formatMoneyIn(String symbol, int minor) => CurrencyFormat.hideAmounts
+    ? _masked(symbol)
+    : formatMoneyInExact(symbol, minor);
+
+/// [formatMoneyIn] that always shows the figure (see [formatMoneyExact]).
+String formatMoneyInExact(String symbol, int minor) =>
     '$symbol${_grouped(minor, 2, symbol)}';
 
 /// [formatMoneySigned] with an explicit [symbol], for an account balance that
 /// can legitimately be negative — a credit card's balance is what is owed, so
 /// it is negative for as long as there is anything on it.
 String formatMoneySignedIn(String symbol, int minor) =>
-    '${minor < 0 ? '-' : ''}${formatMoneyIn(symbol, minor.abs())}';
+    CurrencyFormat.hideAmounts
+        ? _masked(symbol)
+        : '${minor < 0 ? '-' : ''}${formatMoneyInExact(symbol, minor.abs())}';
 
 /// Formats minor units rounded to whole major units (no decimals).
-String formatMoneyRounded(int minor) =>
-    '${CurrencyFormat.symbol}${_grouped((minor / 100).round() * 100, 0, CurrencyFormat.symbol)}';
+String formatMoneyRounded(int minor) => CurrencyFormat.hideAmounts
+    ? _masked(CurrencyFormat.symbol)
+    : '${CurrencyFormat.symbol}${_grouped((minor / 100).round() * 100, 0, CurrencyFormat.symbol)}';
 
 /// Converts an [amount] in an account currency (minor units) to base-currency
 /// minor units using [rate] (base units per 1 account-currency unit).

@@ -51,11 +51,11 @@ class StatementPdf {
     final sorted = [...transactions]..sort((a, b) => a.date.compareTo(b.date));
 
     String signed(Expense e) {
-      if (e.isIncome) return '+${formatMoney(base(e))}';
-      if (e.isTransfer) return formatMoney(base(e));
+      if (e.isIncome) return '+${formatMoneyExact(base(e))}';
+      if (e.isTransfer) return formatMoneyExact(base(e));
       // A refund is a negative expense: money back, not "-₹-500".
-      if (e.isRefund) return '+${formatMoney(-base(e))}';
-      return '-${formatMoney(base(e))}';
+      if (e.isRefund) return '+${formatMoneyExact(-base(e))}';
+      return '-${formatMoneyExact(base(e))}';
     }
 
     final doc = pw.Document();
@@ -88,9 +88,9 @@ class StatementPdf {
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                _summaryCell('Income', formatMoney(income)),
-                _summaryCell('Expense', formatMoney(expense)),
-                _summaryCell('Net', formatMoneySigned(net)),
+                _summaryCell('Income', formatMoneyExact(income)),
+                _summaryCell('Expense', formatMoneyExact(expense)),
+                _summaryCell('Net', formatMoneySignedExact(net)),
                 _summaryCell('Transactions', '${transactions.length}'),
               ],
             ),

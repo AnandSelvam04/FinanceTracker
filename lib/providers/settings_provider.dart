@@ -17,6 +17,7 @@ class SettingsProvider extends ChangeNotifier {
   static const _kSmsImportEnabled = 'smsImportEnabled';
   static const _kSeedColor = 'seedColorValue';
   static const _kDailyReminder = 'dailyReminderMinutes';
+  static const _kHideAmounts = 'hideAmounts';
 
   /// Accent colours the user can choose from; the first is the app default.
   static const List<Color> seedOptions = [
@@ -38,6 +39,7 @@ class SettingsProvider extends ChangeNotifier {
   bool _alertsEnabled = true;
   bool _notificationsEnabled = true;
   int? _dailyReminderMinutes;
+  bool _hideAmounts = false;
 
   /// Off by default: reading the SMS inbox is the app's most intrusive
   /// permission, so it stays inert until the user turns it on.
@@ -67,6 +69,9 @@ class SettingsProvider extends ChangeNotifier {
   /// midnight; null when it is off (the default).
   int? get dailyReminderMinutes => _dailyReminderMinutes;
 
+  /// Whether amounts on screen are masked (see [CurrencyFormat.hideAmounts]).
+  bool get hideAmounts => _hideAmounts;
+
   static const currencyOptions = ['₹', '\$', '€', '£', '¥', '₨', 'A\$', 'C\$'];
 
   Future<void> load() async {
@@ -80,6 +85,8 @@ class SettingsProvider extends ChangeNotifier {
     _notificationsEnabled = prefs.getBool(_kNotificationsEnabled) ?? true;
     _smsImportEnabled = prefs.getBool(_kSmsImportEnabled) ?? false;
     _dailyReminderMinutes = prefs.getInt(_kDailyReminder);
+    _hideAmounts = prefs.getBool(_kHideAmounts) ?? false;
+    CurrencyFormat.hideAmounts = _hideAmounts;
     final storedSeed = prefs.getInt(_kSeedColor);
     _seedColor = storedSeed != null ? Color(storedSeed) : AppTheme.seed;
     SmsService.enabled = _smsImportEnabled;
@@ -99,6 +106,26 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kNotificationsEnabled, value);
     notifyListeners();
+  }
+
+  /// Masks or reveals every amount on screen.
+  ///
+  /// The formatters read a static flag, and many widgets that show amounts
+  /// are `const` and wouldn't rebuild on their own — so every element is
+  /// marked for rebuild once, making the change land everywhere at once,
+  /// including screens further down the navigation stack.
+  Future<void> setHideAmounts(bool value) async {
+    _hideAmounts = value;
+    CurrencyFormat.hideAmounts = value;
+    notifyListeners();
+    void rebuild(Element e) {
+      e.markNeedsBuild();
+      e.visitChildren(rebuild);
+    }
+
+    WidgetsBinding.instance.rootElement?.visitChildren(rebuild);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kHideAmounts, value);
   }
 
   /// Turns the daily reminder on at [minutes] after midnight, or off (null).

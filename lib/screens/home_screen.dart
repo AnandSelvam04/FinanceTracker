@@ -399,6 +399,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         // Solid bold brand header from the theme (matching the "Expense
         // Tracker Pro" look), the same as every inner screen.
         actions: [
+          // Masks every amount, for opening the app in front of others.
+          Builder(builder: (context) {
+            final settings = context.watch<SettingsProvider>();
+            return IconButton(
+              icon: Icon(settings.hideAmounts
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined),
+              tooltip: settings.hideAmounts ? 'Show amounts' : 'Hide amounts',
+              onPressed: () => settings.setHideAmounts(!settings.hideAmounts),
+            );
+          }),
           IconButton(
             icon: const Icon(Icons.help_outline),
             tooltip: 'How to use',

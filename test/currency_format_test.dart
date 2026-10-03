@@ -2,7 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_tracker/utils/currency_format.dart';
 
 void main() {
-  tearDown(() => CurrencyFormat.symbol = '₹');
+  tearDown(() {
+    CurrencyFormat.symbol = '₹';
+    CurrencyFormat.hideAmounts = false;
+  });
 
   test('rupeesToMinor rounds to whole minor units', () {
     expect(rupeesToMinor(120.50), 12050);
@@ -100,5 +103,21 @@ void main() {
       expect(
           formatMoneySignedIn('\u20b9', 1234), formatMoneyIn('\u20b9', 1234));
     });
+  });
+
+  test('hidden amounts are masked on screen but exact for exports', () {
+    CurrencyFormat.hideAmounts = true;
+    expect(formatMoney(123456), '₹ •••••');
+    expect(formatMoneySigned(-500), '₹ •••••');
+    expect(formatMoneyIn(r'$', 999), r'$ •••••');
+    expect(formatMoneySignedIn(r'$', -999), r'$ •••••');
+    expect(formatMoneyRounded(123456), '₹ •••••');
+    // The PDF statement and notifications use these.
+    expect(formatMoneyExact(123456), '₹1,234.56');
+    expect(formatMoneySignedExact(-500), '-₹5.00');
+    expect(formatMoneyInExact(r'$', 999), r'$9.99');
+
+    CurrencyFormat.hideAmounts = false;
+    expect(formatMoney(123456), '₹1,234.56');
   });
 }
