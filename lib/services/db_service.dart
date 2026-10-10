@@ -30,19 +30,39 @@ class DBService {
   static const _kEncEnabledFlag = 'db_encryption_enabled';
   static const _kEncKey = 'db_encryption_key';
 
-  Database? _db;
+  /// The in-flight or completed open. Cached as a future, not a [Database],
+  /// so callers that race on a cold start (the dashboard fires several loads
+  /// in the same frame) share one open instead of each running [_initDB] and
+  /// its secure-storage reads. A failed open is dropped so the next access
+  /// retries instead of rethrowing the stale error forever.
+  Future<Database>? _db;
 
-  Future<Database> get database async {
-    if (_db != null) return _db!;
-    _db = await _initDB();
-    return _db!;
+  Future<Database> get database {
+    final pending = _db;
+    if (pending != null) return pending;
+    final opening = _initDB();
+    _db = opening;
+    opening.catchError((Object _) {
+      // Only forget this open if nothing has replaced it since.
+      if (identical(_db, opening)) _db = null;
+      return opening;
+    }).ignore();
+    return opening;
   }
 
   /// Closes the database so the next access re-opens it (used by the
   /// encryption migration to switch the file's cipher state).
   Future<void> close() async {
-    await _db?.close();
+    final db = _db;
     _db = null;
+    if (db == null) return;
+    final Database open;
+    try {
+      open = await db;
+    } catch (_) {
+      return; // The open failed; there is nothing to close.
+    }
+    await open.close();
   }
 
   /// Whether the on-device database is currently encrypted. Always false in
@@ -1295,26 +1315,32 @@ class DBService {
   /// category+year+month. Keeps a category from having two budget rows in one
   /// month (the plain insert path allowed silent duplicates that lookups then
   /// resolved arbitrarily).
+  ///
+  /// The category matches ignoring case and surrounding whitespace, the same
+  /// rule [updateBudget] and the spend lookups use: otherwise a budget for
+  /// "food" was added next to an existing "Food" and the month had two caps.
   Future<void> upsertBudget(Budget budget) async {
     final db = await database;
-    final existing = await db.query(
-      DbConstants.tableBudgets,
-      columns: [DbConstants.colId],
-      where:
-          '${DbConstants.colCategory} = ? AND ${DbConstants.colYear} = ? AND ${DbConstants.colMonth} = ?',
-      whereArgs: [budget.category, budget.year, budget.month],
-      limit: 1,
-    );
-    if (existing.isEmpty) {
-      await db.insert(DbConstants.tableBudgets, budget.toMap());
-    } else {
-      await db.update(
+    await db.transaction((txn) async {
+      final existing = await txn.query(
         DbConstants.tableBudgets,
-        {DbConstants.colAmount: budget.amount},
-        where: '${DbConstants.colId} = ?',
-        whereArgs: [existing.first[DbConstants.colId]],
+        columns: [DbConstants.colId],
+        where: '${DbConstants.colYear} = ? AND ${DbConstants.colMonth} = ? '
+            'AND lower(trim(${DbConstants.colCategory})) = lower(trim(?))',
+        whereArgs: [budget.year, budget.month, budget.category],
+        limit: 1,
       );
-    }
+      if (existing.isEmpty) {
+        await txn.insert(DbConstants.tableBudgets, budget.toMap());
+      } else {
+        await txn.update(
+          DbConstants.tableBudgets,
+          {DbConstants.colAmount: budget.amount},
+          where: '${DbConstants.colId} = ?',
+          whereArgs: [existing.first[DbConstants.colId]],
+        );
+      }
+    });
   }
 
   Future<List<Budget>> getBudgets() async {
