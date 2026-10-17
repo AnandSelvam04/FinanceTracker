@@ -134,4 +134,24 @@ void main() {
     expect(provider.expensesForYear(2025), hasLength(1));
     expect(provider.totalForYear(2025), 10000);
   });
+
+  test('reloadLoadedYears keeps the old rows visible until the new ones land',
+      () async {
+    await add(100);
+    await provider.ensureYearLoaded(2026);
+    await add(200);
+
+    var sawEmpty = false;
+    provider.addListener(() {
+      if (provider.expenses.isEmpty) sawEmpty = true;
+    });
+    final reload = provider.reloadLoadedYears();
+    // Mid-reload the previous rows are still there (no empty-state flash).
+    expect(provider.expenses.length, 1);
+    await reload;
+
+    expect(sawEmpty, isFalse);
+    expect(provider.expenses.length, 2);
+    expect(provider.totalForYear(2026), 300);
+  });
 }

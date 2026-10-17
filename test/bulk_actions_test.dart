@@ -50,4 +50,26 @@ void main() {
     expect([for (final e in await db.getExpensesByYear(2026)) e.id], [keep]);
     expect(await db.deleteExpenses([]), 0);
   });
+
+  test('bulk actions handle more rows than one statement can bind', () async {
+    // Past SQLite's old 999-variable cap, so the IN list must be chunked.
+    await db.insertExpenses([
+      for (var i = 0; i < 1200; i++)
+        Expense(
+          description: 'x$i',
+          amount: 100,
+          date: DateTime(2026, 5, 1),
+          category: 'Other',
+          paymentMode: 'Cash',
+        ),
+    ]);
+    final ids = [for (final e in await db.getExpensesByYear(2026)) e.id!];
+    expect(ids.length, 1200);
+
+    expect(await db.setCategory(ids, 'Food'), 1200);
+    expect(await db.deleteExpenses(ids.take(1100)), 1100);
+    final left = await db.getExpensesByYear(2026);
+    expect(left.length, 100);
+    expect(left.every((e) => e.category == 'Food'), isTrue);
+  });
 }

@@ -823,11 +823,28 @@ class DBService {
     final list = ids.toList();
     if (list.isEmpty) return 0;
     final db = await database;
-    return db.delete(DbConstants.tableExpenses,
-        where:
-            '${DbConstants.colId} IN (${List.filled(list.length, '?').join(',')})',
-        whereArgs: list);
+    return db.transaction((txn) async {
+      var deleted = 0;
+      for (final chunk in _chunks(list)) {
+        deleted += await txn.delete(DbConstants.tableExpenses,
+            where: '${DbConstants.colId} IN (${_placeholders(chunk.length)})',
+            whereArgs: chunk);
+      }
+      return deleted;
+    });
   }
+
+  /// SQLite builds before 3.32 cap a statement at 999 bound values, so bulk
+  /// `IN (...)` lists (select-all on a large year) are split into chunks.
+  static const _maxInListArgs = 500;
+
+  static Iterable<List<int>> _chunks(List<int> ids) sync* {
+    for (var i = 0; i < ids.length; i += _maxInListArgs) {
+      yield ids.sublist(i, min(i + _maxInListArgs, ids.length));
+    }
+  }
+
+  static String _placeholders(int n) => List.filled(n, '?').join(',');
 
   /// Files every row in [ids] under [category] in one statement (bulk
   /// recategorise). Transfers are skipped: their category is fixed. Returns
@@ -836,14 +853,19 @@ class DBService {
     final list = ids.toList();
     if (list.isEmpty || category.trim().isEmpty) return 0;
     final db = await database;
-    return db.update(
-      DbConstants.tableExpenses,
-      {DbConstants.colCategory: category.trim()},
-      where:
-          '${DbConstants.colId} IN (${List.filled(list.length, '?').join(',')}) '
-          'AND ${DbConstants.colType} != ?',
-      whereArgs: [...list, DbConstants.txTransfer],
-    );
+    return db.transaction((txn) async {
+      var changed = 0;
+      for (final chunk in _chunks(list)) {
+        changed += await txn.update(
+          DbConstants.tableExpenses,
+          {DbConstants.colCategory: category.trim()},
+          where: '${DbConstants.colId} IN (${_placeholders(chunk.length)}) '
+              'AND ${DbConstants.colType} != ?',
+          whereArgs: [...chunk, DbConstants.txTransfer],
+        );
+      }
+      return changed;
+    });
   }
 
   Future<void> clearExpenses() async {
