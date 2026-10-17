@@ -64,6 +64,29 @@ void main() {
     expect(food.single.amount, 25000);
   });
 
+  test('addBudget matches the category ignoring case and whitespace', () async {
+    await provider.addBudget(
+        Budget(category: 'Food', amount: 10000, year: 2026, month: 8));
+    await provider.addBudget(
+        Budget(category: ' food', amount: 25000, year: 2026, month: 8));
+
+    expect(provider.budgets.length, 1);
+    expect(provider.budgets.single.amount, 25000);
+  });
+
+  test('copyBudgetsFromPreviousMonth skips a cap differing only in case',
+      () async {
+    await provider.addBudget(
+        Budget(category: 'Food', amount: 10000, year: 2026, month: 7));
+    await provider.addBudget(
+        Budget(category: 'food', amount: 99999, year: 2026, month: 8));
+
+    expect(await provider.copyBudgetsFromPreviousMonth(2026, 8), 0);
+    final august =
+        provider.budgets.where((b) => b.year == 2026 && b.month == 8);
+    expect(august.single.amount, 99999);
+  });
+
   test('copyBudgetsFromPreviousMonth copies caps and skips existing', () async {
     // July: two category caps + an overall cap.
     await provider.addBudget(

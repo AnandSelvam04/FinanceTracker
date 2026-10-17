@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/budget.dart';
 import '../services/db_service.dart';
+import '../utils/category_suggestions.dart';
 
 class BudgetProvider extends ChangeNotifier {
   List<Budget> _budgets = [];
@@ -31,7 +32,9 @@ class BudgetProvider extends ChangeNotifier {
     var copied = 0;
     for (final b in source) {
       final exists = _budgets.any((x) =>
-          x.year == year && x.month == month && x.category == b.category);
+          x.year == year &&
+          x.month == month &&
+          normalizeCategory(x.category) == normalizeCategory(b.category));
       if (exists) continue;
       await DBService().upsertBudget(Budget(
           category: b.category, amount: b.amount, year: year, month: month));

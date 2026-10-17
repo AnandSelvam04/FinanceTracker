@@ -139,14 +139,19 @@ class ExpenseProvider extends ChangeNotifier {
   }
 
   /// Reloads all currently loaded years. Useful after a bulk update (e.g. restore).
+  ///
+  /// Fetches every year first and swaps the rows in only once all of them
+  /// have arrived. Clearing up front, as this used to, left the list empty
+  /// while the queries ran, so a pull-to-refresh flashed the "no
+  /// transactions" state as if the data were gone.
   Future<void> reloadLoadedYears() async {
-    final yearsToReload = _loadedYears.toList();
-    _expenses.clear();
-    _loadedYears.clear();
+    final years = _loadedYears.toList();
     await _tracked(() async {
-      for (final year in yearsToReload) {
-        await ensureYearLoaded(year);
+      final fetched = <int, List<Expense>>{};
+      for (final year in years) {
+        fetched[year] = await DBService().getExpensesByYear(year);
       }
+      fetched.forEach(_replaceYear);
     });
   }
 
