@@ -358,6 +358,11 @@ class SmsDraft {
   /// …). Ignored unless [asInvestment] is set.
   String investmentType;
 
+  /// When true, a message read as a transfer is recorded as spending instead.
+  /// Money sent to someone else's account — family, a landlord — names two
+  /// account numbers just like a move between your own. See [canBeExpense].
+  bool asExpense;
+
   /// Why the draft arrived already set as an investment, if it did: this
   /// merchant was imported as one before, or its name looks like one. Shown on
   /// the card so the user can see (and undo) the choice.
@@ -408,6 +413,7 @@ class SmsDraft {
     this.sameLast4Count = 0,
     this.isCardPayment = false,
     this.asInvestment = false,
+    this.asExpense = false,
     this.investmentType = Investment.defaultType,
     InvestmentSuggestion investmentSuggestion = InvestmentSuggestion.none,
     this.recurringSuggested = false,
@@ -423,7 +429,24 @@ class SmsDraft {
 
   /// Whether the row is filed under spending categories: a debit, or a refund
   /// taking a debit back.
-  bool get usesExpenseCategories => parsed.isExpense || parsed.isRefund;
+  bool get usesExpenseCategories =>
+      parsed.isExpense || parsed.isRefund || (isTransfer && asExpense);
+
+  /// Whether the user may record this transfer as spending: money sent to an
+  /// account that isn't theirs. Not a card bill payment, which only settles
+  /// what was already spent.
+  bool get canBeExpense =>
+      isTransfer && !isCardPayment && !parsed.readsLikeCardBill;
+
+  /// Whether the row posts as a transfer between two of the user's accounts.
+  bool get recordsTransfer => isTransfer && !asExpense && !asInvestment;
+
+  /// Switches a transfer between moving money to another of the user's
+  /// accounts and spending it, keeping the category in step.
+  void setAsExpense(bool value) {
+    asExpense = value;
+    category = value ? 'Other' : 'Transfer';
+  }
 
   /// Whether the user may reclassify this draft as an investment: money going
   /// out — a debit, or a bank-to-bank movement (a top-up of a trading or
@@ -435,12 +458,11 @@ class SmsDraft {
   /// A transfer needs both ends to post correctly; without a destination it
   /// would debit the source and credit nothing. Not once it is being recorded
   /// as an investment, which has no destination account.
-  bool get needsDestination =>
-      isTransfer && !asInvestment && toAccountId == null;
+  bool get needsDestination => recordsTransfer && toAccountId == null;
 
   /// …and without a source it would credit the destination out of thin air —
   /// the case for a card bill payment, whose message names only the card.
-  bool get needsSource => isTransfer && !asInvestment && accountId == null;
+  bool get needsSource => recordsTransfer && accountId == null;
 
   /// Whether the parsed amount is in a different currency from [account] (or
   /// the base currency, with no account), so it can't be saved as it stands.
@@ -510,6 +532,14 @@ class SmsDraft {
       duplicateOf: duplicate,
       recurringSuggested: recurringSuggested,
     );
+    // Sent from one of your accounts to one that isn't — most often money to
+    // family or a friend by IMPS/NEFT — is spending, not a move between your
+    // own. Left switchable, in case the receiving account just isn't added.
+    if (draft.canBeExpense &&
+        draft.accountId != null &&
+        draft.toAccountId == null) {
+      draft.setAsExpense(true);
+    }
     draft._suggestInvestment(investmentMemory);
     // A foreign charge can't be saved until its amount is entered in the
     // account's currency, so it starts unticked rather than blocking Import.
@@ -553,6 +583,7 @@ class SmsDraft {
         description: description,
         amount: amount,
         paymentMode: paymentMode,
+        asSpending: asExpense,
       );
 
   /// The draft as a contribution ready to insert into the investments ledger.

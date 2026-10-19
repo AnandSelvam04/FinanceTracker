@@ -702,6 +702,11 @@ class ParsedSms {
   bool get isExpense => type == DbConstants.txExpense;
   bool get isTransfer => type == DbConstants.txTransfer;
 
+  /// Whether the message reads like a credit card bill being paid, whichever
+  /// way it was parsed — a transfer to a card that isn't added yet included.
+  bool get readsLikeCardBill =>
+      SmsImport._cardBillPayment.hasMatch(body.toLowerCase());
+
   /// The type the row is saved as: a refund is a (negative) expense.
   String get recordedType => isRefund ? DbConstants.txExpense : type;
 
@@ -817,6 +822,7 @@ class ParsedSms {
     String? description,
     int? amount,
     String? paymentMode,
+    bool asSpending = false,
   }) {
     final positive = amount ?? this.amount;
     return Expense(
@@ -825,9 +831,9 @@ class ParsedSms {
       date: date,
       category: category,
       paymentMode: paymentMode ?? paymentModeFor(null),
-      type: recordedType,
+      type: asSpending ? DbConstants.txExpense : recordedType,
       accountId: accountId,
-      toAccountId: isTransfer ? toAccountId : null,
+      toAccountId: isTransfer && !asSpending ? toAccountId : null,
       sourceRef: sourceRef,
     );
   }

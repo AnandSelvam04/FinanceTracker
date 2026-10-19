@@ -304,7 +304,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     // 12.99 in the account's own currency.
     final noAmount = chosen
         .where((d) =>
-            !d.isTransfer &&
+            (!d.isTransfer || d.asExpense) &&
             d.needsAmountFor(accountProvider.accountById(d.accountId)))
         .length;
     if (noAmount > 0) {
@@ -932,12 +932,13 @@ class _DraftCardState extends State<_DraftCard> {
     final parsed = draft.parsed;
     // A transfer is neither a gain nor a loss, so it gets neither colour; nor
     // does money being invested, which is still yours.
-    final amountColor = parsed.isTransfer || draft.asInvestment
+    final spent = parsed.isExpense || draft.asExpense;
+    final amountColor = draft.recordsTransfer || draft.asInvestment
         ? null
-        : (parsed.isExpense ? expenseColor(context) : incomeColor(context));
+        : (spent ? expenseColor(context) : incomeColor(context));
     final sign = draft.asInvestment
         ? '−'
-        : (parsed.isTransfer ? '' : (parsed.isExpense ? '−' : '+'));
+        : (draft.recordsTransfer ? '' : (spent ? '−' : '+'));
     // A message that named an account we could not resolve is the case most
     // likely to be filed wrongly, so it is called out rather than left to be
     // noticed in the dropdown. An investment is paid from an account too.
@@ -948,7 +949,8 @@ class _DraftCardState extends State<_DraftCard> {
     final account = _accountById(draft.accountId);
     // A charge quoted in another currency than the account's own needs the
     // converted figure, which only the bank's statement will show.
-    final foreign = !parsed.isTransfer && draft.isForeignFor(account);
+    final foreign =
+        (!parsed.isTransfer || draft.asExpense) && draft.isForeignFor(account);
     final accountSymbol = account?.symbol ?? CurrencyFormat.symbol;
 
     return Card(
@@ -1040,30 +1042,42 @@ class _DraftCardState extends State<_DraftCard> {
                 padding: const EdgeInsets.fromLTRB(8, 8, 0, 4),
                 child: SizedBox(
                   width: double.infinity,
-                  child: SegmentedButton<bool>(
+                  // A transfer can also be money sent to someone else — family,
+                  // a friend — which is spending, so it gets all three.
+                  child: SegmentedButton<_RecordAs>(
                     showSelectedIcon: false,
                     style: const ButtonStyle(
                         visualDensity: VisualDensity.compact,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap),
                     segments: [
-                      ButtonSegment(
-                          value: false,
-                          label:
-                              Text(parsed.isTransfer ? 'Transfer' : 'Expense'),
-                          icon: Icon(
-                              parsed.isTransfer
-                                  ? Icons.swap_horiz
-                                  : Icons.remove_circle_outline,
-                              size: 16)),
+                      if (parsed.isTransfer)
+                        const ButtonSegment(
+                            value: _RecordAs.transfer,
+                            label: Text('Transfer'),
+                            icon: Icon(Icons.swap_horiz, size: 16)),
+                      if (!parsed.isTransfer || draft.canBeExpense)
+                        const ButtonSegment(
+                            value: _RecordAs.expense,
+                            label: Text('Expense'),
+                            icon: Icon(Icons.remove_circle_outline, size: 16)),
                       const ButtonSegment(
-                          value: true,
+                          value: _RecordAs.investment,
                           label: Text('Investment'),
                           icon: Icon(Icons.trending_up, size: 16)),
                     ],
-                    selected: {draft.asInvestment},
+                    selected: {
+                      draft.asInvestment
+                          ? _RecordAs.investment
+                          : (draft.recordsTransfer
+                              ? _RecordAs.transfer
+                              : _RecordAs.expense)
+                    },
                     onSelectionChanged: (s) {
                       setState(() {
-                        draft.asInvestment = s.first;
+                        draft.asInvestment = s.first == _RecordAs.investment;
+                        if (draft.canBeExpense) {
+                          draft.setAsExpense(s.first == _RecordAs.expense);
+                        }
                         // Switching by hand: start from the type the name
                         // suggests rather than always "Stocks".
                         if (draft.asInvestment &&
@@ -1094,12 +1108,22 @@ class _DraftCardState extends State<_DraftCard> {
                     'from your bank to the card, so it isn\'t counted as '
                     'spending or income.',
               )
-            else if (parsed.isTransfer && !draft.asInvestment)
+            else if (draft.recordsTransfer)
               _Notice(
                 icon: Icons.swap_horiz,
                 color: transferColor(context),
                 text: 'Money moved between your accounts — recorded as a '
-                    'transfer, so it is not counted as spending.',
+                    'transfer, so it is not counted as spending. Sent to '
+                    'someone else? Switch to Expense.',
+              )
+            else if (parsed.isTransfer &&
+                draft.asExpense &&
+                !draft.asInvestment)
+              _Notice(
+                icon: Icons.person_outline,
+                color: mutedTextColor(context),
+                text: 'Sent to an account that isn\'t yours — recorded as '
+                    'spending. Switch to Transfer if it\'s one of your own.',
               ),
             if (draft.isRefund)
               _Notice(
@@ -1228,7 +1252,7 @@ class _DraftCardState extends State<_DraftCard> {
                       children: [
                         Expanded(
                           child: _accountDropdown(
-                            label: parsed.isTransfer ? 'From' : 'Account',
+                            label: draft.recordsTransfer ? 'From' : 'Account',
                             value: draft.accountId,
                             errorText: unmatchedLast4
                                 ? unmatchedText
@@ -1245,7 +1269,7 @@ class _DraftCardState extends State<_DraftCard> {
                         Expanded(
                           // A transfer needs the receiving account instead of a
                           // category; its category is fixed at "Transfer".
-                          child: parsed.isTransfer
+                          child: draft.recordsTransfer
                               ? _accountDropdown(
                                   label: 'To',
                                   value: draft.toAccountId,
@@ -1466,3 +1490,6 @@ class _Notice extends StatelessWidget {
     );
   }
 }
+
+/// What an SMS draft is recorded as, picked on its card.
+enum _RecordAs { transfer, expense, investment }
