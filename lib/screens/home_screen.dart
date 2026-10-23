@@ -22,6 +22,7 @@ import '../utils/billing_cycle.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
+import '../utils/merchant_summary.dart';
 import '../widgets/alerts_banner.dart';
 import '../widgets/animated_money.dart';
 import '../widgets/empty_state.dart';
@@ -32,6 +33,7 @@ import '../widgets/month_selector.dart';
 import '../widgets/net_worth_card.dart';
 import '../widgets/section_header.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/top_merchants_card.dart';
 import '../widgets/transaction_edit_sheet.dart';
 import 'add_expense_screen.dart';
 import 'add_investment_screen.dart';
@@ -255,6 +257,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       spentForCategory: (c) =>
           expenses.spentForCategoryInMonth(now.year, now.month, c),
       totalSpent: () => expenses.totalForMonth(now.year, now.month),
+      capFor: (b) =>
+          budgets.capFor(b, expenses, rollover: settings.budgetRollover),
     );
     await service.notifyBudgetAlerts(alerts, year: now.year, month: now.month);
     await service.scheduleDailyReminder(
@@ -515,6 +519,16 @@ class _DashboardView extends StatelessWidget {
     );
   }
 
+  /// The month's overall cap, with rollover applied when it is on, or 0 when
+  /// none is set.
+  int _overallCap(BuildContext context, ExpenseProvider expenses) {
+    final budgets = context.watch<BudgetProvider>();
+    final rollover = context.watch<SettingsProvider>().budgetRollover;
+    final row = budgets.overallBudgetRow(selectedYear, selectedMonth);
+    if (row == null) return 0;
+    return budgets.capFor(row, expenses, rollover: rollover);
+  }
+
   bool get _isCurrentMonth {
     final now = DateTime.now();
     return selectedYear == now.year && selectedMonth == now.month;
@@ -604,6 +618,11 @@ class _DashboardView extends StatelessWidget {
                             context, provider, c,
                             isYear: true),
                       ),
+                      _DashboardMerchants(
+                        rows: yearlyExpenses,
+                        total: provider.totalForYear(selectedYear),
+                        baseAmountOf: provider.baseAmountOf,
+                      ),
                     ],
                   ] else ...[
                     if (monthlyExpenses.isEmpty && provider.isLoading)
@@ -635,9 +654,7 @@ class _DashboardView extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       _LeftToSpend(
-                        cap: context
-                            .watch<BudgetProvider>()
-                            .overallBudget(selectedYear, selectedMonth),
+                        cap: _overallCap(context, provider),
                         spent:
                             provider.totalForMonth(selectedYear, selectedMonth),
                       ),
@@ -650,6 +667,12 @@ class _DashboardView extends StatelessWidget {
                         onCategoryTap: (c) => _showCategoryDetail(
                             context, provider, c,
                             isYear: false),
+                      ),
+                      _DashboardMerchants(
+                        rows: monthlyExpenses,
+                        total:
+                            provider.totalForMonth(selectedYear, selectedMonth),
+                        baseAmountOf: provider.baseAmountOf,
                       ),
                       const SizedBox(height: 16),
                       const SectionHeader('Trends (last 12 months)'),
@@ -1038,6 +1061,29 @@ class _SummaryPill extends StatelessWidget {
 /// One line under the month total showing how much of the overall monthly
 /// budget is left (or how far over it is). Renders nothing when no overall
 /// budget is set for the month.
+/// The period's top three merchants under the category chart; hidden when
+/// no expense names a merchant.
+class _DashboardMerchants extends StatelessWidget {
+  final List<Expense> rows;
+  final int total;
+  final int Function(Expense) baseAmountOf;
+  const _DashboardMerchants({
+    required this.rows,
+    required this.total,
+    required this.baseAmountOf,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final merchants = topMerchants(rows, baseAmountOf, limit: 3);
+    if (merchants.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: TopMerchantsCard(merchants: merchants, periodTotal: total),
+    );
+  }
+}
+
 class _LeftToSpend extends StatelessWidget {
   /// Overall cap and spend for the month, in base-currency minor units.
   final int cap;

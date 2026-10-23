@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/budget.dart';
 import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
+import '../providers/settings_provider.dart';
 import '../services/db_service.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
@@ -47,8 +48,11 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       _viewYear = target.year;
       _viewMonth = target.month;
     });
-    // Spend for a year outside the loaded set would read as zero otherwise.
-    await context.read<ExpenseProvider>().ensureYearLoaded(target.year);
+    // Spend for a year outside the loaded set would read as zero otherwise —
+    // including the previous year, which a rollover chain can reach into.
+    await context
+        .read<ExpenseProvider>()
+        .ensureYearsLoaded({target.year, target.year - 1});
   }
 
   /// Common expense categories offered in the picker before the user has any
@@ -79,6 +83,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       // cap's spend) so "Spent" is accurate.
       final years = {
         DateTime.now().year,
+        DateTime.now().year - 1,
         ...budgetProvider.budgets.map((b) => b.year),
       };
       for (final year in years) {
@@ -378,21 +383,44 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             tooltip: 'Copy previous month\'s budgets',
             onPressed: _copyLastMonth,
           ),
+          Consumer<SettingsProvider>(
+            builder: (context, settings, _) => PopupMenuButton<void>(
+              tooltip: 'Budget options',
+              itemBuilder: (_) => [
+                CheckedPopupMenuItem<void>(
+                  checked: settings.budgetRollover,
+                  onTap: () =>
+                      settings.setBudgetRollover(!settings.budgetRollover),
+                  child: const Text('Roll over unspent budget'),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
-      body: Consumer2<BudgetProvider, ExpenseProvider>(
-        builder: (context, budgetProvider, expenseProvider, _) {
+      body: Consumer3<BudgetProvider, ExpenseProvider, SettingsProvider>(
+        builder: (context, budgetProvider, expenseProvider, settings, _) {
           final now = DateTime.now();
+          final rollover = settings.budgetRollover;
+
+          // The cap a budget is measured against this month: its own amount,
+          // plus what rolled over from earlier months when that is on.
+          int capOf(Budget b) =>
+              budgetProvider.capFor(b, expenseProvider, rollover: rollover);
+          int? carryOf(Budget b) {
+            if (!rollover) return null;
+            final carry = budgetProvider.carryFor(b, expenseProvider);
+            return carry == 0 ? null : carry;
+          }
           final categoryBudgets = budgetProvider.categoryBudgets
               .where((b) => b.year == _viewYear && b.month == _viewMonth)
               .toList()
             // Most-strained first, so the caps that need attention lead.
             ..sort((a, b) {
-              double ratio(Budget x) => x.amount <= 0
-                  ? 0
-                  : expenseProvider.spentForCategoryInMonth(
-                          x.year, x.month, x.category) /
-                      x.amount;
+              double ratio(Budget x) => _ratio(
+                  expenseProvider.spentForCategoryInMonth(
+                      x.year, x.month, x.category),
+                  capOf(x));
               return ratio(b).compareTo(ratio(a));
             });
           final overall =
@@ -429,7 +457,9 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               _OverallBudgetCard(
                 year: _viewYear,
                 month: _viewMonth,
-                cap: overall?.amount ?? 0,
+                isSet: overall != null && overall.amount > 0,
+                cap: overall == null ? 0 : capOf(overall),
+                carry: overall == null ? null : carryOf(overall),
                 spent: expenseProvider.totalForMonth(_viewYear, _viewMonth),
                 now: now,
                 progressColor: progressColor,
@@ -462,11 +492,12 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Builder(builder: (context) {
                         final spent = spentForBudget(budget);
-                        final progress =
-                            budget.amount == 0 ? 0.0 : spent / budget.amount;
+                        final cap = capOf(budget);
+                        final carry = carryOf(budget);
+                        final progress = _ratio(spent, cap);
                         final pace = budgetPace(
                           spent: spent,
-                          cap: budget.amount,
+                          cap: cap,
                           year: budget.year,
                           month: budget.month,
                           now: now,
@@ -475,7 +506,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('${formatMoney(spent)} of '
-                                '${formatMoneyRounded(budget.amount)}'),
+                                '${formatMoneyRounded(cap)}'),
+                            if (carry != null) _CarryLine(carry: carry),
                             if (pace != null)
                               _PaceLine(pace: pace, compact: true),
                             const SizedBox(height: 4),
@@ -526,10 +558,16 @@ class _OverallBudgetCard extends StatelessWidget {
   final int year;
   final int month;
 
-  /// Cap and spend for the month, in base-currency minor units. cap == 0 means
-  /// no overall budget is set.
+  /// Whether an overall budget is set for the month.
+  final bool isSet;
+
+  /// Cap (with any rollover carry) and spend for the month, in base-currency
+  /// minor units.
   final int cap;
   final int spent;
+
+  /// Rolled over from earlier months, or null when nothing was.
+  final int? carry;
 
   /// Today, for the month-end pace forecast (only shown for the current month).
   final DateTime now;
@@ -542,7 +580,9 @@ class _OverallBudgetCard extends StatelessWidget {
   const _OverallBudgetCard({
     required this.year,
     required this.month,
+    required this.isSet,
     required this.cap,
+    required this.carry,
     required this.spent,
     required this.now,
     required this.progressColor,
@@ -553,7 +593,7 @@ class _OverallBudgetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = '${monthName(month)} $year';
-    if (cap <= 0) {
+    if (!isSet) {
       return Card(
         margin: EdgeInsets.zero,
         child: ListTile(
@@ -566,7 +606,7 @@ class _OverallBudgetCard extends StatelessWidget {
       );
     }
     final left = cap - spent;
-    final ratio = spent / cap;
+    final ratio = _ratio(spent, cap);
     final pace =
         budgetPace(spent: spent, cap: cap, year: year, month: month, now: now);
     return Card(
@@ -614,6 +654,7 @@ class _OverallBudgetCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (carry != null) _CarryLine(carry: carry!),
             const SizedBox(height: 8),
             LinearProgressIndicator(
               value: ratio.clamp(0.0, 1.0).toDouble(),
@@ -728,6 +769,40 @@ class _PaceLine extends StatelessWidget {
             child: Text(text,
                 style: TextStyle(
                     fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Share of [cap] spent. A cap rollover has used up (zero) with spend against
+/// it reads as over, rather than dividing by zero.
+double _ratio(int spent, int cap) =>
+    cap <= 0 ? (spent > 0 ? double.infinity : 0) : spent / cap;
+
+/// Under a budget's figures when rollover is on: what came in from earlier
+/// months, or what last month's overspend took off.
+class _CarryLine extends StatelessWidget {
+  final int carry;
+  const _CarryLine({required this.carry});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = carry > 0 ? incomeColor(context) : expenseColor(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        children: [
+          Icon(carry > 0 ? Icons.redo : Icons.undo, size: 14, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              carry > 0
+                  ? '${formatMoneyRounded(carry)} rolled over'
+                  : '${formatMoneyRounded(-carry)} overspent earlier',
+              style: TextStyle(fontSize: 12, color: color),
+            ),
           ),
         ],
       ),

@@ -122,6 +122,8 @@ void main() {
     await pumpScreen(tester, const BudgetsScreen(), [
       ChangeNotifierProvider<BudgetProvider>.value(value: budgets),
       ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
+      ChangeNotifierProvider<SettingsProvider>(
+          create: (_) => SettingsProvider()),
     ]);
 
     expect(find.textContaining('Total monthly budget'), findsOneWidget);
@@ -155,6 +157,8 @@ void main() {
     await pumpScreen(tester, const BudgetsScreen(), [
       ChangeNotifierProvider<BudgetProvider>.value(value: budgets),
       ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
+      ChangeNotifierProvider<SettingsProvider>(
+          create: (_) => SettingsProvider()),
     ]);
 
     expect(find.text('ThisMonthCap'), findsOneWidget);

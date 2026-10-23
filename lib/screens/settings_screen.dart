@@ -264,6 +264,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               SwitchListTile(
+                secondary: const Icon(Icons.redo),
+                title: const Text('Roll over unspent budget'),
+                subtitle: const Text(
+                    'Carry what is left of a budget (or its overspend) into '
+                    'the next month\'s cap'),
+                value: settings.budgetRollover,
+                onChanged: settings.setBudgetRollover,
+              ),
+              SwitchListTile(
                 secondary: const Icon(Icons.notifications_active),
                 title: const Text('Budget & bill alerts'),
                 subtitle: const Text(

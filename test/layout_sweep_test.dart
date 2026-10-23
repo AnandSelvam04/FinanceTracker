@@ -40,6 +40,7 @@ import 'package:finance_tracker/screens/more_screen.dart';
 import 'package:finance_tracker/screens/onboarding_screen.dart';
 import 'package:finance_tracker/screens/recurring_screen.dart';
 import 'package:finance_tracker/screens/settings_screen.dart';
+import 'package:finance_tracker/screens/spending_calendar_screen.dart';
 import 'package:finance_tracker/screens/tutorial_screen.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
@@ -71,7 +72,8 @@ void main() {
   });
 
   Future<void> seed() async {
-    SharedPreferences.setMockInitialValues({});
+    // Rollover on, so the budgets' carry lines are laid out too.
+    SharedPreferences.setMockInitialValues({'budgetRollover': true});
     final db = DBService();
     await db.clearAll();
     final bank = await db.insertAccount(Account(
@@ -129,6 +131,12 @@ void main() {
         amount: 1000000,
         year: now.year,
         month: now.month));
+    final last = DateTime(now.year, now.month - 1);
+    await db.insertBudget(Budget(
+        category: 'Groceries & Household Supplies',
+        amount: 99999900,
+        year: last.year,
+        month: last.month));
     await db.insertBudget(Budget(
         category: Budget.overallCategory,
         amount: 9000000,
@@ -174,6 +182,7 @@ void main() {
     'AddInvestment': () => const AddInvestmentScreen(),
     'Onboarding': () => const OnboardingScreen(),
     'Tutorial': () => const TutorialScreen(),
+    'SpendingCalendar': () => const SpendingCalendarScreen(),
   };
 
   for (final scale in [1.0, 1.3]) {

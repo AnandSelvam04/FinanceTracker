@@ -15,6 +15,7 @@ import '../utils/date_format.dart';
 import '../utils/insets.dart';
 import '../utils/merchant_summary.dart';
 import '../widgets/month_selector.dart';
+import '../widgets/top_merchants_card.dart';
 
 /// Whether the summary is scoped to a calendar month or a single week.
 enum _PeriodMode { month, week }
@@ -396,7 +397,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         ),
       if (merchants.isNotEmpty) ...[
         const SizedBox(height: 16),
-        _TopMerchants(merchants: merchants, periodTotal: expense),
+        TopMerchantsCard(merchants: merchants, periodTotal: expense),
       ],
     ];
   }
@@ -744,90 +745,6 @@ class _SpendByAccount extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Where the money went, by merchant rather than category. Tapping a merchant
-/// lists the transactions behind its total.
-class _TopMerchants extends StatelessWidget {
-  final List<MerchantTotal> merchants;
-  final int periodTotal;
-  const _TopMerchants({required this.merchants, required this.periodTotal});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SectionHeader('Top merchants'),
-        Card(
-          margin: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (final m in merchants)
-                ListTile(
-                  leading: CategoryAvatar(category: m.rows.first.category),
-                  title: Text(m.name, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(
-                    '${m.count} transaction${m.count == 1 ? '' : 's'}'
-                    '${periodTotal > 0 ? ' · ${(m.total / periodTotal * 100).round()}% of spend' : ''}',
-                    style:
-                        TextStyle(fontSize: 12, color: mutedTextColor(context)),
-                  ),
-                  trailing: Text(formatMoney(m.total),
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  onTap: () => _showRows(context, m),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showRows(BuildContext context, MerchantTotal m) {
-    final baseAmountOf = context.read<ExpenseProvider>().baseAmountOf;
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(sheetContext).size.height * 0.7),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text(m.name,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                trailing: Text(formatMoney(m.total),
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              const Divider(height: 1),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    for (final e in m.rows)
-                      ListTile(
-                        leading: CategoryAvatar(category: e.category),
-                        title:
-                            Text(e.category, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(formatDateWithDay(e.date)),
-                        trailing: Text(formatMoney(baseAmountOf(e)),
-                            style:
-                                const TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
