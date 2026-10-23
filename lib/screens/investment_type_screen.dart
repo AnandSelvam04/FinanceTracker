@@ -96,10 +96,13 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                 Text(description),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: selected,
                   decoration: const InputDecoration(labelText: 'Move to'),
                   items: options
-                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                      .map((t) => DropdownMenuItem(
+                          value: t,
+                          child: Text(t, overflow: TextOverflow.ellipsis)))
                       .toList(),
                   onChanged: (v) =>
                       setDialogState(() => selected = v ?? selected),
@@ -694,11 +697,13 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                               isWithdrawal ? 'Amount to withdraw' : 'Amount'),
                     ),
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: type,
                       decoration: const InputDecoration(labelText: 'Type'),
                       items: types
-                          .map(
-                              (t) => DropdownMenuItem(value: t, child: Text(t)))
+                          .map((t) => DropdownMenuItem(
+                              value: t,
+                              child: Text(t, overflow: TextOverflow.ellipsis)))
                           .toList(),
                       onChanged: (v) => setModalState(() => type = v ?? type),
                     ),

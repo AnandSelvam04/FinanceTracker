@@ -239,18 +239,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 leading: const Icon(Icons.account_balance_wallet),
                 title: const Text('Default account'),
                 subtitle: const Text('Preselected for new transactions'),
-                trailing: DropdownButton<int?>(
-                  value: accounts.accountById(settings.defaultAccountId) != null
-                      ? settings.defaultAccountId
-                      : null,
-                  hint: const Text('None'),
-                  items: [
-                    DropdownMenuItem<int?>(
-                        value: null, child: const Text('None')),
-                    ...accounts.accounts.map((a) => DropdownMenuItem<int?>(
-                        value: a.id, child: Text(a.name))),
-                  ],
-                  onChanged: (id) => settings.setDefaultAccountId(id),
+                // Capped so a long account name ellipsizes instead of
+                // squeezing the title out of the tile.
+                trailing: ConstrainedBox(
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width * 0.4),
+                  child: DropdownButton<int?>(
+                    isExpanded: true,
+                    value:
+                        accounts.accountById(settings.defaultAccountId) != null
+                            ? settings.defaultAccountId
+                            : null,
+                    hint: const Text('None'),
+                    items: [
+                      DropdownMenuItem<int?>(
+                          value: null, child: const Text('None')),
+                      ...accounts.accounts.map((a) => DropdownMenuItem<int?>(
+                          value: a.id,
+                          child:
+                              Text(a.name, overflow: TextOverflow.ellipsis))),
+                    ],
+                    onChanged: (id) => settings.setDefaultAccountId(id),
+                  ),
                 ),
               ),
               SwitchListTile(

@@ -314,21 +314,25 @@ Future<void> showEditTransferSheet(
                         fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int?>(
+                  isExpanded: true,
                   initialValue:
                       accounts.any((a) => a.id == fromId) ? fromId : null,
                   decoration: const InputDecoration(labelText: 'From account'),
                   items: accounts
                       .map((a) => DropdownMenuItem<int?>(
-                          value: a.id, child: Text(a.name)))
+                          value: a.id,
+                          child: Text(a.name, overflow: TextOverflow.ellipsis)))
                       .toList(),
                   onChanged: (v) => setSheet(() => fromId = v),
                 ),
                 DropdownButtonFormField<int?>(
+                  isExpanded: true,
                   initialValue: accounts.any((a) => a.id == toId) ? toId : null,
                   decoration: const InputDecoration(labelText: 'To account'),
                   items: accounts
                       .map((a) => DropdownMenuItem<int?>(
-                          value: a.id, child: Text(a.name)))
+                          value: a.id,
+                          child: Text(a.name, overflow: TextOverflow.ellipsis)))
                       .toList(),
                   onChanged: (v) => setSheet(() => toId = v),
                 ),

@@ -597,8 +597,10 @@ class _OverallBudgetCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // Wraps the "left" figure onto its own line when both don't fit.
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 8,
               children: [
                 Text('${formatMoney(spent)} of ${formatMoneyRounded(cap)}'),
                 Text(

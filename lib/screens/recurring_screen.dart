@@ -132,6 +132,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   ),
                   if (accounts.isNotEmpty)
                     DropdownButtonFormField<int?>(
+                      isExpanded: true,
                       initialValue: _accountId,
                       decoration: InputDecoration(
                           labelText: isSip ? 'Paid from' : 'Account'),
@@ -139,7 +140,9 @@ class _RecurringScreenState extends State<RecurringScreen> {
                         DropdownMenuItem<int?>(
                             value: null, child: const Text('None')),
                         ...accounts.map((a) => DropdownMenuItem<int?>(
-                            value: a.id, child: Text(a.name))),
+                            value: a.id,
+                            child:
+                                Text(a.name, overflow: TextOverflow.ellipsis))),
                       ],
                       onChanged: (v) => _accountId = v,
                     ),
