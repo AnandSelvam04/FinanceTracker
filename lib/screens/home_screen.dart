@@ -250,6 +250,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       overdueGrace: 0,
     );
     await service.scheduleCreditCardReminders(cardReminders);
+    // Start-up begins these loads without waiting, so make sure they are in:
+    // this month's spend for the alerts, and last year's for a rollover chain
+    // that reaches back past January (unloaded, December would read as
+    // unspent and roll its whole cap over).
+    await expenses.ensureYearsLoaded({now.year, now.year - 1});
     final alerts = budgetAlerts(
       budgets: budgets.budgets,
       year: now.year,
