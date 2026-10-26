@@ -31,13 +31,23 @@ class TopMerchantsCard extends StatelessWidget {
                   leading: CategoryAvatar(category: m.rows.first.category),
                   title: Text(m.name, overflow: TextOverflow.ellipsis),
                   subtitle: Text(
-                    '${m.count} transaction${m.count == 1 ? '' : 's'}'
-                    '${periodTotal > 0 ? ' · ${(m.total / periodTotal * 100).round()}% of spend' : ''}',
+                    '${m.count} transaction${m.count == 1 ? '' : 's'}',
                     style:
                         TextStyle(fontSize: 12, color: mutedTextColor(context)),
                   ),
-                  trailing: Text(formatMoney(m.total),
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(formatMoney(m.total),
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      if (periodTotal > 0)
+                        Text(
+                            '${(m.total / periodTotal * 100).round()}% of spend',
+                            style: TextStyle(
+                                fontSize: 12, color: mutedTextColor(context))),
+                    ],
+                  ),
                   onTap: () => _showRows(context, m),
                 ),
             ],

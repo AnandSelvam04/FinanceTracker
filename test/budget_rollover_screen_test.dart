@@ -75,4 +75,20 @@ void main() {
     expect(find.textContaining('rolled over'), findsNothing);
     await tester.runAsync(() => DBService().clearAll());
   }, timeout: const Timeout(Duration(seconds: 45)));
+
+  testWidgets('a budget is deleted from its edit dialog', (tester) async {
+    await pumpBudgets(tester, rollover: false);
+    await tester.tap(find.text('Food'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    for (var i = 0; i < 10 && find.text('Food').evaluate().isNotEmpty; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Food'), findsNothing);
+    await tester.runAsync(() => DBService().clearAll());
+  }, timeout: const Timeout(Duration(seconds: 45)));
 }

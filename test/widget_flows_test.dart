@@ -324,6 +324,42 @@ void main() {
     await teardownTree(tester);
   }, timeout: testTimeout);
 
+  testWidgets('A recurring rule is deleted from its edit dialog',
+      (tester) async {
+    final (recurring, accounts) = (await tester.runAsync(() async {
+      await DBService().insertRecurringRule(RecurringRule(
+        description: 'Gym',
+        amount: 150000,
+        category: 'Health',
+        frequency: DbConstants.freqMonthly,
+        nextDue: DateTime(now.year, now.month, 1),
+      ));
+      final r = RecurringProvider();
+      await r.fetchRules();
+      final a = AccountProvider();
+      await a.fetchAccounts();
+      return (r, a);
+    }))!;
+
+    await pumpScreen(tester, const RecurringScreen(), [
+      ChangeNotifierProvider<RecurringProvider>.value(value: recurring),
+      ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+    ]);
+
+    await tester.tap(find.text('Gym'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Delete recurring rule?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Gym'), findsNothing);
+    expect(recurring.rules, isEmpty);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+
   testWidgets('Editing a recurring rule keeps its day-of-month anchor',
       (tester) async {
     // Rent on the 31st, whose next occurrence is clamped to Feb 28.

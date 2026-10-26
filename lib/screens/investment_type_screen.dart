@@ -432,28 +432,38 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                         ? expenseColor(context)
                         : incomeColor(context)),
               ),
+              // The name gets the whole row and the amount sits on the line
+              // below: in the trailing slot it squeezed a fund's full name
+              // onto five lines.
               title: Text(investment.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text([
-                if (investment.isWithdrawal) 'Withdrawal',
-                formatDateWithDay(investment.date),
-                // Which account it was paid from (or back into).
-                if (context
-                        .watch<AccountProvider>()
-                        .accountById(investment.accountId)
-                    case final account?)
-                  account.name,
-              ].join(' · ')),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+              subtitle: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Expanded(
+                    child: Text([
+                      if (investment.isWithdrawal) 'Withdrawal',
+                      formatDateWithDay(investment.date),
+                      // Which account it was paid from (or back into).
+                      if (context
+                              .watch<AccountProvider>()
+                              .accountById(investment.accountId)
+                          case final account?)
+                        account.name,
+                    ].join(' · ')),
+                  ),
+                  const SizedBox(width: 8),
                   Text(formatMoneySigned(investment.amount),
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: investment.isWithdrawal
                               ? expenseColor(context)
-                              : null)),
-                  PopupMenuButton<String>(
+                              : Theme.of(context).colorScheme.onSurface)),
+                ],
+              ),
+              trailing: PopupMenuButton<String>(
                     tooltip: 'More actions',
                     onSelected: (value) {
                       if (value == 'move') {
@@ -481,8 +491,6 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                       ),
                     ],
                   ),
-                ],
-              ),
               // Edit, Duplicate or Delete — duplicating used to need the
               // edit sheet opened first.
               onTap: () => _rowActions(context, investment),

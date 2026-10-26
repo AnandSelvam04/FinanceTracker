@@ -71,6 +71,12 @@ class CategoryTrendChart extends StatelessWidget {
           height: 220,
           child: LineChart(
             LineChartData(
+              // From zero, as on the dashboard trend: with no axis labels, a
+              // floor at the smallest value drew a steady category as nothing.
+              minY: [
+                for (final b in bars)
+                  for (final s in b.spots) s.y
+              ].fold<double>(0, (m, y) => y < m ? y : m),
               gridData: const FlGridData(show: false),
               borderData: FlBorderData(show: false),
               titlesData: FlTitlesData(

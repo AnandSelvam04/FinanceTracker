@@ -238,6 +238,16 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             ),
           ),
           actions: [
+            if (budget != null)
+              TextButton(
+                style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.error),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _confirmDeleteBudget(budget.id!, budget.category);
+                },
+                child: const Text('Delete'),
+              ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancel'),
@@ -518,22 +528,11 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                           ],
                         );
                       }),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            tooltip: 'Edit budget',
-                            onPressed: () => _showBudgetDialog(budget: budget),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            tooltip: 'Delete budget',
-                            onPressed: () => _confirmDeleteBudget(
-                                budget.id!, budget.category),
-                          ),
-                        ],
-                      ),
+                      // Tap to edit (Delete is in the dialog). Edit and delete
+                      // buttons here squeezed a long category name onto three
+                      // lines and shrank the progress bar to a stub.
+                      onTap: () => _showBudgetDialog(budget: budget),
+                      trailing: const Icon(Icons.chevron_right),
                     ),
                   ),
                   const SizedBox(height: 10),

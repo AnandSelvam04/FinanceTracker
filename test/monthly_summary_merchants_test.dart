@@ -53,9 +53,11 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Top merchants'), findsOneWidget);
     expect(find.text('Swiggy'), findsOneWidget);
-    expect(find.text('2 transactions · 83% of spend'), findsOneWidget);
+    expect(find.text('2 transactions'), findsOneWidget);
+    expect(find.text('83% of spend'), findsOneWidget);
     expect(find.text('Cafe'), findsOneWidget);
-    expect(find.text('1 transaction · 17% of spend'), findsOneWidget);
+    expect(find.text('1 transaction'), findsOneWidget);
+    expect(find.text('17% of spend'), findsOneWidget);
 
     await tester.tap(find.text('Swiggy'));
     await tester.pumpAndSettle();
