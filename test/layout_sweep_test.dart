@@ -40,6 +40,9 @@ import 'package:finance_tracker/screens/more_screen.dart';
 import 'package:finance_tracker/screens/onboarding_screen.dart';
 import 'package:finance_tracker/screens/recurring_screen.dart';
 import 'package:finance_tracker/screens/settings_screen.dart';
+import 'package:finance_tracker/screens/backups_screen.dart';
+import 'package:finance_tracker/screens/import_screen.dart';
+import 'package:finance_tracker/screens/sms_review_screen.dart';
 import 'package:finance_tracker/screens/spending_calendar_screen.dart';
 import 'package:finance_tracker/screens/tutorial_screen.dart';
 import 'package:finance_tracker/services/db_service.dart';
@@ -183,6 +186,9 @@ void main() {
     'Onboarding': () => const OnboardingScreen(),
     'Tutorial': () => const TutorialScreen(),
     'SpendingCalendar': () => const SpendingCalendarScreen(),
+    'Backups': () => const BackupsScreen(),
+    'Import': () => const ImportScreen(),
+    'SmsReview': () => const SmsReviewScreen(),
   };
 
   for (final scale in [1.0, 1.3]) {
