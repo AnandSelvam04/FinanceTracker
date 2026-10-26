@@ -254,10 +254,13 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _selectedType,
                 decoration: const InputDecoration(labelText: 'Type'),
                 items: _types
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .map((t) => DropdownMenuItem(
+                        value: t,
+                        child: Text(t, overflow: TextOverflow.ellipsis)))
                     .toList(),
                 onChanged: (value) => setState(() => _selectedType = value!),
               ),

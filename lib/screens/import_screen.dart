@@ -298,11 +298,14 @@ class _ImportScreenState extends State<ImportScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: DropdownButtonFormField<int>(
+        isExpanded: true,
         initialValue: value < columns.length ? value : null,
         decoration: InputDecoration(labelText: label),
         items: [
           for (var i = 0; i < columns.length; i++)
-            DropdownMenuItem(value: i, child: Text(columns[i])),
+            DropdownMenuItem(
+                value: i,
+                child: Text(columns[i], overflow: TextOverflow.ellipsis)),
         ],
         onChanged: onChanged,
       ),
@@ -314,12 +317,15 @@ class _ImportScreenState extends State<ImportScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: DropdownButtonFormField<int?>(
+        isExpanded: true,
         initialValue: (value != null && value < columns.length) ? value : null,
         decoration: InputDecoration(labelText: label),
         items: [
           DropdownMenuItem<int?>(value: null, child: const Text('None')),
           for (var i = 0; i < columns.length; i++)
-            DropdownMenuItem(value: i, child: Text(columns[i])),
+            DropdownMenuItem(
+                value: i,
+                child: Text(columns[i], overflow: TextOverflow.ellipsis)),
         ],
         onChanged: onChanged,
       ),

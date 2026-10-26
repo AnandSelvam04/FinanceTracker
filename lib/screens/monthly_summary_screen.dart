@@ -13,7 +13,9 @@ import '../utils/category_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
+import '../utils/merchant_summary.dart';
 import '../widgets/month_selector.dart';
+import '../widgets/top_merchants_card.dart';
 
 /// Whether the summary is scoped to a calendar month or a single week.
 enum _PeriodMode { month, week }
@@ -87,8 +89,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     final today = _dateOnly(DateTime.now());
     final elapsed = calendarDaysBetween(_rangeStart, today) + 1;
     if (_mode == _PeriodMode.week) return _plusDays(_prevStart, elapsed);
-    final prevLength =
-        DateTime(_prevStart.year, _prevStart.month + 1, 0).day;
+    final prevLength = DateTime(_prevStart.year, _prevStart.month + 1, 0).day;
     return _plusDays(_prevStart, elapsed < prevLength ? elapsed : prevLength);
   }
 
@@ -195,6 +196,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
               (spendByAccount[e.accountId] ?? 0) + provider.baseAmountOf(e);
         }
 
+        final merchants = topMerchants(expenseRows, provider.baseAmountOf);
+
         return Scaffold(
           appBar: AppBar(
             title: const Text('Monthly Summary'),
@@ -279,6 +282,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     spendByAccount: spendByAccount,
                     sortedCategories: sortedCategories,
                     prevCategoryTotals: prevCategoryTotals,
+                    merchants: merchants,
                   )
                 else
                   _CategoryFocus(
@@ -308,6 +312,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     required Map<int?, int> spendByAccount,
     required List<MapEntry<String, int>> sortedCategories,
     required Map<String, int> prevCategoryTotals,
+    required List<MerchantTotal> merchants,
   }) {
     final net = income - expense;
     final savingsRate = income > 0 ? (net / income) * 100 : null;
@@ -347,7 +352,10 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         ),
       ),
       const SizedBox(height: 16),
-      Row(
+      // Wraps rather than overflows on a narrow phone, where the label and
+      // the delta don't fit on one line.
+      Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
               _inProgress
@@ -387,6 +395,10 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
             ),
           ),
         ),
+      if (merchants.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        TopMerchantsCard(merchants: merchants, periodTotal: expense),
+      ],
     ];
   }
 
@@ -452,6 +464,7 @@ class _CategoryFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String?>(
+      isExpanded: true,
       initialValue: selected,
       decoration: const InputDecoration(
         labelText: 'Category',
@@ -527,10 +540,12 @@ class _CategoryProgressRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text('$pct% of spend',
-                          style: TextStyle(
-                              fontSize: 12, color: mutedTextColor(context))),
-                      const Spacer(),
+                      Expanded(
+                        child: Text('$pct% of spend',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 12, color: mutedTextColor(context))),
+                      ),
                       _DeltaLabel(current: amount, previous: previous),
                     ],
                   ),

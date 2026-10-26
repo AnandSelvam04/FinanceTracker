@@ -67,14 +67,22 @@ class NetWorthCard extends StatelessWidget {
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: onGradient)),
-                    const Spacer(),
-                    AnimatedMoney(
-                      value: netWorth,
-                      format: formatMoneySigned,
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: onGradient,
+                    const SizedBox(width: 8),
+                    // A large balance at a large text size shrinks to fit
+                    // rather than running off the card.
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: AnimatedMoney(
+                          value: netWorth,
+                          format: formatMoneySigned,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: onGradient,
+                          ),
+                        ),
                       ),
                     ),
                   ],
