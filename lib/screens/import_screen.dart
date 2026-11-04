@@ -36,6 +36,17 @@ class _ImportScreenState extends State<ImportScreen> {
   int? _typeCol;
   String _defaultType = DbConstants.txExpense;
 
+  /// Whether the statement has separate withdrawal and deposit columns
+  /// ([_amountCol] is then the withdrawal one, [_creditCol] the deposit).
+  bool _splitAmounts = false;
+  int? _creditCol;
+
+  /// The account the statement belongs to; every row is filed against it.
+  int? _accountId;
+
+  /// Leave out rows already recorded from an SMS alert or by hand.
+  bool _skipRecorded = true;
+
   /// Largest CSV accepted. Reading and parsing both run on the UI isolate, so
   /// an unbounded file would lock the app up with no way to cancel.
   static const _maxCsvBytes = 10 * 1024 * 1024;
@@ -91,7 +102,25 @@ class _ImportScreenState extends State<ImportScreen> {
       _amountCol = rows.first.length > 2 ? 2 : 0;
       _categoryCol = null;
       _typeCol = null;
+      _splitAmounts = false;
+      _creditCol = null;
+      _guessColumns(rows.first);
     });
+  }
+
+  /// Applies the columns a bank statement's header names (see
+  /// [guessStatementColumns]); anything not recognised keeps its default.
+  void _guessColumns(List<dynamic> header) {
+    final guess = guessStatementColumns(header);
+    if (guess == null) return;
+    _hasHeader = true;
+    if (guess.date != null) _dateCol = guess.date!;
+    if (guess.description != null) _descCol = guess.description!;
+    if (guess.amount != null) _amountCol = guess.amount!;
+    if (guess.credit != null) {
+      _splitAmounts = true;
+      _creditCol = guess.credit;
+    }
   }
 
   List<String> get _columnNames {
@@ -113,6 +142,7 @@ class _ImportScreenState extends State<ImportScreen> {
         dateCol: _dateCol,
         descriptionCol: _descCol,
         amountCol: _amountCol,
+        creditCol: _splitAmounts ? _creditCol : null,
         categoryCol: _categoryCol,
         typeCol: _typeCol,
         defaultType: _defaultType,
@@ -124,8 +154,8 @@ class _ImportScreenState extends State<ImportScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
-    final parsed =
-        parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
+    final parsed = parseCsvExpenses(rows,
+        hasHeader: _hasHeader, mapping: _mapping, accountId: _accountId);
     if (parsed.expenses.isEmpty) {
       messenger.showSnackBar(
         SnackBar(content: const Text('No valid rows to import.')),
@@ -136,13 +166,27 @@ class _ImportScreenState extends State<ImportScreen> {
     try {
       // Leave out rows an earlier import already brought in, so importing the
       // same or an overlapping statement again doesn't double them.
-      final result = parsed.withoutAlreadyImported(
+      var result = parsed.withoutAlreadyImported(
           await DBService().existingSourceRefs(includeIgnored: false));
+      // …and rows the app already has from their SMS alert or typed in by
+      // hand, which would otherwise count every such spend twice.
+      if (_skipRecorded && result.expenses.isNotEmpty) {
+        final dates = result.expenses.map((e) => e.date);
+        final first = dates.reduce((a, b) => a.isBefore(b) ? a : b);
+        final last = dates.reduce((a, b) => a.isAfter(b) ? a : b);
+        final existing = await DBService().getExpensesByDateRange(
+          first.subtract(const Duration(days: 3)),
+          last.add(const Duration(days: 4)),
+        );
+        result =
+            result.withoutRecordedElsewhere(existing, accountId: _accountId);
+      }
       if (result.expenses.isEmpty) {
         messenger.showSnackBar(SnackBar(
-          content: Text(result.duplicates == 1
+          content: Text(result.matchedExisting == 0 && result.duplicates == 1
               ? 'That row was already imported.'
-              : 'All ${result.duplicates} rows were already imported.'),
+              : 'All ${result.duplicates + result.matchedExisting} rows are '
+                  'already in the app.'),
         ));
         return;
       }
@@ -156,6 +200,8 @@ class _ImportScreenState extends State<ImportScreen> {
         content: Text([
           'Imported ${result.expenses.length}',
           if (result.duplicates > 0) '${result.duplicates} already imported',
+          if (result.matchedExisting > 0)
+            '${result.matchedExisting} already recorded',
           if (result.skipped > 0) '${result.skipped} unreadable',
         ].join(' · ')),
       ));
@@ -212,13 +258,42 @@ class _ImportScreenState extends State<ImportScreen> {
                     (v) => setState(() => _dateCol = v!)),
                 _mapDropdown('Description column', _descCol, columns,
                     (v) => setState(() => _descCol = v!)),
-                _mapDropdown('Amount column', _amountCol, columns,
+                _accountDropdown(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Separate withdrawal and deposit columns'),
+                  subtitle: const Text('As most bank statements are laid out'),
+                  value: _splitAmounts,
+                  onChanged: (v) => setState(() {
+                    _splitAmounts = v;
+                    _creditCol ??= _amountCol + 1 < columns.length
+                        ? _amountCol + 1
+                        : _amountCol;
+                  }),
+                ),
+                _mapDropdown(
+                    _splitAmounts ? 'Withdrawal (debit) column' : 'Amount column',
+                    _amountCol,
+                    columns,
                     (v) => setState(() => _amountCol = v!)),
+                if (_splitAmounts)
+                  _mapDropdown('Deposit (credit) column', _creditCol ?? 0,
+                      columns, (v) => setState(() => _creditCol = v)),
                 _mapDropdownOptional('Category column (optional)', _categoryCol,
                     columns, (v) => setState(() => _categoryCol = v)),
-                _mapDropdownOptional('Type column (optional)', _typeCol,
-                    columns, (v) => setState(() => _typeCol = v)),
-                if (_typeCol == null)
+                if (!_splitAmounts)
+                  _mapDropdownOptional('Type column (optional)', _typeCol,
+                      columns, (v) => setState(() => _typeCol = v)),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Skip transactions already recorded'),
+                  subtitle: const Text(
+                      'Same amount within 2 days, from an SMS alert or added '
+                      'by hand'),
+                  value: _skipRecorded,
+                  onChanged: (v) => setState(() => _skipRecorded = v),
+                ),
+                if (_typeCol == null && !_splitAmounts)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: DropdownButtonFormField<String>(
@@ -261,9 +336,34 @@ class _ImportScreenState extends State<ImportScreen> {
     );
   }
 
+  /// Which account the statement belongs to. "None" keeps the old behaviour:
+  /// the rows count towards spending but no account's balance.
+  Widget _accountDropdown() {
+    final accounts = context.watch<AccountProvider>().accounts;
+    if (accounts.isEmpty) return const SizedBox.shrink();
+    final selected =
+        accounts.any((a) => a.id == _accountId) ? _accountId : null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: DropdownButtonFormField<int?>(
+        initialValue: selected,
+        decoration: const InputDecoration(
+          labelText: 'Import into account',
+          helperText: 'The account this statement is from',
+        ),
+        items: [
+          const DropdownMenuItem<int?>(value: null, child: Text('None')),
+          for (final a in accounts)
+            DropdownMenuItem<int?>(value: a.id, child: Text(a.name)),
+        ],
+        onChanged: (v) => setState(() => _accountId = v),
+      ),
+    );
+  }
+
   Widget _preview(List<List<dynamic>> rows) {
-    final result =
-        parseCsvExpenses(rows, hasHeader: _hasHeader, mapping: _mapping);
+    final result = parseCsvExpenses(rows,
+        hasHeader: _hasHeader, mapping: _mapping, accountId: _accountId);
     final sample = result.expenses.take(5).toList();
     if (sample.isEmpty) {
       return const Text('No valid rows with the current mapping.');
@@ -298,6 +398,9 @@ class _ImportScreenState extends State<ImportScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: DropdownButtonFormField<int>(
+        // Keyed by label: the split-column switch adds and removes fields,
+        // and an unkeyed one could inherit a neighbour's selection.
+        key: ValueKey(label),
         initialValue: value < columns.length ? value : null,
         decoration: InputDecoration(labelText: label),
         items: [
@@ -314,6 +417,7 @@ class _ImportScreenState extends State<ImportScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: DropdownButtonFormField<int?>(
+        key: ValueKey(label),
         initialValue: (value != null && value < columns.length) ? value : null,
         decoration: InputDecoration(labelText: label),
         items: [

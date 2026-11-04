@@ -17,6 +17,7 @@ import '../services/backup_service.dart';
 import '../services/db_service.dart';
 import 'import_screen.dart';
 import '../utils/app_colors.dart';
+import '../utils/date_format.dart';
 import '../utils/insets.dart';
 import '../widgets/section_header.dart';
 import '../widgets/dispose_with_route.dart';
@@ -213,6 +214,37 @@ class _BackupsScreenState extends State<BackupsScreen> {
             _backupService.restoreFromFile(path,
                 passphrase: passphrase, allowEmpty: allowEmpty),
         'Restored from file');
+  }
+
+  /// Restores one of the dated copies the daily backup keeps, for undoing a
+  /// mistake that the latest backup has already taken in.
+  Future<void> _restoreFromHistory() async {
+    final history = await _backupService.backupHistory();
+    if (!mounted) return;
+    if (history.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('No earlier backups yet — one is kept each day.')));
+      return;
+    }
+    final picked = await showDialog<File>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Restore an earlier backup'),
+        children: [
+          for (final h in history)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, h.file),
+              child: Text(formatDateWithDay(h.day)),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) return;
+    await _restoreProtected(
+        ({bool allowEmpty = false, String? passphrase}) =>
+            _backupService.restoreFromFile(picked.path,
+                passphrase: passphrase, allowEmpty: allowEmpty),
+        'Restored the earlier backup');
   }
 
   Future<void> _runTask(Future<void> Function() task, String success) async {
@@ -578,6 +610,14 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         ({bool allowEmpty = false}) => _backupService
                             .restoreFromJson(allowEmpty: allowEmpty),
                         'Restored from local JSON'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.history),
+                    title: const Text('Restore an earlier backup'),
+                    subtitle: Text('One copy kept per day for the last '
+                        '${BackupService.historyDays} days'),
+                    enabled: !_isWorking,
+                    onTap: _restoreFromHistory,
                   ),
                   ListTile(
                     leading: const Icon(Icons.folder_open),

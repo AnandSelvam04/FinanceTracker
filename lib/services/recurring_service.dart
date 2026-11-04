@@ -61,7 +61,10 @@ class RecurringService {
     final month = targetMonthIndex % 12 + 1;
     final lastDay = DateTime(year, month + 1, 0).day;
     final day = anchorDay > lastDay ? lastDay : anchorDay;
-    return DateTime(year, month, day);
+    // Keep the wall-clock time, as [_addDays] does: dropping it moved every
+    // monthly and yearly occurrence after the first to midnight.
+    return DateTime(year, month, day, date.hour, date.minute, date.second,
+        date.millisecond, date.microsecond);
   }
 
   /// Most occurrences a single rule will post in one run.

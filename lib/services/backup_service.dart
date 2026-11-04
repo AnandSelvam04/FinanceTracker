@@ -258,6 +258,79 @@ class BackupService {
     return File('$path/finance_backup_encrypted.json');
   }
 
+  /// How many days of local backups [backupHistory] keeps.
+  ///
+  /// The main local backup is replaced every day by the auto-backup, so on its
+  /// own it can't undo a mistake: data deleted by accident (or wiped by a bad
+  /// restore) was backed up — gone — on the next launch, over the last good
+  /// copy. Keeping one copy per day for a week leaves time to notice.
+  static const historyDays = 7;
+
+  static const _historyDir = 'backup_history';
+  static final _historyName = RegExp(r'^finance_backup_(\d{4})-(\d{2})-(\d{2})\.json$');
+
+  Future<Directory> get _historyDirectory async =>
+      Directory('${await _localPath}/$_historyDir');
+
+  /// Writes [content] to [file] without ever leaving it half-written: the
+  /// data goes to a temporary file beside it, which is then renamed over the
+  /// target. A crash or a full disk mid-write used to truncate the only
+  /// backup on the phone; now the previous one survives intact.
+  static Future<void> writeAtomically(File file, String content) async {
+    final temp = File('${file.path}.tmp');
+    try {
+      await temp.writeAsString(content, flush: true);
+      await temp.rename(file.path);
+    } catch (_) {
+      try {
+        if (await temp.exists()) await temp.delete();
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  /// Copies the backup just written to [source] into today's slot of the
+  /// history, then drops all but the newest [historyDays] days. Failures are
+  /// logged, not thrown: the main backup has already been written.
+  Future<void> _keepInHistory(File source, DateTime now) async {
+    try {
+      final dir = await _historyDirectory;
+      await dir.create(recursive: true);
+      final day = '${now.year.toString().padLeft(4, '0')}-'
+          '${now.month.toString().padLeft(2, '0')}-'
+          '${now.day.toString().padLeft(2, '0')}';
+      await writeAtomically(File('${dir.path}/finance_backup_$day.json'),
+          await source.readAsString());
+      final entries = await backupHistory();
+      for (final old in entries.skip(historyDays)) {
+        await old.file.delete();
+      }
+    } catch (e, s) {
+      AppLogger.error('Keeping a dated copy of the backup failed', e, s);
+    }
+  }
+
+  /// The dated local backups kept by [backupToJson], newest first — one per
+  /// day for the last [historyDays] days a backup was taken. Each can be
+  /// restored with [restoreFromFile].
+  Future<List<({DateTime day, File file})>> backupHistory() async {
+    final dir = await _historyDirectory;
+    if (!await dir.exists()) return const [];
+    final out = <({DateTime day, File file})>[];
+    await for (final entity in dir.list()) {
+      if (entity is! File) continue;
+      final m = _historyName.firstMatch(entity.uri.pathSegments.last);
+      if (m == null) continue;
+      out.add((
+        day: DateTime(
+            int.parse(m.group(1)!), int.parse(m.group(2)!), int.parse(m.group(3)!)),
+        file: entity,
+      ));
+    }
+    out.sort((a, b) => b.day.compareTo(a.day));
+    return out;
+  }
+
   /// When the most recent backup (local, auto, or Drive) was taken.
   Future<DateTime?> lastBackupTime() async {
     final prefs = await SharedPreferences.getInstance();
@@ -380,14 +453,18 @@ class BackupService {
   /// Writes the full-data backup to the local backup file — plaintext, or as
   /// an encrypted envelope when [deviceKey] is given (used by the auto-backup
   /// when at-rest database encryption is on).
-  Future<void> backupToJson({String? deviceKey}) async {
+  ///
+  /// A copy is also kept under today's date in [backupHistory] ([now] stands
+  /// in for the clock in tests).
+  Future<void> backupToJson({String? deviceKey, DateTime? now}) async {
     final data = await _collectBackupData();
     var content = jsonEncode(data);
     if (deviceKey != null) {
       content = await BackupCrypto.encryptString(content, deviceKey);
     }
     final file = await _backupFile;
-    await file.writeAsString(content);
+    await writeAtomically(file, content);
+    await _keepInHistory(file, now ?? DateTime.now());
     await _markBackedUp();
   }
 
@@ -398,7 +475,7 @@ class BackupService {
     final envelope =
         await BackupCrypto.encryptString(jsonEncode(data), passphrase);
     final file = await _encryptedBackupFile;
-    await file.writeAsString(envelope);
+    await writeAtomically(file, envelope);
     await _markBackedUp();
     return file;
   }
