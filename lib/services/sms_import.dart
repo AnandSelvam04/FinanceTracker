@@ -126,12 +126,41 @@ class SmsImport {
   /// Every account/card number mentioned: "A/c XX4821", "ac no. XXXX1234",
   /// "Card ending 5678", or bare masking like "XXXXXX1234".
   ///
-  /// `\b(\d{4})\b` deliberately will not match inside a longer digit run, so
-  /// reference numbers ("UPI/123456/...") are not mistaken for accounts.
+  /// Three digits are accepted as well as four: ICICI masks its accounts as
+  /// "Acct XX123". Four are preferred when both would fit, and
+  /// [SmsImport.sameAccountRef] lets a three-digit reference match an account
+  /// whose last four end in it.
+  ///
+  /// The trailing `\b` deliberately will not match inside a longer digit run,
+  /// so reference numbers ("UPI/123456/...") are not mistaken for accounts.
   static final _accountRef = RegExp(
-      r'\b(?:a/?c(?:count)?\.?|acct|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?)?\s*[x*\d]{0,16}?(\d{4})\b'
-      r'|[x*]{2,}\s*(\d{4})\b',
+      r'\b(?:a/?c(?:count)?\.?|acct|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?)?\s*[x*\d]{0,16}?(\d{3,4})\b'
+      r'|[x*]{2,}\s*(\d{3,4})\b',
       caseSensitive: false);
+
+  /// Whether two masked account references name the same account: equal, or
+  /// a three-digit one ("XX123", ICICI's masking) that the other ends in.
+  static bool sameAccountRef(String? a, String? b) {
+    if (a == null || b == null) return false;
+    if (a == b) return true;
+    if (a.length == 3 && b.length > 3) return b.endsWith(a);
+    if (b.length == 3 && a.length > 3) return a.endsWith(b);
+    return false;
+  }
+
+  /// Whether a message from [sender] cannot be a bank alert and should not be
+  /// read at all.
+  ///
+  /// Banks text from registered headers ("VM-HDFCBK", "JD-ICICIT-S") or short
+  /// codes, never from an ordinary phone number — a friend's "I sent you Rs
+  /// 500" comes from one of those and is not a transaction on this phone. A
+  /// "-P" suffix is TRAI's marker for promotional traffic, which carries
+  /// offers rather than alerts.
+  static bool isNonBankSender(String sender) {
+    final s = sender.replaceAll(RegExp(r'[\s()-]'), '');
+    if (RegExp(r'^\+?\d{10,}$').hasMatch(s)) return true;
+    return RegExp(r'-p$', caseSensitive: false).hasMatch(sender.trim());
+  }
 
   /// Prepositions that assign a role to the account reference that follows.
   ///
@@ -154,6 +183,27 @@ class SmsImport {
   static final _merchant = RegExp(
       r'\b(?:to|at|towards|for|in favour of)\s+'
       '($_merchantWord(?:\\s+$_merchantWord){0,3})');
+
+  /// The payee named as the account that was credited, after a clause break:
+  /// ICICI's "Acct XX123 debited for Rs 240.00 on 28-Oct-25; SWIGGY
+  /// credited." Only consulted for debits — in a credit, "… credited" is the
+  /// user's own account.
+  static final _creditedPayee = RegExp(
+      '[;.]\\s*($_merchantWord(?:\\s+$_merchantWord){0,3})\\s+credited\\b');
+
+  /// A name that is really a currency amount: "for Rs 240.00" would otherwise
+  /// give "Rs 240.00" as the merchant, since "Rs" is capitalised.
+  static final _currencyLead = RegExp(
+      r'^(?:rs\.?|inr|usd|eur|gbp|aed|sgd|jpy|aud|cad)\b',
+      caseSensitive: false);
+
+  /// Whether [name] can be a payee: two characters or more, at least one
+  /// letter (so "to 7308080808" — a shortcode — is not one), and not an
+  /// amount.
+  static bool _isPayeeName(String name) =>
+      name.length >= 2 &&
+      RegExp(r'[A-Za-z]').hasMatch(name) &&
+      !_currencyLead.hasMatch(name);
 
   /// UPI handles, which are lower-case and so miss [_merchant].
   static final _vpa =
@@ -240,7 +290,7 @@ class SmsImport {
     // repayment must move the balance, not add to the month's spending.
     final isTransfer = last4 != null &&
         toLast4 != null &&
-        last4 != toLast4 &&
+        !sameAccountRef(last4, toLast4) &&
         (refs.rolesExplicit || _transferIntent.hasMatch(lower));
     if (isTransfer) {
       type = DbConstants.txTransfer;
@@ -260,7 +310,7 @@ class SmsImport {
       type: type,
       description: isTransfer
           ? 'Transfer'
-          : (_merchantOf(text) ??
+          : (_merchantOf(text, debit: type == DbConstants.txExpense) ??
               (refund ? _refundMerchantOf(text) : null) ??
               _prettySender(sender)),
       last4: last4,
@@ -384,7 +434,7 @@ class SmsImport {
     return null;
   }
 
-  static String? _merchantOf(String text) {
+  static String? _merchantOf(String text, {required bool debit}) {
     final vpa = _vpa.firstMatch(text);
     if (vpa != null) return vpa.group(1);
 
@@ -394,14 +444,19 @@ class SmsImport {
     final bare = _bareVpa.firstMatch(text);
     if (bare != null) return bare.group(1);
 
+    if (debit) {
+      for (final match in _creditedPayee.allMatches(text)) {
+        final name = match.group(1)!.trim();
+        if (_isPayeeName(name)) return name;
+      }
+    }
+
     for (final match in _merchant.allMatches(text)) {
       var name = match.group(1)!.trim();
       // Strip a trailing "on"/"on 01-Aug-25" the greedy word run may have taken.
       name =
           name.replaceFirst(RegExp(r'\s+(on|dated)$', caseSensitive: false), '');
-      // Skip an all-digit run: "to 7308080808" is a shortcode or phone number,
-      // not a payee. A real merchant name carries at least one letter.
-      if (name.length >= 2 && RegExp(r'[A-Za-z]').hasMatch(name)) return name;
+      if (_isPayeeName(name)) return name;
     }
     return null;
   }
@@ -418,7 +473,7 @@ class SmsImport {
         .group(1)!
         .replaceFirst(RegExp(r'\s+(on|dated)$', caseSensitive: false), '')
         .trim();
-    return name.length >= 2 && RegExp(r'[A-Za-z]').hasMatch(name) ? name : null;
+    return _isPayeeName(name) ? name : null;
   }
 
   /// How far before the SMS arrived a date in its body is still taken as the
@@ -534,7 +589,8 @@ class SmsImport {
       !other.isTransfer &&
       !other.isRefund &&
       other.last4 != null &&
-      (other.last4 == transfer.last4 || other.last4 == transfer.toLast4);
+      (sameAccountRef(other.last4, transfer.last4) ||
+          sameAccountRef(other.last4, transfer.toLast4));
 
   /// Combines a lone debit and a lone credit on different accounts.
   static ParsedSms? _mergeLegs(ParsedSms debit, ParsedSms credit) {
@@ -546,7 +602,7 @@ class SmsImport {
     if (credit.isRefund || credit.isCashback) return null;
     final from = debit.last4;
     final to = credit.last4;
-    if (from == null || to == null || from == to) return null;
+    if (from == null || to == null || sameAccountRef(from, to)) return null;
     return debit.copyWith(
       type: DbConstants.txTransfer,
       description: 'Transfer',
@@ -793,14 +849,17 @@ class ParsedSms {
 
   static Account? _accountFor(String? digits, List<Account> accounts) {
     if (digits == null) return null;
-    final matches = accounts.where((a) => a.last4 == digits).toList();
+    final matches = accounts
+        .where((a) => SmsImport.sameAccountRef(a.last4, digits))
+        .toList();
     return matches.length == 1 ? matches.first : null;
   }
 
-  /// How many accounts carry the last four digits this message names. More
-  /// than one is why no account was picked, and the review screen says so.
-  int accountsWithLast4(List<Account> accounts) =>
-      last4 == null ? 0 : accounts.where((a) => a.last4 == last4).length;
+  /// How many accounts carry the last digits this message names. More than
+  /// one is why no account was picked, and the review screen says so.
+  int accountsWithLast4(List<Account> accounts) => last4 == null
+      ? 0
+      : accounts.where((a) => SmsImport.sameAccountRef(a.last4, last4)).length;
 
   /// The payment mode to save: what the message said, else what the account
   /// implies (a charge on a credit-card account is a card payment), else
