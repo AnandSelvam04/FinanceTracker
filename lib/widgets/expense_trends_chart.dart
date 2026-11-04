@@ -49,6 +49,11 @@ class ExpenseTrendsChart extends StatelessWidget {
           height: 200,
           child: LineChart(
             LineChartData(
+              // Spending is measured from zero. Left to fl_chart the axis
+              // starts at the quietest month, so a steady month sat on the
+              // floor as if nothing had been spent and small changes looked
+              // dramatic. A net-refund month can still dip below.
+              minY: data.fold<double>(0, (m, s) => s.y < m ? s.y : m),
               // Axis labels were disabled outright, so the line had no scale
               // for anyone — sighted or not.
               gridData: FlGridData(show: true, drawVerticalLine: false),

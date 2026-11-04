@@ -126,12 +126,15 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                   spacing: 12,
                   children: [
                     DropdownButtonFormField<int>(
+                      isExpanded: true,
                       initialValue: _fromAccountId,
                       decoration:
                           const InputDecoration(labelText: 'From account'),
                       items: accounts
                           .map((a) => DropdownMenuItem(
-                              value: a.id, child: Text(a.name)))
+                              value: a.id,
+                              child: Text(a.name,
+                                  overflow: TextOverflow.ellipsis)))
                           .toList(),
                       validator: (v) => v == null ? 'Select an account' : null,
                       onChanged: (v) {
@@ -141,12 +144,15 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                       },
                     ),
                     DropdownButtonFormField<int>(
+                      isExpanded: true,
                       initialValue: _toAccountId,
                       decoration:
                           const InputDecoration(labelText: 'To account'),
                       items: accounts
                           .map((a) => DropdownMenuItem(
-                              value: a.id, child: Text(a.name)))
+                              value: a.id,
+                              child: Text(a.name,
+                                  overflow: TextOverflow.ellipsis)))
                           .toList(),
                       validator: (v) {
                         if (v == null) return 'Select an account';

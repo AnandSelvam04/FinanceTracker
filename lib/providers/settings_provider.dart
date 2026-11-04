@@ -18,6 +18,7 @@ class SettingsProvider extends ChangeNotifier {
   static const _kSeedColor = 'seedColorValue';
   static const _kDailyReminder = 'dailyReminderMinutes';
   static const _kHideAmounts = 'hideAmounts';
+  static const _kBudgetRollover = 'budgetRollover';
 
   /// Accent colours the user can choose from; the first is the app default.
   static const List<Color> seedOptions = [
@@ -40,6 +41,7 @@ class SettingsProvider extends ChangeNotifier {
   bool _notificationsEnabled = true;
   int? _dailyReminderMinutes;
   bool _hideAmounts = false;
+  bool _budgetRollover = false;
 
   /// Off by default: reading the SMS inbox is the app's most intrusive
   /// permission, so it stays inert until the user turns it on.
@@ -72,6 +74,10 @@ class SettingsProvider extends ChangeNotifier {
   /// Whether amounts on screen are masked (see [CurrencyFormat.hideAmounts]).
   bool get hideAmounts => _hideAmounts;
 
+  /// Whether a budget's unspent amount (or overspend) carries into the next
+  /// month's cap for the same category. Off by default.
+  bool get budgetRollover => _budgetRollover;
+
   static const currencyOptions = ['₹', '\$', '€', '£', '¥', '₨', 'A\$', 'C\$'];
 
   Future<void> load() async {
@@ -86,6 +92,7 @@ class SettingsProvider extends ChangeNotifier {
     _smsImportEnabled = prefs.getBool(_kSmsImportEnabled) ?? false;
     _dailyReminderMinutes = prefs.getInt(_kDailyReminder);
     _hideAmounts = prefs.getBool(_kHideAmounts) ?? false;
+    _budgetRollover = prefs.getBool(_kBudgetRollover) ?? false;
     CurrencyFormat.hideAmounts = _hideAmounts;
     final storedSeed = prefs.getInt(_kSeedColor);
     _seedColor = storedSeed != null ? Color(storedSeed) : AppTheme.seed;
@@ -126,6 +133,13 @@ class SettingsProvider extends ChangeNotifier {
     WidgetsBinding.instance.rootElement?.visitChildren(rebuild);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kHideAmounts, value);
+  }
+
+  Future<void> setBudgetRollover(bool value) async {
+    _budgetRollover = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kBudgetRollover, value);
+    notifyListeners();
   }
 
   /// Turns the daily reminder on at [minutes] after midnight, or off (null).

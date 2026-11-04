@@ -30,7 +30,11 @@ class BudgetAlert {
     required this.budget,
   });
 
-  double get ratio => budget <= 0 ? 0 : spent / budget;
+  /// Share of the cap spent. A cap that rollover has used up entirely (zero)
+  /// with spend against it counts as fully strained, ahead of any other.
+  double get ratio => budget <= 0
+      ? (spent > 0 ? spent.toDouble() : 0)
+      : spent / budget;
   bool get isOver => spent > budget;
 }
 
@@ -62,33 +66,34 @@ const String kOverallAlertLabel = 'Total spending';
 /// most-strained first. [spentForCategory] returns minor-unit spend for a
 /// category in that month; [totalSpent], the month's total spend, which the
 /// overall monthly cap is checked against (left out, it isn't checked).
+/// [capFor] gives the cap to check a budget against — its stored amount
+/// plus any rollover carry (see budget_rollover.dart); left out, the stored
+/// amount is used.
 List<BudgetAlert> budgetAlerts({
   required List<Budget> budgets,
   required int year,
   required int month,
   required int Function(String category) spentForCategory,
   int Function()? totalSpent,
+  int Function(Budget budget)? capFor,
   double warnAt = kBudgetWarnRatio,
 }) {
   final alerts = <BudgetAlert>[];
   for (final b in budgets) {
     if (b.year != year || b.month != month || b.amount <= 0) continue;
+    final cap = capFor?.call(b) ?? b.amount;
     if (b.isOverall) {
       // The overall cap used to be skipped here with nothing checking it
       // anywhere else, so blowing the whole month's budget never warned.
       if (totalSpent == null) continue;
-      final spent = totalSpent();
-      if (spent / b.amount >= warnAt) {
-        alerts.add(BudgetAlert(
-            category: kOverallAlertLabel, spent: spent, budget: b.amount));
-      }
+      final alert = BudgetAlert(
+          category: kOverallAlertLabel, spent: totalSpent(), budget: cap);
+      if (alert.ratio >= warnAt) alerts.add(alert);
       continue;
     }
-    final spent = spentForCategory(b.category);
-    if (spent / b.amount >= warnAt) {
-      alerts.add(
-          BudgetAlert(category: b.category, spent: spent, budget: b.amount));
-    }
+    final alert = BudgetAlert(
+        category: b.category, spent: spentForCategory(b.category), budget: cap);
+    if (alert.ratio >= warnAt) alerts.add(alert);
   }
   alerts.sort((a, b) => b.ratio.compareTo(a.ratio));
   return alerts;
