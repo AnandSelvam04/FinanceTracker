@@ -165,9 +165,15 @@ void main() {
     expect(find.text('LastMonthCap'), findsNothing);
 
     await tester.tap(find.byTooltip('Previous month'));
-    await tester.runAsync(
-        () async => Future<void>.delayed(const Duration(milliseconds: 50)));
-    await tester.pump();
+    // Wait for last month's budgets to load rather than a fixed 50ms, which
+    // a slow CI machine can outrun.
+    for (var i = 0;
+        i < 40 && find.text('LastMonthCap').evaluate().isEmpty;
+        i++) {
+      await tester.runAsync(
+          () async => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
 
     expect(find.text('LastMonthCap'), findsOneWidget);
     expect(find.text('ThisMonthCap'), findsNothing);
@@ -352,9 +358,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Delete recurring rule?'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
-    await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 100)));
-    await tester.pump(const Duration(milliseconds: 300));
+    // Wait for the delete to reach the database and the list to rebuild,
+    // rather than a fixed 100ms: a slow CI machine needed longer.
+    for (var i = 0; i < 40 && find.text('Gym').evaluate().isNotEmpty; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     expect(find.text('Gym'), findsNothing);
     expect(recurring.rules, isEmpty);
     await teardownTree(tester);
@@ -388,7 +398,10 @@ void main() {
     await tester.tap(find.text('Rent'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text('Save'));
-    for (var i = 0; i < 3; i++) {
+    // Until the edit dialog has closed — it closes once the save is written —
+    // rather than a fixed three short waits.
+    for (var i = 0; i < 3 || (i < 40 && find.text('Save').evaluate().isNotEmpty);
+        i++) {
       await tester.runAsync(
           () async => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pump(const Duration(milliseconds: 300));
