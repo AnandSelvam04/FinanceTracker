@@ -23,7 +23,6 @@ import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
 import '../utils/merchant_summary.dart';
-import '../widgets/credit_cards_card.dart';
 import '../widgets/alerts_banner.dart';
 import '../widgets/animated_money.dart';
 import '../widgets/empty_state.dart';
@@ -40,6 +39,7 @@ import 'add_expense_screen.dart';
 import 'add_investment_screen.dart';
 import 'add_transfer_screen.dart';
 import 'expense_list_screen.dart';
+import 'credit_cards_screen.dart';
 import 'investments_screen.dart';
 import 'more_screen.dart';
 import 'sms_review_screen.dart';
@@ -572,9 +572,6 @@ class _DashboardView extends StatelessWidget {
                 children: [
                   const AlertsBanner(),
                   const NetWorthCard(),
-                  // What is on each credit card right now, whatever period
-                  // the figures below show.
-                  const CreditCardsCard(),
                   _QuickAddRow(onQuickAdd: onQuickAdd),
                   MonthSelector(
                     initialYear: selectedYear,
@@ -1146,6 +1143,21 @@ class _ShortcutsRow extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                     builder: (context) => const InvestmentsScreen()),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Credit cards have their own screen — spend by period, limit and
+          // bills — rather than a section here, to keep the dashboard clear.
+          Expanded(
+            child: _ShortcutButton(
+              icon: Icons.credit_card,
+              label: 'Cards',
+              accent: const Color(0xFF1E6FD9), // blue
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const CreditCardsScreen()),
               ),
             ),
           ),

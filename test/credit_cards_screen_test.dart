@@ -12,7 +12,8 @@ import 'package:finance_tracker/providers/investment_provider.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/utils/credit_card_summary.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
-import 'package:finance_tracker/widgets/credit_cards_card.dart';
+import 'package:finance_tracker/screens/credit_cards_screen.dart';
+import 'package:finance_tracker/utils/card_period.dart';
 
 void main() {
   group('creditCardSummaries', () {
@@ -149,15 +150,61 @@ void main() {
     });
   });
 
-  group('CreditCardsCard', () {
+  group('cardRange', () {
+    final now = DateTime(2026, 3, 20, 15);
+    final cycled = Account(
+        id: 1, name: 'Visa', type: 'credit_card', statementDay: 5, dueDay: 25);
+    final plain = Account(id: 2, name: 'Amex', type: 'credit_card');
+
+    test('this cycle runs from the day after the last statement', () {
+      final r = cardRange(cycled, CardPeriodKind.cycle, now);
+      expect(r.start, DateTime(2026, 3, 6));
+      expect(r.endExclusive, DateTime(2026, 3, 21));
+      expect(r.label, 'Since 6 Mar');
+    });
+
+    test('a card without a cycle uses this month for "this cycle"', () {
+      final r = cardRange(plain, CardPeriodKind.cycle, now);
+      expect(r.start, DateTime(2026, 3, 1));
+    });
+
+    test('this month and last month', () {
+      final m = cardRange(plain, CardPeriodKind.thisMonth, now);
+      expect(m.start, DateTime(2026, 3, 1));
+      expect(m.endExclusive, DateTime(2026, 3, 21));
+      expect(m.label, 'March 2026');
+      final l = cardRange(plain, CardPeriodKind.lastMonth, now);
+      expect(l.start, DateTime(2026, 2, 1));
+      expect(l.endExclusive, DateTime(2026, 3, 1));
+    });
+
+    test('a picked range includes its last day', () {
+      final r = cardRange(plain, CardPeriodKind.custom, now,
+          customStart: DateTime(2026, 1, 10), customEnd: DateTime(2026, 2, 3));
+      expect(r.start, DateTime(2026, 1, 10));
+      expect(r.endExclusive, DateTime(2026, 2, 4));
+      expect(r.label, '10 Jan – 3 Feb');
+    });
+
+    test('last month in January is December', () {
+      final r =
+          cardRange(plain, CardPeriodKind.lastMonth, DateTime(2026, 1, 5));
+      expect(r.start, DateTime(2025, 12, 1));
+      expect(r.endExclusive, DateTime(2026, 1, 1));
+    });
+  });
+
+  group('CreditCardsScreen', () {
     TestWidgetsFlutterBinding.ensureInitialized();
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     DBService.testFactory = databaseFactoryFfi;
-    DBService.dbNameOverride = 'credit_cards_card_test.db';
+    DBService.dbNameOverride = 'credit_cards_screen_test.db';
 
-    Future<void> pumpCard(WidgetTester tester,
-        {required List<Account> accounts,
+    late AccountProvider accountProvider;
+
+    Future<void> pumpScreen(WidgetTester tester,
+        {List<Account> accounts = const [],
         List<Expense> Function(Map<String, int> ids)? rows}) async {
       final now = DateTime.now();
       final providers = (await tester.runAsync(() async {
@@ -170,150 +217,158 @@ void main() {
         for (final e in rows?.call(ids) ?? const <Expense>[]) {
           await DBService().insertExpense(e);
         }
-        final accountProvider = AccountProvider();
-        await accountProvider.fetchAccounts();
+        final a = AccountProvider();
+        await a.fetchAccounts();
         final expenses = ExpenseProvider();
         await expenses.ensureYearsLoaded({now.year, now.year - 1});
         final investments = InvestmentProvider();
         await investments.fetchInvestments();
-        return (accountProvider, expenses, investments);
+        return (a, expenses, investments);
       }))!;
+      accountProvider = providers.$1;
+      tester.view.physicalSize = const Size(1080, 3000);
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(MultiProvider(
         providers: [
           ChangeNotifierProvider.value(value: providers.$1),
           ChangeNotifierProvider.value(value: providers.$2),
           ChangeNotifierProvider.value(value: providers.$3),
         ],
-        child: MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(child: CreditCardsCard(now: now)),
-          ),
-        ),
+        child: MaterialApp(home: CreditCardsScreen(now: now)),
       ));
       await tester.pump();
     }
+
+    /// Lets database writes from the dialog land, then rebuilds.
+    Future<void> settle(WidgetTester tester) async {
+      for (var i = 0; i < 5; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    Expense spend(int amount, DateTime date, int? accountId) => Expense(
+          description: 'Purchase',
+          amount: amount,
+          date: date,
+          category: 'Shopping',
+          paymentMode: 'Credit Card',
+          type: DbConstants.txExpense,
+          accountId: accountId,
+        );
 
     tearDown(() async {
       await DBService().clearAll();
     });
 
-    testWidgets('hidden with no credit cards', (tester) async {
-      await pumpCard(tester,
+    testWidgets('with no cards, offers to add one', (tester) async {
+      await pumpScreen(tester,
           accounts: [Account(name: 'Savings', type: 'bank')]);
-      expect(find.text('Credit cards'), findsNothing);
+      expect(find.text('No credit cards yet'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Add a credit card'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Card name'), 'HDFC Regalia');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Credit limit (₹)'), '100000');
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await settle(tester);
+
+      final card =
+          accountProvider.accounts.singleWhere((a) => a.name == 'HDFC Regalia');
+      expect(card.type, 'credit_card');
+      expect(card.creditLimit, 10000000);
+      expect(find.text('HDFC Regalia'), findsOneWidget);
     }, timeout: const Timeout(Duration(seconds: 45)));
 
-    testWidgets('shows what went on a card and what is owed', (tester) async {
+    testWidgets('shows spend, owed and limit, and what is still to set up',
+        (tester) async {
       final today = DateTime.now();
-      await pumpCard(
-        tester,
-        accounts: [
-          Account(name: 'HDFC Regalia', type: 'credit_card', last4: '5678'),
-        ],
-        rows: (ids) => [
-          Expense(
-            description: 'SWIGGY',
-            amount: 45000,
-            date: DateTime(today.year, today.month, 1, 12),
-            category: 'Food',
-            paymentMode: 'Credit Card',
-            type: DbConstants.txExpense,
-            accountId: ids['HDFC Regalia'],
-          ),
-        ],
-      );
-      expect(tester.takeException(), isNull);
-      expect(find.text('Credit cards'), findsOneWidget);
-      expect(find.text('HDFC Regalia ••5678'), findsOneWidget);
-      expect(find.text('₹450.00'), findsOneWidget);
-      expect(find.text('this month'), findsOneWidget);
-      expect(find.text('₹450.00 owed'), findsOneWidget);
-      expect(
-          find.text('Add statement & due days to track bills'), findsOneWidget);
-    }, timeout: const Timeout(Duration(seconds: 45)));
-
-    testWidgets('a card with a limit shows the usage bar', (tester) async {
-      final today = DateTime.now();
-      await pumpCard(
+      await pumpScreen(
         tester,
         accounts: [
           Account(
-              name: 'HDFC Regalia', type: 'credit_card', creditLimit: 10000000),
-          Account(name: 'No limit card', type: 'credit_card'),
+              name: 'HDFC Regalia',
+              type: 'credit_card',
+              creditLimit: 10000000,
+              openingBalance: -1000000), // ₹10,000 owed when tracking began
         ],
         rows: (ids) => [
-          Expense(
-            description: 'FLIGHTS',
-            amount: 4200000,
-            date: DateTime(today.year, today.month, 1, 12),
-            category: 'Travel',
-            paymentMode: 'Credit Card',
-            type: DbConstants.txExpense,
-            accountId: ids['HDFC Regalia'],
-          ),
+          spend(3200000, DateTime(today.year, today.month, 1, 12),
+              ids['HDFC Regalia']),
         ],
       );
       expect(tester.takeException(), isNull);
+      expect(find.text('₹32,000.00'), findsOneWidget); // spent this cycle
+      expect(find.text('₹42,000.00'), findsOneWidget); // owed: 10k + 32k
       expect(find.text('42% of ₹1,00,000.00 used · ₹58,000.00 left'),
           findsOneWidget);
-      // Only the card with a limit gets a bar.
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
-    }, timeout: const Timeout(Duration(seconds: 45)));
-
-    testWidgets('a card over its limit says by how much', (tester) async {
-      final today = DateTime.now();
-      await pumpCard(
-        tester,
-        accounts: [
-          Account(name: 'Visa', type: 'credit_card', creditLimit: 5000000),
-        ],
-        rows: (ids) => [
-          Expense(
-            description: 'LAPTOP',
-            amount: 5500000,
-            date: DateTime(today.year, today.month, 1, 12),
-            category: 'Shopping',
-            paymentMode: 'Credit Card',
-            type: DbConstants.txExpense,
-            accountId: ids['Visa'],
-          ),
-        ],
-      );
       expect(
-          find.text('Over the ₹50,000.00 limit by ₹5,000.00'), findsOneWidget);
+          find.text('Add statement & due days, last 4 digits'), findsOneWidget);
     }, timeout: const Timeout(Duration(seconds: 45)));
 
-    testWidgets('a billed, unpaid card says what is due', (tester) async {
+    testWidgets('the period filter changes what "spent" covers',
+        (tester) async {
       final today = DateTime.now();
-      // Statement two days ago, due in ~20 days; a purchase before it.
-      final statement = DateTime(today.year, today.month, today.day - 2);
-      await pumpCard(
+      await pumpScreen(
         tester,
-        accounts: [
-          Account(
-            name: 'Visa',
-            type: 'credit_card',
-            statementDay: statement.day,
-            dueDay:
-                DateTime(statement.year, statement.month, statement.day + 20)
-                    .day,
-          ),
-        ],
+        accounts: [Account(name: 'Visa', type: 'credit_card')],
         rows: (ids) => [
-          Expense(
-            description: 'AMAZON',
-            amount: 120000,
-            date: DateTime(statement.year, statement.month, statement.day - 3),
-            category: 'Shopping',
-            paymentMode: 'Credit Card',
-            type: DbConstants.txExpense,
-            accountId: ids['Visa'],
-          ),
+          spend(70000, DateTime(today.year, today.month, 1, 12), ids['Visa']),
+          spend(250000, DateTime(today.year, today.month - 1, 10, 12),
+              ids['Visa']),
         ],
       );
-      expect(tester.takeException(), isNull);
-      expect(find.textContaining('₹1,200.00 due'), findsOneWidget);
-      expect(find.text('this cycle'), findsOneWidget);
+      expect(find.text('₹700.00'), findsOneWidget);
+
+      await tester.tap(find.text('Last month'));
+      await tester.pump();
+      expect(find.text('₹2,500.00'), findsOneWidget);
+      expect(find.text('₹700.00'), findsNothing);
+
+      await tester.tap(find.text('This month'));
+      await tester.pump();
+      expect(find.text('₹700.00'), findsOneWidget);
+    }, timeout: const Timeout(Duration(seconds: 45)));
+
+    testWidgets('setting a card up saves its limit, days and opening owed',
+        (tester) async {
+      await pumpScreen(tester,
+          accounts: [Account(name: 'Visa', type: 'credit_card')]);
+      await tester.tap(find.byTooltip('Set up Visa'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Last 4 digits'), '5678');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Credit limit (₹)'), '50000');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Statement day'), '5');
+      // A due day is needed with a statement day.
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pump();
+      expect(find.text('Set both days'), findsOneWidget);
+
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Due day'), '25');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Already owed when you start (₹)'),
+          '12000');
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await settle(tester);
+
+      final card = accountProvider.accounts.single;
+      expect(card.last4, '5678');
+      expect(card.creditLimit, 5000000);
+      expect(card.statementDay, 5);
+      expect(card.dueDay, 25);
+      expect(card.openingBalance, -1200000);
+      // Fully set up: nothing left to add, and the bill is tracked.
+      expect(find.textContaining('Add '), findsNothing);
+      expect(find.text('24% of ₹50,000.00 used · ₹38,000.00 left'),
+          findsOneWidget);
     }, timeout: const Timeout(Duration(seconds: 45)));
   });
 }
