@@ -239,13 +239,23 @@ void main() {
       await tester.pump();
     }
 
-    /// Lets database writes from the dialog land, then rebuilds.
+    /// Lets the dialog's database write land and the dialog close, then
+    /// rebuilds. Waits on the dialog itself rather than a fixed time: on a
+    /// slow CI machine the save took longer than the old fixed wait, and the
+    /// closing dialog's text field was still on screen.
     Future<void> settle(WidgetTester tester) async {
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0;
+          i < 60 && find.byType(AlertDialog).evaluate().isNotEmpty;
+          i++) {
         await tester.runAsync(
             () => Future<void>.delayed(const Duration(milliseconds: 50)));
-        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 50));
       }
+      await tester.pumpAndSettle();
+      // The provider's refresh after the save.
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pumpAndSettle();
     }
 
     Expense spend(int amount, DateTime date, int? accountId) => Expense(
