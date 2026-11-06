@@ -19,6 +19,7 @@ import 'monthly_summary_screen.dart';
 import 'recurring_screen.dart';
 import 'settings_screen.dart';
 import 'sms_review_screen.dart';
+import 'spending_calendar_screen.dart';
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -119,6 +120,12 @@ class _MoreScreenState extends State<MoreScreen> {
               color: _MenuColors.violet,
               title: 'Category Trends',
               onTap: () => _open(const CategoryTrendsScreen()),
+            ),
+            _MenuTile(
+              icon: Icons.calendar_month,
+              color: _MenuColors.red,
+              title: 'Spending Calendar',
+              onTap: () => _open(const SpendingCalendarScreen()),
             ),
           ]),
           const SectionHeader('Manage',
@@ -237,6 +244,7 @@ class _MenuColors {
   static const green = Color(0xFF43A047);
   static const pink = Color(0xFFD81B60);
   static const slate = Color(0xFF546E7A);
+  static const red = Color(0xFFE53935);
 }
 
 /// A rounded-square icon on a tint of its own colour.

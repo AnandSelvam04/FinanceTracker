@@ -161,6 +161,11 @@ void main() {
     expect(await affinityOf(DbConstants.tableExpenses, DbConstants.colNote),
         'TEXT');
 
+    // v18 adds a credit limit to accounts, after the v9 rebuild of accounts.
+    expect(
+        await affinityOf(DbConstants.tableAccounts, DbConstants.colCreditLimit),
+        'INTEGER');
+
     final tables = await db
         .rawQuery("SELECT name FROM sqlite_master WHERE type = 'table'");
     expect(tables.map((r) => r['name']), contains(DbConstants.tableSmsIgnored));

@@ -131,6 +131,29 @@ String formatMoneyRounded(int minor) => CurrencyFormat.hideAmounts
     ? _masked(CurrencyFormat.symbol)
     : '${CurrencyFormat.symbol}${_grouped((minor / 100).round() * 100, 0, CurrencyFormat.symbol)}';
 
+/// A short figure without the symbol, for tight spaces like a calendar cell:
+/// "450", "1.2k", "45k", then lakh/crore ("3.4L", "1.1Cr") for rupees and
+/// millions ("2.5M") otherwise. Masked while [CurrencyFormat.hideAmounts] is on.
+String formatMoneyCompact(int minor) {
+  if (CurrencyFormat.hideAmounts) return '•••';
+  final sign = minor < 0 ? '-' : '';
+  final major = minor.abs() / 100;
+  String scaled(double v, String suffix) {
+    final text = v >= 10 ? v.round().toString() : v.toStringAsFixed(1);
+    return '$sign${text.endsWith('.0') ? text.substring(0, text.length - 2) : text}$suffix';
+  }
+
+  final indian = CurrencyFormat.symbol == '₹' || CurrencyFormat.symbol == '₨';
+  if (major < 1000) return '$sign${major.round()}';
+  if (indian) {
+    if (major < 100000) return scaled(major / 1000, 'k');
+    if (major < 10000000) return scaled(major / 100000, 'L');
+    return scaled(major / 10000000, 'Cr');
+  }
+  if (major < 1000000) return scaled(major / 1000, 'k');
+  return scaled(major / 1000000, 'M');
+}
+
 /// Converts an [amount] in an account currency (minor units) to base-currency
 /// minor units using [rate] (base units per 1 account-currency unit).
 int toBaseMinor(int amount, double rate) => (amount * rate).round();

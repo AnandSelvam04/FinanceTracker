@@ -21,8 +21,8 @@ class SmsImport {
       r'\b(debited|debit|spent|withdrawn|withdrawal|paid|payment of|purchase|deducted|charged|transferred|sent)\b');
 
   /// Wording that means money arrived.
-  static final _creditWords =
-      RegExp(r'\b(credited|credit|received|deposited|refund(?:ed)?)\b');
+  static final _creditWords = RegExp(
+      r'\b(credited|credit|received|deposited|refund(?:ed)?|reversed|reversal)\b');
 
   /// A completed card or UPI spend announced without any debit verb. Two banks
   /// do this:
@@ -60,8 +60,25 @@ class SmsImport {
 
   /// Messages that mention money but record no transaction. Checked first, so
   /// an OTP quoting an amount ("OTP for txn of Rs.500") never becomes a row.
+  ///
+  /// Only wording that can't appear in a genuine alert belongs here. Promo
+  /// words ("offer", "sale", "win") used to be on this list too, and killed
+  /// real debits from merchants such as "WIN MART" or "MEGA SALE"; they now
+  /// count only when nothing in the message says money actually moved — see
+  /// [_promo]. "reversed" moved off it as well: money reversed to the account
+  /// is a refund to record, not noise.
   static final _notATransaction = RegExp(
-      r'\b(otp|one[ -]?time password|password|verification code|will be debited|will be credited|has been requested|requesting|request for|failed|declined|reversed|due on|minimum amount due|statement is ready|e-?statement|offer|cashback offer|discount|sale|win|congratulations|apply now|click here|dear customer,? your bal)\b');
+      r'\b(otp|one[ -]?time password|password|verification code|will be (?:debited|credited|reversed|refunded)|has been requested|requesting|request for|failed|declined|due on|minimum amount due|statement is ready|e-?statement|apply now|click here|pre-?approved|dear customer,? your bal)\b');
+
+  /// Marketing wording. Enough to drop a message only when [_moneyMoved]
+  /// finds nothing: "Get Rs.500 off — sale ends today" is an advert, but
+  /// "Rs.499 spent at MEGA SALE" is a purchase.
+  static final _promo = RegExp(
+      r'\b(offer|offers|discount|sale|win|won|winner|congratulations|voucher|coupon)\b');
+
+  /// A completed movement of money, in the past tense.
+  static final _moneyMoved = RegExp(
+      r'\b(debited|credited|spent|withdrawn|paid|received|deposited|deducted|charged|transferred|sent|refunded|reversed)\b');
 
   /// A currency amount: "Rs.499.00", "INR 1,234.56", "₹499", "Rs 2,150/-",
   /// and the foreign charges a card abroad or on a foreign site texts about:
@@ -91,7 +108,7 @@ class SmsImport {
 
   /// A refund of an earlier purchase. Money back from a merchant is spending
   /// undone, not income, so it is filed against the purchase's category.
-  static final _refund = RegExp(r'\brefund(?:ed)?\b');
+  static final _refund = RegExp(r'\b(refund(?:ed)?|reversed|reversal)\b');
 
   /// Cashback and rewards credited to a card: real money in, but not a
   /// payment of the bill, so it stays income.
@@ -126,12 +143,41 @@ class SmsImport {
   /// Every account/card number mentioned: "A/c XX4821", "ac no. XXXX1234",
   /// "Card ending 5678", or bare masking like "XXXXXX1234".
   ///
-  /// `\b(\d{4})\b` deliberately will not match inside a longer digit run, so
-  /// reference numbers ("UPI/123456/...") are not mistaken for accounts.
+  /// Three digits are accepted as well as four: ICICI masks its accounts as
+  /// "Acct XX123". Four are preferred when both would fit, and
+  /// [SmsImport.sameAccountRef] lets a three-digit reference match an account
+  /// whose last four end in it.
+  ///
+  /// The trailing `\b` deliberately will not match inside a longer digit run,
+  /// so reference numbers ("UPI/123456/...") are not mistaken for accounts.
   static final _accountRef = RegExp(
-      r'\b(?:a/?c(?:count)?\.?|acct|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?)?\s*[x*\d]{0,16}?(\d{4})\b'
-      r'|[x*]{2,}\s*(\d{4})\b',
+      r'\b(?:a/?c(?:count)?\.?|acct|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?)?\s*[x*\d]{0,16}?(\d{3,4})\b'
+      r'|[x*]{2,}\s*(\d{3,4})\b',
       caseSensitive: false);
+
+  /// Whether two masked account references name the same account: equal, or
+  /// a three-digit one ("XX123", ICICI's masking) that the other ends in.
+  static bool sameAccountRef(String? a, String? b) {
+    if (a == null || b == null) return false;
+    if (a == b) return true;
+    if (a.length == 3 && b.length > 3) return b.endsWith(a);
+    if (b.length == 3 && a.length > 3) return a.endsWith(b);
+    return false;
+  }
+
+  /// Whether a message from [sender] cannot be a bank alert and should not be
+  /// read at all.
+  ///
+  /// Banks text from registered headers ("VM-HDFCBK", "JD-ICICIT-S") or short
+  /// codes, never from an ordinary phone number — a friend's "I sent you Rs
+  /// 500" comes from one of those and is not a transaction on this phone. A
+  /// "-P" suffix is TRAI's marker for promotional traffic, which carries
+  /// offers rather than alerts.
+  static bool isNonBankSender(String sender) {
+    final s = sender.replaceAll(RegExp(r'[\s()-]'), '');
+    if (RegExp(r'^\+?\d{10,}$').hasMatch(s)) return true;
+    return RegExp(r'-p$', caseSensitive: false).hasMatch(sender.trim());
+  }
 
   /// Prepositions that assign a role to the account reference that follows.
   ///
@@ -154,6 +200,27 @@ class SmsImport {
   static final _merchant = RegExp(
       r'\b(?:to|at|towards|for|in favour of)\s+'
       '($_merchantWord(?:\\s+$_merchantWord){0,3})');
+
+  /// The payee named as the account that was credited, after a clause break:
+  /// ICICI's "Acct XX123 debited for Rs 240.00 on 28-Oct-25; SWIGGY
+  /// credited." Only consulted for debits — in a credit, "… credited" is the
+  /// user's own account.
+  static final _creditedPayee = RegExp(
+      '[;.]\\s*($_merchantWord(?:\\s+$_merchantWord){0,3})\\s+credited\\b');
+
+  /// A name that is really a currency amount: "for Rs 240.00" would otherwise
+  /// give "Rs 240.00" as the merchant, since "Rs" is capitalised.
+  static final _currencyLead = RegExp(
+      r'^(?:rs\.?|inr|usd|eur|gbp|aed|sgd|jpy|aud|cad)\b',
+      caseSensitive: false);
+
+  /// Whether [name] can be a payee: two characters or more, at least one
+  /// letter (so "to 7308080808" — a shortcode — is not one), and not an
+  /// amount.
+  static bool _isPayeeName(String name) =>
+      name.length >= 2 &&
+      RegExp(r'[A-Za-z]').hasMatch(name) &&
+      !_currencyLead.hasMatch(name);
 
   /// UPI handles, which are lower-case and so miss [_merchant].
   static final _vpa =
@@ -223,6 +290,7 @@ class SmsImport {
         raw.replaceAll(RegExp(r'\b(credit|debit)\s*card\b'), ' card ');
 
     if (_notATransaction.hasMatch(lower)) return null;
+    if (_promo.hasMatch(lower) && !_moneyMoved.hasMatch(lower)) return null;
 
     var type = _directionOf(lower);
     if (type == null) return null;
@@ -240,7 +308,7 @@ class SmsImport {
     // repayment must move the balance, not add to the month's spending.
     final isTransfer = last4 != null &&
         toLast4 != null &&
-        last4 != toLast4 &&
+        !sameAccountRef(last4, toLast4) &&
         (refs.rolesExplicit || _transferIntent.hasMatch(lower));
     if (isTransfer) {
       type = DbConstants.txTransfer;
@@ -260,7 +328,7 @@ class SmsImport {
       type: type,
       description: isTransfer
           ? 'Transfer'
-          : (_merchantOf(text) ??
+          : (_merchantOf(text, debit: type == DbConstants.txExpense) ??
               (refund ? _refundMerchantOf(text) : null) ??
               _prettySender(sender)),
       last4: last4,
@@ -384,7 +452,7 @@ class SmsImport {
     return null;
   }
 
-  static String? _merchantOf(String text) {
+  static String? _merchantOf(String text, {required bool debit}) {
     final vpa = _vpa.firstMatch(text);
     if (vpa != null) return vpa.group(1);
 
@@ -394,14 +462,19 @@ class SmsImport {
     final bare = _bareVpa.firstMatch(text);
     if (bare != null) return bare.group(1);
 
+    if (debit) {
+      for (final match in _creditedPayee.allMatches(text)) {
+        final name = match.group(1)!.trim();
+        if (_isPayeeName(name)) return name;
+      }
+    }
+
     for (final match in _merchant.allMatches(text)) {
       var name = match.group(1)!.trim();
       // Strip a trailing "on"/"on 01-Aug-25" the greedy word run may have taken.
       name =
           name.replaceFirst(RegExp(r'\s+(on|dated)$', caseSensitive: false), '');
-      // Skip an all-digit run: "to 7308080808" is a shortcode or phone number,
-      // not a payee. A real merchant name carries at least one letter.
-      if (name.length >= 2 && RegExp(r'[A-Za-z]').hasMatch(name)) return name;
+      if (_isPayeeName(name)) return name;
     }
     return null;
   }
@@ -418,7 +491,7 @@ class SmsImport {
         .group(1)!
         .replaceFirst(RegExp(r'\s+(on|dated)$', caseSensitive: false), '')
         .trim();
-    return name.length >= 2 && RegExp(r'[A-Za-z]').hasMatch(name) ? name : null;
+    return _isPayeeName(name) ? name : null;
   }
 
   /// How far before the SMS arrived a date in its body is still taken as the
@@ -444,17 +517,77 @@ class SmsImport {
     if (parsed.isBefore(received.subtract(plausibleLookback))) {
       return receivedAt;
     }
+    // The body gives a day, not a time. On the day the SMS arrived, the
+    // arrival time is the best time there is; filing it at midnight put the
+    // purchase before everything else that day.
+    if (parsed.year == received.year &&
+        parsed.month == received.month &&
+        parsed.day == received.day) {
+      return receivedAt;
+    }
     return parsed;
   }
 
+  /// The first date the message carries, in any of the shapes banks use:
+  /// "01-Aug-25", "01/08/2025", "01 Aug 2025", "01Aug25", "Aug 01, 2025" and
+  /// ISO "2025-08-01". Whichever comes first in the text wins.
   static DateTime? _dateOf(String text) {
-    final match = _date.firstMatch(text);
-    if (match == null) return null;
-    final day = int.tryParse(match.group(1)!);
-    final rawMonth = match.group(2)!;
-    final month =
-        int.tryParse(rawMonth) ?? _months[rawMonth.toLowerCase().substring(0, 3)];
-    var year = int.tryParse(match.group(3)!);
+    final found = <(int, DateTime?)>[];
+    void collect(RegExp pattern, DateTime? Function(RegExpMatch m) read) {
+      final m = pattern.firstMatch(text);
+      if (m != null) found.add((m.start, read(m)));
+    }
+
+    collect(_date, (m) => _validDate(m.group(3)!, m.group(2)!, m.group(1)!));
+    collect(_isoDate, (m) => _validDate(m.group(1)!, m.group(2)!, m.group(3)!));
+    collect(_spacedDate,
+        (m) => _validDate(m.group(3)!, m.group(2)!, m.group(1)!));
+    collect(_monthFirstDate,
+        (m) => _validDate(m.group(3)!, m.group(1)!, m.group(2)!));
+    found.sort((a, b) => a.$1.compareTo(b.$1));
+    for (final (_, date) in found) {
+      if (date != null) return date;
+    }
+    return null;
+  }
+
+  /// ISO "2025-08-01", as some card issuers write it.
+  static final _isoDate = RegExp(r'\b(\d{4})-(\d{1,2})-(\d{1,2})\b');
+
+  /// "01 Aug 2025", "1 August, 2025", "01Aug25".
+  static final _spacedDate = RegExp(
+      r'\b(\d{1,2})\s*([A-Za-z]{3,9})\.?,?\s*(\d{4}|\d{2})\b',
+      caseSensitive: false);
+
+  /// "Aug 01, 2025", "August 1 2025".
+  static final _monthFirstDate = RegExp(
+      r'\b([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b',
+      caseSensitive: false);
+
+  static const _fullMonths = [
+    'january', 'february', 'march', 'april', 'may', 'june', //
+    'july', 'august', 'september', 'october', 'november', 'december',
+  ];
+
+  /// A month given as a number, a three-letter abbreviation, "Sept", or the
+  /// full name — never just any word that starts like one ("Market").
+  static int? _monthOf(String raw) {
+    final n = int.tryParse(raw);
+    if (n != null) return n;
+    final lower = raw.toLowerCase();
+    if (lower.length < 3) return null;
+    final month = _months[lower.substring(0, 3)];
+    if (month == null) return null;
+    final ok = lower.length == 3 ||
+        lower == _fullMonths[month - 1] ||
+        (month == 9 && lower == 'sept');
+    return ok ? month : null;
+  }
+
+  static DateTime? _validDate(String rawYear, String rawMonth, String rawDay) {
+    final day = int.tryParse(rawDay);
+    final month = _monthOf(rawMonth);
+    var year = int.tryParse(rawYear);
     if (day == null || month == null || year == null) return null;
     if (year < 100) year += 2000;
     if (month < 1 || month > 12 || day < 1 || day > 31) return null;
@@ -534,7 +667,8 @@ class SmsImport {
       !other.isTransfer &&
       !other.isRefund &&
       other.last4 != null &&
-      (other.last4 == transfer.last4 || other.last4 == transfer.toLast4);
+      (sameAccountRef(other.last4, transfer.last4) ||
+          sameAccountRef(other.last4, transfer.toLast4));
 
   /// Combines a lone debit and a lone credit on different accounts.
   static ParsedSms? _mergeLegs(ParsedSms debit, ParsedSms credit) {
@@ -546,7 +680,7 @@ class SmsImport {
     if (credit.isRefund || credit.isCashback) return null;
     final from = debit.last4;
     final to = credit.last4;
-    if (from == null || to == null || from == to) return null;
+    if (from == null || to == null || sameAccountRef(from, to)) return null;
     return debit.copyWith(
       type: DbConstants.txTransfer,
       description: 'Transfer',
@@ -793,14 +927,17 @@ class ParsedSms {
 
   static Account? _accountFor(String? digits, List<Account> accounts) {
     if (digits == null) return null;
-    final matches = accounts.where((a) => a.last4 == digits).toList();
+    final matches = accounts
+        .where((a) => SmsImport.sameAccountRef(a.last4, digits))
+        .toList();
     return matches.length == 1 ? matches.first : null;
   }
 
-  /// How many accounts carry the last four digits this message names. More
-  /// than one is why no account was picked, and the review screen says so.
-  int accountsWithLast4(List<Account> accounts) =>
-      last4 == null ? 0 : accounts.where((a) => a.last4 == last4).length;
+  /// How many accounts carry the last digits this message names. More than
+  /// one is why no account was picked, and the review screen says so.
+  int accountsWithLast4(List<Account> accounts) => last4 == null
+      ? 0
+      : accounts.where((a) => SmsImport.sameAccountRef(a.last4, last4)).length;
 
   /// The payment mode to save: what the message said, else what the account
   /// implies (a charge on a credit-card account is a card payment), else

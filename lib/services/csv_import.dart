@@ -7,7 +7,16 @@ import '../utils/db_constants.dart';
 class CsvColumnMapping {
   final int dateCol;
   final int descriptionCol;
+
+  /// The amount column — or, when [creditCol] is set, the withdrawal (debit)
+  /// column of a statement that splits money out and money in.
   final int amountCol;
+
+  /// The deposit (credit) column, for statements laid out the way Indian
+  /// banks export them: "Withdrawal Amt." and "Deposit Amt." side by side,
+  /// one of the two filled on each row. Set, it decides each row's direction
+  /// and [typeCol]/[defaultType] are not used.
+  final int? creditCol;
   final int? categoryCol;
   final int? typeCol;
   final String defaultType;
@@ -17,6 +26,7 @@ class CsvColumnMapping {
     required this.dateCol,
     required this.descriptionCol,
     required this.amountCol,
+    this.creditCol,
     this.categoryCol,
     this.typeCol,
     this.defaultType = DbConstants.txExpense,
@@ -33,7 +43,13 @@ class CsvImportResult {
   /// Rows left out because an earlier CSV import already brought them in.
   final int duplicates;
 
-  const CsvImportResult(this.expenses, this.skipped, {this.duplicates = 0});
+  /// Rows left out because they match a transaction already recorded another
+  /// way — imported from an SMS or entered by hand. See
+  /// [withoutRecordedElsewhere].
+  final int matchedExisting;
+
+  const CsvImportResult(this.expenses, this.skipped,
+      {this.duplicates = 0, this.matchedExisting = 0});
 
   /// This result without the rows whose [Expense.sourceRef] is in [existing],
   /// so importing the same (or an overlapping) statement twice doesn't
@@ -44,8 +60,79 @@ class CsvImportResult {
         if (!existing.contains(e.sourceRef)) e,
     ];
     return CsvImportResult(fresh, skipped,
-        duplicates: duplicates + expenses.length - fresh.length);
+        duplicates: duplicates + expenses.length - fresh.length,
+        matchedExisting: matchedExisting);
   }
+
+  /// This result without the rows that [existing] already records — the same
+  /// spend captured from its SMS alert, or typed in by hand. A statement
+  /// imported after the month's alerts used to add every one of them a second
+  /// time. See [findRecordedMatch] for what counts as the same transaction.
+  CsvImportResult withoutRecordedElsewhere(List<Expense> existing,
+      {int? accountId}) {
+    final claimed = <Object>{};
+    final fresh = [
+      for (final e in expenses)
+        if (findRecordedMatch(e, existing,
+                accountId: accountId, claimed: claimed) ==
+            null)
+          e,
+    ];
+    return CsvImportResult(fresh, skipped,
+        duplicates: duplicates,
+        matchedExisting: matchedExisting + expenses.length - fresh.length);
+  }
+}
+
+/// The already-recorded transaction that [row] from a statement appears to
+/// be, or null.
+///
+/// Same amount and direction within [window] days, not on a different
+/// account. A transfer recorded out of (or into) the statement's account
+/// matches a withdrawal (or deposit) row — the statement can't tell a move
+/// to your own card from any other payment. Rows from an earlier CSV import
+/// are left to [CsvImportResult.withoutAlreadyImported], which matches them
+/// exactly. [claimed] keeps one recorded row from absorbing several statement
+/// rows (two ₹100 coffees on the same day are two transactions); the match
+/// is added to it, and the closest in date wins.
+Expense? findRecordedMatch(
+  Expense row,
+  List<Expense> existing, {
+  int? accountId,
+  Set<Object>? claimed,
+  Duration window = const Duration(days: 2),
+}) {
+  Expense? best;
+  Duration? bestGap;
+  for (final e in existing) {
+    if (e.sourceRef?.startsWith(csvSourceRefPrefix) ?? false) continue;
+    if (claimed != null && claimed.contains(e.id ?? e)) continue;
+    final gap = e.date.difference(row.date).abs();
+    if (gap > window) continue;
+
+    final bool same;
+    if (e.type == DbConstants.txTransfer) {
+      // Without an account there is no telling which side of a transfer the
+      // statement shows.
+      if (accountId == null) continue;
+      same = row.type == DbConstants.txExpense
+          ? e.accountId == accountId && e.amount == row.amount
+          : e.toAccountId == accountId && e.receivedAmount == row.amount;
+    } else {
+      same = e.type == row.type &&
+          e.amount == row.amount &&
+          (accountId == null ||
+              e.accountId == null ||
+              e.accountId == accountId);
+    }
+    if (!same) continue;
+    if (best == null || gap < bestGap!) {
+      best = e;
+      bestGap = gap;
+    }
+  }
+  if (best != null) claimed?.add(best.id ?? best);
+  return best;
 }
 
 /// A credit that is money back from a merchant rather than income: a refund,
@@ -82,10 +169,14 @@ String csvSourceRef(Expense e, int occurrence) {
 
 /// Parses rows (as produced by the csv package) into expenses using the given
 /// column mapping. Rows with an unparseable date or amount are skipped.
+///
+/// [accountId], when given, is the account the statement belongs to; every
+/// row is filed against it so the account's balance reflects the statement.
 CsvImportResult parseCsvExpenses(
   List<List<dynamic>> rows, {
   required bool hasHeader,
   required CsvColumnMapping mapping,
+  int? accountId,
 }) {
   final expenses = <Expense>[];
   var skipped = 0;
@@ -102,7 +193,9 @@ CsvImportResult parseCsvExpenses(
   // negative is a debit, positive a credit. Only trust that when the file
   // actually contains a negative — otherwise an all-positive export would
   // have every row flipped to income.
-  final signIndicatesType = mapping.typeCol == null &&
+  final split = mapping.creditCol != null;
+  final signIndicatesType = !split &&
+      mapping.typeCol == null &&
       data.any((row) {
         final v = tryParseCsvAmount(cell(row, mapping.amountCol));
         return v != null && v < 0;
@@ -111,16 +204,32 @@ CsvImportResult parseCsvExpenses(
   for (final row in data) {
     if (row.every((c) => (c?.toString().trim() ?? '').isEmpty)) continue;
     final date = tryParseCsvDate(cell(row, mapping.dateCol));
-    final amount = tryParseCsvAmount(cell(row, mapping.amountCol));
+    double? amount;
+    String? splitType;
+    if (split) {
+      // One side is filled on each row; the other is blank or 0.00.
+      final out = tryParseCsvAmount(cell(row, mapping.amountCol));
+      final into = tryParseCsvAmount(cell(row, mapping.creditCol));
+      if (out != null && out != 0) {
+        amount = out;
+        splitType = DbConstants.txExpense;
+      } else if (into != null && into != 0) {
+        amount = into;
+        splitType = DbConstants.txIncome;
+      }
+    } else {
+      amount = tryParseCsvAmount(cell(row, mapping.amountCol));
+    }
     if (date == null || amount == null) {
       skipped++;
       continue;
     }
     final category = cell(row, mapping.categoryCol);
     final description = cell(row, mapping.descriptionCol);
-    var type = signIndicatesType
-        ? (amount < 0 ? DbConstants.txExpense : DbConstants.txIncome)
-        : _normalizeType(cell(row, mapping.typeCol), mapping.defaultType);
+    var type = splitType ??
+        (signIndicatesType
+            ? (amount < 0 ? DbConstants.txExpense : DbConstants.txIncome)
+            : _normalizeType(cell(row, mapping.typeCol), mapping.defaultType));
     // A refund arrives as a credit; filed as income it would inflate the
     // month's earnings while the purchase still counted in full.
     final refund = type == DbConstants.txIncome && isCsvRefund(description);
@@ -135,6 +244,7 @@ CsvImportResult parseCsvExpenses(
       category: category.isEmpty ? mapping.defaultCategory : category,
       paymentMode: 'Other',
       type: type,
+      accountId: accountId,
     );
     final identity = csvSourceRef(expense, 0);
     final occurrence = seen[identity] = (seen[identity] ?? 0) + 1;
@@ -145,10 +255,48 @@ CsvImportResult parseCsvExpenses(
       category: expense.category,
       paymentMode: expense.paymentMode,
       type: expense.type,
+      accountId: accountId,
       sourceRef: csvSourceRef(expense, occurrence),
     ));
   }
   return CsvImportResult(expenses, skipped);
+}
+
+/// The columns a bank statement's [header] row names, so an HDFC/ICICI/SBI
+/// export ("Date, Narration, …, Withdrawal Amt., Deposit Amt., Closing
+/// Balance") maps itself. [amount] is the withdrawal column when [credit]
+/// (the deposit column) is found too. Null when the row names none of them —
+/// it is probably data, not a header.
+({int? date, int? description, int? amount, int? credit})?
+    guessStatementColumns(List<dynamic> header) {
+  final names = [
+    for (final c in header) (c?.toString() ?? '').trim().toLowerCase()
+  ];
+  int? find(RegExp pattern, {int? except}) {
+    for (var i = 0; i < names.length; i++) {
+      if (i != except && pattern.hasMatch(names[i])) return i;
+    }
+    return null;
+  }
+
+  final date = find(RegExp(r'date'));
+  final description = find(RegExp(
+      r'narration|description|particulars|details|remarks|transaction'));
+  final withdrawal = find(RegExp(r'withdraw|debit|\bdr\b|paid out'));
+  final deposit = find(RegExp(r'deposit|credit|\bcr\b|paid in'),
+      except: withdrawal);
+  final amount = find(RegExp(r'amount'));
+  if (date == null && description == null && withdrawal == null &&
+      amount == null) {
+    return null;
+  }
+  final split = withdrawal != null && deposit != null;
+  return (
+    date: date,
+    description: description,
+    amount: split ? withdrawal : amount,
+    credit: split ? deposit : null,
+  );
 }
 
 String _normalizeType(String raw, String fallback) {
@@ -162,29 +310,81 @@ String _normalizeType(String raw, String fallback) {
   return fallback;
 }
 
-/// Accepts ISO dates and day-first dd/MM/yyyy or dd-MM-yyyy (common outside
-/// the US). Returns null if it can't be parsed.
+const _monthNumbers = {
+  'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6, //
+  'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12,
+};
+
+/// A time of day after the date ("01/08/2025 10:30:00", "01-Aug-2025 10:30
+/// AM"), which some exports add and which isn't part of the date.
+final _trailingTime =
+    RegExp(r'[\sT]+\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?\s*(?:[ap]\.?m\.?)?$',
+        caseSensitive: false);
+
+/// Accepts ISO dates, day-first dd/MM/yyyy or dd-MM-yyyy (common outside the
+/// US), and month names as Indian bank statements write them: "01 Aug 2025",
+/// "01-Aug-25", "1 August 2025", "Aug 01, 2025". A trailing time of day is
+/// ignored. Returns null if it can't be parsed.
 DateTime? tryParseCsvDate(String raw) {
   final s = raw.trim();
   if (s.isEmpty) return null;
   final iso = DateTime.tryParse(s);
   if (iso != null) return iso;
-  final m = RegExp(r'^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$').firstMatch(s);
-  if (m != null) {
-    final day = int.parse(m.group(1)!);
-    final month = int.parse(m.group(2)!);
-    var year = int.parse(m.group(3)!);
-    if (year < 100) year += 2000;
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    try {
-      final d = DateTime(year, month, day);
-      if (d.month != month || d.day != day) return null; // e.g. 31 Feb
-      return d;
-    } catch (_) {
-      return null;
-    }
+  final date = s.replaceFirst(_trailingTime, '').trim();
+
+  final numeric =
+      RegExp(r'^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$').firstMatch(date);
+  if (numeric != null) {
+    return _validDate(int.parse(numeric.group(3)!),
+        int.parse(numeric.group(2)!), int.parse(numeric.group(1)!));
+  }
+
+  // "01 Aug 2025", "01-Aug-25", "1 August, 2025".
+  final dayFirst =
+      RegExp(r'^(\d{1,2})[\s/\-.]+([A-Za-z]{3,9})\.?[\s/\-.,]+(\d{2,4})$')
+          .firstMatch(date);
+  if (dayFirst != null) {
+    final month = _monthNumber(dayFirst.group(2)!);
+    if (month == null) return null;
+    return _validDate(int.parse(dayFirst.group(3)!), month,
+        int.parse(dayFirst.group(1)!));
+  }
+
+  // "Aug 01, 2025", "August 1 2025".
+  final monthFirst =
+      RegExp(r'^([A-Za-z]{3,9})\.?[\s\-]+(\d{1,2})(?:st|nd|rd|th)?[\s,\-]+(\d{2,4})$')
+          .firstMatch(date);
+  if (monthFirst != null) {
+    final month = _monthNumber(monthFirst.group(1)!);
+    if (month == null) return null;
+    return _validDate(int.parse(monthFirst.group(3)!), month,
+        int.parse(monthFirst.group(2)!));
   }
   return null;
+}
+
+/// The month a name or abbreviation means ("Aug", "august", "Sept"), or null.
+int? _monthNumber(String name) {
+  final lower = name.toLowerCase();
+  final month = _monthNumbers[lower.substring(0, 3)];
+  if (month == null) return null;
+  // Only a real abbreviation or the full name, so "Augment" isn't August.
+  const full = [
+    'january', 'february', 'march', 'april', 'may', 'june', //
+    'july', 'august', 'september', 'october', 'november', 'december',
+  ];
+  final ok = lower.length == 3 ||
+      full[month - 1] == lower ||
+      (month == 9 && lower == 'sept');
+  return ok ? month : null;
+}
+
+DateTime? _validDate(int year, int month, int day) {
+  if (year < 100) year += 2000;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  final d = DateTime(year, month, day);
+  if (d.month != month || d.day != day) return null; // e.g. 31 Feb
+  return d;
 }
 
 /// Strips currency symbols and thousands separators, returning the **signed**

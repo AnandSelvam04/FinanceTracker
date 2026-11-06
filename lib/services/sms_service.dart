@@ -251,9 +251,10 @@ class SmsService {
         includeDismissed ? const <String>{} : await ignoredMerchants();
 
     final parsed = <ParsedSms>[];
-    for (final sms in await _inbox()) {
+    for (final sms in await _inbox(since: lower)) {
       if (sms.receivedAt.isBefore(lower)) continue;
       if (to != null && sms.receivedAt.isAfter(to)) continue;
+      if (SmsImport.isNonBankSender(sms.sender)) continue;
       final candidate = SmsImport.parse(
         sender: sms.sender,
         body: sms.body,
@@ -285,12 +286,20 @@ class SmsService {
 
   /// Reads raw inbox rows, translating the plugin's message type into
   /// [RawSms] so nothing above this line depends on the plugin's classes.
-  static Future<List<RawSms>> _inbox() async {
+  ///
+  /// Only messages received at or after [since] are fetched. The filter runs
+  /// in the content provider's query, so a scan of the last few days doesn't
+  /// pull an inbox of tens of thousands of messages over the platform channel
+  /// just to throw nearly all of them away — [pendingCount] runs this every
+  /// time the dashboard opens. The caller still checks the window itself.
+  static Future<List<RawSms>> _inbox({required DateTime since}) async {
     final override = inboxOverride;
     if (override != null) return override();
     try {
       final messages = await Telephony.instance.getInboxSms(
         columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
+        filter: SmsFilter.where(SmsColumn.DATE)
+            .greaterThanOrEqualTo('${since.millisecondsSinceEpoch}'),
       );
       return [
         for (final m in messages)

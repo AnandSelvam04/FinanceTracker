@@ -6,17 +6,25 @@ import 'alerts.dart' show calendarDaysBetween;
 /// scheduler alike.
 ///
 /// A card's statement is generated on [Account.statementDay] each month and
-/// covers the cycle that just closed; payment is due on [Account.dueDay].
+/// covers the cycle that just closed — *including* the statement day itself,
+/// the way Indian card issuers bill it (statement date 20: cycle 21 Jun – 20
+/// Jul). Payment is due on [Account.dueDay].
 
 /// The windows and dates derived from a card's statement/due days for a given
 /// reference date. All dates are date-only (local midnight).
 class CreditCardCycle {
-  /// Start of the cycle that the most recent statement bills (inclusive).
+  /// Start of the cycle that the most recent statement bills (inclusive):
+  /// the day after the statement before it.
   final DateTime billedCycleStart;
 
-  /// The most recent statement date (also the end, exclusive, of the billed
-  /// cycle and the start of the current open cycle).
+  /// The most recent statement date, the last day the statement bills.
   final DateTime statementDate;
+
+  /// The day after [statementDate]: the end (exclusive) of the billed cycle
+  /// and the start of the current open cycle. A purchase on the statement day
+  /// is on that statement, not the next one.
+  DateTime get billedUntil =>
+      DateTime(statementDate.year, statementDate.month, statementDate.day + 1);
 
   /// End (exclusive) of the current open cycle — the next statement date.
   final DateTime nextStatementDate;
@@ -60,8 +68,10 @@ CreditCardCycle computeCreditCardCycle({
       ? _dateWithDay(today.year, today.month - 1, statementDay)
       : stmtThisMonth;
 
-  final billedCycleStart =
+  final previousStatement =
       _dateWithDay(statementDate.year, statementDate.month - 1, statementDay);
+  final billedCycleStart = DateTime(previousStatement.year,
+      previousStatement.month, previousStatement.day + 1);
   final nextStatementDate =
       _dateWithDay(statementDate.year, statementDate.month + 1, statementDay);
 
@@ -152,33 +162,52 @@ List<CreditCardReminder> creditCardReminders({
   final out = <CreditCardReminder>[];
   for (final a in accounts) {
     if (!a.hasBillingCycle || a.id == null) continue;
+    final id = a.id!;
     final cycle = computeCreditCardCycle(
       statementDay: a.statementDay!,
       dueDay: a.dueDay!,
       now: now,
     );
-    final statementAmount =
-        spendInRange(a.id!, cycle.billedCycleStart, cycle.statementDate);
-    // Nothing billed means nothing to pay — no reminder.
-    if (statementAmount <= 0) continue;
-    if (cycle.daysUntilDue > withinDays || cycle.daysUntilDue < -overdueGrace) {
-      continue;
+
+    CreditCardReminder? reminderFor(CreditCardCycle c, int daysUntilDue) {
+      final statementAmount =
+          spendInRange(id, c.billedCycleStart, c.billedUntil);
+      // Nothing billed means nothing to pay — no reminder.
+      if (statementAmount <= 0) return null;
+      if (daysUntilDue > withinDays || daysUntilDue < -overdueGrace) {
+        return null;
+      }
+      // Paying the bill used to change nothing: the reminder and the
+      // dashboard kept saying it was due until the due date passed.
+      final paid = paidInRange?.call(id, c.statementDate, tomorrow) ?? 0;
+      if (paid >= statementAmount) return null;
+      return CreditCardReminder(
+        accountId: id,
+        accountName: a.name,
+        symbol: a.symbol,
+        statementAmount: statementAmount,
+        currentCycleSpend: spendInRange(id, c.billedUntil, tomorrow),
+        paidSinceStatement: paid < 0 ? 0 : paid,
+        dueDate: c.dueDate,
+        daysUntilDue: daysUntilDue,
+      );
     }
-    // Paying the bill used to change nothing: the reminder and the dashboard
-    // kept saying it was due until the due date passed.
-    final paid = paidInRange?.call(a.id!, cycle.statementDate, tomorrow) ?? 0;
-    if (paid >= statementAmount) continue;
-    final cycleSpend = spendInRange(a.id!, cycle.statementDate, tomorrow);
-    out.add(CreditCardReminder(
-      accountId: a.id!,
-      accountName: a.name,
-      symbol: a.symbol,
-      statementAmount: statementAmount,
-      currentCycleSpend: cycleSpend,
-      paidSinceStatement: paid < 0 ? 0 : paid,
-      dueDate: cycle.dueDate,
-      daysUntilDue: cycle.daysUntilDue,
-    ));
+
+    // The statement before the latest one, while its due date is still
+    // within the overdue grace. When the due date falls only a few days
+    // before the next statement (statement on the 1st, due on the 28th), a
+    // new statement used to replace an unpaid, overdue bill and the reminder
+    // vanished. Payments since that older statement count towards it first.
+    final previous = computeCreditCardCycle(
+      statementDay: a.statementDay!,
+      dueDay: a.dueDay!,
+      now: cycle.statementDate.subtract(const Duration(days: 1)),
+    );
+    final previousDays = calendarDaysBetween(today, previous.dueDate);
+    final overdue =
+        previousDays < 0 ? reminderFor(previous, previousDays) : null;
+    final reminder = overdue ?? reminderFor(cycle, cycle.daysUntilDue);
+    if (reminder != null) out.add(reminder);
   }
   out.sort((x, y) => x.daysUntilDue.compareTo(y.daysUntilDue));
   return out;

@@ -29,6 +29,10 @@ class Account {
   final int? statementDay;
   final int? dueDay;
 
+  /// A credit card's credit limit, in minor units of its own currency. Null
+  /// when not set; with it, the dashboard shows how much of it is used.
+  final int? creditLimit;
+
   Account({
     this.id,
     required this.name,
@@ -40,6 +44,7 @@ class Account {
     this.last4,
     this.statementDay,
     this.dueDay,
+    this.creditLimit,
   });
 
   /// Whether this credit card has a billing cycle configured.
@@ -80,6 +85,7 @@ class Account {
         DbConstants.colLast4: last4,
         DbConstants.colStatementDay: statementDay,
         DbConstants.colDueDay: dueDay,
+        DbConstants.colCreditLimit: creditLimit,
       };
 
   factory Account.fromMap(Map<String, dynamic> map) => Account(
@@ -96,5 +102,7 @@ class Account {
         // Rows/backups from before schema v13 have no billing-cycle columns.
         statementDay: (map[DbConstants.colStatementDay] as num?)?.toInt(),
         dueDay: (map[DbConstants.colDueDay] as num?)?.toInt(),
+        // Rows/backups from before schema v18 have no credit limit.
+        creditLimit: (map[DbConstants.colCreditLimit] as num?)?.toInt(),
       );
 }

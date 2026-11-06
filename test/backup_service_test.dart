@@ -548,4 +548,66 @@ void main() {
       expect(prefs.getBool('biometricEnabled'), isNull);
     });
   });
+
+  group('backup history', () {
+    Future<void> addRow(String description) => DBService().insertExpense(
+        Expense(
+            description: description,
+            amount: 100,
+            date: DateTime(2026, 1, 1),
+            category: 'Food',
+            paymentMode: 'Cash'));
+
+    test('keeps one dated copy per day, newest first, for a week', () async {
+      final service = BackupService();
+      await addRow('x');
+      for (var day = 1; day <= 10; day++) {
+        await service.backupToJson(now: DateTime(2026, 3, day, 9));
+      }
+      // A second backup the same day replaces that day's copy.
+      await service.backupToJson(now: DateTime(2026, 3, 10, 21));
+
+      final history = await service.backupHistory();
+      expect(history.map((h) => h.day.day),
+          [10, 9, 8, 7, 6, 5, 4]);
+      expect(history, hasLength(BackupService.historyDays));
+    });
+
+    test('an older copy restores the data it was taken with', () async {
+      final service = BackupService();
+      await addRow('Before the mistake');
+      await service.backupToJson(now: DateTime(2026, 3, 1));
+
+      // The mistake, then the next day's auto-backup takes it in.
+      await DBService().clearExpenses();
+      await addRow('After');
+      await service.backupToJson(now: DateTime(2026, 3, 2));
+
+      final history = await service.backupHistory();
+      final older = history.firstWhere((h) => h.day == DateTime(2026, 3, 1));
+      await service.restoreFromFile(older.file.path);
+
+      final rows = await DBService().getExpenses();
+      expect(rows.map((e) => e.description), ['Before the mistake']);
+    });
+
+    test('writeAtomically leaves no temp file and replaces the target',
+        () async {
+      final file = File('${tempDir.path}/atomic.json');
+      await file.writeAsString('old');
+      await BackupService.writeAtomically(file, 'new');
+      expect(await file.readAsString(), 'new');
+      expect(await File('${file.path}.tmp').exists(), isFalse);
+    });
+
+    test('a failed write keeps the previous file intact', () async {
+      final file = File('${tempDir.path}/atomic.json');
+      await file.writeAsString('good');
+      // A directory where the temp file should go makes the write fail.
+      await Directory('${file.path}.tmp').create();
+      await expectLater(
+          BackupService.writeAtomically(file, 'new'), throwsA(anything));
+      expect(await file.readAsString(), 'good');
+    });
+  });
 }

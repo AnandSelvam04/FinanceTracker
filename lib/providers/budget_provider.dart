@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/budget.dart';
 import '../services/db_service.dart';
+import '../utils/budget_rollover.dart';
 import '../utils/category_suggestions.dart';
+import 'expense_provider.dart';
 
 class BudgetProvider extends ChangeNotifier {
   List<Budget> _budgets = [];
@@ -91,6 +93,25 @@ class BudgetProvider extends ChangeNotifier {
     }
     return null;
   }
+
+  /// What [budget] carries in from earlier months under rollover (see
+  /// [budgetCarry]), measured against [expenses]' spend.
+  int carryFor(Budget budget, ExpenseProvider expenses) => budgetCarry(
+        budget: budget,
+        budgets: _budgets,
+        spentIn: (y, m) => budget.isOverall
+            ? expenses.totalForMonth(y, m)
+            : expenses.spentForCategoryInMonth(y, m, budget.category),
+      );
+
+  /// The cap [budget] is measured against: its stored amount, plus the
+  /// rollover carry when [rollover] is on. The budgets screen, the dashboard
+  /// alerts and the budget notifications all go through this, so they agree.
+  int capFor(Budget budget, ExpenseProvider expenses,
+          {required bool rollover}) =>
+      rollover
+          ? effectiveCap(budget, carryFor(budget, expenses))
+          : budget.amount;
 
   /// Per-category budgets only (excludes the overall cap), for list rendering.
   List<Budget> get categoryBudgets =>

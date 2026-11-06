@@ -132,6 +132,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                   ),
                   if (accounts.isNotEmpty)
                     DropdownButtonFormField<int?>(
+                      isExpanded: true,
                       initialValue: _accountId,
                       decoration: InputDecoration(
                           labelText: isSip ? 'Paid from' : 'Account'),
@@ -139,7 +140,9 @@ class _RecurringScreenState extends State<RecurringScreen> {
                         DropdownMenuItem<int?>(
                             value: null, child: const Text('None')),
                         ...accounts.map((a) => DropdownMenuItem<int?>(
-                            value: a.id, child: Text(a.name))),
+                            value: a.id,
+                            child:
+                                Text(a.name, overflow: TextOverflow.ellipsis))),
                       ],
                       onChanged: (v) => _accountId = v,
                     ),
@@ -213,6 +216,16 @@ class _RecurringScreenState extends State<RecurringScreen> {
             ),
           ),
           actions: [
+            if (rule != null)
+              TextButton(
+                style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.error),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _confirmDeleteRule(rule);
+                },
+                child: const Text('Delete'),
+              ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancel'),
@@ -325,14 +338,20 @@ class _RecurringScreenState extends State<RecurringScreen> {
                                       : Icons.south_west,
                                   color: incomeColor(context)),
                             ),
-                  title: Text(rule.description,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(
-                      '${rule.isInvestment ? 'SIP · ' : ''}${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatCompactDate(rule.nextDue)}'
-                      '${rule.endDate != null ? ' · ends ${formatCompactDate(rule.endDate!)}' : ''}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  // The amount sits beside the name and Delete lives in the
+                  // edit dialog: with both in the trailing slot the name and
+                  // category broke mid-word on a phone.
+                  title: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Expanded(
+                        child: Text(rule.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                      const SizedBox(width: 8),
                       // In the account's currency: a rule posting to a
                       // USD account showed its amount with the base symbol.
                       Text(
@@ -344,16 +363,14 @@ class _RecurringScreenState extends State<RecurringScreen> {
                             _ => formatMoneyRounded(rule.amount),
                           },
                           style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Switch(
-                        value: rule.enabled,
-                        onChanged: (_) => provider.toggleEnabled(rule),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete),
-                        tooltip: 'Delete rule',
-                        onPressed: () => _confirmDeleteRule(rule),
-                      ),
                     ],
+                  ),
+                  subtitle: Text(
+                      '${rule.isInvestment ? 'SIP · ' : ''}${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatCompactDate(rule.nextDue)}'
+                      '${rule.endDate != null ? ' · ends ${formatCompactDate(rule.endDate!)}' : ''}'),
+                  trailing: Switch(
+                    value: rule.enabled,
+                    onChanged: (_) => provider.toggleEnabled(rule),
                   ),
                   onTap: () => _showRuleDialog(rule: rule),
                 ),

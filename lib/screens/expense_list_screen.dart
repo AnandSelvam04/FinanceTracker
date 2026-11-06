@@ -413,20 +413,23 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String?>(
+                    isExpanded: true,
                     initialValue:
                         categories.contains(category) ? category : null,
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: [
                       DropdownMenuItem<String?>(
                           value: null, child: const Text('Any')),
-                      ...categories.map((c) =>
-                          DropdownMenuItem<String?>(value: c, child: Text(c))),
+                      ...categories.map((c) => DropdownMenuItem<String?>(
+                          value: c,
+                          child: Text(c, overflow: TextOverflow.ellipsis))),
                     ],
                     onChanged: (v) => setSheet(() => category = v),
                   ),
                   const SizedBox(height: 12),
                   if (accounts.isNotEmpty) ...[
                     DropdownButtonFormField<int?>(
+                      isExpanded: true,
                       initialValue: accounts.any((a) => a.id == accountId)
                           ? accountId
                           : null,
@@ -435,7 +438,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                         DropdownMenuItem<int?>(
                             value: null, child: const Text('Any')),
                         ...accounts.map((a) => DropdownMenuItem<int?>(
-                            value: a.id, child: Text(a.name))),
+                            value: a.id,
+                            child:
+                                Text(a.name, overflow: TextOverflow.ellipsis))),
                       ],
                       onChanged: (v) => setSheet(() => accountId = v),
                     ),

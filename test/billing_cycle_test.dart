@@ -8,7 +8,9 @@ void main() {
       final c = computeCreditCardCycle(
           statementDay: 5, dueDay: 25, now: DateTime(2026, 3, 10));
       expect(c.statementDate, DateTime(2026, 3, 5));
-      expect(c.billedCycleStart, DateTime(2026, 2, 5));
+      // The statement day is billed: cycle 6 Feb – 5 Mar.
+      expect(c.billedCycleStart, DateTime(2026, 2, 6));
+      expect(c.billedUntil, DateTime(2026, 3, 6));
       expect(c.nextStatementDate, DateTime(2026, 4, 5));
       expect(c.dueDate, DateTime(2026, 3, 25));
       expect(c.daysUntilDue, 15);
@@ -35,7 +37,8 @@ void main() {
           statementDay: 31, dueDay: 20, now: DateTime(2026, 2, 15));
       // Feb has no 31st; last statement was Jan 31.
       expect(c.statementDate, DateTime(2026, 1, 31));
-      expect(c.billedCycleStart, DateTime(2025, 12, 31));
+      expect(c.billedCycleStart, DateTime(2026, 1, 1));
+      expect(c.billedUntil, DateTime(2026, 2, 1));
       expect(c.nextStatementDate, DateTime(2026, 2, 28));
     });
   });
@@ -52,7 +55,7 @@ void main() {
         );
 
     int spend(int id, DateTime start, DateTime end) =>
-        start == DateTime(2026, 2, 5) ? 50000 : 12000;
+        start == DateTime(2026, 2, 6) ? 50000 : 12000;
 
     test('reminds with the statement amount when due is near', () {
       final r = creditCardReminders(
@@ -118,6 +121,83 @@ void main() {
       );
       expect(r.single.amountDue, 30000);
       expect(r.single.statementAmount, 50000);
+    });
+  });
+
+  group('statement day is billed', () {
+    // A purchase on the statement date itself, and one the day after.
+    final purchases = {
+      DateTime(2026, 3, 5): 30000,
+      DateTime(2026, 3, 6): 7000,
+    };
+    int spend(int id, DateTime start, DateTime end) => purchases.entries
+        .where((e) => !e.key.isBefore(start) && e.key.isBefore(end))
+        .fold(0, (sum, e) => sum + e.value);
+
+    test('a purchase on the statement day is on that statement', () {
+      final r = creditCardReminders(
+        accounts: [
+          Account(
+              id: 1,
+              name: 'Visa',
+              type: 'credit_card',
+              statementDay: 5,
+              dueDay: 25),
+        ],
+        now: DateTime(2026, 3, 20),
+        spendInRange: spend,
+      );
+      expect(r.single.statementAmount, 30000);
+      expect(r.single.currentCycleSpend, 7000);
+    });
+  });
+
+  group('overdue previous statement', () {
+    // Statement on the 1st, due on the 28th: the next statement arrives
+    // only four days after the due date.
+    final card = Account(
+        id: 1, name: 'Visa', type: 'credit_card', statementDay: 1, dueDay: 28);
+    // 40,000 billed on the 1 Mar statement (cycle 2 Feb – 1 Mar), 9,000 on 1 Apr.
+    int spend(int id, DateTime start, DateTime end) {
+      if (start == DateTime(2026, 2, 2)) return 40000;
+      if (start == DateTime(2026, 3, 2)) return 9000;
+      return 0;
+    }
+
+    test('stays on the list after the next statement is generated', () {
+      final r = creditCardReminders(
+        accounts: [card],
+        now: DateTime(2026, 4, 2), // Mar 28 due date was 5 days ago
+        spendInRange: spend,
+      );
+      expect(r.single.dueDate, DateTime(2026, 3, 28));
+      expect(r.single.isOverdue, isTrue);
+      expect(r.single.daysUntilDue, -5);
+      expect(r.single.statementAmount, 40000);
+    });
+
+    test('goes once it is paid, leaving the new statement', () {
+      final r = creditCardReminders(
+        accounts: [card],
+        now: DateTime(2026, 4, 2),
+        spendInRange: spend,
+        paidInRange: (_, start, __) =>
+            start == DateTime(2026, 3, 1) ? 40000 : 0,
+        withinDays: 45,
+      );
+      expect(r.single.dueDate, DateTime(2026, 4, 28));
+      expect(r.single.statementAmount, 9000);
+    });
+
+    test('is dropped once past the overdue grace', () {
+      final r = creditCardReminders(
+        accounts: [card],
+        now: DateTime(2026, 4, 2),
+        spendInRange: spend,
+        overdueGrace: 3,
+        withinDays: 45,
+      );
+      expect(r.single.dueDate, DateTime(2026, 4, 28));
     });
   });
 }

@@ -200,6 +200,22 @@ void main() {
     });
   });
 
+  group('nextDate keeps the time of day', () {
+    test('monthly', () {
+      expect(
+          RecurringService.nextDate(
+              DateTime(2026, 1, 31, 9, 30), DbConstants.freqMonthly, 31),
+          DateTime(2026, 2, 28, 9, 30));
+    });
+
+    test('yearly', () {
+      expect(
+          RecurringService.nextDate(
+              DateTime(2028, 2, 29, 18, 5), DbConstants.freqYearly, 29),
+          DateTime(2029, 2, 28, 18, 5));
+    });
+  });
+
   group('nextDate is DST-safe', () {
     // Duration(days: 1) adds 24 hours, which lands on the wrong wall-clock
     // time (and sometimes the wrong date) on the two days a year a local day
