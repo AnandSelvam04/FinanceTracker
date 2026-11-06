@@ -196,10 +196,29 @@ class SmsImport {
   /// *between* word characters ("H.D.F.C"), never trailing — otherwise
   /// "to SWIGGY. Avl Bal Rs.12,340" swallows the balance clause, since those
   /// words are capitalised too.
-  static const _merchantWord = r'[A-Z0-9][A-Za-z0-9&@_\-]*(?:\.[A-Za-z0-9&@_\-]+)*';
-  static final _merchant = RegExp(
-      r'\b(?:to|at|towards|for|in favour of)\s+'
-      '($_merchantWord(?:\\s+$_merchantWord){0,3})');
+  ///
+  /// The preposition itself may be capitalised — HDFC writes "Spent Rs.705
+  /// On HDFC Bank Card 9812 At PTM*FLIPKART M" — and a `*` may sit inside a
+  /// word, as payment gateways prefix the merchant ("PTM*", "RAZ*"; see
+  /// [_gatewayPrefix]).
+  static const _merchantWord =
+      r'[A-Z0-9][A-Za-z0-9&@_*\-]*(?:\.[A-Za-z0-9&@_*\-]+)*';
+  static final _merchant =
+      RegExp(r'\b(?:[Tt]o|[Aa]t|[Tt]owards|[Ff]or|[Ii]n [Ff]avour [Oo]f)\s+'
+          '($_merchantWord(?:\\s+$_merchantWord){0,3})');
+
+  /// A payment gateway's tag in front of the merchant: Paytm "PTM*", PayU,
+  /// Razorpay, CCAvenue, BillDesk. Stripped so "PTM*FLIPKART M" files as
+  /// "FLIPKART M" and matches Flipkart's earlier rows.
+  static final _gatewayPrefix = RegExp(
+      r'^(?:PTM|PAYTM|PYTM|PAYU|PYU|RAZ|RZP|RAZORPAY|CCA|CCAV|BDK|BILLDESK|PG|IND)\*\s*',
+      caseSensitive: false);
+
+  /// Footer wording that a capitalised "To"/"For" introduces — "Not you? To
+  /// Block+Reissue Call …", "For queries …" — and that is never the payee.
+  static final _footerWord = RegExp(
+      r'^(?:block|report|call|dispute|know|check|queries|query|help|more|details|stop|unsubscribe|any)\b',
+      caseSensitive: false);
 
   /// The payee named as the account that was credited, after a clause break:
   /// ICICI's "Acct XX123 debited for Rs 240.00 on 28-Oct-25; SWIGGY
@@ -471,9 +490,12 @@ class SmsImport {
 
     for (final match in _merchant.allMatches(text)) {
       var name = match.group(1)!.trim();
-      // Strip a trailing "on"/"on 01-Aug-25" the greedy word run may have taken.
-      name =
-          name.replaceFirst(RegExp(r'\s+(on|dated)$', caseSensitive: false), '');
+      // Strip a trailing "on"/"On 2026-11-06" the greedy word run may have
+      // taken.
+      name = name.replaceFirst(
+          RegExp(r'\s+(?:on|dated)(?:\s+\d\S*)?$', caseSensitive: false), '');
+      name = name.replaceFirst(_gatewayPrefix, '').replaceAll('*', ' ').trim();
+      if (_footerWord.hasMatch(name)) continue;
       if (_isPayeeName(name)) return name;
     }
     return null;
@@ -918,8 +940,53 @@ class ParsedSms {
   ///
   /// Returns null when more than one account shares the digits, rather than
   /// guessing — the review screen asks instead.
-  Account? matchAccount(List<Account> accounts) =>
-      _accountFor(last4, accounts);
+  ///
+  /// A message that names no account number at all — Scapia's "Your txn of
+  /// ₹128.00 at Zepto on your Scapia Federal Visa credit card …" — is matched
+  /// by name instead: see [_accountByName].
+  Account? matchAccount(List<Account> accounts) {
+    if (last4 == null && toLast4 == null) return _accountByName(accounts);
+    return _accountFor(last4, accounts);
+  }
+
+  /// Words in an account's name that say nothing about which account it is.
+  static const _genericNameWords = {
+    'bank', 'card', 'cards', 'credit', 'debit', 'visa', 'master', //
+    'mastercard', 'rupay', 'amex', 'upi', 'account', 'acct', 'savings',
+    'saving', 'current', 'salary', 'wallet', 'cash', 'the', 'and', 'my',
+    'main', 'personal', 'new', 'old', 'primary', 'secondary', 'premium',
+    'platinum', 'gold', 'signature', 'select', 'classic',
+  };
+
+  /// The one account whose name shares the most distinctive words with the
+  /// message ("Scapia" in "… on your Scapia Federal Visa credit card"), or
+  /// null when none does or two tie. Generic words — "credit", "card",
+  /// "bank", "visa" — don't count, and a message about a credit card only
+  /// considers credit-card accounts when one of them matches.
+  Account? _accountByName(List<Account> accounts) {
+    final words = {
+      for (final m in RegExp(r'[a-z0-9]+').allMatches(body.toLowerCase()))
+        m.group(0)!
+    };
+    final scored = <(Account, int)>[];
+    for (final a in accounts) {
+      final tokens = {
+        for (final m in RegExp(r'[a-z0-9]+').allMatches(a.name.toLowerCase()))
+          m.group(0)!
+      }..removeWhere((t) => t.length < 3 || _genericNameWords.contains(t));
+      final hits = tokens.where(words.contains).length;
+      if (hits > 0) scored.add((a, hits));
+    }
+    if (scored.isEmpty) return null;
+    var pool = scored;
+    if (RegExp(r'\bcredit\s*card\b').hasMatch(body.toLowerCase())) {
+      final cards = scored.where((s) => s.$1.type == 'credit_card').toList();
+      if (cards.isNotEmpty) pool = cards;
+    }
+    pool.sort((x, y) => y.$2.compareTo(x.$2));
+    if (pool.length > 1 && pool[0].$2 == pool[1].$2) return null;
+    return pool.first.$1;
+  }
 
   /// The receiving account of a transfer, resolved the same way.
   Account? matchToAccount(List<Account> accounts) =>
