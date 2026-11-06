@@ -106,6 +106,49 @@ void main() {
     });
   });
 
+  group('credit limit usage', () {
+    CreditCardSummary withOwed(int owed, {int? limit = 10000000}) =>
+        CreditCardSummary(
+          account: Account(
+              id: 1, name: 'Visa', type: 'credit_card', creditLimit: limit),
+          periodStart: DateTime(2026, 3, 1),
+          cycleSpend: 0,
+          owed: owed,
+        );
+
+    test('share used and what is left', () {
+      final s = withOwed(4200000); // 42,000 of 1,00,000
+      expect(s.limit, 10000000);
+      expect(s.usage, closeTo(0.42, 1e-9));
+      expect(s.available, 5800000);
+      expect(s.usageLevel, CreditUsageLevel.moderate);
+    });
+
+    test('levels change at 30% and 80%', () {
+      expect(withOwed(2999999).usageLevel, CreditUsageLevel.low);
+      expect(withOwed(3000000).usageLevel, CreditUsageLevel.moderate);
+      expect(withOwed(7999999).usageLevel, CreditUsageLevel.moderate);
+      expect(withOwed(8000000).usageLevel, CreditUsageLevel.high);
+    });
+
+    test('over the limit', () {
+      final s = withOwed(11000000);
+      expect(s.usage, closeTo(1.1, 1e-9));
+      expect(s.available, 0);
+      expect(s.usageLevel, CreditUsageLevel.high);
+    });
+
+    test('nothing without a limit', () {
+      for (final limit in [null, 0]) {
+        final s = withOwed(4200000, limit: limit);
+        expect(s.limit, isNull);
+        expect(s.usage, isNull);
+        expect(s.available, isNull);
+        expect(s.usageLevel, isNull);
+      }
+    });
+  });
+
   group('CreditCardsCard', () {
     TestWidgetsFlutterBinding.ensureInitialized();
     sqfliteFfiInit();
@@ -187,6 +230,57 @@ void main() {
       expect(find.text('₹450.00 owed'), findsOneWidget);
       expect(
           find.text('Add statement & due days to track bills'), findsOneWidget);
+    }, timeout: const Timeout(Duration(seconds: 45)));
+
+    testWidgets('a card with a limit shows the usage bar', (tester) async {
+      final today = DateTime.now();
+      await pumpCard(
+        tester,
+        accounts: [
+          Account(
+              name: 'HDFC Regalia', type: 'credit_card', creditLimit: 10000000),
+          Account(name: 'No limit card', type: 'credit_card'),
+        ],
+        rows: (ids) => [
+          Expense(
+            description: 'FLIGHTS',
+            amount: 4200000,
+            date: DateTime(today.year, today.month, 1, 12),
+            category: 'Travel',
+            paymentMode: 'Credit Card',
+            type: DbConstants.txExpense,
+            accountId: ids['HDFC Regalia'],
+          ),
+        ],
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text('42% of ₹1,00,000.00 used · ₹58,000.00 left'),
+          findsOneWidget);
+      // Only the card with a limit gets a bar.
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    }, timeout: const Timeout(Duration(seconds: 45)));
+
+    testWidgets('a card over its limit says by how much', (tester) async {
+      final today = DateTime.now();
+      await pumpCard(
+        tester,
+        accounts: [
+          Account(name: 'Visa', type: 'credit_card', creditLimit: 5000000),
+        ],
+        rows: (ids) => [
+          Expense(
+            description: 'LAPTOP',
+            amount: 5500000,
+            date: DateTime(today.year, today.month, 1, 12),
+            category: 'Shopping',
+            paymentMode: 'Credit Card',
+            type: DbConstants.txExpense,
+            accountId: ids['Visa'],
+          ),
+        ],
+      );
+      expect(
+          find.text('Over the ₹50,000.00 limit by ₹5,000.00'), findsOneWidget);
     }, timeout: const Timeout(Duration(seconds: 45)));
 
     testWidgets('a billed, unpaid card says what is due', (tester) async {

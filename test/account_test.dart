@@ -180,4 +180,19 @@ void main() {
       expect(restored.isExpense, isTrue);
     });
   });
+
+  test('a credit limit is saved and read back, and old rows have none',
+      () async {
+    final id = await DBService().insertAccount(
+        Account(name: 'Visa', type: 'credit_card', creditLimit: 10000000));
+    final saved =
+        (await DBService().getAccounts()).firstWhere((a) => a.id == id);
+    expect(saved.creditLimit, 10000000);
+
+    // A backup row from before v18.
+    final old =
+        Account.fromMap({'id': 9, 'name': 'Old', 'type': 'credit_card'});
+    expect(old.creditLimit, isNull);
+    expect(Account.fromMap(saved.toMap()).creditLimit, 10000000);
+  });
 }

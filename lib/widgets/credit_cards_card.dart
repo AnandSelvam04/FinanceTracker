@@ -190,6 +190,7 @@ class _CardRow extends StatelessWidget {
                     : 'Nothing owed',
             style: TextStyle(fontSize: 12, color: muted),
           ),
+          if (s.limit != null) _UsageBar(summary: s, muted: muted),
         ],
       ),
       trailing: Column(
@@ -207,6 +208,66 @@ class _CardRow extends StatelessWidget {
         MaterialPageRoute(
           builder: (_) =>
               AccountDetailScreen(account: account, showActions: false),
+        ),
+      ),
+    );
+  }
+}
+
+/// How much of the card's credit limit is in use: a bar coloured by how
+/// heavily (under 30%, up to 80%, beyond), with the share and what is left.
+class _UsageBar extends StatelessWidget {
+  final CreditCardSummary summary;
+  final Color muted;
+  const _UsageBar({required this.summary, required this.muted});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = summary;
+    final symbol = s.account.symbol;
+    final usage = s.usage!;
+    final percent = (usage * 100).round();
+    final color = switch (s.usageLevel!) {
+      CreditUsageLevel.low => Theme.of(context).colorScheme.primary,
+      CreditUsageLevel.moderate => warningColor(context),
+      CreditUsageLevel.high => dangerColor(context),
+    };
+    final over = s.owed - s.limit!;
+    final caption = over > 0
+        ? 'Over the ${formatMoneyIn(symbol, s.limit!)} limit by '
+            '${formatMoneyIn(symbol, over)}'
+        : '$percent% of ${formatMoneyIn(symbol, s.limit!)} used · '
+            '${formatMoneyIn(symbol, s.available!)} left';
+
+    return Semantics(
+      label: 'Credit limit usage',
+      value: caption,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: usage.clamp(0.0, 1.0),
+                minHeight: 6,
+                color: color,
+                backgroundColor: color.withValues(alpha: 0.18),
+              ),
+            ),
+            const SizedBox(height: 3),
+            ExcludeSemantics(
+              child: Text(caption,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          s.usageLevel == CreditUsageLevel.low ? muted : color,
+                      fontWeight: s.usageLevel == CreditUsageLevel.low
+                          ? FontWeight.normal
+                          : FontWeight.w600)),
+            ),
+          ],
         ),
       ),
     );

@@ -385,6 +385,17 @@ class DBService {
       await db.execute('ALTER TABLE ${DbConstants.tableExpenses} '
           'ADD COLUMN ${DbConstants.colNote} TEXT');
     }
+    if (oldVersion < 18) {
+      // A credit card's limit, for the dashboard's usage bar. Guarded like
+      // v13: a database from before v4 reaches here without accounts.
+      final hasAccounts = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableAccounts]);
+      if (hasAccounts.isNotEmpty) {
+        await db.execute('ALTER TABLE ${DbConstants.tableAccounts} '
+            'ADD COLUMN ${DbConstants.colCreditLimit} INTEGER');
+      }
+    }
   }
 
   /// v9: give every money column INTEGER affinity.
@@ -603,7 +614,8 @@ class DBService {
         ${DbConstants.colRate} REAL NOT NULL DEFAULT 1,
         ${DbConstants.colLast4} TEXT,
         ${DbConstants.colStatementDay} INTEGER,
-        ${DbConstants.colDueDay} INTEGER
+        ${DbConstants.colDueDay} INTEGER,
+        ${DbConstants.colCreditLimit} INTEGER
       )
     ''');
   }

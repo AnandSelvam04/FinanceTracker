@@ -29,6 +29,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
   String? _last4;
   int? _statementDay; // credit-card billing cycle
   int? _dueDay;
+  int? _creditLimit; // credit cards only
 
   @override
   void initState() {
@@ -76,6 +77,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
     _last4 = account?.last4;
     _statementDay = account?.statementDay;
     _dueDay = account?.dueDay;
+    _creditLimit = account?.creditLimit;
 
     final base = context.read<SettingsProvider>().currencySymbol;
     // Offer the base symbol plus the standard options, de-duplicated.
@@ -224,6 +226,32 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           validator: _dayValidator,
                           onSaved: (v) => _dueDay = _parseDay(v),
                         ),
+                        TextFormField(
+                          initialValue: _creditLimit == null
+                              ? ''
+                              : minorToEditString(_creditLimit!),
+                          decoration: InputDecoration(
+                            labelText:
+                                'Credit limit (${_currency ?? base}, optional)',
+                            helperText: 'Shows how much of it you have used',
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          validator: (value) {
+                            final text = value?.trim() ?? '';
+                            if (text.isEmpty) return null;
+                            final limit = parseMinor(text);
+                            if (limit == null) return 'Invalid number';
+                            return limit <= 0
+                                ? 'Enter an amount above zero'
+                                : null;
+                          },
+                          onSaved: (value) {
+                            final text = value?.trim() ?? '';
+                            _creditLimit =
+                                text.isEmpty ? null : parseMinor(text);
+                          },
+                        ),
                       ],
                     ],
                   ),
@@ -251,6 +279,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         // Billing cycle only applies to credit cards.
                         statementDay: isCard ? _statementDay : null,
                         dueDay: isCard ? _dueDay : null,
+                        creditLimit: isCard ? _creditLimit : null,
                       );
                       final provider = context.read<AccountProvider>();
                       if (account == null) {

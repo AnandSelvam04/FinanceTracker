@@ -83,17 +83,24 @@ void main() {
         name: 'State Bank of India Savings Account',
         type: 'bank',
         openingBalance: 123456789));
+    // A real credit card ('credit_card'), so the dashboard's Credit cards
+    // section and its limit-usage bar are laid out too; with a seven-figure
+    // limit for the longest caption.
     final cardId = await db.insertAccount(Account(
         name: 'HDFC Regalia Gold Credit Card',
-        type: 'credit',
+        type: 'credit_card',
+        last4: '5678',
         statementDay: 5,
-        dueDay: 25));
+        dueDay: 25,
+        creditLimit: 99999900));
     card = Account(
         id: cardId,
         name: 'HDFC Regalia Gold Credit Card',
-        type: 'credit',
+        type: 'credit_card',
+        last4: '5678',
         statementDay: 5,
-        dueDay: 25);
+        dueDay: 25,
+        creditLimit: 99999900);
     for (var i = 0; i < 12; i++) {
       final d = DateTime(now.year, now.month - i, 3);
       await db.insertExpense(Expense(

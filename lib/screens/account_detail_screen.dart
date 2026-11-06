@@ -121,6 +121,10 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                     caption: [
                       Account.typeLabel(account.type),
                       if (account.last4 != null) '••${account.last4}',
+                      if (account.creditLimit != null &&
+                          account.creditLimit! > 0)
+                        'Limit ${formatMoneyIn(account.symbol, account.creditLimit!)}'
+                            '${balance < 0 ? ' · ${(-balance * 100 / account.creditLimit!).round()}% used' : ''}',
                       '${ledger.length} '
                           '${ledger.length == 1 ? 'entry' : 'entries'}',
                     ].join(' · '),

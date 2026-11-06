@@ -62,7 +62,44 @@ class CreditCardSummary {
   bool get billPaid => statementAmount > 0 && dueRemaining == 0;
 
   bool get isOverdue => dueRemaining > 0 && (daysUntilDue ?? 0) < 0;
+
+  /// The card's credit limit, when one is set.
+  int? get limit {
+    final l = account.creditLimit;
+    return l != null && l > 0 ? l : null;
+  }
+
+  /// Share of [limit] in use: what is owed over the limit, from 0 up (above
+  /// 1 when the card is over its limit). Null without a limit.
+  double? get usage => limit == null ? null : owed / limit!;
+
+  /// How much more can go on the card before it reaches [limit]; zero once
+  /// at or over it. Null without a limit.
+  int? get available {
+    if (limit == null) return null;
+    final left = limit! - owed;
+    return left > 0 ? left : 0;
+  }
+
+  /// How heavily the card is used, for the usage bar's colour.
+  CreditUsageLevel? get usageLevel {
+    final u = usage;
+    if (u == null) return null;
+    if (u >= highUsage) return CreditUsageLevel.high;
+    if (u >= moderateUsage) return CreditUsageLevel.moderate;
+    return CreditUsageLevel.low;
+  }
+
+  /// Above this share of the limit, usage starts to count against a credit
+  /// score; the commonly quoted guideline is to stay under 30%.
+  static const moderateUsage = 0.30;
+
+  /// Close to maxing out the card.
+  static const highUsage = 0.80;
 }
+
+/// See [CreditCardSummary.usageLevel].
+enum CreditUsageLevel { low, moderate, high }
 
 /// One summary per credit-card account, the cards with a bill still to pay
 /// first (soonest due date first), then the rest by name.
