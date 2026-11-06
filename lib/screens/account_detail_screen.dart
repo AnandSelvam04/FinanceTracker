@@ -13,6 +13,7 @@ import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
+import '../utils/ledger_cycles.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/hero_total_card.dart';
@@ -44,6 +45,10 @@ class AccountDetailScreen extends StatefulWidget {
 class _AccountDetailScreenState extends State<AccountDetailScreen> {
   List<Expense>? _transactions;
   late final ExpenseProvider _expenses;
+
+  /// For a card with a billing cycle: rows grouped by cycle (the default) or
+  /// as one list.
+  bool _byCycle = true;
 
   int get _id => widget.account.id!;
 
@@ -137,9 +142,35 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                     message: 'Spending, income and transfers on this account '
                         'appear here.',
                   ),
-                for (final entry in ledger)
-                  _LedgerRow(
-                      entry: entry, account: account, accounts: accounts),
+                if (account.hasBillingCycle && ledger.isNotEmpty) ...[
+                  Center(
+                    child: SegmentedButton<bool>(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(value: true, label: Text('By cycle')),
+                        ButtonSegment(value: false, label: Text('All')),
+                      ],
+                      selected: {_byCycle},
+                      onSelectionChanged: (v) =>
+                          setState(() => _byCycle = v.first),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (account.hasBillingCycle && _byCycle)
+                  for (final cycle in ledgerByCycle(ledger,
+                      statementDay: account.statementDay!,
+                      dueDay: account.dueDay!,
+                      now: DateTime.now())) ...[
+                    _CycleHeader(cycle: cycle, symbol: account.symbol),
+                    for (final entry in cycle.entries)
+                      _LedgerRow(
+                          entry: entry, account: account, accounts: accounts),
+                  ]
+                else
+                  for (final entry in ledger)
+                    _LedgerRow(
+                        entry: entry, account: account, accounts: accounts),
                 _OpeningRow(
                     symbol: account.symbol, amount: account.openingBalance),
               ],
@@ -250,6 +281,61 @@ class _LedgerRow extends StatelessWidget {
         },
       ),
     ));
+  }
+}
+
+/// Heads one billing cycle in a card's statement: which statement it is, the
+/// dates it covers, and what was charged and paid in it.
+class _CycleHeader extends StatelessWidget {
+  final LedgerCycle cycle;
+  final String symbol;
+  const _CycleHeader({required this.cycle, required this.symbol});
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = mutedTextColor(context);
+    final c = cycle;
+    final title = c.isOpen
+        ? 'Current cycle'
+        : 'Statement ${formatCompactDate(c.statementDate)}';
+    final range = '${formatCompactDate(c.start)} – '
+        '${formatCompactDate(c.statementDate)}'
+        '${c.isOpen ? '' : ' · due ${formatCompactDate(c.dueDate)}'}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(range,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: muted)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('Spent ${formatMoneyIn(symbol, c.charged)}',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: expenseColor(context))),
+              if (c.paidIn > 0)
+                Text('Paid in ${formatMoneyIn(symbol, c.paidIn)}',
+                    style:
+                        TextStyle(fontSize: 12, color: incomeColor(context))),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 

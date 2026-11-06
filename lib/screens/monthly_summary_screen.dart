@@ -13,6 +13,7 @@ import '../utils/category_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
+import '../utils/payment_split.dart';
 import '../utils/merchant_summary.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/top_merchants_card.dart';
@@ -189,13 +190,6 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                 ? _category
                 : null;
 
-        // Spend by account for the period.
-        final spendByAccount = <int?, int>{};
-        for (final e in expenseRows) {
-          spendByAccount[e.accountId] =
-              (spendByAccount[e.accountId] ?? 0) + provider.baseAmountOf(e);
-        }
-
         final merchants = topMerchants(expenseRows, provider.baseAmountOf);
 
         return Scaffold(
@@ -279,7 +273,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     expense: expense,
                     prevExpense: prevExpense,
                     txCount: rows.length,
-                    spendByAccount: spendByAccount,
+                    expenseRows: expenseRows,
+                    baseAmountOf: provider.baseAmountOf,
                     sortedCategories: sortedCategories,
                     prevCategoryTotals: prevCategoryTotals,
                     merchants: merchants,
@@ -309,7 +304,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     required int expense,
     required int prevExpense,
     required int txCount,
-    required Map<int?, int> spendByAccount,
+    required List<Expense> expenseRows,
+    required int Function(Expense) baseAmountOf,
     required List<MapEntry<String, int>> sortedCategories,
     required Map<String, int> prevCategoryTotals,
     required List<MerchantTotal> merchants,
@@ -368,7 +364,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         ],
       ),
       const SizedBox(height: 16),
-      _SpendByAccount(totals: spendByAccount),
+      _HowYouPaid(rows: expenseRows, baseAmountOf: baseAmountOf),
       const SizedBox(height: 16),
       const SectionHeader('Top categories'),
       if (topCategories.isEmpty)
@@ -682,64 +678,134 @@ class _DeltaLabel extends StatelessWidget {
   }
 }
 
-/// Spend for the period per account, largest first.
+/// How the period's spending was paid — credit cards, bank, UPI, cash — with
+/// the accounts behind each, largest first.
 ///
-/// The Accounts screen shows balances, which are positions rather than
-/// periods — this is what answers "which card did I actually use this period".
-class _SpendByAccount extends StatelessWidget {
-  final Map<int?, int> totals;
-  const _SpendByAccount({required this.totals});
+/// Replaces a flat per-account list, which showed which card was used but
+/// not how much of the month went on cards altogether, against bank, UPI and
+/// cash. The Accounts screen shows balances, which are positions rather than
+/// periods; this is what answers "how much did I put on my cards".
+class _HowYouPaid extends StatelessWidget {
+  final List<Expense> rows;
+  final int Function(Expense) baseAmountOf;
+  const _HowYouPaid({required this.rows, required this.baseAmountOf});
+
+  static Color colorOf(BuildContext context, PayMethod m) {
+    final scheme = Theme.of(context).colorScheme;
+    return switch (m) {
+      PayMethod.creditCard => scheme.primary,
+      PayMethod.bank => scheme.tertiary,
+      PayMethod.upi => infoColor(context),
+      PayMethod.cash => warningColor(context),
+      PayMethod.other => mutedTextColor(context),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (totals.isEmpty) return const SizedBox.shrink();
     final accounts = context.watch<AccountProvider>();
-    final entries = totals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final periodTotal = totals.values.fold<int>(0, (sum, v) => sum + v);
+    final split = paymentSplit(rows, baseAmountOf, accounts.accountById);
+    if (split.isEmpty) return const SizedBox.shrink();
+    final total = split.fold<int>(0, (s, m) => s + m.total);
+    final muted = mutedTextColor(context);
+    String share(int v) => '${(v / total * 100).round()}%';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SectionHeader('Spend by account'),
+        const SectionHeader('How you paid'),
         Card(
           margin: EdgeInsets.zero,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final entry in entries)
+                // One bar, a segment per method, so the mix reads at a glance.
+                Semantics(
+                  label: 'Spending by payment method',
+                  value: [
+                    for (final m in split) '${m.method.label} ${share(m.total)}'
+                  ].join(', '),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: SizedBox(
+                      height: 10,
+                      child: Row(
+                        children: [
+                          for (final m in split)
+                            Expanded(
+                              // At least a sliver for a tiny share.
+                              flex: (m.total * 1000 ~/ total).clamp(8, 1000),
+                              child:
+                                  ColoredBox(color: colorOf(context, m.method)),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                for (final m in split) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            accounts.accountById(entry.key)?.name ??
-                                'No account',
-                            style: TextStyle(
-                              fontStyle: entry.key == null
-                                  ? FontStyle.italic
-                                  : FontStyle.normal,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: colorOf(context, m.method),
+                            shape: BoxShape.circle,
                           ),
                         ),
-                        if (periodTotal > 0)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: Text(
-                              '${(entry.value / periodTotal * 100).round()}%',
-                              style: TextStyle(
-                                  fontSize: 12, color: mutedTextColor(context)),
-                            ),
-                          ),
-                        Text(formatMoney(entry.value),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(m.method.label,
+                              overflow: TextOverflow.ellipsis,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600)),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: Text(share(m.total),
+                              style: TextStyle(fontSize: 12, color: muted)),
+                        ),
+                        Text(formatMoney(m.total),
                             style:
                                 const TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
+                  // The accounts behind a method — each card, each bank —
+                  // unless the only part is spending with no account.
+                  if (m.parts.length > 1 || m.parts.single.accountId != null)
+                    for (final p in m.parts)
+                      Padding(
+                        padding:
+                            const EdgeInsets.only(left: 20, top: 2, bottom: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                accounts.accountById(p.accountId)?.name ??
+                                    'No account',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: muted,
+                                  fontStyle: p.accountId == null
+                                      ? FontStyle.italic
+                                      : FontStyle.normal,
+                                ),
+                              ),
+                            ),
+                            Text(formatMoney(p.total),
+                                style: TextStyle(fontSize: 13, color: muted)),
+                          ],
+                        ),
+                      ),
+                ],
               ],
             ),
           ),
