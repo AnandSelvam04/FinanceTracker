@@ -21,8 +21,8 @@ class SmsImport {
       r'\b(debited|debit|spent|withdrawn|withdrawal|paid|payment of|purchase|deducted|charged|transferred|sent)\b');
 
   /// Wording that means money arrived.
-  static final _creditWords =
-      RegExp(r'\b(credited|credit|received|deposited|refund(?:ed)?)\b');
+  static final _creditWords = RegExp(
+      r'\b(credited|credit|received|deposited|refund(?:ed)?|reversed|reversal)\b');
 
   /// A completed card or UPI spend announced without any debit verb. Two banks
   /// do this:
@@ -60,8 +60,25 @@ class SmsImport {
 
   /// Messages that mention money but record no transaction. Checked first, so
   /// an OTP quoting an amount ("OTP for txn of Rs.500") never becomes a row.
+  ///
+  /// Only wording that can't appear in a genuine alert belongs here. Promo
+  /// words ("offer", "sale", "win") used to be on this list too, and killed
+  /// real debits from merchants such as "WIN MART" or "MEGA SALE"; they now
+  /// count only when nothing in the message says money actually moved — see
+  /// [_promo]. "reversed" moved off it as well: money reversed to the account
+  /// is a refund to record, not noise.
   static final _notATransaction = RegExp(
-      r'\b(otp|one[ -]?time password|password|verification code|will be debited|will be credited|has been requested|requesting|request for|failed|declined|reversed|due on|minimum amount due|statement is ready|e-?statement|offer|cashback offer|discount|sale|win|congratulations|apply now|click here|dear customer,? your bal)\b');
+      r'\b(otp|one[ -]?time password|password|verification code|will be (?:debited|credited|reversed|refunded)|has been requested|requesting|request for|failed|declined|due on|minimum amount due|statement is ready|e-?statement|apply now|click here|pre-?approved|dear customer,? your bal)\b');
+
+  /// Marketing wording. Enough to drop a message only when [_moneyMoved]
+  /// finds nothing: "Get Rs.500 off — sale ends today" is an advert, but
+  /// "Rs.499 spent at MEGA SALE" is a purchase.
+  static final _promo = RegExp(
+      r'\b(offer|offers|discount|sale|win|won|winner|congratulations|voucher|coupon)\b');
+
+  /// A completed movement of money, in the past tense.
+  static final _moneyMoved = RegExp(
+      r'\b(debited|credited|spent|withdrawn|paid|received|deposited|deducted|charged|transferred|sent|refunded|reversed)\b');
 
   /// A currency amount: "Rs.499.00", "INR 1,234.56", "₹499", "Rs 2,150/-",
   /// and the foreign charges a card abroad or on a foreign site texts about:
@@ -91,7 +108,7 @@ class SmsImport {
 
   /// A refund of an earlier purchase. Money back from a merchant is spending
   /// undone, not income, so it is filed against the purchase's category.
-  static final _refund = RegExp(r'\brefund(?:ed)?\b');
+  static final _refund = RegExp(r'\b(refund(?:ed)?|reversed|reversal)\b');
 
   /// Cashback and rewards credited to a card: real money in, but not a
   /// payment of the bill, so it stays income.
@@ -273,6 +290,7 @@ class SmsImport {
         raw.replaceAll(RegExp(r'\b(credit|debit)\s*card\b'), ' card ');
 
     if (_notATransaction.hasMatch(lower)) return null;
+    if (_promo.hasMatch(lower) && !_moneyMoved.hasMatch(lower)) return null;
 
     var type = _directionOf(lower);
     if (type == null) return null;
@@ -499,17 +517,77 @@ class SmsImport {
     if (parsed.isBefore(received.subtract(plausibleLookback))) {
       return receivedAt;
     }
+    // The body gives a day, not a time. On the day the SMS arrived, the
+    // arrival time is the best time there is; filing it at midnight put the
+    // purchase before everything else that day.
+    if (parsed.year == received.year &&
+        parsed.month == received.month &&
+        parsed.day == received.day) {
+      return receivedAt;
+    }
     return parsed;
   }
 
+  /// The first date the message carries, in any of the shapes banks use:
+  /// "01-Aug-25", "01/08/2025", "01 Aug 2025", "01Aug25", "Aug 01, 2025" and
+  /// ISO "2025-08-01". Whichever comes first in the text wins.
   static DateTime? _dateOf(String text) {
-    final match = _date.firstMatch(text);
-    if (match == null) return null;
-    final day = int.tryParse(match.group(1)!);
-    final rawMonth = match.group(2)!;
-    final month =
-        int.tryParse(rawMonth) ?? _months[rawMonth.toLowerCase().substring(0, 3)];
-    var year = int.tryParse(match.group(3)!);
+    final found = <(int, DateTime?)>[];
+    void collect(RegExp pattern, DateTime? Function(RegExpMatch m) read) {
+      final m = pattern.firstMatch(text);
+      if (m != null) found.add((m.start, read(m)));
+    }
+
+    collect(_date, (m) => _validDate(m.group(3)!, m.group(2)!, m.group(1)!));
+    collect(_isoDate, (m) => _validDate(m.group(1)!, m.group(2)!, m.group(3)!));
+    collect(_spacedDate,
+        (m) => _validDate(m.group(3)!, m.group(2)!, m.group(1)!));
+    collect(_monthFirstDate,
+        (m) => _validDate(m.group(3)!, m.group(1)!, m.group(2)!));
+    found.sort((a, b) => a.$1.compareTo(b.$1));
+    for (final (_, date) in found) {
+      if (date != null) return date;
+    }
+    return null;
+  }
+
+  /// ISO "2025-08-01", as some card issuers write it.
+  static final _isoDate = RegExp(r'\b(\d{4})-(\d{1,2})-(\d{1,2})\b');
+
+  /// "01 Aug 2025", "1 August, 2025", "01Aug25".
+  static final _spacedDate = RegExp(
+      r'\b(\d{1,2})\s*([A-Za-z]{3,9})\.?,?\s*(\d{4}|\d{2})\b',
+      caseSensitive: false);
+
+  /// "Aug 01, 2025", "August 1 2025".
+  static final _monthFirstDate = RegExp(
+      r'\b([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b',
+      caseSensitive: false);
+
+  static const _fullMonths = [
+    'january', 'february', 'march', 'april', 'may', 'june', //
+    'july', 'august', 'september', 'october', 'november', 'december',
+  ];
+
+  /// A month given as a number, a three-letter abbreviation, "Sept", or the
+  /// full name — never just any word that starts like one ("Market").
+  static int? _monthOf(String raw) {
+    final n = int.tryParse(raw);
+    if (n != null) return n;
+    final lower = raw.toLowerCase();
+    if (lower.length < 3) return null;
+    final month = _months[lower.substring(0, 3)];
+    if (month == null) return null;
+    final ok = lower.length == 3 ||
+        lower == _fullMonths[month - 1] ||
+        (month == 9 && lower == 'sept');
+    return ok ? month : null;
+  }
+
+  static DateTime? _validDate(String rawYear, String rawMonth, String rawDay) {
+    final day = int.tryParse(rawDay);
+    final month = _monthOf(rawMonth);
+    var year = int.tryParse(rawYear);
     if (day == null || month == null || year == null) return null;
     if (year < 100) year += 2000;
     if (month < 1 || month > 12 || day < 1 || day > 31) return null;
