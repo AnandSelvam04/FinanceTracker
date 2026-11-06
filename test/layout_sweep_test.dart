@@ -21,6 +21,7 @@ import 'package:finance_tracker/providers/investment_provider.dart';
 import 'package:finance_tracker/providers/recurring_provider.dart';
 import 'package:finance_tracker/providers/settings_provider.dart';
 import 'package:finance_tracker/providers/template_provider.dart';
+import 'package:finance_tracker/screens/credit_cards_screen.dart';
 import 'package:finance_tracker/screens/account_detail_screen.dart';
 import 'package:finance_tracker/screens/accounts_screen.dart';
 import 'package:finance_tracker/screens/add_expense_screen.dart';
@@ -193,6 +194,7 @@ void main() {
     'Onboarding': () => const OnboardingScreen(),
     'Tutorial': () => const TutorialScreen(),
     'SpendingCalendar': () => const SpendingCalendarScreen(),
+    'CreditCards': () => const CreditCardsScreen(),
     'Backups': () => const BackupsScreen(),
     'Import': () => const ImportScreen(),
     'SmsReview': () => const SmsReviewScreen(),
