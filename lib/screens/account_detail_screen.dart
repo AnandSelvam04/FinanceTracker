@@ -30,7 +30,12 @@ enum AccountDetailAction { edit, delete }
 /// running balance, and only covered the years already loaded.
 class AccountDetailScreen extends StatefulWidget {
   final Account account;
-  const AccountDetailScreen({super.key, required this.account});
+
+  /// Whether the app bar offers Edit and Delete, which hand the choice back
+  /// to the caller to act on. The dashboard opens the screen to read only.
+  final bool showActions;
+  const AccountDetailScreen(
+      {super.key, required this.account, this.showActions = true});
 
   @override
   State<AccountDetailScreen> createState() => _AccountDetailScreenState();
@@ -86,16 +91,19 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
       appBar: AppBar(
         title: Text(account.name),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Edit account',
-            onPressed: () => Navigator.pop(context, AccountDetailAction.edit),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Delete account',
-            onPressed: () => Navigator.pop(context, AccountDetailAction.delete),
-          ),
+          if (widget.showActions) ...[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit account',
+              onPressed: () => Navigator.pop(context, AccountDetailAction.edit),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Delete account',
+              onPressed: () =>
+                  Navigator.pop(context, AccountDetailAction.delete),
+            ),
+          ],
         ],
       ),
       body: ledger == null

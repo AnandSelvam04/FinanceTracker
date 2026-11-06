@@ -23,6 +23,7 @@ import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
 import '../utils/merchant_summary.dart';
+import '../widgets/credit_cards_card.dart';
 import '../widgets/alerts_banner.dart';
 import '../widgets/animated_money.dart';
 import '../widgets/empty_state.dart';
@@ -571,6 +572,9 @@ class _DashboardView extends StatelessWidget {
                 children: [
                   const AlertsBanner(),
                   const NetWorthCard(),
+                  // What is on each credit card right now, whatever period
+                  // the figures below show.
+                  const CreditCardsCard(),
                   _QuickAddRow(onQuickAdd: onQuickAdd),
                   MonthSelector(
                     initialYear: selectedYear,
