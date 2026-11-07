@@ -22,6 +22,7 @@ import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/category_choice_chip.dart';
 import '../widgets/date_field_row.dart';
+import '../widgets/spend_account_picker.dart';
 import '../widgets/voice_capture_sheet.dart';
 
 /// An optional capture flow to launch as soon as the screen opens, so the
@@ -37,10 +38,15 @@ class AddExpenseScreen extends StatefulWidget {
   /// user taps Add.
   final Expense? duplicateOf;
 
+  /// Opens with this account (a credit card, say) chosen, for adding a spend
+  /// an SMS alert missed.
+  final int? initialAccountId;
+
   const AddExpenseScreen({
     super.key,
     this.autoStart = AddExpenseAction.none,
     this.duplicateOf,
+    this.initialAccountId,
   });
 
   @override
@@ -133,7 +139,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       // Preselect the user's default account, if set and still present —
       // unless this is a copy, which keeps the original's account.
       final defaultId = context.read<SettingsProvider>().defaultAccountId;
+      final initial = widget.initialAccountId;
       if (copy == null &&
+          initial != null &&
+          provider.accountById(initial) != null) {
+        setState(() => _selectAccount(initial));
+      } else if (copy == null &&
           defaultId != null &&
           context.read<AccountProvider>().accountById(defaultId) != null) {
         setState(() => _selectAccount(defaultId));
@@ -510,22 +521,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         ))
                     .toList(),
               ),
-              if (accounts.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                DropdownButtonFormField<int?>(
-                  isExpanded: true,
-                  initialValue: _accountId,
-                  decoration: const InputDecoration(labelText: 'Account'),
-                  items: [
-                    DropdownMenuItem<int?>(
-                        value: null, child: const Text('None')),
-                    ...accounts.map((a) => DropdownMenuItem<int?>(
-                        value: a.id,
-                        child: Text(a.name, overflow: TextOverflow.ellipsis))),
-                  ],
-                  onChanged: (value) => setState(() => _selectAccount(value)),
-                ),
-              ],
               if (!_isIncome) ...[
                 const SizedBox(height: 16),
                 Text('Payment mode',
@@ -542,12 +537,33 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       selected: _selectedPaymentMode == p,
                       // The checkmark replaces the avatar, hiding the icon.
                       showCheckmark: false,
-                      onSelected: (_) =>
-                          setState(() => _selectedPaymentMode = p),
+                      onSelected: (_) => setState(() {
+                        _selectedPaymentMode = p;
+                        // "Credit Card" asks which card; leaving it drops a
+                        // card account the spend no longer went on.
+                        _accountId = SpendAccountPicker.accountForMode(
+                            p, _accountId, accounts,
+                            fallbackId: context
+                                .read<SettingsProvider>()
+                                .defaultAccountId);
+                      }),
                     );
                   }).toList(),
                 ),
                 const SizedBox(height: 4),
+              ],
+              if (accounts.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                SpendAccountPicker(
+                  accounts: accounts,
+                  accountId: _accountId,
+                  // Income has no payment mode, so no card row.
+                  paymentMode: _isIncome ? 'Other' : _selectedPaymentMode,
+                  onChanged: (id, mode) => setState(() {
+                    _accountId = id;
+                    if (!_isIncome) _selectedPaymentMode = mode;
+                  }),
+                ),
               ],
               const SizedBox(height: 8),
               TextFormField(

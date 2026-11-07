@@ -710,8 +710,11 @@ void main() {
       // Each card still shows what is owed on it.
       expect(find.text('₹10,000.00'), findsWidgets);
       expect(find.text('₹5,000.00'), findsWidgets);
-      // The totals count the shared limit once.
-      expect(find.text('₹1,85,000.00'), findsOneWidget);
+      // The totals count the shared limit once; the group shows it too,
+      // with the two cards' combined spend and amount owed.
+      expect(find.text('₹1,85,000.00'), findsNWidgets(2));
+      expect(find.text('Total owed now'), findsOneWidget);
+      expect(find.text('₹15,000.00'), findsWidgets);
     }, timeout: const Timeout(Duration(seconds: 45)));
 
     testWidgets('two cards from one bank are offered for linking',

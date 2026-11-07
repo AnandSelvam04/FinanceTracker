@@ -17,6 +17,7 @@ import '../widgets/emi_dialog.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/reconcile_dialog.dart';
 import 'account_detail_screen.dart';
+import 'add_expense_screen.dart';
 import 'add_transfer_screen.dart';
 
 /// Every credit card in one place: what went on each over a period you pick,
@@ -374,11 +375,13 @@ class _Totals extends StatelessWidget {
             Expanded(
                 child: _Figure(
                     label: 'Spent', value: formatMoneyIn(symbol, spent))),
+            const SizedBox(width: 10),
             Expanded(
                 child: _Figure(
                     label: 'Owed now',
                     value: formatMoneyIn(symbol, owed),
                     color: expenseColor(context))),
+            if (limited.isNotEmpty) const SizedBox(width: 10),
             if (limited.isNotEmpty)
               Expanded(
                   child: _Figure(
@@ -1013,6 +1016,8 @@ class _SharedLimitGroup extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                _PoolTotals(rows: rows),
                 if (s.limit != null)
                   _UsageBar(summary: s)
                 else
@@ -1037,6 +1042,52 @@ class _SharedLimitGroup extends StatelessWidget {
   }
 }
 
+/// What the cards on one shared limit add up to: spent over the chosen
+/// period, owed now, and what is left of the limit.
+class _PoolTotals extends StatelessWidget {
+  final List<_CardFigures> rows;
+  const _PoolTotals({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    final symbol = rows.first.summary.account.symbol;
+    final spent = rows.fold<int>(0, (t, r) => t + r.spent);
+    final owed = rows.fold<int>(0, (t, r) => t + r.summary.owed);
+    final available = rows.first.summary.available;
+    // Each card's own cycle can start on a different day.
+    final labels = {for (final r in rows) r.range.label};
+    final period = labels.length == 1 ? labels.single : "each card's cycle";
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _Figure(
+              label: 'Total spent · $period',
+              value: formatMoneyIn(symbol, spent)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _Figure(
+            label: 'Total owed now',
+            value: formatMoneyIn(symbol, owed),
+            color: owed > 0 ? expenseColor(context) : null,
+          ),
+        ),
+        if (available != null) ...[
+          const SizedBox(width: 10),
+          Expanded(
+            child: _Figure(
+              label: 'Available',
+              value: formatMoneyIn(symbol, available),
+              color: incomeColor(context),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 /// A card's extra actions: add or link a second card on its limit, or take
 /// it off a shared limit.
 class _CardMenu extends StatelessWidget {
@@ -1055,6 +1106,12 @@ class _CardMenu extends StatelessWidget {
             await showCardSetupDialog(context, linkTo: card);
           case 'link':
             await showCardSetupDialog(context, card: card, startShared: true);
+          case 'spend':
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => AddExpenseScreen(initialAccountId: card.id)),
+            );
           case 'emi':
             await showEmiDialog(context, card);
           case 'match':
@@ -1078,6 +1135,15 @@ class _CardMenu extends StatelessWidget {
         }
       },
       itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'spend',
+          child: ListTile(
+            leading: Icon(Icons.add_shopping_cart),
+            title: Text('Add a spend on this card'),
+            subtitle: Text('One the SMS alerts missed'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
         const PopupMenuItem(
           value: 'add',
           child: ListTile(
