@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 20;
+  static const int dbVersion = 21;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -99,6 +99,10 @@ class DbConstants {
   // Credit-card EMI plans (v20): a converted purchase, its instalments, and
   // the loan account that holds its unpaid principal. See EmiPlan.
   static const String tableEmiPlans = 'emi_plans';
+
+  // A receipt photo kept with a transaction (v21): its path inside the app's
+  // documents folder. Null when there is none.
+  static const String colAttachment = 'attachment';
   static const String colEmiCardId = 'cardId';
   static const String colEmiLoanId = 'loanAccountId';
   static const String colEmiPrincipal = 'principal';

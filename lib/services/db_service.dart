@@ -186,7 +186,8 @@ class DBService {
             ${DbConstants.colToAccountId} INTEGER,
             ${DbConstants.colToAmount} INTEGER,
             ${DbConstants.colSourceRef} TEXT,
-            ${DbConstants.colNote} TEXT
+            ${DbConstants.colNote} TEXT,
+            ${DbConstants.colAttachment} TEXT
           )
         ''');
     await _createExpenseIndexes(db);
@@ -411,6 +412,11 @@ class DBService {
     }
     if (oldVersion < 20) {
       await _createEmiPlansTable(db);
+    }
+    if (oldVersion < 21) {
+      // A receipt photo on a transaction. After the v9 rebuild of expenses.
+      await db.execute('ALTER TABLE ${DbConstants.tableExpenses} '
+          'ADD COLUMN ${DbConstants.colAttachment} TEXT');
     }
   }
 
@@ -1646,6 +1652,16 @@ class DBService {
     final db = await database;
     await db.delete(DbConstants.tableEmiPlans,
         where: '${DbConstants.colId} = ?', whereArgs: [id]);
+  }
+
+  /// Every receipt photo a transaction still refers to.
+  Future<Set<String>> referencedAttachments() async {
+    final db = await database;
+    final rows = await db.rawQuery(
+        'SELECT DISTINCT ${DbConstants.colAttachment} AS a '
+        'FROM ${DbConstants.tableExpenses} '
+        'WHERE ${DbConstants.colAttachment} IS NOT NULL');
+    return {for (final r in rows) r['a'] as String};
   }
 
   Future<void> clearAccounts() async {

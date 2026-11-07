@@ -166,6 +166,10 @@ void main() {
         await affinityOf(DbConstants.tableAccounts, DbConstants.colCreditLimit),
         'INTEGER');
 
+    // v21 keeps a receipt photo with a transaction.
+    expect(await affinityOf(DbConstants.tableExpenses, DbConstants.colAttachment),
+        'TEXT');
+
     // v19 lets two cards share one credit limit.
     expect(
         await affinityOf(

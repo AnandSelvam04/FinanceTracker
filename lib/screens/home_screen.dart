@@ -15,6 +15,7 @@ import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 import '../services/notification_service.dart';
 import '../services/emi_service.dart';
+import '../services/receipt_store.dart';
 import '../services/recurring_service.dart';
 import '../services/sms_service.dart';
 import '../utils/alerts.dart';
@@ -185,6 +186,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final posted = await RecurringService.instance.postDueTransactions() +
         // Card EMI instalments fall due the same way.
         await EmiService.postDue();
+    // Receipt photos whose transactions are gone. Never blocks the dashboard.
+    ReceiptStore.prune().catchError((Object _) => 0);
     if (posted > 0) {
       await expenseProvider.reloadLoadedYears();
       await accountProvider.refreshBalances();

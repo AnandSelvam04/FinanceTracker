@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,6 +13,7 @@ import '../models/tx_template.dart';
 import '../services/db_service.dart';
 import '../services/receipt_parser.dart';
 import '../services/receipt_scanner.dart';
+import '../services/receipt_store.dart';
 import '../services/voice_expense_parser.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_logger.dart';
@@ -56,6 +59,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   int? _accountId;
   bool _isSaving = false;
   bool _isScanning = false;
+
+  /// The scanned (or attached) bill photo, kept with the transaction when it
+  /// is saved. A temporary path until then.
+  String? _receiptPhoto;
   bool _saveAsTemplate = false;
   List<String> _frequentExpenseCategories = const [];
   List<String> _frequentIncomeCategories = const [];
@@ -256,7 +263,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isScanning = true);
-    ParsedReceipt? result;
+    ({ParsedReceipt receipt, String imagePath})? result;
     try {
       result = await ReceiptScanner.scan(source);
     } catch (e, st) {
@@ -268,7 +275,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (mounted) setState(() => _isScanning = false);
     }
     if (!mounted || result == null) return;
-    _applyReceipt(result, messenger);
+    setState(() => _receiptPhoto = result!.imagePath);
+    _applyReceipt(result.receipt, messenger);
   }
 
   void _applyReceipt(ParsedReceipt r, ScaffoldMessengerState messenger) {
@@ -413,6 +421,32 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   ),
                 ],
               ),
+              if (_receiptPhoto != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.file(File(_receiptPhoto!),
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.receipt_long, size: 40)),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                          child: Text('Receipt photo will be kept with this '
+                              'transaction')),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Don\'t keep the photo',
+                        onPressed: () => setState(() => _receiptPhoto = null),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 16),
               // The amount is the focal input, so it is enlarged and carries
               // the configured currency symbol as a prefix.
@@ -524,6 +558,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Note (optional)',
                   hintText: 'e.g. split with Ravi, warranty till 2028',
+                  helperText: 'Add #tags to group spending, e.g. #goa-trip',
                 ),
               ),
               CheckboxListTile(
@@ -547,7 +582,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       : () async {
                           if (_formKey.currentState!.validate()) {
                             setState(() => _isSaving = true);
+                            String? attachment;
+                            if (_receiptPhoto != null) {
+                              try {
+                                attachment =
+                                    await ReceiptStore.save(_receiptPhoto!);
+                              } catch (e, st) {
+                                AppLogger.error(
+                                    'Could not keep the receipt photo', e, st);
+                              }
+                            }
+                            if (!context.mounted) return;
                             final expense = Expense(
+                              attachment: attachment,
                               description: _resolvedDescription,
                               amount: parseMinor(_amountController.text)!,
                               date: _selectedDate,

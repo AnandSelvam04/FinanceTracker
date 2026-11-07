@@ -12,7 +12,9 @@ import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../screens/add_expense_screen.dart';
 import '../screens/add_transfer_screen.dart';
+import '../services/receipt_store.dart';
 import 'dispose_with_route.dart';
+import 'receipt_photo.dart';
 import 'row_actions_sheet.dart';
 
 /// Opens the right edit sheet for [expense] — a transfer editor for transfers,
@@ -89,6 +91,10 @@ Future<void> showEditExpenseSheet(
   final noteController = TextEditingController(text: expense.note ?? '');
   String paymentMode = expense.paymentMode;
   DateTime selectedDate = expense.date;
+  // The receipt photo kept with the row, and one newly picked (a temporary
+  // path, stored on Save).
+  String? attachment = expense.attachment;
+  String? newPhoto;
   // The builders below shadow `context`; keep the caller's for the split and
   // duplicate actions, which outlive this sheet.
   final callerContext = context;
@@ -193,8 +199,19 @@ Future<void> showEditExpenseSheet(
                     minLines: 1,
                     maxLines: 3,
                     textCapitalization: TextCapitalization.sentences,
-                    decoration:
-                        const InputDecoration(labelText: 'Note (optional)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Note (optional)',
+                      helperText: 'Add #tags to group spending, e.g. #goa-trip',
+                    ),
+                  ),
+                  ReceiptPhotoRow(
+                    attachment: attachment,
+                    newPhoto: newPhoto,
+                    onPicked: (path) => setModalState(() => newPhoto = path),
+                    onRemove: () => setModalState(() {
+                      attachment = null;
+                      newPhoto = null;
+                    }),
                   ),
                   Row(
                     children: [
@@ -233,7 +250,12 @@ Future<void> showEditExpenseSheet(
                         }
                         final size = parseMinor(amountController.text.trim())!;
                         final amount = refund ? -size : size;
+                        if (newPhoto != null) {
+                          attachment = await ReceiptStore.save(newPhoto!);
+                        }
+                        if (!context.mounted) return;
                         final updated = Expense(
+                          attachment: attachment,
                           id: expense.id,
                           description: descController.text.trim(),
                           amount: amount,
@@ -417,6 +439,7 @@ Future<void> showEditTransferSheet(
                         // Not editable here (the "Note" field above is the
                         // transfer's description), so keep it as it was.
                         note: transfer.note,
+                        attachment: transfer.attachment,
                       );
                       final expenseProvider = context.read<ExpenseProvider>();
                       final accountProvider = context.read<AccountProvider>();
@@ -533,6 +556,8 @@ class _SplitSheetState extends State<_SplitSheet> {
           // message as handled.
           sourceRef: o.sourceRef,
           note: o.note,
+          // Every part keeps the bill's photo.
+          attachment: o.attachment,
         ),
     ];
     Navigator.pop(context, parts);
