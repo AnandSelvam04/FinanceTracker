@@ -33,11 +33,56 @@ class LimitReading {
 class CardLimitReadings {
   static const _key = 'cardLimitReadings';
 
+  /// The same store for a card's reward points balance, as alerts and
+  /// statements quote it ("Reward Points balance: 12,345").
+  static const points = CardReadingStore('cardPointsReadings');
+
   /// Every card's latest reading, by its last digits.
-  static Future<Map<String, LimitReading>> load() async {
+  static Future<Map<String, LimitReading>> load() =>
+      const CardReadingStore(_key).load();
+
+  /// Keeps the newest of [readings] and those already saved, per card.
+  static Future<void> record(Iterable<LimitReading> readings) =>
+      const CardReadingStore(_key).record(readings);
+
+  /// The reading in a message, when it quotes an available limit and names
+  /// the card.
+  static LimitReading? fromSms(String body, DateTime receivedAt) {
+    final found = SmsImport.availableLimitOf(body);
+    if (found == null || found.last4 == null) return null;
+    return LimitReading(
+        last4: found.last4!, amount: found.amount, at: receivedAt);
+  }
+
+  /// The reward points balance a message quotes, for the card it names.
+  static LimitReading? pointsFromSms(String body, DateTime receivedAt) {
+    final found = SmsImport.rewardPointsOf(body);
+    if (found == null || found.last4 == null) return null;
+    return LimitReading(
+        last4: found.last4!, amount: found.points, at: receivedAt);
+  }
+
+  /// The reading for a card ending in [last4], if any.
+  static LimitReading? forCard(Map<String, LimitReading> all, String? last4) {
+    if (last4 == null) return null;
+    LimitReading? best;
+    for (final r in all.values) {
+      if (!SmsImport.sameAccountRef(r.last4, last4)) continue;
+      if (best == null || r.at.isAfter(best.at)) best = r;
+    }
+    return best;
+  }
+}
+
+/// Latest reading per card, kept in shared preferences under [key].
+class CardReadingStore {
+  final String key;
+  const CardReadingStore(this.key);
+
+  Future<Map<String, LimitReading>> load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_key);
+      final raw = prefs.getString(key);
       if (raw == null) return {};
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return {};
@@ -50,8 +95,7 @@ class CardLimitReadings {
     }
   }
 
-  /// Keeps the newest of [readings] and those already saved, per card.
-  static Future<void> record(Iterable<LimitReading> readings) async {
+  Future<void> record(Iterable<LimitReading> readings) async {
     if (readings.isEmpty) return;
     final all = await load();
     var changed = false;
@@ -66,27 +110,7 @@ class CardLimitReadings {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-          _key, jsonEncode({for (final e in all.entries) e.key: e.value}));
+          key, jsonEncode({for (final e in all.entries) e.key: e.value}));
     } catch (_) {}
-  }
-
-  /// The reading in a message, when it quotes an available limit and names
-  /// the card.
-  static LimitReading? fromSms(String body, DateTime receivedAt) {
-    final found = SmsImport.availableLimitOf(body);
-    if (found == null || found.last4 == null) return null;
-    return LimitReading(
-        last4: found.last4!, amount: found.amount, at: receivedAt);
-  }
-
-  /// The reading for a card ending in [last4], if any.
-  static LimitReading? forCard(Map<String, LimitReading> all, String? last4) {
-    if (last4 == null) return null;
-    LimitReading? best;
-    for (final r in all.values) {
-      if (!SmsImport.sameAccountRef(r.last4, last4)) continue;
-      if (best == null || r.at.isAfter(best.at)) best = r;
-    }
-    return best;
   }
 }

@@ -321,6 +321,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         dueDay: isCard ? _dueDay : null,
                         creditLimit:
                             isCard && sharedWith == null ? _creditLimit : null,
+                        // Reward points are set up on the Credit cards
+                        // screen; keep them.
+                        rewardPoints: isCard ? account?.rewardPoints : null,
+                        rewardAsOf: isCard ? account?.rewardAsOf : null,
+                        rewardRate: isCard ? account?.rewardRate : null,
+                        pointValue: isCard ? account?.pointValue : null,
                         // A card's shared limit, or the card an EMI's loan
                         // is on.
                         sharedLimitWith: isCard

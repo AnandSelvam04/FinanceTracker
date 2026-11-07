@@ -413,6 +413,23 @@ class DBService {
     if (oldVersion < 20) {
       await _createEmiPlansTable(db);
     }
+    if (oldVersion < 22) {
+      // A card's reward points. Guarded like v18.
+      final hasAccounts = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableAccounts]);
+      if (hasAccounts.isNotEmpty) {
+        for (final col in [
+          '${DbConstants.colRewardPoints} INTEGER',
+          '${DbConstants.colRewardAsOf} TEXT',
+          '${DbConstants.colRewardRate} REAL',
+          '${DbConstants.colPointValue} REAL',
+        ]) {
+          await db.execute(
+              'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN $col');
+        }
+      }
+    }
     if (oldVersion < 21) {
       // A receipt photo on a transaction. After the v9 rebuild of expenses.
       await db.execute('ALTER TABLE ${DbConstants.tableExpenses} '
@@ -638,7 +655,11 @@ class DBService {
         ${DbConstants.colStatementDay} INTEGER,
         ${DbConstants.colDueDay} INTEGER,
         ${DbConstants.colCreditLimit} INTEGER,
-        ${DbConstants.colSharedLimitWith} INTEGER
+        ${DbConstants.colSharedLimitWith} INTEGER,
+        ${DbConstants.colRewardPoints} INTEGER,
+        ${DbConstants.colRewardAsOf} TEXT,
+        ${DbConstants.colRewardRate} REAL,
+        ${DbConstants.colPointValue} REAL
       )
     ''');
   }

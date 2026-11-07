@@ -48,9 +48,18 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
   /// Each card's last "Avl Lmt" from its SMS alerts, by last digits.
   Map<String, LimitReading> _readings = {};
 
+  /// Each card's last reward points balance from SMS, by last digits.
+  Map<String, LimitReading> _pointReadings = {};
+
   Future<void> _loadReadings() async {
     final r = await CardLimitReadings.load();
-    if (mounted && r.isNotEmpty) setState(() => _readings = r);
+    final p = await CardLimitReadings.points.load();
+    if (mounted && (r.isNotEmpty || p.isNotEmpty)) {
+      setState(() {
+        _readings = r;
+        _pointReadings = p;
+      });
+    }
   }
 
   static const _dismissedTwinsKey = 'dismissedLimitTwins';
@@ -151,8 +160,18 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
         () {
           final range = cardRange(s.account, _kind, now,
               customStart: _customStart, customEnd: _customEnd);
+          final pts =
+              CardLimitReadings.forCard(_pointReadings, s.account.last4);
           return _CardFigures(
             now: now,
+            rewards: rewardEstimate(
+              s.account,
+              now: now,
+              periodStart: s.periodStart,
+              spendBetween: (from, to) =>
+                  expenses.spendOnAccountInRange(s.account.id!, from, to),
+              smsReading: pts == null ? null : (points: pts.amount, at: pts.at),
+            ),
             bankCheck: bankLimitCheck(
               summary: s,
               readingFor: (c) {
@@ -274,7 +293,11 @@ class _CardFigures {
 
   /// Today, for "buy today, pay by".
   final DateTime? now;
+
+  /// The card's reward points, when it tracks them.
+  final RewardEstimate? rewards;
   const _CardFigures({
+    this.rewards,
     this.bankCheck,
     this.now,
     required this.summary,
@@ -568,6 +591,8 @@ class _CardTile extends StatelessWidget {
                         ],
                       ),
                     ),
+                  if (figures.rewards != null)
+                    _RewardsLine(estimate: figures.rewards!, symbol: symbol),
                   if (missing.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
@@ -784,6 +809,43 @@ class _OwedExplainerState extends State<_OwedExplainer> {
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "★ 12,450 points ≈ ₹3,112 · ~320 earned since 1 Nov".
+class _RewardsLine extends StatelessWidget {
+  final RewardEstimate estimate;
+  final String symbol;
+  const _RewardsLine({required this.estimate, required this.symbol});
+
+  @override
+  Widget build(BuildContext context) {
+    final e = estimate;
+    final muted = mutedTextColor(context);
+    final pts = formatCount(e.points);
+    final parts = [
+      e.earnedOnly
+          ? '~$pts points earned this period'
+          : '${e.earned > 0 ? '~' : ''}$pts points',
+      if (e.value != null) '≈ ${formatMoneyIn(symbol, e.value!)}',
+      if (!e.earnedOnly && e.earned > 0)
+        '+${formatCount(e.earned)} est. since ${formatCompactDate(e.since!)}',
+      if (e.fromSms) 'balance from bank SMS',
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.stars_outlined, size: 15, color: muted),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(parts.join(' · '),
+                style: TextStyle(fontSize: 12, color: muted)),
+          ),
         ],
       ),
     );

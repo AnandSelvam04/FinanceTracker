@@ -253,6 +253,7 @@ class SmsService {
 
     final parsed = <ParsedSms>[];
     final readings = <LimitReading>[];
+    final pointReadings = <LimitReading>[];
     for (final sms in await _inbox(since: lower)) {
       if (sms.receivedAt.isBefore(lower)) continue;
       if (to != null && sms.receivedAt.isAfter(to)) continue;
@@ -262,6 +263,9 @@ class SmsService {
       // bank's.
       final reading = CardLimitReadings.fromSms(sms.body, sms.receivedAt);
       if (reading != null) readings.add(reading);
+      final points =
+          CardLimitReadings.pointsFromSms(sms.body, sms.receivedAt);
+      if (points != null) pointReadings.add(points);
       final candidate = SmsImport.parse(
         sender: sms.sender,
         body: sms.body,
@@ -272,6 +276,7 @@ class SmsService {
       parsed.add(candidate);
     }
     await CardLimitReadings.record(readings);
+    await CardLimitReadings.points.record(pointReadings);
     // Pair up the two alerts one movement produces before sorting, so a card
     // payment shows as a single transfer rather than a debit and a credit.
     final collapsed = SmsImport.collapseTransferPairs(parsed)

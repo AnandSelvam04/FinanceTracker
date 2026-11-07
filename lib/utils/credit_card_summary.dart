@@ -531,3 +531,83 @@ CreditCardSummary? bestCardToday(List<CreditCardSummary> cards, DateTime now) {
   });
   return usable.first;
 }
+
+/// A card's reward points as best known today: the latest balance — set by
+/// hand on the card, or quoted by the bank in an SMS, whichever is newer —
+/// plus an estimate of what was earned on spending since.
+class RewardEstimate {
+  /// Points today: [baseline] plus [earned].
+  final int points;
+
+  /// The last known balance, and when it was known. Zero / null when only
+  /// an earn rate is set: [points] is then just what this period earned.
+  final int baseline;
+  final DateTime? since;
+
+  /// Estimated from spending since [since] (or since [periodStart]) at the
+  /// card's earn rate.
+  final int earned;
+
+  /// The balance came from an SMS rather than the card's set-up.
+  final bool fromSms;
+
+  /// What [points] are worth, in minor units of the card's currency, when a
+  /// point value is set.
+  final int? value;
+
+  const RewardEstimate({
+    required this.points,
+    required this.baseline,
+    required this.since,
+    required this.earned,
+    required this.fromSms,
+    required this.value,
+  });
+
+  /// Only an earn rate is known: [points] is what the period earned.
+  bool get earnedOnly => since == null;
+}
+
+/// [card]'s reward points today. [spendBetween] gives what was charged to
+/// the card in a window (refunds off); [smsReading] is the latest points
+/// balance the bank quoted. Null for a card that tracks no rewards.
+RewardEstimate? rewardEstimate(
+  Account card, {
+  required DateTime now,
+  required DateTime periodStart,
+  required int Function(DateTime start, DateTime endExclusive) spendBetween,
+  ({int points, DateTime at})? smsReading,
+}) {
+  if (!card.tracksRewards && smsReading == null) return null;
+  ({int points, DateTime at})? base;
+  var fromSms = false;
+  if (card.rewardPoints != null) {
+    base = (points: card.rewardPoints!, at: card.rewardAsOf ?? DateTime(2000));
+  }
+  if (smsReading != null && (base == null || smsReading.at.isAfter(base.at))) {
+    base = smsReading;
+    fromSms = true;
+  }
+  final tomorrow = DateTime(now.year, now.month, now.day + 1);
+  final from = base == null
+      ? periodStart
+      // The day after: the balance already counts that day's spending.
+      : DateTime(base.at.year, base.at.month, base.at.day + 1);
+  var earned = 0;
+  final rate = card.rewardRate;
+  if (rate != null && rate > 0 && from.isBefore(tomorrow)) {
+    final spent = spendBetween(from, tomorrow);
+    // Points per ₹100: minor units / 10000.
+    if (spent > 0) earned = (spent / 10000 * rate).floor();
+  }
+  final points = (base?.points ?? 0) + earned;
+  final pv = card.pointValue;
+  return RewardEstimate(
+    points: points,
+    baseline: base?.points ?? 0,
+    since: base?.at,
+    earned: earned,
+    fromSms: fromSms,
+    value: pv == null ? null : (points * pv * 100).round(),
+  );
+}

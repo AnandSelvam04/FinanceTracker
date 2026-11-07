@@ -48,6 +48,9 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
   late final TextEditingController _statementDay;
   late final TextEditingController _dueDay;
   late final TextEditingController _owed;
+  late final TextEditingController _points;
+  late final TextEditingController _rate;
+  late final TextEditingController _pointValue;
   bool _saving = false;
 
   /// Cards this one can share a limit with.
@@ -115,6 +118,9 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
     _dueDay = TextEditingController(text: c?.dueDay?.toString());
     // A card's opening balance is negative while something is owed on it.
     final opening = c?.openingBalance ?? 0;
+    _points = TextEditingController(text: c?.rewardPoints?.toString() ?? '');
+    _rate = TextEditingController(text: _num(c?.rewardRate));
+    _pointValue = TextEditingController(text: _num(c?.pointValue));
     _owed = TextEditingController(
         text: opening < 0 ? minorToEditString(-opening) : '');
     if (_sharesWith != null && _sharesWith != c?.sharedLimitWith) {
@@ -124,7 +130,17 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
 
   @override
   void dispose() {
-    for (final c in [_name, _last4, _limit, _statementDay, _dueDay, _owed]) {
+    for (final c in [
+      _name,
+      _last4,
+      _limit,
+      _statementDay,
+      _dueDay,
+      _owed,
+      _points,
+      _rate,
+      _pointValue
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -153,6 +169,19 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
       if (limit != null) _limit.text = minorToEditString(limit);
       _copyDaysFrom(pick);
     });
+  }
+
+  /// A decimal for a field, without a trailing ".0".
+  static String _num(double? v) {
+    if (v == null) return '';
+    return v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+  }
+
+  static String? _positiveNumber(String? v) {
+    final t = (v ?? '').trim();
+    if (t.isEmpty) return null;
+    final n = double.tryParse(t);
+    return n == null || n < 0 ? 'A number, 0 or more' : null;
   }
 
   static int? _day(String text) =>
@@ -199,7 +228,17 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
           ? holder.copyWith(clearCreditLimit: true)
           : holder.copyWith(creditLimit: limit));
     }
+    final points = int.tryParse(_points.text.trim().replaceAll(',', ''));
     final account = Account(
+      rewardPoints: points,
+      // A balance typed in now is as of today; one left alone keeps its date.
+      rewardAsOf: points == null
+          ? null
+          : (points == c?.rewardPoints && c?.rewardAsOf != null
+              ? c!.rewardAsOf
+              : DateTime.now()),
+      rewardRate: double.tryParse(_rate.text.trim()),
+      pointValue: double.tryParse(_pointValue.text.trim()),
       id: c?.id,
       name: _name.text.trim(),
       type: 'credit_card',
@@ -406,6 +445,49 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                         style: TextStyle(
                             fontSize: 13, color: mutedTextColor(context))),
                   ),
+                const _SectionTitle('Reward points (optional)'),
+                TextFormField(
+                  controller: _points,
+                  keyboardType: TextInputType.number,
+                  decoration: _field('Points balance now',
+                      helper: 'From the card app or statement. The app adds '
+                          'what you earn from here on.'),
+                  validator: (v) {
+                    final t = (v ?? '').trim().replaceAll(',', '');
+                    if (t.isEmpty) return null;
+                    final n = int.tryParse(t);
+                    return n == null || n < 0
+                        ? 'Whole points, 0 or more'
+                        : null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _rate,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: _field('Points per ₹100',
+                            hint: 'e.g. 4', helper: 'Earn rate'),
+                        validator: _positiveNumber,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _pointValue,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: _field('₹ per point',
+                            hint: 'e.g. 0.25', helper: 'What 1 point is worth'),
+                        validator: _positiveNumber,
+                      ),
+                    ),
+                  ],
+                ),
                 const _SectionTitle('Starting balance'),
                 TextFormField(
                   controller: _owed,

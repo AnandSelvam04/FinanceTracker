@@ -39,6 +39,17 @@ class Account {
   /// The card it points to holds the shared [creditLimit]; see `limitPools`.
   final int? sharedLimitWith;
 
+  /// A credit card's reward points: the balance [rewardPoints] as of
+  /// [rewardAsOf], points earned per ₹100 spent ([rewardRate]), and what one
+  /// point is worth in this account's currency ([pointValue]). Each null when
+  /// not set; see `RewardEstimate` for the running figure.
+  final int? rewardPoints;
+  final DateTime? rewardAsOf;
+  final double? rewardRate;
+  final double? pointValue;
+
+  bool get tracksRewards => rewardRate != null || rewardPoints != null;
+
   Account({
     this.id,
     required this.name,
@@ -52,6 +63,10 @@ class Account {
     this.dueDay,
     this.creditLimit,
     this.sharedLimitWith,
+    this.rewardPoints,
+    this.rewardAsOf,
+    this.rewardRate,
+    this.pointValue,
   });
 
   /// A copy with the given fields changed. The nullable card fields take a
@@ -83,6 +98,10 @@ class Account {
         sharedLimitWith: clearSharedLimitWith
             ? null
             : (sharedLimitWith ?? this.sharedLimitWith),
+        rewardPoints: rewardPoints,
+        rewardAsOf: rewardAsOf,
+        rewardRate: rewardRate,
+        pointValue: pointValue,
       );
 
   /// Whether this credit card has a billing cycle configured.
@@ -138,6 +157,10 @@ class Account {
         DbConstants.colDueDay: dueDay,
         DbConstants.colCreditLimit: creditLimit,
         DbConstants.colSharedLimitWith: sharedLimitWith,
+        DbConstants.colRewardPoints: rewardPoints,
+        DbConstants.colRewardAsOf: rewardAsOf?.toIso8601String(),
+        DbConstants.colRewardRate: rewardRate,
+        DbConstants.colPointValue: pointValue,
       };
 
   factory Account.fromMap(Map<String, dynamic> map) => Account(
@@ -158,5 +181,12 @@ class Account {
         creditLimit: (map[DbConstants.colCreditLimit] as num?)?.toInt(),
         // Rows/backups from before schema v19 share no limit.
         sharedLimitWith: (map[DbConstants.colSharedLimitWith] as num?)?.toInt(),
+        // Rows/backups from before schema v22 have no reward points.
+        rewardPoints: (map[DbConstants.colRewardPoints] as num?)?.toInt(),
+        rewardAsOf: map[DbConstants.colRewardAsOf] == null
+            ? null
+            : DateTime.tryParse(map[DbConstants.colRewardAsOf] as String),
+        rewardRate: (map[DbConstants.colRewardRate] as num?)?.toDouble(),
+        pointValue: (map[DbConstants.colPointValue] as num?)?.toDouble(),
       );
 }

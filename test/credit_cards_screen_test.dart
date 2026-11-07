@@ -865,5 +865,34 @@ void main() {
       expect(find.text('30% of ₹2,00,000.00 used · ₹1,40,000.00 left'),
           findsOneWidget);
     }, timeout: const Timeout(Duration(seconds: 45)));
+
+    testWidgets('reward points set up on a card show with their value',
+        (tester) async {
+      final today = DateTime.now();
+      await pumpScreen(
+        tester,
+        accounts: [Account(name: 'Scapia', type: 'credit_card')],
+        rows: (ids) => [
+          spend(
+              1000000, DateTime(today.year, today.month, 1, 12), ids['Scapia']),
+        ],
+      );
+      await tester.tap(find.byTooltip('Set up Scapia'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Points balance now'), '2,000');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Points per ₹100'), '10');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, '₹ per point'), '0.2');
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await settle(tester);
+
+      final card = accountProvider.accounts.single;
+      expect(card.rewardPoints, 2000);
+      expect(card.rewardRate, 10);
+      // Set today, so nothing is estimated on top yet.
+      expect(find.textContaining('2,000 points · ≈ ₹400.00'), findsOneWidget);
+    }, timeout: const Timeout(Duration(seconds: 45)));
   });
 }
