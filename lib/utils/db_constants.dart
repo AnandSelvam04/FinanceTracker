@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 18;
+  static const int dbVersion = 22;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -62,6 +62,17 @@ class DbConstants {
   // A credit card's credit limit in minor units (v18). Null when not set.
   static const String colCreditLimit = 'creditLimit';
 
+  // Id of the credit card whose limit this one shares (v19): two cards a bank
+  // issues on one limit, such as a Visa and a RuPay card. Null otherwise.
+  static const String colSharedLimitWith = 'sharedLimitWith';
+
+  // A card's reward points (v22): the balance on a date, points earned per
+  // ₹100 spent, and what one point is worth. All null when not set.
+  static const String colRewardPoints = 'rewardPoints';
+  static const String colRewardAsOf = 'rewardAsOf';
+  static const String colRewardRate = 'rewardRate';
+  static const String colPointValue = 'pointValue';
+
   // SMS messages the user dismissed in the import review queue, so a later
   // rescan of the inbox does not offer them again.
   static const String tableSmsIgnored = 'sms_ignored';
@@ -91,6 +102,19 @@ class DbConstants {
   // Savings goals table (added in schema v14). colAmount holds the target,
   // colSaved the amount set aside so far, colDate the optional target date.
   static const String tableGoals = 'goals';
+
+  // Credit-card EMI plans (v20): a converted purchase, its instalments, and
+  // the loan account that holds its unpaid principal. See EmiPlan.
+  static const String tableEmiPlans = 'emi_plans';
+
+  // A receipt photo kept with a transaction (v21): its path inside the app's
+  // documents folder. Null when there is none.
+  static const String colAttachment = 'attachment';
+  static const String colEmiCardId = 'cardId';
+  static const String colEmiLoanId = 'loanAccountId';
+  static const String colEmiPrincipal = 'principal';
+  static const String colEmiMonths = 'months';
+  static const String colEmiMonthly = 'monthlyAmount';
   static const String colSaved = 'saved';
 
   // Current market value per investment type (added in schema v15): one row

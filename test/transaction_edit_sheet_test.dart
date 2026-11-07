@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:finance_tracker/models/account.dart';
 import 'package:finance_tracker/models/expense.dart';
 import 'package:finance_tracker/providers/account_provider.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
@@ -35,8 +36,11 @@ void main() {
   /// Seeds [row], loads it into fresh providers, and pumps a page whose
   /// button opens the edit sheet for it.
   Future<Expense> pumpEditor(WidgetTester tester, Expense row,
-      {bool viaRowMenu = false}) async {
+      {bool viaRowMenu = false, List<Account> withAccounts = const []}) async {
     final (expenses, accounts, seeded) = (await tester.runAsync(() async {
+      for (final a in withAccounts) {
+        await DBService().insertAccount(a);
+      }
       await DBService().insertExpense(row);
       final e = ExpenseProvider();
       await e.ensureYearLoaded(day.year);
@@ -227,5 +231,40 @@ void main() {
 
     expect(find.text('Duplicate Expense'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, 'Swiggy'), findsOneWidget);
+  });
+
+  testWidgets('a card spend with no card (or the wrong one) can be moved',
+      (tester) async {
+    await pumpEditor(
+      tester,
+      Expense(
+        description: 'Amazon',
+        amount: 250000,
+        date: day,
+        category: 'Shopping',
+        paymentMode: 'Credit Card', // added by hand, no card picked
+      ),
+      withAccounts: [
+        Account(name: 'HDFC Visa', type: 'credit_card', last4: '1111'),
+        Account(name: 'HDFC RuPay', type: 'credit_card', last4: '2222'),
+      ],
+    );
+
+    expect(find.text('Which card?'), findsOneWidget);
+    expect(find.textContaining('won\'t count toward any card'), findsOneWidget);
+    await tester.ensureVisible(find.text('HDFC RuPay ••2222'));
+    await tester.tap(find.text('HDFC RuPay ••2222'));
+    await tester.pump();
+    expect(find.textContaining('Added to what you owe on HDFC RuPay'),
+        findsOneWidget);
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+
+    final accounts = await tester.runAsync(() => DBService().getAccounts());
+    final rupay = accounts!.singleWhere((a) => a.name == 'HDFC RuPay');
+    final row = (await dbRows(tester)).single;
+    expect(row.accountId, rupay.id);
+    expect(row.paymentMode, 'Credit Card');
   });
 }

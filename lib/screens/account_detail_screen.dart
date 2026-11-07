@@ -10,6 +10,7 @@ import '../providers/investment_provider.dart';
 import '../services/db_service.dart';
 import '../utils/account_ledger.dart';
 import '../utils/app_colors.dart';
+import '../utils/credit_card_summary.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
@@ -17,6 +18,7 @@ import '../utils/ledger_cycles.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/hero_total_card.dart';
+import '../widgets/reconcile_dialog.dart';
 import '../widgets/transaction_edit_sheet.dart';
 
 /// What the user asked for from the statement's app bar; the Accounts screen
@@ -91,6 +93,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
         (ledger == null || ledger.isEmpty
             ? account.openingBalance
             : ledger.first.balanceAfter);
+    final limitCaption = _limitCaption(accounts, account, balance);
 
     return Scaffold(
       appBar: AppBar(
@@ -126,13 +129,21 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                     caption: [
                       Account.typeLabel(account.type),
                       if (account.last4 != null) '••${account.last4}',
-                      if (account.creditLimit != null &&
-                          account.creditLimit! > 0)
-                        'Limit ${formatMoneyIn(account.symbol, account.creditLimit!)}'
-                            '${balance < 0 ? ' · ${(-balance * 100 / account.creditLimit!).round()}% used' : ''}',
+                      if (limitCaption != null) limitCaption,
                       '${ledger.length} '
                           '${ledger.length == 1 ? 'entry' : 'entries'}',
                     ].join(' · '),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.balance, size: 18),
+                      label: const Text('Match bank balance'),
+                      onPressed: () => showReconcileDialog(context, account),
+                    ),
                   ),
                 ),
                 if (ledger.isEmpty)
@@ -337,6 +348,33 @@ class _CycleHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+/// "Limit ₹2,00,000 · 8% used" for a credit card with a limit; for one that
+/// shares its limit with another card (a Visa + RuPay pair), the shared limit
+/// and the share of it used across both. Null without a limit.
+String? _limitCaption(AccountProvider accounts, Account account, int balance) {
+  if (account.type != 'credit_card' || account.id == null) return null;
+  final pool = limitPools(accounts.accounts)[account.id];
+  final limit = pool?.limit ??
+      (account.creditLimit != null && account.creditLimit! > 0
+          ? account.creditLimit
+          : null);
+  if (limit == null) return null;
+  int owed(Account a) {
+    final b = a.id == account.id ? balance : (accounts.balanceOf(a) ?? 0);
+    return b < 0 ? -b : 0;
+  }
+
+  final shared = pool != null && pool.isShared;
+  final used =
+      shared ? pool.cards.fold<int>(0, (s, c) => s + owed(c)) : owed(account);
+  return [
+    'Limit ${formatMoneyIn(account.symbol, limit)}',
+    if (shared)
+      'shared with ${pool.others(account).map((c) => c.name).join(', ')}',
+    if (used > 0) '${(used * 100 / limit).round()}% used',
+  ].join(' · ');
 }
 
 /// The last row: where the running balance starts.

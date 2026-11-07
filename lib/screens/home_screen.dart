@@ -14,6 +14,9 @@ import '../providers/settings_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 import '../services/notification_service.dart';
+import '../services/emi_service.dart';
+import '../services/home_widget_service.dart';
+import '../services/receipt_store.dart';
 import '../services/recurring_service.dart';
 import '../services/sms_service.dart';
 import '../utils/alerts.dart';
@@ -58,10 +61,56 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedMonth = DateTime.now().month;
   bool _yearView = false;
 
+  StreamSubscription<Uri?>? _widgetClicks;
+
+  /// Providers the home-screen widget's figures come from, listened to so it
+  /// stays in step (it only sends when the figures differ).
+  List<ChangeNotifier> _widgetSources = const [];
+
+  /// The home-screen widget's Add button opens the Add Expense form.
+  void _openFromWidget(Uri? uri) {
+    if (!mounted || uri?.host != HomeWidgetService.addUri.host) return;
+    Navigator.push(context,
+        MaterialPageRoute(builder: (context) => const AddExpenseScreen()));
+  }
+
+  /// Hands this month's and today's spending to the home-screen widget.
+  void _syncHomeWidget() {
+    if (!mounted) return;
+    final expenses = context.read<ExpenseProvider>();
+    final settings = context.read<SettingsProvider>();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final todaySpent = expenses
+        .expensesInRange(today, today.add(const Duration(days: 1)))
+        .where((e) => e.isExpense)
+        .fold<int>(0, (t, e) => t + expenses.baseAmountOf(e));
+    HomeWidgetService.push(homeWidgetData(
+      now: now,
+      monthSpent: expenses.totalForMonth(now.year, now.month),
+      todaySpent: todaySpent,
+      locked: settings.appLockEnabled,
+    ));
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _widgetClicks = HomeWidgetService.clicks
+        .listen(_openFromWidget, onError: (Object _) {});
+    HomeWidgetService.launchedFrom().then(_openFromWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _widgetSources = [
+        context.read<ExpenseProvider>(),
+        context.read<SettingsProvider>(),
+      ];
+      for (final s in _widgetSources) {
+        s.addListener(_syncHomeWidget);
+      }
+      _syncHomeWidget();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<ExpenseProvider>();
       // Load current year and previous year (for trends)
@@ -155,6 +204,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _widgetClicks?.cancel();
+    for (final s in _widgetSources) {
+      s.removeListener(_syncHomeWidget);
+    }
     WidgetsBinding.instance.removeObserver(this);
     _recurring?.removeListener(_onRulesChanged);
     _settings?.removeListener(_onSettingsChanged);
@@ -181,7 +234,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final investmentProvider = context.read<InvestmentProvider>();
     final recurringProvider = context.read<RecurringProvider>();
     final messenger = ScaffoldMessenger.of(context);
-    final posted = await RecurringService.instance.postDueTransactions();
+    final posted = await RecurringService.instance.postDueTransactions() +
+        // Card EMI instalments fall due the same way.
+        await EmiService.postDue();
+    // Receipt photos whose transactions are gone. Never blocks the dashboard.
+    ReceiptStore.prune().catchError((Object _) => 0);
     if (posted > 0) {
       await expenseProvider.reloadLoadedYears();
       await accountProvider.refreshBalances();

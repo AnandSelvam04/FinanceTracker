@@ -6,6 +6,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart';
 import '../models/account.dart';
+import '../models/emi_plan.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
 import '../models/budget.dart';
@@ -185,7 +186,8 @@ class DBService {
             ${DbConstants.colToAccountId} INTEGER,
             ${DbConstants.colToAmount} INTEGER,
             ${DbConstants.colSourceRef} TEXT,
-            ${DbConstants.colNote} TEXT
+            ${DbConstants.colNote} TEXT,
+            ${DbConstants.colAttachment} TEXT
           )
         ''');
     await _createExpenseIndexes(db);
@@ -214,6 +216,7 @@ class DBService {
     await _createRecurringTables(db);
     await _createGoalsTable(db);
     await _createInvestmentValuesTable(db);
+    await _createEmiPlansTable(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -395,6 +398,42 @@ class DBService {
         await db.execute('ALTER TABLE ${DbConstants.tableAccounts} '
             'ADD COLUMN ${DbConstants.colCreditLimit} INTEGER');
       }
+    }
+    if (oldVersion < 19) {
+      // Two cards on one credit limit (a Visa and a RuPay card from the same
+      // bank). Guarded like v18.
+      final hasAccounts = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableAccounts]);
+      if (hasAccounts.isNotEmpty) {
+        await db.execute('ALTER TABLE ${DbConstants.tableAccounts} '
+            'ADD COLUMN ${DbConstants.colSharedLimitWith} INTEGER');
+      }
+    }
+    if (oldVersion < 20) {
+      await _createEmiPlansTable(db);
+    }
+    if (oldVersion < 22) {
+      // A card's reward points. Guarded like v18.
+      final hasAccounts = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableAccounts]);
+      if (hasAccounts.isNotEmpty) {
+        for (final col in [
+          '${DbConstants.colRewardPoints} INTEGER',
+          '${DbConstants.colRewardAsOf} TEXT',
+          '${DbConstants.colRewardRate} REAL',
+          '${DbConstants.colPointValue} REAL',
+        ]) {
+          await db.execute(
+              'ALTER TABLE ${DbConstants.tableAccounts} ADD COLUMN $col');
+        }
+      }
+    }
+    if (oldVersion < 21) {
+      // A receipt photo on a transaction. After the v9 rebuild of expenses.
+      await db.execute('ALTER TABLE ${DbConstants.tableExpenses} '
+          'ADD COLUMN ${DbConstants.colAttachment} TEXT');
     }
   }
 
@@ -615,7 +654,12 @@ class DBService {
         ${DbConstants.colLast4} TEXT,
         ${DbConstants.colStatementDay} INTEGER,
         ${DbConstants.colDueDay} INTEGER,
-        ${DbConstants.colCreditLimit} INTEGER
+        ${DbConstants.colCreditLimit} INTEGER,
+        ${DbConstants.colSharedLimitWith} INTEGER,
+        ${DbConstants.colRewardPoints} INTEGER,
+        ${DbConstants.colRewardAsOf} TEXT,
+        ${DbConstants.colRewardRate} REAL,
+        ${DbConstants.colPointValue} REAL
       )
     ''');
   }
@@ -625,6 +669,21 @@ class DBService {
       CREATE TABLE IF NOT EXISTS ${DbConstants.tableInvestmentValues}(
         ${DbConstants.colType} TEXT PRIMARY KEY,
         ${DbConstants.colAmount} INTEGER NOT NULL,
+        ${DbConstants.colDate} TEXT NOT NULL
+      )
+    ''');
+  }
+
+  static Future<void> _createEmiPlansTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DbConstants.tableEmiPlans}(
+        ${DbConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.colEmiCardId} INTEGER NOT NULL,
+        ${DbConstants.colEmiLoanId} INTEGER NOT NULL,
+        ${DbConstants.colDescription} TEXT NOT NULL,
+        ${DbConstants.colEmiPrincipal} INTEGER NOT NULL,
+        ${DbConstants.colEmiMonths} INTEGER NOT NULL,
+        ${DbConstants.colEmiMonthly} INTEGER NOT NULL,
         ${DbConstants.colDate} TEXT NOT NULL
       )
     ''');
@@ -997,6 +1056,7 @@ class DBService {
     await clearRecurringRules();
     await clearTemplates();
     await clearGoals();
+    await (await database).delete(DbConstants.tableEmiPlans);
     // Wiping the ledger has to drop the dismissal list too, or messages the
     // user rejected stay suppressed against a database that no longer has the
     // transactions they were rejected next to.
@@ -1075,6 +1135,7 @@ class DBService {
     DbConstants.tableRecurringRules,
     DbConstants.tableTemplates,
     DbConstants.tableGoals,
+    DbConstants.tableEmiPlans,
     // Included so toggling at-rest encryption (which copies every table into a
     // fresh database) carries the dismissal list across. Backups carry it
     // from v7; restoring an older one empties it, and the only cost is that
@@ -1428,8 +1489,64 @@ class DBService {
 
   Future<int> updateAccount(Account account) async {
     final db = await database;
-    return await db.update(DbConstants.tableAccounts, account.toMap(),
-        where: '${DbConstants.colId} = ?', whereArgs: [account.id]);
+    return await db.transaction((txn) async {
+      final n = await txn.update(DbConstants.tableAccounts, account.toMap(),
+          where: '${DbConstants.colId} = ?', whereArgs: [account.id]);
+      if (account.id != null) {
+        if (account.sharedLimitWith != null) {
+          // This card now draws on another card's limit, so any card that
+          // drew on its limit follows it there.
+          await _handOverSharedLimit(txn, account.id!,
+              to: account.sharedLimitWith);
+        } else if (account.type != 'credit_card') {
+          // No longer a card: the cards that shared its limit keep it
+          // between them.
+          await _handOverSharedLimit(txn, account.id!,
+              limit: account.creditLimit);
+        }
+      }
+      return n;
+    });
+  }
+
+  /// Moves the cards that share card [id]'s credit limit on, once [id] stops
+  /// holding it: onto card [to] when given, else the first of them takes the
+  /// limit over (with [limit] as its value unless it has one of its own) and
+  /// the rest share it from there. Keeps a Visa + RuPay pair working when one
+  /// of the two is deleted or re-linked.
+  static Future<void> _handOverSharedLimit(Transaction txn, int id,
+      {int? to, int? limit}) async {
+    // Only cards: an EMI's loan account points at its own card for good.
+    final members = await txn.query(DbConstants.tableAccounts,
+        where: '${DbConstants.colSharedLimitWith} = ? AND '
+            '${DbConstants.colId} != ? AND '
+            "${DbConstants.colType} = 'credit_card'",
+        whereArgs: [id, id],
+        orderBy: DbConstants.colId);
+    if (members.isEmpty) return;
+    var holder = to;
+    if (holder == null) {
+      final first = members.first;
+      holder = first[DbConstants.colId] as int;
+      await txn.update(
+        DbConstants.tableAccounts,
+        {
+          DbConstants.colSharedLimitWith: null,
+          DbConstants.colCreditLimit:
+              first[DbConstants.colCreditLimit] ?? limit,
+        },
+        where: '${DbConstants.colId} = ?',
+        whereArgs: [holder],
+      );
+    }
+    await txn.update(
+      DbConstants.tableAccounts,
+      {DbConstants.colSharedLimitWith: holder},
+      where: '${DbConstants.colSharedLimitWith} = ? AND '
+          '${DbConstants.colId} != ? AND '
+          "${DbConstants.colType} = 'credit_card'",
+      whereArgs: [id, holder],
+    );
   }
 
   Future<int> deleteAccount(int id) async {
@@ -1468,9 +1585,104 @@ class DBService {
         where: '${DbConstants.colAccountId} = ?',
         whereArgs: [id],
       );
+      // An EMI plan goes with its card or its loan account; its loan stays
+      // (the debt is real) but no longer draws on a card that is gone.
+      await txn.delete(DbConstants.tableEmiPlans,
+          where: '${DbConstants.colEmiCardId} = ? OR '
+              '${DbConstants.colEmiLoanId} = ?',
+          whereArgs: [id, id]);
+      await txn.update(
+          DbConstants.tableAccounts, {DbConstants.colSharedLimitWith: null},
+          where: '${DbConstants.colSharedLimitWith} = ? AND '
+              "${DbConstants.colType} != 'credit_card'",
+          whereArgs: [id]);
+      // Cards that shared this one's limit keep it between them.
+      final gone = await txn.query(DbConstants.tableAccounts,
+          columns: [DbConstants.colCreditLimit],
+          where: '${DbConstants.colId} = ?',
+          whereArgs: [id]);
+      await _handOverSharedLimit(txn, id,
+          limit: gone.isEmpty
+              ? null
+              : (gone.first[DbConstants.colCreditLimit] as num?)?.toInt());
       return await txn.delete(DbConstants.tableAccounts,
           where: '${DbConstants.colId} = ?', whereArgs: [id]);
     });
+  }
+
+  /// Money into and out of each account, in its own currency: income and
+  /// transfers in, against expenses and transfers out (investments paid
+  /// from it count as out). For loans and money lent, where "in" and "out"
+  /// are what was repaid and what was borrowed or lent.
+  Future<Map<int, ({int inflow, int outflow})>> getAccountInOut() async {
+    final db = await database;
+    final inflow = <int, int>{}, outflow = <int, int>{};
+    final rows = await db.rawQuery(
+        'SELECT ${DbConstants.colAccountId} AS id, ${DbConstants.colType} AS t, '
+        'SUM(${DbConstants.colAmount}) AS amt FROM ${DbConstants.tableExpenses} '
+        'WHERE ${DbConstants.colAccountId} IS NOT NULL GROUP BY id, t');
+    for (final r in rows) {
+      final id = r['id'] as int;
+      final amt = ((r['amt'] ?? 0) as num).round();
+      if (r['t'] == DbConstants.txIncome) {
+        inflow[id] = (inflow[id] ?? 0) + amt;
+      } else {
+        outflow[id] = (outflow[id] ?? 0) + amt;
+      }
+    }
+    final ins = await db.rawQuery(
+        'SELECT ${DbConstants.colToAccountId} AS id, '
+        'SUM(COALESCE(${DbConstants.colToAmount}, ${DbConstants.colAmount})) '
+        'AS amt FROM ${DbConstants.tableExpenses} '
+        'WHERE ${DbConstants.colType} = ? AND '
+        '${DbConstants.colToAccountId} IS NOT NULL GROUP BY id',
+        [DbConstants.txTransfer]);
+    for (final r in ins) {
+      final id = r['id'] as int;
+      inflow[id] = (inflow[id] ?? 0) + ((r['amt'] ?? 0) as num).round();
+    }
+    final inv = await db.rawQuery(
+        'SELECT ${DbConstants.colAccountId} AS id, '
+        'SUM(${DbConstants.colAmount}) AS amt '
+        'FROM ${DbConstants.tableInvestments} '
+        'WHERE ${DbConstants.colAccountId} IS NOT NULL GROUP BY id');
+    for (final r in inv) {
+      final id = r['id'] as int;
+      outflow[id] = (outflow[id] ?? 0) + ((r['amt'] ?? 0) as num).round();
+    }
+    return {
+      for (final id in {...inflow.keys, ...outflow.keys})
+        id: (inflow: inflow[id] ?? 0, outflow: outflow[id] ?? 0)
+    };
+  }
+
+  // EMI plans
+  Future<int> insertEmiPlan(EmiPlan plan) async {
+    final db = await database;
+    return db.insert(DbConstants.tableEmiPlans, plan.toMap());
+  }
+
+  Future<List<EmiPlan>> getEmiPlans() async {
+    final db = await database;
+    final rows = await db.query(DbConstants.tableEmiPlans,
+        orderBy: DbConstants.colDate);
+    return rows.map(EmiPlan.fromMap).toList();
+  }
+
+  Future<void> deleteEmiPlan(int id) async {
+    final db = await database;
+    await db.delete(DbConstants.tableEmiPlans,
+        where: '${DbConstants.colId} = ?', whereArgs: [id]);
+  }
+
+  /// Every receipt photo a transaction still refers to.
+  Future<Set<String>> referencedAttachments() async {
+    final db = await database;
+    final rows = await db.rawQuery(
+        'SELECT DISTINCT ${DbConstants.colAttachment} AS a '
+        'FROM ${DbConstants.tableExpenses} '
+        'WHERE ${DbConstants.colAttachment} IS NOT NULL');
+    return {for (final r in rows) r['a'] as String};
   }
 
   Future<void> clearAccounts() async {

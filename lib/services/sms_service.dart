@@ -13,6 +13,7 @@ import '../utils/currency_format.dart';
 import 'category_memory.dart';
 import 'investment_merchants.dart';
 import 'merchant_categories.dart';
+import 'card_limit_readings.dart';
 import 'sms_import.dart';
 
 /// Reads the device SMS inbox and hands each message to [SmsImport].
@@ -251,10 +252,20 @@ class SmsService {
         includeDismissed ? const <String>{} : await ignoredMerchants();
 
     final parsed = <ParsedSms>[];
+    final readings = <LimitReading>[];
+    final pointReadings = <LimitReading>[];
     for (final sms in await _inbox(since: lower)) {
       if (sms.receivedAt.isBefore(lower)) continue;
       if (to != null && sms.receivedAt.isAfter(to)) continue;
       if (SmsImport.isNonBankSender(sms.sender)) continue;
+      // A card's "Avl Lmt" is worth keeping even from a message already
+      // imported or dismissed: it checks the card's figures against the
+      // bank's.
+      final reading = CardLimitReadings.fromSms(sms.body, sms.receivedAt);
+      if (reading != null) readings.add(reading);
+      final points =
+          CardLimitReadings.pointsFromSms(sms.body, sms.receivedAt);
+      if (points != null) pointReadings.add(points);
       final candidate = SmsImport.parse(
         sender: sms.sender,
         body: sms.body,
@@ -264,6 +275,8 @@ class SmsService {
       if (isIgnored(candidate, ignored)) continue;
       parsed.add(candidate);
     }
+    await CardLimitReadings.record(readings);
+    await CardLimitReadings.points.record(pointReadings);
     // Pair up the two alerts one movement produces before sorting, so a card
     // payment shows as a single transfer rather than a debit and a credit.
     final collapsed = SmsImport.collapseTransferPairs(parsed)

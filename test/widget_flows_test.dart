@@ -400,7 +400,8 @@ void main() {
     await tester.tap(find.text('Save'));
     // Until the edit dialog has closed — it closes once the save is written —
     // rather than a fixed three short waits.
-    for (var i = 0; i < 3 || (i < 40 && find.text('Save').evaluate().isNotEmpty);
+    for (var i = 0;
+        i < 3 || (i < 40 && find.text('Save').evaluate().isNotEmpty);
         i++) {
       await tester.runAsync(
           () async => Future<void>.delayed(const Duration(milliseconds: 50)));
@@ -478,11 +479,62 @@ void main() {
     await tester.ensureVisible(find.text('None'));
     await tester.tap(find.text('None'));
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('US card').last);
+    await tester.tap(find.text('US card (credit card)').last);
     await tester.pump(const Duration(milliseconds: 300));
 
     // Stored in dollars, so it must not be labelled in rupees.
     expect(find.text(r'$ '), findsOneWidget);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+
+  testWidgets('Add expense: Credit Card asks which card; a card can be preset',
+      (tester) async {
+    final (accounts, expenses, templates, cardId) =
+        (await tester.runAsync(() async {
+      await DBService()
+          .insertAccount(Account(name: 'Savings', type: 'bank', last4: '4821'));
+      final id = await DBService().insertAccount(
+          Account(name: 'HDFC Visa', type: 'credit_card', last4: '1111'));
+      final a = AccountProvider();
+      await a.fetchAccounts();
+      return (a, ExpenseProvider(), TemplateProvider(), id);
+    }))!;
+
+    Future<void> open(Widget screen) async {
+      await pumpScreen(tester, screen, [
+        ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+        ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
+        ChangeNotifierProvider<TemplateProvider>.value(value: templates),
+        ChangeNotifierProvider<SettingsProvider>.value(
+            value: SettingsProvider()),
+      ]);
+      for (var i = 0; i < 2; i++) {
+        await tester.runAsync(
+            () async => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
+      }
+    }
+
+    bool selected(String label) => tester
+        .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, label))
+        .selected;
+
+    await open(const AddExpenseScreen());
+    expect(find.text('Which card?'), findsNothing);
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Credit Card'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Credit Card'));
+    await tester.pump();
+    // The only card is picked, and the form says where the spend lands.
+    expect(find.text('Which card?'), findsOneWidget);
+    expect(selected('HDFC Visa ••1111'), isTrue);
+    expect(find.textContaining('Added to what you owe on HDFC Visa'),
+        findsOneWidget);
+    await teardownTree(tester);
+
+    // From the card's menu: the card is already chosen.
+    await open(AddExpenseScreen(initialAccountId: cardId));
+    expect(selected('Credit Card'), isTrue);
+    expect(selected('HDFC Visa ••1111'), isTrue);
     await teardownTree(tester);
   }, timeout: testTimeout);
 }

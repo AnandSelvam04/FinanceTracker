@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,6 +13,7 @@ import '../models/tx_template.dart';
 import '../services/db_service.dart';
 import '../services/receipt_parser.dart';
 import '../services/receipt_scanner.dart';
+import '../services/receipt_store.dart';
 import '../services/voice_expense_parser.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_logger.dart';
@@ -19,6 +22,7 @@ import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/category_choice_chip.dart';
 import '../widgets/date_field_row.dart';
+import '../widgets/spend_account_picker.dart';
 import '../widgets/voice_capture_sheet.dart';
 
 /// An optional capture flow to launch as soon as the screen opens, so the
@@ -34,10 +38,15 @@ class AddExpenseScreen extends StatefulWidget {
   /// user taps Add.
   final Expense? duplicateOf;
 
+  /// Opens with this account (a credit card, say) chosen, for adding a spend
+  /// an SMS alert missed.
+  final int? initialAccountId;
+
   const AddExpenseScreen({
     super.key,
     this.autoStart = AddExpenseAction.none,
     this.duplicateOf,
+    this.initialAccountId,
   });
 
   @override
@@ -56,6 +65,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   int? _accountId;
   bool _isSaving = false;
   bool _isScanning = false;
+
+  /// The scanned (or attached) bill photo, kept with the transaction when it
+  /// is saved. A temporary path until then.
+  String? _receiptPhoto;
   bool _saveAsTemplate = false;
   List<String> _frequentExpenseCategories = const [];
   List<String> _frequentIncomeCategories = const [];
@@ -126,7 +139,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       // Preselect the user's default account, if set and still present —
       // unless this is a copy, which keeps the original's account.
       final defaultId = context.read<SettingsProvider>().defaultAccountId;
+      final initial = widget.initialAccountId;
       if (copy == null &&
+          initial != null &&
+          provider.accountById(initial) != null) {
+        setState(() => _selectAccount(initial));
+      } else if (copy == null &&
           defaultId != null &&
           context.read<AccountProvider>().accountById(defaultId) != null) {
         setState(() => _selectAccount(defaultId));
@@ -256,7 +274,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isScanning = true);
-    ParsedReceipt? result;
+    ({ParsedReceipt receipt, String imagePath})? result;
     try {
       result = await ReceiptScanner.scan(source);
     } catch (e, st) {
@@ -268,7 +286,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (mounted) setState(() => _isScanning = false);
     }
     if (!mounted || result == null) return;
-    _applyReceipt(result, messenger);
+    setState(() => _receiptPhoto = result!.imagePath);
+    _applyReceipt(result.receipt, messenger);
   }
 
   void _applyReceipt(ParsedReceipt r, ScaffoldMessengerState messenger) {
@@ -413,6 +432,32 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   ),
                 ],
               ),
+              if (_receiptPhoto != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.file(File(_receiptPhoto!),
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.receipt_long, size: 40)),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                          child: Text('Receipt photo will be kept with this '
+                              'transaction')),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Don\'t keep the photo',
+                        onPressed: () => setState(() => _receiptPhoto = null),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 16),
               // The amount is the focal input, so it is enlarged and carries
               // the configured currency symbol as a prefix.
@@ -476,22 +521,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         ))
                     .toList(),
               ),
-              if (accounts.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                DropdownButtonFormField<int?>(
-                  isExpanded: true,
-                  initialValue: _accountId,
-                  decoration: const InputDecoration(labelText: 'Account'),
-                  items: [
-                    DropdownMenuItem<int?>(
-                        value: null, child: const Text('None')),
-                    ...accounts.map((a) => DropdownMenuItem<int?>(
-                        value: a.id,
-                        child: Text(a.name, overflow: TextOverflow.ellipsis))),
-                  ],
-                  onChanged: (value) => setState(() => _selectAccount(value)),
-                ),
-              ],
               if (!_isIncome) ...[
                 const SizedBox(height: 16),
                 Text('Payment mode',
@@ -508,12 +537,33 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       selected: _selectedPaymentMode == p,
                       // The checkmark replaces the avatar, hiding the icon.
                       showCheckmark: false,
-                      onSelected: (_) =>
-                          setState(() => _selectedPaymentMode = p),
+                      onSelected: (_) => setState(() {
+                        _selectedPaymentMode = p;
+                        // "Credit Card" asks which card; leaving it drops a
+                        // card account the spend no longer went on.
+                        _accountId = SpendAccountPicker.accountForMode(
+                            p, _accountId, accounts,
+                            fallbackId: context
+                                .read<SettingsProvider>()
+                                .defaultAccountId);
+                      }),
                     );
                   }).toList(),
                 ),
                 const SizedBox(height: 4),
+              ],
+              if (accounts.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                SpendAccountPicker(
+                  accounts: accounts,
+                  accountId: _accountId,
+                  // Income has no payment mode, so no card row.
+                  paymentMode: _isIncome ? 'Other' : _selectedPaymentMode,
+                  onChanged: (id, mode) => setState(() {
+                    _accountId = id;
+                    if (!_isIncome) _selectedPaymentMode = mode;
+                  }),
+                ),
               ],
               const SizedBox(height: 8),
               TextFormField(
@@ -524,6 +574,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Note (optional)',
                   hintText: 'e.g. split with Ravi, warranty till 2028',
+                  helperText: 'Add #tags to group spending, e.g. #goa-trip',
                 ),
               ),
               CheckboxListTile(
@@ -547,7 +598,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       : () async {
                           if (_formKey.currentState!.validate()) {
                             setState(() => _isSaving = true);
+                            String? attachment;
+                            if (_receiptPhoto != null) {
+                              try {
+                                attachment =
+                                    await ReceiptStore.save(_receiptPhoto!);
+                              } catch (e, st) {
+                                AppLogger.error(
+                                    'Could not keep the receipt photo', e, st);
+                              }
+                            }
+                            if (!context.mounted) return;
                             final expense = Expense(
+                              attachment: attachment,
                               description: _resolvedDescription,
                               amount: parseMinor(_amountController.text)!,
                               date: _selectedDate,

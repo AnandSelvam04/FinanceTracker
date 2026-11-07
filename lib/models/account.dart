@@ -4,7 +4,7 @@ import '../utils/db_constants.dart';
 class Account {
   final int? id;
   final String name;
-  final String type; // cash | bank | upi | credit_card
+  final String type; // cash | bank | upi | credit_card | loan | lent
 
   /// Opening balance in minor units (paise/cents), in this account's currency.
   final int openingBalance;
@@ -33,6 +33,23 @@ class Account {
   /// when not set; with it, the dashboard shows how much of it is used.
   final int? creditLimit;
 
+  /// Id of the credit card whose limit this card draws on, for banks that
+  /// issue two cards on one limit (a Visa and a RuPay card, say): spending on
+  /// either uses up the same limit. Null when the card has a limit of its own.
+  /// The card it points to holds the shared [creditLimit]; see `limitPools`.
+  final int? sharedLimitWith;
+
+  /// A credit card's reward points: the balance [rewardPoints] as of
+  /// [rewardAsOf], points earned per ₹100 spent ([rewardRate]), and what one
+  /// point is worth in this account's currency ([pointValue]). Each null when
+  /// not set; see `RewardEstimate` for the running figure.
+  final int? rewardPoints;
+  final DateTime? rewardAsOf;
+  final double? rewardRate;
+  final double? pointValue;
+
+  bool get tracksRewards => rewardRate != null || rewardPoints != null;
+
   Account({
     this.id,
     required this.name,
@@ -45,7 +62,47 @@ class Account {
     this.statementDay,
     this.dueDay,
     this.creditLimit,
+    this.sharedLimitWith,
+    this.rewardPoints,
+    this.rewardAsOf,
+    this.rewardRate,
+    this.pointValue,
   });
+
+  /// A copy with the given fields changed. The nullable card fields take a
+  /// `clear…` flag to set them back to null.
+  Account copyWith({
+    String? name,
+    int? openingBalance,
+    String? last4,
+    int? statementDay,
+    int? dueDay,
+    int? creditLimit,
+    bool clearCreditLimit = false,
+    int? sharedLimitWith,
+    bool clearSharedLimitWith = false,
+  }) =>
+      Account(
+        id: id,
+        name: name ?? this.name,
+        type: type,
+        openingBalance: openingBalance ?? this.openingBalance,
+        color: color,
+        currency: currency,
+        rate: rate,
+        last4: last4 ?? this.last4,
+        statementDay: statementDay ?? this.statementDay,
+        dueDay: dueDay ?? this.dueDay,
+        creditLimit:
+            clearCreditLimit ? null : (creditLimit ?? this.creditLimit),
+        sharedLimitWith: clearSharedLimitWith
+            ? null
+            : (sharedLimitWith ?? this.sharedLimitWith),
+        rewardPoints: rewardPoints,
+        rewardAsOf: rewardAsOf,
+        rewardRate: rewardRate,
+        pointValue: pointValue,
+      );
 
   /// Whether this credit card has a billing cycle configured.
   bool get hasBillingCycle =>
@@ -57,7 +114,16 @@ class Account {
   /// Whether this account is held in a non-base currency.
   bool get isForeign => currency != null && currency != CurrencyFormat.symbol;
 
-  static const types = ['cash', 'bank', 'upi', 'credit_card'];
+  static const types = ['cash', 'bank', 'upi', 'credit_card', 'loan', 'lent'];
+
+  /// Money borrowed — a personal loan, or from a friend. Its balance is
+  /// negative while something is still to repay: borrowing is a transfer
+  /// out of it into a bank account, a repayment a transfer into it.
+  bool get isLoan => type == 'loan';
+
+  /// Money lent to someone. Its balance is what they still owe you: lending
+  /// is a transfer into it, being paid back a transfer out of it.
+  bool get isLent => type == 'lent';
 
   static String typeLabel(String type) {
     switch (type) {
@@ -69,6 +135,10 @@ class Account {
         return 'UPI';
       case 'credit_card':
         return 'Credit Card';
+      case 'loan':
+        return 'Loan (I owe)';
+      case 'lent':
+        return 'Money lent';
       default:
         return type;
     }
@@ -86,6 +156,11 @@ class Account {
         DbConstants.colStatementDay: statementDay,
         DbConstants.colDueDay: dueDay,
         DbConstants.colCreditLimit: creditLimit,
+        DbConstants.colSharedLimitWith: sharedLimitWith,
+        DbConstants.colRewardPoints: rewardPoints,
+        DbConstants.colRewardAsOf: rewardAsOf?.toIso8601String(),
+        DbConstants.colRewardRate: rewardRate,
+        DbConstants.colPointValue: pointValue,
       };
 
   factory Account.fromMap(Map<String, dynamic> map) => Account(
@@ -104,5 +179,14 @@ class Account {
         dueDay: (map[DbConstants.colDueDay] as num?)?.toInt(),
         // Rows/backups from before schema v18 have no credit limit.
         creditLimit: (map[DbConstants.colCreditLimit] as num?)?.toInt(),
+        // Rows/backups from before schema v19 share no limit.
+        sharedLimitWith: (map[DbConstants.colSharedLimitWith] as num?)?.toInt(),
+        // Rows/backups from before schema v22 have no reward points.
+        rewardPoints: (map[DbConstants.colRewardPoints] as num?)?.toInt(),
+        rewardAsOf: map[DbConstants.colRewardAsOf] == null
+            ? null
+            : DateTime.tryParse(map[DbConstants.colRewardAsOf] as String),
+        rewardRate: (map[DbConstants.colRewardRate] as num?)?.toDouble(),
+        pointValue: (map[DbConstants.colPointValue] as num?)?.toDouble(),
       );
 }

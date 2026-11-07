@@ -63,6 +63,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
         return Icons.qr_code;
       case 'credit_card':
         return Icons.credit_card;
+      case 'loan':
+        return Icons.request_quote_outlined;
+      case 'lent':
+        return Icons.handshake_outlined;
       default:
         return Icons.account_balance_wallet;
     }
@@ -78,6 +82,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
     _statementDay = account?.statementDay;
     _dueDay = account?.dueDay;
     _creditLimit = account?.creditLimit;
+    // A card on another card's limit (Visa + RuPay pair) keeps that link; the
+    // shared limit is edited in the card's set-up on the Credit cards screen.
+    final sharedWith = account?.type == 'credit_card'
+        ? context.read<AccountProvider>().accountById(account?.sharedLimitWith)
+        : null;
 
     final base = context.read<SettingsProvider>().currencySymbol;
     // Offer the base symbol plus the standard options, de-duplicated.
@@ -94,166 +103,197 @@ class _AccountsScreenState extends State<AccountsScreen> {
         child: StatefulBuilder(
           builder: (context, setDialogState) {
             final isForeign = _currency != null && _currency != base;
+            final theme = Theme.of(context);
             return AlertDialog(
               title: Text(account == null ? 'Add Account' : 'Edit Account'),
-              content: Form(
-                key: _formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextFormField(
-                        initialValue: _name,
-                        decoration: const InputDecoration(labelText: 'Name'),
-                        validator: (value) => (value == null || value.isEmpty)
-                            ? 'Required'
-                            : null,
-                        onSaved: (value) => _name = value ?? '',
-                      ),
-                      DropdownButtonFormField<String>(
-                        initialValue: _type,
-                        decoration: const InputDecoration(labelText: 'Type'),
-                        items: Account.types
-                            .map((t) => DropdownMenuItem(
-                                value: t, child: Text(Account.typeLabel(t))))
-                            .toList(),
-                        // Rebuild the dialog so the billing-cycle fields show
-                        // or hide as the type changes.
-                        onChanged: (v) =>
-                            setDialogState(() => _type = v ?? _type),
-                      ),
-                      DropdownButtonFormField<String>(
-                        initialValue: _currency ?? base,
-                        decoration:
-                            const InputDecoration(labelText: 'Currency'),
-                        items: currencyChoices
-                            .map((c) => DropdownMenuItem(
-                                value: c,
-                                child: Text(c == base ? '$c (base)' : c)))
-                            .toList(),
-                        onChanged: (v) => setDialogState(() {
-                          _currency = (v == null || v == base) ? null : v;
-                          if (_currency == null) {
-                            _rate = 1.0;
-                            rateController.text = '';
-                          }
-                        }),
-                      ),
-                      if (isForeign)
+              // Outlined fields with room for two lines of help: with a large
+              // system font the one-line helpers ran into the next label.
+              content: Theme(
+                data: theme.copyWith(
+                  inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+                    border: const OutlineInputBorder(),
+                    helperMaxLines: 2,
+                    errorMaxLines: 2,
+                  ),
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: _spaced([
                         TextFormField(
-                          controller: rateController,
-                          decoration: InputDecoration(
-                            labelText: 'Exchange rate',
-                            helperText: '1 $_currency = ? $base',
+                          initialValue: _name,
+                          decoration: const InputDecoration(labelText: 'Name'),
+                          validator: (value) => (value == null || value.isEmpty)
+                              ? 'Required'
+                              : null,
+                          onSaved: (value) => _name = value ?? '',
+                        ),
+                        DropdownButtonFormField<String>(
+                          initialValue: _type,
+                          decoration: const InputDecoration(labelText: 'Type'),
+                          items: Account.types
+                              .map((t) => DropdownMenuItem(
+                                  value: t, child: Text(Account.typeLabel(t))))
+                              .toList(),
+                          // Rebuild the dialog so the billing-cycle fields show
+                          // or hide as the type changes.
+                          onChanged: (v) =>
+                              setDialogState(() => _type = v ?? _type),
+                        ),
+                        DropdownButtonFormField<String>(
+                          initialValue: _currency ?? base,
+                          decoration:
+                              const InputDecoration(labelText: 'Currency'),
+                          items: currencyChoices
+                              .map((c) => DropdownMenuItem(
+                                  value: c,
+                                  child: Text(c == base ? '$c (base)' : c)))
+                              .toList(),
+                          onChanged: (v) => setDialogState(() {
+                            _currency = (v == null || v == base) ? null : v;
+                            if (_currency == null) {
+                              _rate = 1.0;
+                              rateController.text = '';
+                            }
+                          }),
+                        ),
+                        if (isForeign)
+                          TextFormField(
+                            controller: rateController,
+                            decoration: InputDecoration(
+                              labelText: 'Exchange rate',
+                              helperText: '1 $_currency = ? $base',
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
+                            validator: (value) {
+                              if (!isForeign) return null;
+                              final r = double.tryParse(value ?? '');
+                              return (r == null || r <= 0)
+                                  ? 'Enter a positive rate'
+                                  : null;
+                            },
+                            onSaved: (value) =>
+                                _rate = double.tryParse(value ?? '') ?? 1.0,
                           ),
+                        TextFormField(
+                          initialValue: _openingBalance == 0
+                              ? ''
+                              : minorToEditString(_openingBalance),
+                          decoration: InputDecoration(
+                              labelText:
+                                  'Opening Balance (${_currency ?? base})'),
                           keyboardType: const TextInputType.numberWithOptions(
                               decimal: true),
                           validator: (value) {
-                            if (!isForeign) return null;
-                            final r = double.tryParse(value ?? '');
-                            return (r == null || r <= 0)
-                                ? 'Enter a positive rate'
+                            if (value == null || value.isEmpty) return null;
+                            // Out-of-range used to pass here and then save as 0.
+                            return parseMinor(value) == null
+                                ? 'Invalid number'
                                 : null;
                           },
                           onSaved: (value) =>
-                              _rate = double.tryParse(value ?? '') ?? 1.0,
+                              _openingBalance = parseMinor(value ?? '') ?? 0,
                         ),
-                      TextFormField(
-                        initialValue: _openingBalance == 0
-                            ? ''
-                            : minorToEditString(_openingBalance),
-                        decoration: InputDecoration(
-                            labelText:
-                                'Opening Balance (${_currency ?? base})'),
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return null;
-                          // Out-of-range used to pass here and then save as 0.
-                          return parseMinor(value) == null
-                              ? 'Invalid number'
-                              : null;
-                        },
-                        onSaved: (value) =>
-                            _openingBalance = parseMinor(value ?? '') ?? 0,
-                      ),
-                      TextFormField(
-                        initialValue: _last4 ?? '',
-                        decoration: const InputDecoration(
-                          labelText: 'Last 4 digits (optional)',
-                          helperText: 'Routes bank SMS alerts to this account',
-                          counterText: '',
-                        ),
-                        keyboardType: TextInputType.number,
-                        maxLength: 4,
-                        validator: (value) {
-                          final text = value?.trim() ?? '';
-                          if (text.isEmpty) return null;
-                          return RegExp(r'^\d{4}$').hasMatch(text)
-                              ? null
-                              : 'Enter exactly 4 digits';
-                        },
-                        onSaved: (value) {
-                          final text = value?.trim() ?? '';
-                          _last4 = text.isEmpty ? null : text;
-                        },
-                      ),
-                      // Billing cycle — only meaningful for a credit card.
-                      // Setting both a statement day and a due day turns on the
-                      // "amount owed" reminder before the payment is due.
-                      if (_type == 'credit_card') ...[
                         TextFormField(
-                          initialValue: _statementDay?.toString() ?? '',
+                          initialValue: _last4 ?? '',
                           decoration: const InputDecoration(
-                            labelText: 'Statement day (1–28)',
-                            helperText: 'Day of month your bill is generated',
+                            labelText: 'Last 4 digits (optional)',
+                            helperText:
+                                'Routes bank SMS alerts to this account',
                             counterText: '',
                           ),
                           keyboardType: TextInputType.number,
-                          maxLength: 2,
-                          validator: _dayValidator,
-                          onSaved: (v) => _statementDay = _parseDay(v),
-                        ),
-                        TextFormField(
-                          initialValue: _dueDay?.toString() ?? '',
-                          decoration: const InputDecoration(
-                            labelText: 'Payment due day (1–28)',
-                            helperText: 'Day of month payment is due',
-                            counterText: '',
-                          ),
-                          keyboardType: TextInputType.number,
-                          maxLength: 2,
-                          validator: _dayValidator,
-                          onSaved: (v) => _dueDay = _parseDay(v),
-                        ),
-                        TextFormField(
-                          initialValue: _creditLimit == null
-                              ? ''
-                              : minorToEditString(_creditLimit!),
-                          decoration: InputDecoration(
-                            labelText:
-                                'Credit limit (${_currency ?? base}, optional)',
-                            helperText: 'Shows how much of it you have used',
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
+                          maxLength: 4,
                           validator: (value) {
                             final text = value?.trim() ?? '';
                             if (text.isEmpty) return null;
-                            final limit = parseMinor(text);
-                            if (limit == null) return 'Invalid number';
-                            return limit <= 0
-                                ? 'Enter an amount above zero'
-                                : null;
+                            return RegExp(r'^\d{4}$').hasMatch(text)
+                                ? null
+                                : 'Enter exactly 4 digits';
                           },
                           onSaved: (value) {
                             final text = value?.trim() ?? '';
-                            _creditLimit =
-                                text.isEmpty ? null : parseMinor(text);
+                            _last4 = text.isEmpty ? null : text;
                           },
                         ),
-                      ],
-                    ],
+                        // Billing cycle — only meaningful for a credit card.
+                        // Setting both a statement day and a due day turns on the
+                        // "amount owed" reminder before the payment is due.
+                        if (_type == 'credit_card') ...[
+                          TextFormField(
+                            initialValue: _statementDay?.toString() ?? '',
+                            decoration: const InputDecoration(
+                              labelText: 'Statement day',
+                              helperText:
+                                  'Day of month (1–28) your bill is generated',
+                              counterText: '',
+                            ),
+                            keyboardType: TextInputType.number,
+                            maxLength: 2,
+                            validator: _dayValidator,
+                            onSaved: (v) => _statementDay = _parseDay(v),
+                          ),
+                          TextFormField(
+                            initialValue: _dueDay?.toString() ?? '',
+                            decoration: const InputDecoration(
+                              labelText: 'Payment due day',
+                              helperText: 'Day of month (1–28) payment is due',
+                              counterText: '',
+                            ),
+                            keyboardType: TextInputType.number,
+                            maxLength: 2,
+                            validator: _dayValidator,
+                            onSaved: (v) => _dueDay = _parseDay(v),
+                          ),
+                          if (sharedWith != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: Text(
+                                'Shares its credit limit with '
+                                '${sharedWith.name}. Change it under Credit '
+                                'cards → set up.',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: mutedTextColor(context)),
+                              ),
+                            )
+                          else
+                            TextFormField(
+                              initialValue: _creditLimit == null
+                                  ? ''
+                                  : minorToEditString(_creditLimit!),
+                              decoration: InputDecoration(
+                                labelText:
+                                    'Credit limit (${_currency ?? base}, optional)',
+                                helperText:
+                                    'Shows how much of it you have used',
+                              ),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              validator: (value) {
+                                final text = value?.trim() ?? '';
+                                if (text.isEmpty) return null;
+                                final limit = parseMinor(text);
+                                if (limit == null) return 'Invalid number';
+                                return limit <= 0
+                                    ? 'Enter an amount above zero'
+                                    : null;
+                              },
+                              onSaved: (value) {
+                                final text = value?.trim() ?? '';
+                                _creditLimit =
+                                    text.isEmpty ? null : parseMinor(text);
+                              },
+                            ),
+                        ],
+                      ]),
+                    ),
                   ),
                 ),
               ),
@@ -279,7 +319,21 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         // Billing cycle only applies to credit cards.
                         statementDay: isCard ? _statementDay : null,
                         dueDay: isCard ? _dueDay : null,
-                        creditLimit: isCard ? _creditLimit : null,
+                        creditLimit:
+                            isCard && sharedWith == null ? _creditLimit : null,
+                        // Reward points are set up on the Credit cards
+                        // screen; keep them.
+                        rewardPoints: isCard ? account?.rewardPoints : null,
+                        rewardAsOf: isCard ? account?.rewardAsOf : null,
+                        rewardRate: isCard ? account?.rewardRate : null,
+                        pointValue: isCard ? account?.pointValue : null,
+                        // A card's shared limit, or the card an EMI's loan
+                        // is on.
+                        sharedLimitWith: isCard
+                            ? sharedWith?.id
+                            : (_type == 'loan'
+                                ? account?.sharedLimitWith
+                                : null),
                       );
                       final provider = context.read<AccountProvider>();
                       if (account == null) {
@@ -299,6 +353,14 @@ class _AccountsScreenState extends State<AccountsScreen> {
       ),
     );
   }
+
+  /// [fields] with a gap between each, so labels and help text don't touch.
+  static List<Widget> _spaced(List<Widget> fields) => [
+        for (var i = 0; i < fields.length; i++) ...[
+          if (i > 0) const SizedBox(height: 14),
+          fields[i],
+        ],
+      ];
 
   Future<void> _openStatement(Account account) async {
     final action = await Navigator.push<AccountDetailAction>(

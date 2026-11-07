@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/account.dart';
+import '../models/emi_plan.dart';
 import '../models/budget.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
@@ -418,6 +419,7 @@ class BackupService {
     final recurringRules = await DBService().getRecurringRules();
     final templates = await DBService().getTemplates();
     final goals = await DBService().getGoals();
+    final emiPlans = await DBService().getEmiPlans();
     final smsIgnored = await DBService().ignoredSourceRefs();
     final values = await DBService().getInvestmentValues();
     final settings = await SettingsProvider.exportForBackup();
@@ -437,6 +439,8 @@ class BackupService {
       'recurring_rules': recurringRules.map((r) => r.toMap()).toList(),
       'templates': templates.map((t) => t.toMap()).toList(),
       'goals': goals.map((g) => g.toMap()).toList(),
+      // Credit-card EMI plans; backups from before them restore with none.
+      'emi_plans': emiPlans.map((p) => p.toMap()).toList(),
       'sms_ignored': smsIgnored,
       'settings': settings,
       'investment_values': [
@@ -571,6 +575,7 @@ class BackupService {
     'recurring_rules',
     'templates',
     'goals',
+    'emi_plans',
     'sms_ignored',
     'investment_values',
   ];
@@ -684,6 +689,10 @@ class BackupService {
       DbConstants.tableGoals: [
         for (final g in data['goals'] ?? [])
           SavingsGoal.fromMap(Map<String, dynamic>.from(g)).toMap(),
+      ],
+      DbConstants.tableEmiPlans: [
+        for (final p in data['emi_plans'] ?? [])
+          EmiPlan.fromMap(Map<String, dynamic>.from(p)).toMap(),
       ],
       DbConstants.tableSmsIgnored: [
         for (final ref in data['sms_ignored'] ?? [])

@@ -15,8 +15,10 @@ class ReceiptScanner {
   static final ImagePicker _picker = ImagePicker();
 
   /// Picks an image from [source], recognizes its text, and parses it into a
-  /// draft transaction. Returns null when the user cancels the picker.
-  static Future<ParsedReceipt?> scan(ImageSource source) async {
+  /// draft transaction, with the photo's path so it can be kept with the
+  /// transaction. Returns null when the user cancels the picker.
+  static Future<({ParsedReceipt receipt, String imagePath})?> scan(
+      ImageSource source) async {
     final XFile? file = await _picker.pickImage(
       source: source,
       // Downscale a little: OCR does not need full-resolution photos, and
@@ -30,9 +32,20 @@ class ReceiptScanner {
     try {
       final input = InputImage.fromFilePath(file.path);
       final recognized = await recognizer.processImage(input);
-      return ReceiptParser.parse(recognized.text);
+      return (
+        receipt: ReceiptParser.parse(recognized.text),
+        imagePath: file.path
+      );
     } finally {
       await recognizer.close();
     }
+  }
+
+  /// Picks a photo to keep with a transaction, without reading it. Null when
+  /// the user cancels.
+  static Future<String?> pickPhoto(ImageSource source) async {
+    final file = await _picker.pickImage(
+        source: source, imageQuality: 80, maxWidth: 1600);
+    return file?.path;
   }
 }

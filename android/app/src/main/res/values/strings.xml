@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home-screen widget (SpendWidgetProvider). -->
+    <string name="widget_description">This month\'s spending, with a quick Add button</string>
+    <string name="widget_loading_title">Finance Tracker</string>
+    <string name="widget_loading_amount">Open the app</string>
+    <string name="widget_add">+ Add</string>
+</resources>

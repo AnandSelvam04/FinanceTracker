@@ -83,6 +83,13 @@ String _grouped(int minor, int decimals, String symbol) {
   return '${minor < 0 ? '-' : ''}${groupDigits(whole, symbol: symbol)}$frac';
 }
 
+/// A whole count (reward points, say) with grouped digits, in the base
+/// currency's grouping. Masked with the amounts while
+/// [CurrencyFormat.hideAmounts] is on.
+String formatCount(int n) => CurrencyFormat.hideAmounts
+    ? '•••••'
+    : '${n < 0 ? '-' : ''}${groupDigits('${n.abs()}', symbol: CurrencyFormat.symbol)}';
+
 /// Formats minor units with the configured currency symbol and 2 decimals.
 /// Masked while [CurrencyFormat.hideAmounts] is on.
 String formatMoney(int minor) => CurrencyFormat.hideAmounts

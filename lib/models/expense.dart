@@ -29,6 +29,10 @@ class Expense {
   /// or empty when there is none.
   final String? note;
 
+  /// A receipt photo kept with the transaction: its path inside the app's
+  /// documents folder (see `ReceiptStore`). Null when there is none.
+  final String? attachment;
+
   /// [note] trimmed, or null when there is nothing in it.
   String? get noteText {
     final n = note?.trim();
@@ -48,6 +52,7 @@ class Expense {
     this.toAmount,
     this.sourceRef,
     this.note,
+    this.attachment,
   });
 
   bool get isExpense => type == DbConstants.txExpense;
@@ -75,6 +80,7 @@ class Expense {
         DbConstants.colToAmount: toAmount,
         DbConstants.colSourceRef: sourceRef,
         DbConstants.colNote: note,
+        DbConstants.colAttachment: attachment,
       };
 
   factory Expense.fromMap(Map<String, dynamic> map) => Expense(
@@ -94,5 +100,7 @@ class Expense {
         sourceRef: map[DbConstants.colSourceRef] as String?,
         // Rows/backups from before schema v17 have no note column.
         note: map[DbConstants.colNote] as String?,
+        // Rows/backups from before schema v21 have no attachment column.
+        attachment: map[DbConstants.colAttachment] as String?,
       );
 }

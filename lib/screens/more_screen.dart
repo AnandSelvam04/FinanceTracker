@@ -15,6 +15,8 @@ import 'categories_screen.dart';
 import 'category_trends_screen.dart';
 import 'goals_screen.dart';
 import 'investments_screen.dart';
+import 'loans_screen.dart';
+import 'tags_screen.dart';
 import 'monthly_summary_screen.dart';
 import 'recurring_screen.dart';
 import 'settings_screen.dart';
@@ -149,6 +151,20 @@ class _MoreScreenState extends State<MoreScreen> {
               title: 'Categories',
               subtitle: 'Rename or merge categories',
               onTap: () => _open(const CategoriesScreen()),
+            ),
+            _MenuTile(
+              icon: Icons.handshake_outlined,
+              color: _MenuColors.orange,
+              title: 'Loans & lending',
+              subtitle: 'Money you owe, and money owed to you',
+              onTap: () => _open(const LoansScreen()),
+            ),
+            _MenuTile(
+              icon: Icons.sell_outlined,
+              color: _MenuColors.teal,
+              title: 'Tags',
+              subtitle: 'Totals for #tags in your notes',
+              onTap: () => _open(const TagsScreen()),
             ),
             _MenuTile(
               icon: Icons.flag_outlined,

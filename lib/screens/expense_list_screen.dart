@@ -892,13 +892,28 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                           color: Theme.of(context).colorScheme.onPrimary),
                     )
                   : _CategoryAvatar(expense: expense),
-              title: Text(
-                  expense.description.isEmpty
-                      ? '(no description)'
-                      : expense.description,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              title: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                        expense.description.isEmpty
+                            ? '(no description)'
+                            : expense.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                  // A receipt photo is kept with this row.
+                  if (expense.attachment != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(Icons.attach_file,
+                          size: 15,
+                          semanticLabel: 'Has a receipt photo',
+                          color: mutedTextColor(context)),
+                    ),
+                ],
+              ),
               // A note, when there is one, gets its own line under the
               // category so it is readable without opening the row.
               subtitle: Text(

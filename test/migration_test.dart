@@ -166,9 +166,25 @@ void main() {
         await affinityOf(DbConstants.tableAccounts, DbConstants.colCreditLimit),
         'INTEGER');
 
+    // v21 keeps a receipt photo with a transaction.
+    expect(await affinityOf(DbConstants.tableExpenses, DbConstants.colAttachment),
+        'TEXT');
+
+    // v22 adds a card's reward points.
+    expect(await affinityOf(DbConstants.tableAccounts, DbConstants.colRewardRate),
+        'REAL');
+
+    // v19 lets two cards share one credit limit.
+    expect(
+        await affinityOf(
+            DbConstants.tableAccounts, DbConstants.colSharedLimitWith),
+        'INTEGER');
+
     final tables = await db
         .rawQuery("SELECT name FROM sqlite_master WHERE type = 'table'");
     expect(tables.map((r) => r['name']), contains(DbConstants.tableSmsIgnored));
+    // v20 adds credit-card EMI plans.
+    expect(tables.map((r) => r['name']), contains(DbConstants.tableEmiPlans));
 
     // Rows that predate the column read back as null rather than failing.
     expect(expenses.first.sourceRef, isNull);
