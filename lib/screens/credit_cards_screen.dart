@@ -14,6 +14,7 @@ import '../utils/insets.dart';
 import '../widgets/card_setup_dialog.dart';
 import '../widgets/empty_state.dart';
 import 'account_detail_screen.dart';
+import 'add_transfer_screen.dart';
 
 /// Every credit card in one place: what went on each over a period you pick,
 /// what is owed now, how much of the limit is used, and where the bill
@@ -488,6 +489,7 @@ class _CardTile extends StatelessWidget {
                           style: TextStyle(
                               fontSize: 12, color: incomeColor(context))),
                     ),
+                  if (s.owesMoreThanCycle) _OwedExplainer(summary: s),
                   if (s.limit != null && !pooled) _UsageBar(summary: s),
                   if (bill != null)
                     Padding(
@@ -523,6 +525,195 @@ class _CardTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       clipBehavior: Clip.antiAlias,
       child: body,
+    );
+  }
+}
+
+/// "Why ₹42,000 owed?" — shown when more is owed than went on the card this
+/// cycle. Opens a breakdown that adds up to the amount owed: what was owed
+/// when tracking began, what is left over from earlier cycles (usually the
+/// last bill), this cycle's spending and payments — with a pointer to the
+/// likely cause when the number looks too high.
+class _OwedExplainer extends StatefulWidget {
+  final CreditCardSummary summary;
+  const _OwedExplainer({required this.summary});
+
+  @override
+  State<_OwedExplainer> createState() => _OwedExplainerState();
+}
+
+class _OwedExplainerState extends State<_OwedExplainer> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.summary;
+    final symbol = s.account.symbol;
+    final muted = mutedTextColor(context);
+    final scheme = Theme.of(context).colorScheme;
+    String money(int v) => formatMoneyIn(symbol, v);
+    final since = formatCompactDate(s.periodStart);
+
+    final lines = <(String, String, Color?)>[
+      if (s.openingOwed != 0)
+        s.openingOwed > 0
+            ? ('Already owed when you started', money(s.openingOwed), null)
+            : ('Credit when you started', '− ${money(-s.openingOwed)}', null),
+      if (s.carriedFromEarlier != 0)
+        s.carriedFromEarlier > 0
+            ? (
+                s.hasCycle
+                    ? 'Earlier spending not yet paid off'
+                    : 'Spent before this month, not yet paid off',
+                money(s.carriedFromEarlier),
+                null
+              )
+            : (
+                'Paid in earlier beyond what was spent',
+                '− ${money(-s.carriedFromEarlier)}',
+                null
+              ),
+      if (s.cycleSpend != 0) ('Spent since $since', money(s.cycleSpend), null),
+      if (s.paidThisPeriod != 0)
+        (
+          'Paid since $since',
+          '− ${money(s.paidThisPeriod)}',
+          incomeColor(context)
+        ),
+    ];
+
+    // What most likely makes the figure higher than expected.
+    final hints = <String>[
+      if (s.hasCycle && s.dueRemaining > 0)
+        '${money(s.dueRemaining)} of it is the bill from the '
+            '${formatCompactDate(s.cycle!.statementDate)} statement, due '
+            '${formatCompactDate(s.cycle!.dueDate)}. It stays in "owed" '
+            'until you record paying it.',
+      if (s.openingOwed > 0 && s.carriedFromEarlier > 0)
+        'If the ${money(s.openingOwed)} you entered as already owed '
+            'includes purchases that were also imported or added here, they '
+            'are counted twice — lower it in the card\'s set-up.',
+      if (s.carriedFromEarlier > 0 &&
+          (!s.hasCycle || s.carriedFromEarlier > s.dueRemaining))
+        'Paid an earlier bill? Record it as a transfer from your bank to '
+            'this card so it comes off what is owed.',
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () => setState(() => _open = !_open),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.help_outline, size: 16, color: scheme.primary),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      'Why ${money(s.owed)} owed when '
+                      '${money(s.cycleSpend)} was spent this '
+                      '${s.hasCycle ? 'cycle' : 'month'}?',
+                      style: TextStyle(fontSize: 12, color: scheme.primary),
+                    ),
+                  ),
+                  Icon(_open ? Icons.expand_less : Icons.expand_more,
+                      size: 18, color: scheme.primary),
+                ],
+              ),
+            ),
+          ),
+          if (_open)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final l in lines)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                              child: Text(l.$1,
+                                  style:
+                                      TextStyle(fontSize: 13, color: muted))),
+                          const SizedBox(width: 8),
+                          Text(l.$2,
+                              style: TextStyle(fontSize: 13, color: l.$3)),
+                        ],
+                      ),
+                    ),
+                  const Divider(height: 12),
+                  Row(
+                    children: [
+                      const Expanded(
+                          child: Text('Owed now',
+                              style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w600))),
+                      Text(money(s.owed),
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  for (final h in hints)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.lightbulb_outline, size: 16, color: muted),
+                          const SizedBox(width: 6),
+                          Expanded(
+                              child: Text(h,
+                                  style:
+                                      TextStyle(fontSize: 12, color: muted))),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      TextButton.icon(
+                        icon: const Icon(Icons.payments_outlined, size: 18),
+                        label: const Text('Record a bill payment'),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AddTransferScreen(
+                              initialToAccountId: s.account.id,
+                              initialAmount: s.hasCycle && s.dueRemaining > 0
+                                  ? s.dueRemaining
+                                  : s.owed,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (s.openingOwed > 0)
+                        TextButton.icon(
+                          icon: const Icon(Icons.tune, size: 18),
+                          label: const Text('Fix starting amount'),
+                          onPressed: () =>
+                              showCardSetupDialog(context, card: s.account),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

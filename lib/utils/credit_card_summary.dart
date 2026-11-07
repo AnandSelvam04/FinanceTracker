@@ -115,6 +115,10 @@ class CreditCardSummary {
   /// Paid towards the card since the last statement.
   final int paidSinceStatement;
 
+  /// Paid into the card since [periodStart]: bill payments, and refunds or
+  /// cashback recorded as income on it.
+  final int paidThisPeriod;
+
   /// Whole days from today to the last statement's due date; negative means
   /// overdue. Null without a [cycle].
   final int? daysUntilDue;
@@ -139,6 +143,7 @@ class CreditCardSummary {
     this.cycle,
     this.statementAmount = 0,
     this.paidSinceStatement = 0,
+    this.paidThisPeriod = 0,
     this.daysUntilDue,
     this.sharesLimitWith = const [],
     int? poolLimit,
@@ -147,6 +152,28 @@ class CreditCardSummary {
         _poolOwed = poolOwed;
 
   bool get hasCycle => cycle != null;
+
+  // --- Why "owed now" differs from what was spent this cycle --------------
+  //
+  // owed now = owed when tracking started + left over from earlier
+  //            + spent this cycle − paid this cycle
+  // Every part comes from the same rows as the card's balance, so they add
+  // up to [owed] (less any [credit]) exactly.
+
+  /// What the card's opening balance says was owed when tracking began (the
+  /// set-up's "already owed when you start"); negative for a starting credit.
+  int get openingOwed => -account.openingBalance;
+
+  /// Owed at [periodStart], before this cycle's spending and payments.
+  int get owedAtPeriodStart => (owed - credit) - cycleSpend + paidThisPeriod;
+
+  /// Recorded spending before [periodStart] that no recorded payment has
+  /// cleared — normally the last statement's bill. Negative when earlier
+  /// payments or refunds exceed it.
+  int get carriedFromEarlier => owedAtPeriodStart - openingOwed;
+
+  /// More is owed than went on the card this cycle.
+  bool get owesMoreThanCycle => owed > cycleSpend;
 
   /// The credit limit is shared with other cards.
   bool get isSharedLimit => sharesLimitWith.isNotEmpty;
@@ -249,6 +276,7 @@ List<CreditCardSummary> creditCardSummaries({
         account: a,
         periodStart: start,
         cycleSpend: spendInRange(id, start, tomorrow),
+        paidThisPeriod: paidInRange(id, start, tomorrow),
         owed: owed,
         credit: credit,
         sharesLimitWith: sharesWith,
@@ -265,6 +293,7 @@ List<CreditCardSummary> creditCardSummaries({
       account: a,
       periodStart: cycle.billedUntil,
       cycleSpend: spendInRange(id, cycle.billedUntil, tomorrow),
+      paidThisPeriod: paidInRange(id, cycle.billedUntil, tomorrow),
       owed: owed,
       credit: credit,
       cycle: cycle,

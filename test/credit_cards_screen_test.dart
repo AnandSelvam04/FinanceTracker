@@ -77,6 +77,35 @@ void main() {
       expect(s.statementAmount, 0);
     });
 
+    test('owed breaks down into start, earlier, this cycle and payments', () {
+      // 50,000 billed and unpaid, 12,000 since: 62,000 owed.
+      final s = run([card]).single;
+      expect(s.openingOwed, 0);
+      expect(s.carriedFromEarlier, 50000);
+      expect(s.owesMoreThanCycle, isTrue);
+
+      // Started with 5,000 owed, paid 20,000 since the statement.
+      final started = Account(
+          id: 1,
+          name: 'Visa',
+          type: 'credit_card',
+          statementDay: 5,
+          dueDay: 25,
+          openingBalance: -5000);
+      final p = run([started], paid: 20000, balance: -47000).single;
+      expect(p.paidThisPeriod, 20000);
+      expect(p.openingOwed, 5000);
+      expect(p.owedAtPeriodStart, 55000);
+      expect(p.carriedFromEarlier, 50000);
+      // The parts always add back up to what is owed.
+      expect(
+          p.openingOwed +
+              p.carriedFromEarlier +
+              p.cycleSpend -
+              p.paidThisPeriod,
+          p.owed);
+    });
+
     test('a positive balance is credit, not owed', () {
       final s = run([card], balance: 1500).single;
       expect(s.owed, 0);
@@ -460,6 +489,43 @@ void main() {
           findsOneWidget);
       expect(
           find.text('Add statement & due days, last 4 digits'), findsOneWidget);
+
+      // More owed than spent: the breakdown says why.
+      await tester.tap(find.text('Why ₹42,000.00 owed when ₹32,000.00 was '
+          'spent this month?'));
+      await tester.pump();
+      expect(find.text('Already owed when you started'), findsOneWidget);
+      expect(find.text('₹10,000.00'), findsOneWidget);
+      expect(find.textContaining('Spent since 1 '), findsOneWidget);
+      expect(find.text('Record a bill payment'), findsOneWidget);
+      expect(find.text('Fix starting amount'), findsOneWidget);
+      // Nothing recorded before this month, so no double counting to flag.
+      expect(find.textContaining('counted twice'), findsNothing);
+    }, timeout: const Timeout(Duration(seconds: 45)));
+
+    testWidgets('flags a starting amount that may count purchases twice',
+        (tester) async {
+      final today = DateTime.now();
+      await pumpScreen(
+        tester,
+        accounts: [
+          Account(
+              name: 'Scapia', type: 'credit_card', openingBalance: -2000000),
+        ],
+        rows: (ids) => [
+          // Imported from SMS last month, though already in the 20,000.
+          spend(1500000, DateTime(today.year, today.month - 1, 10, 12),
+              ids['Scapia']),
+          spend(
+              300000, DateTime(today.year, today.month, 1, 12), ids['Scapia']),
+        ],
+      );
+      await tester.tap(find.textContaining('Why ₹38,000.00 owed'));
+      await tester.pump();
+      expect(find.text('Spent before this month, not yet paid off'),
+          findsOneWidget);
+      expect(find.textContaining('counted twice'), findsOneWidget);
+      expect(find.textContaining('Record it as a transfer'), findsOneWidget);
     }, timeout: const Timeout(Duration(seconds: 45)));
 
     testWidgets('the period filter changes what "spent" covers',
