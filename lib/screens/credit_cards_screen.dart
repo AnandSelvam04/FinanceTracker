@@ -152,6 +152,7 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
           final range = cardRange(s.account, _kind, now,
               customStart: _customStart, customEnd: _customEnd);
           return _CardFigures(
+            now: now,
             bankCheck: bankLimitCheck(
               summary: s,
               readingFor: (c) {
@@ -207,6 +208,8 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
                 ),
                 const SizedBox(height: 8),
                 _Totals(rows: rows),
+                if (bestCardToday(summaries, now) case final best?)
+                  _BestCardBanner(summary: best, now: now),
                 for (final t in limitTwinSuggestions(accounts.accounts,
                     dismissed: _dismissedTwins))
                   _TwinSuggestion(
@@ -268,8 +271,12 @@ class _CardFigures {
 
   /// The bank's available limit from SMS against the app's, when known.
   final BankLimitCheck? bankCheck;
+
+  /// Today, for "buy today, pay by".
+  final DateTime? now;
   const _CardFigures({
     this.bankCheck,
+    this.now,
     required this.summary,
     required this.range,
     required this.spent,
@@ -431,6 +438,7 @@ class _CardTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final own = account.color == null ? null : Color(account.color!);
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final window = figures.now == null ? null : s.purchaseToday(figures.now!);
     final bill = _billStatus(context);
     // What this card still needs before it can be tracked fully.
     final missing = [
@@ -530,6 +538,35 @@ class _CardTile extends StatelessWidget {
                               fontWeight: bill.$2 == null
                                   ? FontWeight.normal
                                   : FontWeight.w600)),
+                    ),
+                  if (s.dueRemaining > 0 &&
+                      s.minimumDueEstimate > 0 &&
+                      s.minimumDueEstimate < s.dueRemaining)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                          'Minimum due about '
+                          '${formatMoneyIn(symbol, s.minimumDueEstimate)} — '
+                          'paying only that leaves the rest charged interest',
+                          style: TextStyle(fontSize: 12, color: muted)),
+                    ),
+                  if (window != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        children: [
+                          Icon(Icons.shopping_bag_outlined,
+                              size: 14, color: muted),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                                'Buy today, pay by '
+                                '${formatCompactDate(window.due)} · '
+                                '${window.interestFreeDays} days interest-free',
+                                style: TextStyle(fontSize: 12, color: muted)),
+                          ),
+                        ],
+                      ),
                     ),
                   if (missing.isNotEmpty)
                     Padding(
@@ -748,6 +785,56 @@ class _OwedExplainerState extends State<_OwedExplainer> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Which card to put a purchase on today: the one whose bill for it is due
+/// furthest away, so the money stays interest-free longest.
+class _BestCardBanner extends StatelessWidget {
+  final CreditCardSummary summary;
+  final DateTime now;
+  const _BestCardBanner({required this.summary, required this.now});
+
+  @override
+  Widget build(BuildContext context) {
+    final w = summary.purchaseToday(now)!;
+    final scheme = Theme.of(context).colorScheme;
+    final a = summary.account;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: scheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.star_outline, color: scheme.onSecondaryContainer),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                      'Best card to use today: '
+                      '${a.last4 == null ? a.name : '${a.name} ••${a.last4}'}',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: scheme.onSecondaryContainer)),
+                  const SizedBox(height: 2),
+                  Text(
+                      'A purchase today is billed on '
+                      '${formatCompactDate(w.statement)} and due '
+                      '${formatCompactDate(w.due)} — ${w.interestFreeDays} '
+                      'days interest-free, the longest of your cards.',
+                      style: TextStyle(
+                          fontSize: 13, color: scheme.onSecondaryContainer)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

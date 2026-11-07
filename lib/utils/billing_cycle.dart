@@ -92,6 +92,31 @@ CreditCardCycle computeCreditCardCycle({
   );
 }
 
+/// When a purchase made on [day] gets billed and has to be paid: the
+/// statement it lands on (the statement day itself counts towards that
+/// day's statement) and that statement's due date, with the whole days of
+/// interest-free credit in between.
+({DateTime statement, DateTime due, int interestFreeDays}) purchaseWindow({
+  required int statementDay,
+  required int dueDay,
+  required DateTime day,
+}) {
+  final today = DateTime(day.year, day.month, day.day);
+  final now = computeCreditCardCycle(
+      statementDay: statementDay, dueDay: dueDay, now: today);
+  final statement = now.statementDate == today
+      ? now.statementDate
+      : now.nextStatementDate;
+  final due = computeCreditCardCycle(
+          statementDay: statementDay, dueDay: dueDay, now: statement)
+      .dueDate;
+  return (
+    statement: statement,
+    due: due,
+    interestFreeDays: calendarDaysBetween(today, due),
+  );
+}
+
 /// A due-payment reminder for one credit card.
 class CreditCardReminder {
   final int accountId;

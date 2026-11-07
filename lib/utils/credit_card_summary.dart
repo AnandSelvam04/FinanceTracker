@@ -194,6 +194,30 @@ class CreditCardSummary {
 
   bool get isOverdue => dueRemaining > 0 && (daysUntilDue ?? 0) < 0;
 
+  /// Roughly the minimum payment on the last statement still to pay: most
+  /// Indian card issuers ask for 5% of the bill, at least ₹200 (or the whole
+  /// bill when smaller), less what has been paid since. An estimate — the
+  /// statement has the exact figure, and EMIs or fees can raise it.
+  int get minimumDueEstimate {
+    if (statementAmount <= 0) return 0;
+    final five = (statementAmount * 5 / 100).ceil();
+    final floor = statementAmount < 20000 ? statementAmount : 20000;
+    final min = five > floor ? five : floor;
+    final left = min - paidSinceStatement;
+    return left > 0 ? left : 0;
+  }
+
+  /// When a purchase on this card today would have to be paid, and the
+  /// interest-free days until then. Null without a billing cycle.
+  ({DateTime statement, DateTime due, int interestFreeDays})? purchaseToday(
+          DateTime now) =>
+      !account.hasBillingCycle
+          ? null
+          : purchaseWindow(
+              statementDay: account.statementDay!,
+              dueDay: account.dueDay!,
+              day: now);
+
   /// The card's credit limit — the shared one when [isSharedLimit] — when
   /// one is set.
   int? get limit {
@@ -483,4 +507,27 @@ BankLimitCheck? bankLimitCheck({
     bankAvailable: bank,
     appAvailable: appAvailable,
   );
+}
+
+/// The card that gives the longest interest-free credit on a purchase made
+/// today, among cards with a billing cycle and some limit left. Null unless
+/// at least two cards can be compared.
+CreditCardSummary? bestCardToday(List<CreditCardSummary> cards, DateTime now) {
+  final usable = [
+    for (final c in cards)
+      if (c.account.hasBillingCycle &&
+          (c.available == null || c.available! > 0))
+        c
+  ];
+  if (usable.length < 2) return null;
+  usable.sort((a, b) {
+    final byDays = b
+        .purchaseToday(now)!
+        .interestFreeDays
+        .compareTo(a.purchaseToday(now)!.interestFreeDays);
+    if (byDays != 0) return byDays;
+    // Then the one with more room on its limit.
+    return (b.available ?? 0).compareTo(a.available ?? 0);
+  });
+  return usable.first;
 }

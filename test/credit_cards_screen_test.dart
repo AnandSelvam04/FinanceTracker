@@ -14,6 +14,7 @@ import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/utils/credit_card_summary.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
 import 'package:finance_tracker/screens/credit_cards_screen.dart';
+import 'package:finance_tracker/utils/billing_cycle.dart';
 import 'package:finance_tracker/utils/card_period.dart';
 
 void main() {
@@ -277,6 +278,77 @@ void main() {
             sharedLimitWith: 1),
       ])[1]!;
       expect(pool.limit, 300);
+    });
+  });
+
+  group('statement details', () {
+    test('a purchase today: billed on the next statement, due after it', () {
+      // Statement 5th, due 25th.
+      var w = purchaseWindow(
+          statementDay: 5, dueDay: 25, day: DateTime(2026, 11, 7, 15));
+      expect(w.statement, DateTime(2026, 12, 5));
+      expect(w.due, DateTime(2026, 12, 25));
+      expect(w.interestFreeDays, 48);
+      // On the statement day itself it is on today's statement.
+      w = purchaseWindow(
+          statementDay: 5, dueDay: 25, day: DateTime(2026, 11, 5));
+      expect(w.statement, DateTime(2026, 11, 5));
+      expect(w.interestFreeDays, 20);
+      // Due day before the statement day: due the next month.
+      w = purchaseWindow(
+          statementDay: 20, dueDay: 10, day: DateTime(2026, 11, 7));
+      expect(w.due, DateTime(2026, 12, 10));
+    });
+
+    CreditCardSummary billed(int statement, {int paid = 0}) =>
+        CreditCardSummary(
+          account: Account(id: 1, name: 'Visa', type: 'credit_card'),
+          periodStart: DateTime(2026, 11, 6),
+          cycleSpend: 0,
+          owed: statement,
+          statementAmount: statement,
+          paidSinceStatement: paid,
+        );
+
+    test('minimum due: 5% of the bill, at least 200', () {
+      expect(billed(5000000).minimumDueEstimate, 250000);
+      expect(billed(300000).minimumDueEstimate, 20000);
+      expect(billed(15000).minimumDueEstimate, 15000);
+      expect(billed(5000000, paid: 100000).minimumDueEstimate, 150000);
+      expect(billed(0).minimumDueEstimate, 0);
+    });
+
+    test('the best card today gives the longest interest-free credit', () {
+      final now = DateTime(2026, 11, 7);
+      Account card(int id, int stmt, int due, {int? limit}) => Account(
+          id: id,
+          name: 'Card $id',
+          type: 'credit_card',
+          statementDay: stmt,
+          dueDay: due,
+          creditLimit: limit);
+      List<CreditCardSummary> run(List<Account> cards,
+              {Map<int, int> balances = const {}}) =>
+          creditCardSummaries(
+            accounts: cards,
+            now: now,
+            spendInRange: (_, __, ___) => 0,
+            paidInRange: (_, __, ___) => 0,
+            balanceOf: (a) => balances[a.id] ?? 0,
+          );
+      // Statement on the 8th: a purchase today is billed tomorrow. Statement
+      // on the 6th: it waits for 6 Dec, due 26 Dec.
+      final best = bestCardToday(run([card(1, 8, 28), card(2, 6, 26)]), now);
+      expect(best!.account.id, 2);
+      // A maxed-out card is not offered.
+      expect(
+          bestCardToday(
+              run([card(1, 8, 28), card(2, 6, 26, limit: 100)],
+                  balances: {2: -100}),
+              now),
+          isNull);
+      // One card alone has nothing to compare against.
+      expect(bestCardToday(run([card(1, 8, 28)]), now), isNull);
     });
   });
 
