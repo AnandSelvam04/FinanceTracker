@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/account_provider.dart';
+import '../services/card_limit_readings.dart';
 import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
 import '../utils/app_colors.dart';
@@ -42,6 +43,15 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
   /// Pair suggestions ("these two look like one limit") the user turned
   /// down, by [LimitTwinSuggestion.key]; remembered across launches.
   Set<String> _dismissedTwins = {};
+
+  /// Each card's last "Avl Lmt" from its SMS alerts, by last digits.
+  Map<String, LimitReading> _readings = {};
+
+  Future<void> _loadReadings() async {
+    final r = await CardLimitReadings.load();
+    if (mounted && r.isNotEmpty) setState(() => _readings = r);
+  }
+
   static const _dismissedTwinsKey = 'dismissedLimitTwins';
 
   DateTime get _now => widget.now ?? DateTime.now();
@@ -86,6 +96,7 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
       // A cycle, or last month, can reach back into the previous year.
       _ensureLoaded(_now.year - 1, _now.year);
       _loadDismissedTwins();
+      _loadReadings();
     });
   }
 
@@ -140,6 +151,16 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
           final range = cardRange(s.account, _kind, now,
               customStart: _customStart, customEnd: _customEnd);
           return _CardFigures(
+            bankCheck: bankLimitCheck(
+              summary: s,
+              readingFor: (c) {
+                final r = CardLimitReadings.forCard(_readings, c.last4);
+                return r == null ? null : (amount: r.amount, at: r.at);
+              },
+              now: now,
+              spendInRange: spendIn,
+              paidInRange: expenses.paidToAccountInRange,
+            ),
             summary: s,
             range: range,
             spent: spendIn(s.account.id!, range.start, range.endExclusive),
@@ -243,7 +264,11 @@ class _CardFigures {
 
   /// Paid into the card in [range]: bill payments, refunds, cashback.
   final int paidIn;
+
+  /// The bank's available limit from SMS against the app's, when known.
+  final BankLimitCheck? bankCheck;
   const _CardFigures({
+    this.bankCheck,
     required this.summary,
     required this.range,
     required this.spent,
@@ -492,6 +517,8 @@ class _CardTile extends StatelessWidget {
                     ),
                   if (s.owesMoreThanCycle) _OwedExplainer(summary: s),
                   if (s.limit != null && !pooled) _UsageBar(summary: s),
+                  if (!pooled && figures.bankCheck != null)
+                    _BankCheckLine(check: figures.bankCheck!),
                   if (bill != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -725,6 +752,77 @@ class _OwedExplainerState extends State<_OwedExplainer> {
   }
 }
 
+/// The app's available limit against the one the bank quoted in the card's
+/// last SMS alert: a tick when they agree, else both figures and a way to
+/// make the app match.
+class _BankCheckLine extends StatelessWidget {
+  final BankLimitCheck check;
+  const _BankCheckLine({required this.check});
+
+  @override
+  Widget build(BuildContext context) {
+    final symbol = check.card.symbol;
+    final when = formatCompactDate(check.readingAt);
+    if (check.matches) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(
+          children: [
+            Icon(Icons.verified_outlined,
+                size: 14, color: incomeColor(context)),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text('Matches the bank\'s SMS of $when',
+                  style: TextStyle(fontSize: 12, color: incomeColor(context))),
+            ),
+          ],
+        ),
+      );
+    }
+    final warn = warningColor(context);
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(10, 8, 4, 2),
+      decoration: BoxDecoration(
+        border: Border.all(color: warn.withValues(alpha: 0.6)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.sms_outlined, size: 16, color: warn),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Bank says ${formatMoneyIn(symbol, check.bankAvailable)} '
+                  'available (SMS of $when); the app shows '
+                  '${formatMoneyIn(symbol, check.appAvailable)}. '
+                  '${check.difference > 0 ? 'A purchase may be missing' : 'A payment or refund may be missing'}'
+                  ', or the starting amount is off.',
+                  style: TextStyle(fontSize: 12, color: warn),
+                ),
+              ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              icon: const Icon(Icons.balance, size: 18),
+              label: const Text('Match bank'),
+              onPressed: () => showReconcileDialog(context, check.card,
+                  figure: ReconcileFigure.available,
+                  initialAmount: check.bankAvailable),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Cards on one credit limit (a bank's Visa and RuPay pair) in one frame:
 /// the shared limit's bar on top, then each card with its own spending,
 /// amount owed and bill.
@@ -774,6 +872,8 @@ class _SharedLimitGroup extends StatelessWidget {
                         style: TextStyle(
                             fontSize: 12, color: mutedTextColor(context))),
                   ),
+                if (rows.first.bankCheck != null)
+                  _BankCheckLine(check: rows.first.bankCheck!),
               ],
             ),
           ),

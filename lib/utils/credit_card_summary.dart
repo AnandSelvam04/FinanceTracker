@@ -384,3 +384,84 @@ List<LimitTwinSuggestion> limitTwinSuggestions(List<Account> accounts,
   }
   return out;
 }
+
+/// The bank's available limit, from a card's last SMS alert, against the
+/// app's. The reading is brought up to today with what was recorded on the
+/// cards of the limit after the day it was sent, so the two compare like
+/// for like.
+class BankLimitCheck {
+  /// The card whose alert gave the reading; a fix goes on its balance.
+  final Account card;
+
+  /// When the alert was sent.
+  final DateTime readingAt;
+
+  /// The bank's figure, brought up to today.
+  final int bankAvailable;
+
+  /// The app's available limit today.
+  final int appAvailable;
+
+  const BankLimitCheck({
+    required this.card,
+    required this.readingAt,
+    required this.bankAvailable,
+    required this.appAvailable,
+  });
+
+  /// Positive when the app thinks more is available than the bank does.
+  int get difference => appAvailable - bankAvailable;
+
+  /// Within a rupee: rounding, not a missing transaction.
+  bool get matches => difference.abs() < 100;
+}
+
+/// Readings older than this are too stale to check against.
+const bankReadingMaxAge = Duration(days: 45);
+
+/// Checks [summary]'s available limit against the bank's: [readingFor]
+/// gives the latest (amount, time) the bank sent for a card, and the
+/// newest across the cards sharing the limit is used. Null without a limit
+/// or a recent reading.
+BankLimitCheck? bankLimitCheck({
+  required CreditCardSummary summary,
+  required ({int amount, DateTime at})? Function(Account card) readingFor,
+  required DateTime now,
+  required int Function(int accountId, DateTime start, DateTime endExclusive)
+      spendInRange,
+  required int Function(int accountId, DateTime start, DateTime endExclusive)
+      paidInRange,
+}) {
+  final appAvailable = summary.available;
+  if (appAvailable == null) return null;
+  final cards = [summary.account, ...summary.sharesLimitWith];
+  Account? from;
+  ({int amount, DateTime at})? reading;
+  for (final c in cards) {
+    final r = readingFor(c);
+    if (r == null) continue;
+    if (reading == null || r.at.isAfter(reading.at)) {
+      reading = r;
+      from = c;
+    }
+  }
+  if (reading == null || now.difference(reading.at) > bankReadingMaxAge) {
+    return null;
+  }
+  // Recorded after the day of the reading: the bank's figure did not see it.
+  final after = DateTime(reading.at.year, reading.at.month, reading.at.day + 1);
+  final tomorrow = DateTime(now.year, now.month, now.day + 1);
+  var bank = reading.amount;
+  if (after.isBefore(tomorrow)) {
+    for (final c in cards) {
+      bank -= spendInRange(c.id!, after, tomorrow);
+      bank += paidInRange(c.id!, after, tomorrow);
+    }
+  }
+  return BankLimitCheck(
+    card: from!,
+    readingAt: reading.at,
+    bankAvailable: bank,
+    appAvailable: appAvailable,
+  );
+}

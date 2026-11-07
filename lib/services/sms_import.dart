@@ -365,6 +365,31 @@ class SmsImport {
     );
   }
 
+  /// "Avl Lmt: Rs 1,85,000.00", "Available limit is INR 1,23,456.78", "Avbl
+  /// Cr Lmt INR 50,000" — the credit limit still free on the card, as the
+  /// card's alerts quote it after each purchase or payment.
+  static final _availableLimit = RegExp(
+      r'\b(?:avl|avbl|avail|available)\.?\s*(?:cr\.?|credit)?\s*(?:lmt|limit)\b'
+      r'[\s:.\-]*(?:is\s*)?(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)',
+      caseSensitive: false);
+
+  /// The available credit limit a card alert quotes, and the card it names
+  /// (its last digits, when the message gives them). Null when the message
+  /// quotes no available limit. Works on any message, transaction or not.
+  static ({int amount, String? last4})? availableLimitOf(String body) {
+    final text = body.replaceAll(RegExp(r'\s+'), ' ');
+    final m = _availableLimit.firstMatch(text);
+    if (m == null) return null;
+    final major = double.tryParse(m.group(1)!.replaceAll(',', ''));
+    if (major == null || major < 0 || !isAmountInRange(major)) return null;
+    String? last4;
+    for (final r in _accountRef.allMatches(text)) {
+      if (r.start >= m.start) break;
+      last4 ??= r.group(1) ?? r.group(2);
+    }
+    return (amount: rupeesToMinor(major), last4: last4);
+  }
+
   /// How the money was paid, when the message says so: a UPI payment (even one
   /// made with a RuPay credit card, the way the Add Expense screen files it),
   /// a named credit or debit card, or an ATM withdrawal in cash. Null when the

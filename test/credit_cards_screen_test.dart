@@ -9,6 +9,7 @@ import 'package:finance_tracker/models/expense.dart';
 import 'package:finance_tracker/providers/account_provider.dart';
 import 'package:finance_tracker/providers/expense_provider.dart';
 import 'package:finance_tracker/providers/investment_provider.dart';
+import 'package:finance_tracker/services/card_limit_readings.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/utils/credit_card_summary.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
@@ -377,10 +378,12 @@ void main() {
 
     Future<void> pumpScreen(WidgetTester tester,
         {List<Account> accounts = const [],
-        List<Expense> Function(Map<String, int> ids)? rows}) async {
+        List<Expense> Function(Map<String, int> ids)? rows,
+        Future<void> Function()? before}) async {
       final now = DateTime.now();
       final providers = (await tester.runAsync(() async {
         SharedPreferences.setMockInitialValues({});
+        await before?.call();
         await DBService().clearAll();
         final ids = <String, int>{};
         for (final a in accounts) {
@@ -712,6 +715,44 @@ void main() {
       expect(rupay.statementDay, 5);
       expect(rupay.dueDay, 25);
       expect(visa.creditLimit, 20000000);
+    }, timeout: const Timeout(Duration(seconds: 45)));
+
+    testWidgets('the bank\'s Avl Lmt from SMS is checked against the app',
+        (tester) async {
+      final today = DateTime.now();
+      await pumpScreen(
+        tester,
+        before: () => CardLimitReadings.record([
+          // The bank says 1,80,000 is left; the app only knows of 10,000.
+          LimitReading(last4: '1111', amount: 18000000, at: today),
+        ]),
+        accounts: [
+          Account(
+              name: 'HDFC Visa',
+              type: 'credit_card',
+              creditLimit: 20000000,
+              last4: '1111'),
+        ],
+        rows: (ids) => [
+          spend(1000000, DateTime(today.year, today.month, today.day),
+              ids['HDFC Visa']),
+        ],
+      );
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+      expect(find.textContaining('Bank says ₹1,80,000.00 available'),
+          findsOneWidget);
+      expect(find.textContaining('A purchase may be missing'), findsOneWidget);
+
+      await tester.tap(find.text('Match bank'));
+      await tester.pumpAndSettle();
+      expect(find.text('Match bank balance'), findsOneWidget);
+      expect(find.text('180000.00'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Match'));
+      await settle(tester);
+      await tester.pump();
+      expect(find.textContaining('Matches the bank\'s SMS'), findsOneWidget);
     }, timeout: const Timeout(Duration(seconds: 45)));
   });
 }
