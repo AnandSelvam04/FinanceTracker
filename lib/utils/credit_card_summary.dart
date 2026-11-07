@@ -2,6 +2,87 @@ import '../models/account.dart';
 import 'alerts.dart' show calendarDaysBetween;
 import 'billing_cycle.dart';
 
+/// Credit cards drawing on one credit limit. Banks issue a Visa (or
+/// Mastercard) and a RuPay card on the same limit: a 2,00,000 limit with
+/// 10,000 spent on one and 5,000 on the other has 1,85,000 left on both. A
+/// card on its own is a pool of one.
+class LimitPool {
+  /// The card that carries the limit; the others point to it through
+  /// [Account.sharedLimitWith].
+  final Account holder;
+
+  /// Every card in the pool, [holder] first.
+  final List<Account> cards;
+
+  const LimitPool({required this.holder, required this.cards});
+
+  /// More than one card shares the limit.
+  bool get isShared => cards.length > 1;
+
+  /// The shared limit: the holder's, or — should it have none — the first
+  /// set on another card of the pool. Null when no card has one.
+  int? get limit {
+    for (final c in cards) {
+      final l = c.creditLimit;
+      if (l != null && l > 0) return l;
+    }
+    return null;
+  }
+
+  /// The pool's cards other than [card].
+  List<Account> others(Account card) => [
+        for (final c in cards)
+          if (c.id != card.id) c
+      ];
+}
+
+/// The card whose limit [card] uses: the one it points to, followed to the
+/// end of the chain. A link that leads nowhere — to a deleted card, an
+/// account that is not a credit card, one in another currency, or round in
+/// a loop — is ignored, and the card keeps its own limit.
+Account limitHolderOf(Account card, Map<int, Account> byId) {
+  var current = card;
+  final seen = <int?>{card.id};
+  while (current.sharedLimitWith != null) {
+    final next = byId[current.sharedLimitWith];
+    if (next == null ||
+        next.type != 'credit_card' ||
+        next.currency != card.currency ||
+        !seen.add(next.id)) {
+      break;
+    }
+    current = next;
+  }
+  return current;
+}
+
+/// The limit pool of every credit card, by card id. Cards that share a limit
+/// map to the same [LimitPool].
+Map<int, LimitPool> limitPools(List<Account> accounts) {
+  final cards = [
+    for (final a in accounts)
+      if (a.type == 'credit_card' && a.id != null) a
+  ];
+  final byId = {for (final c in cards) c.id!: c};
+  final groups = <int, List<Account>>{};
+  for (final c in cards) {
+    groups.putIfAbsent(limitHolderOf(c, byId).id!, () => []).add(c);
+  }
+  final out = <int, LimitPool>{};
+  for (final entry in groups.entries) {
+    final holder = byId[entry.key]!;
+    final pool = LimitPool(holder: holder, cards: [
+      holder,
+      for (final c in entry.value)
+        if (c.id != holder.id) c,
+    ]);
+    for (final c in pool.cards) {
+      out[c.id!] = pool;
+    }
+  }
+  return out;
+}
+
 /// Where one credit card stands today: what has gone on it since the last
 /// statement, what is owed on it, and the state of the last bill. Pure, so the
 /// dashboard's Credit cards section can be tested without widgets.
@@ -38,6 +119,17 @@ class CreditCardSummary {
   /// overdue. Null without a [cycle].
   final int? daysUntilDue;
 
+  /// The other cards this one shares its credit limit with; empty when it
+  /// has a limit of its own.
+  final List<Account> sharesLimitWith;
+
+  /// The shared limit, when [sharesLimitWith] is not empty.
+  final int? _poolLimit;
+
+  /// Owed across every card on the shared limit, when [sharesLimitWith] is
+  /// not empty.
+  final int? _poolOwed;
+
   const CreditCardSummary({
     required this.account,
     required this.periodStart,
@@ -48,9 +140,16 @@ class CreditCardSummary {
     this.statementAmount = 0,
     this.paidSinceStatement = 0,
     this.daysUntilDue,
-  });
+    this.sharesLimitWith = const [],
+    int? poolLimit,
+    int? poolOwed,
+  })  : _poolLimit = poolLimit,
+        _poolOwed = poolOwed;
 
   bool get hasCycle => cycle != null;
+
+  /// The credit limit is shared with other cards.
+  bool get isSharedLimit => sharesLimitWith.isNotEmpty;
 
   /// What is still to pay on the last statement.
   int get dueRemaining {
@@ -63,21 +162,27 @@ class CreditCardSummary {
 
   bool get isOverdue => dueRemaining > 0 && (daysUntilDue ?? 0) < 0;
 
-  /// The card's credit limit, when one is set.
+  /// The card's credit limit — the shared one when [isSharedLimit] — when
+  /// one is set.
   int? get limit {
-    final l = account.creditLimit;
+    final l = isSharedLimit ? _poolLimit : account.creditLimit;
     return l != null && l > 0 ? l : null;
   }
 
-  /// Share of [limit] in use: what is owed over the limit, from 0 up (above
-  /// 1 when the card is over its limit). Null without a limit.
-  double? get usage => limit == null ? null : owed / limit!;
+  /// What counts against [limit]: owed on this card, plus on the cards it
+  /// shares the limit with.
+  int get limitUsed => isSharedLimit ? (_poolOwed ?? owed) : owed;
+
+  /// Share of [limit] in use: [limitUsed] over the limit, from 0 up (above
+  /// 1 when over the limit). Null without a limit.
+  double? get usage => limit == null ? null : limitUsed / limit!;
 
   /// How much more can go on the card before it reaches [limit]; zero once
-  /// at or over it. Null without a limit.
+  /// at or over it. Null without a limit. Cards sharing a limit have the
+  /// same amount available.
   int? get available {
     if (limit == null) return null;
-    final left = limit! - owed;
+    final left = limit! - limitUsed;
     return left > 0 ? left : 0;
   }
 
@@ -118,6 +223,12 @@ List<CreditCardSummary> creditCardSummaries({
 }) {
   final today = DateTime(now.year, now.month, now.day);
   final tomorrow = DateTime(today.year, today.month, today.day + 1);
+  final pools = limitPools(accounts);
+  int owedOn(Account a) {
+    final b = balanceOf(a) ?? 0;
+    return b < 0 ? -b : 0;
+  }
+
   final out = <CreditCardSummary>[];
   for (final a in accounts) {
     if (a.type != 'credit_card' || a.id == null) continue;
@@ -125,6 +236,12 @@ List<CreditCardSummary> creditCardSummaries({
     final balance = balanceOf(a) ?? 0;
     final owed = balance < 0 ? -balance : 0;
     final credit = balance > 0 ? balance : 0;
+    final pool = pools[id];
+    final shared = pool != null && pool.isShared;
+    final sharesWith = shared ? pool.others(a) : const <Account>[];
+    final poolLimit = shared ? pool.limit : null;
+    final poolOwed =
+        shared ? pool.cards.fold<int>(0, (s, c) => s + owedOn(c)) : null;
 
     if (!a.hasBillingCycle) {
       final start = DateTime(today.year, today.month, 1);
@@ -134,6 +251,9 @@ List<CreditCardSummary> creditCardSummaries({
         cycleSpend: spendInRange(id, start, tomorrow),
         owed: owed,
         credit: credit,
+        sharesLimitWith: sharesWith,
+        poolLimit: poolLimit,
+        poolOwed: poolOwed,
       ));
       continue;
     }
@@ -152,6 +272,9 @@ List<CreditCardSummary> creditCardSummaries({
           spendInRange(id, cycle.billedCycleStart, cycle.billedUntil),
       paidSinceStatement: paid < 0 ? 0 : paid,
       daysUntilDue: calendarDaysBetween(today, cycle.dueDate),
+      sharesLimitWith: sharesWith,
+      poolLimit: poolLimit,
+      poolOwed: poolOwed,
     ));
   }
 

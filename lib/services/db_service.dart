@@ -396,6 +396,17 @@ class DBService {
             'ADD COLUMN ${DbConstants.colCreditLimit} INTEGER');
       }
     }
+    if (oldVersion < 19) {
+      // Two cards on one credit limit (a Visa and a RuPay card from the same
+      // bank). Guarded like v18.
+      final hasAccounts = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableAccounts]);
+      if (hasAccounts.isNotEmpty) {
+        await db.execute('ALTER TABLE ${DbConstants.tableAccounts} '
+            'ADD COLUMN ${DbConstants.colSharedLimitWith} INTEGER');
+      }
+    }
   }
 
   /// v9: give every money column INTEGER affinity.
@@ -615,7 +626,8 @@ class DBService {
         ${DbConstants.colLast4} TEXT,
         ${DbConstants.colStatementDay} INTEGER,
         ${DbConstants.colDueDay} INTEGER,
-        ${DbConstants.colCreditLimit} INTEGER
+        ${DbConstants.colCreditLimit} INTEGER,
+        ${DbConstants.colSharedLimitWith} INTEGER
       )
     ''');
   }
@@ -1428,8 +1440,61 @@ class DBService {
 
   Future<int> updateAccount(Account account) async {
     final db = await database;
-    return await db.update(DbConstants.tableAccounts, account.toMap(),
-        where: '${DbConstants.colId} = ?', whereArgs: [account.id]);
+    return await db.transaction((txn) async {
+      final n = await txn.update(DbConstants.tableAccounts, account.toMap(),
+          where: '${DbConstants.colId} = ?', whereArgs: [account.id]);
+      if (account.id != null) {
+        if (account.sharedLimitWith != null) {
+          // This card now draws on another card's limit, so any card that
+          // drew on its limit follows it there.
+          await _handOverSharedLimit(txn, account.id!,
+              to: account.sharedLimitWith);
+        } else if (account.type != 'credit_card') {
+          // No longer a card: the cards that shared its limit keep it
+          // between them.
+          await _handOverSharedLimit(txn, account.id!,
+              limit: account.creditLimit);
+        }
+      }
+      return n;
+    });
+  }
+
+  /// Moves the cards that share card [id]'s credit limit on, once [id] stops
+  /// holding it: onto card [to] when given, else the first of them takes the
+  /// limit over (with [limit] as its value unless it has one of its own) and
+  /// the rest share it from there. Keeps a Visa + RuPay pair working when one
+  /// of the two is deleted or re-linked.
+  static Future<void> _handOverSharedLimit(Transaction txn, int id,
+      {int? to, int? limit}) async {
+    final members = await txn.query(DbConstants.tableAccounts,
+        where: '${DbConstants.colSharedLimitWith} = ? AND '
+            '${DbConstants.colId} != ?',
+        whereArgs: [id, id],
+        orderBy: DbConstants.colId);
+    if (members.isEmpty) return;
+    var holder = to;
+    if (holder == null) {
+      final first = members.first;
+      holder = first[DbConstants.colId] as int;
+      await txn.update(
+        DbConstants.tableAccounts,
+        {
+          DbConstants.colSharedLimitWith: null,
+          DbConstants.colCreditLimit:
+              first[DbConstants.colCreditLimit] ?? limit,
+        },
+        where: '${DbConstants.colId} = ?',
+        whereArgs: [holder],
+      );
+    }
+    await txn.update(
+      DbConstants.tableAccounts,
+      {DbConstants.colSharedLimitWith: holder},
+      where: '${DbConstants.colSharedLimitWith} = ? AND '
+          '${DbConstants.colId} != ?',
+      whereArgs: [id, holder],
+    );
   }
 
   Future<int> deleteAccount(int id) async {
@@ -1468,6 +1533,15 @@ class DBService {
         where: '${DbConstants.colAccountId} = ?',
         whereArgs: [id],
       );
+      // Cards that shared this one's limit keep it between them.
+      final gone = await txn.query(DbConstants.tableAccounts,
+          columns: [DbConstants.colCreditLimit],
+          where: '${DbConstants.colId} = ?',
+          whereArgs: [id]);
+      await _handOverSharedLimit(txn, id,
+          limit: gone.isEmpty
+              ? null
+              : (gone.first[DbConstants.colCreditLimit] as num?)?.toInt());
       return await txn.delete(DbConstants.tableAccounts,
           where: '${DbConstants.colId} = ?', whereArgs: [id]);
     });

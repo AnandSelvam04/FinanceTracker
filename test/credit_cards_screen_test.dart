@@ -150,6 +150,106 @@ void main() {
     });
   });
 
+  group('shared credit limit', () {
+    // A bank's Visa and RuPay cards on one 2,00,000 limit: 10,000 spent on
+    // the Visa and 5,000 on the RuPay card leaves 1,85,000 on both.
+    final visa = Account(
+        id: 1,
+        name: 'HDFC Visa',
+        type: 'credit_card',
+        creditLimit: 20000000,
+        last4: '1111');
+    final rupay = Account(
+        id: 2,
+        name: 'HDFC RuPay',
+        type: 'credit_card',
+        sharedLimitWith: 1,
+        last4: '2222');
+    final other = Account(
+        id: 3, name: 'Scapia', type: 'credit_card', creditLimit: 5000000);
+    final balances = {1: -1000000, 2: -500000, 3: -100000};
+
+    List<CreditCardSummary> run(List<Account> accounts) => creditCardSummaries(
+          accounts: accounts,
+          now: DateTime(2026, 3, 20),
+          spendInRange: (_, __, ___) => 0,
+          paidInRange: (_, __, ___) => 0,
+          balanceOf: (a) => balances[a.id],
+        );
+
+    test('both cards use up one limit', () {
+      final byName = {
+        for (final s in run([visa, rupay, other])) s.account.name: s
+      };
+      for (final name in ['HDFC Visa', 'HDFC RuPay']) {
+        final s = byName[name]!;
+        expect(s.isSharedLimit, isTrue);
+        expect(s.limit, 20000000);
+        expect(s.limitUsed, 1500000);
+        expect(s.available, 18500000);
+        expect(s.usage, closeTo(0.075, 1e-9));
+      }
+      // Each card still owes only its own spending.
+      expect(byName['HDFC Visa']!.owed, 1000000);
+      expect(byName['HDFC RuPay']!.owed, 500000);
+      expect(byName['HDFC Visa']!.sharesLimitWith.map((a) => a.id), [2]);
+      expect(byName['HDFC RuPay']!.sharesLimitWith.map((a) => a.id), [1]);
+      // A card of its own is unaffected.
+      final scapia = byName['Scapia']!;
+      expect(scapia.isSharedLimit, isFalse);
+      expect(scapia.available, 4900000);
+    });
+
+    test('a link to a missing or foreign-currency card is ignored', () {
+      final orphan = Account(
+          id: 4,
+          name: 'Orphan',
+          type: 'credit_card',
+          creditLimit: 100000,
+          sharedLimitWith: 99);
+      final usd = Account(
+          id: 5,
+          name: 'USD card',
+          type: 'credit_card',
+          currency: r'$',
+          sharedLimitWith: 1);
+      final pools = limitPools([visa, orphan, usd]);
+      expect(pools[4]!.isShared, isFalse);
+      expect(pools[4]!.limit, 100000);
+      expect(pools[5]!.isShared, isFalse);
+      expect(pools[1]!.isShared, isFalse);
+    });
+
+    test('a chain or a loop of links settles on one holder', () {
+      final third = Account(
+          id: 6, name: 'Third', type: 'credit_card', sharedLimitWith: 2);
+      final pools = limitPools([visa, rupay, third]);
+      expect(pools[6]!.holder.id, 1);
+      expect(pools[6]!.cards.map((a) => a.id), [1, 2, 6]);
+
+      final a =
+          Account(id: 7, name: 'A', type: 'credit_card', sharedLimitWith: 8);
+      final b =
+          Account(id: 8, name: 'B', type: 'credit_card', sharedLimitWith: 7);
+      // Terminates, and each card lands in some pool.
+      final loop = limitPools([a, b]);
+      expect(loop.keys, containsAll([7, 8]));
+    });
+
+    test('the limit comes from another card when the holder has none', () {
+      final pool = limitPools([
+        Account(id: 1, name: 'Visa', type: 'credit_card'),
+        Account(
+            id: 2,
+            name: 'RuPay',
+            type: 'credit_card',
+            creditLimit: 300,
+            sharedLimitWith: 1),
+      ])[1]!;
+      expect(pool.limit, 300);
+    });
+  });
+
   group('cardRange', () {
     final now = DateTime(2026, 3, 20, 15);
     final cycled = Account(
@@ -379,6 +479,60 @@ void main() {
       expect(find.textContaining('Add '), findsNothing);
       expect(find.text('24% of ₹50,000.00 used · ₹38,000.00 left'),
           findsOneWidget);
+    }, timeout: const Timeout(Duration(seconds: 45)));
+
+    testWidgets('two cards on one limit show what is left of it on both',
+        (tester) async {
+      final today = DateTime.now();
+      final day = DateTime(today.year, today.month, 1, 12);
+      await pumpScreen(
+        tester,
+        accounts: [
+          Account(
+              name: 'HDFC Visa', type: 'credit_card', creditLimit: 20000000),
+          Account(name: 'HDFC RuPay', type: 'credit_card'),
+        ],
+        rows: (ids) => [
+          spend(1000000, day, ids['HDFC Visa']),
+          spend(500000, day, ids['HDFC RuPay']),
+        ],
+      );
+
+      // Link the RuPay card to the Visa card's limit.
+      await tester.tap(find.byTooltip('Set up HDFC RuPay'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('No other card'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('HDFC Visa').last);
+      await tester.pumpAndSettle();
+      // The field now edits the shared limit, filled in from the Visa card.
+      expect(find.widgetWithText(TextFormField, 'Shared credit limit (₹)'),
+          findsOneWidget);
+      expect(find.text('200000.00'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await settle(tester);
+
+      final visa =
+          accountProvider.accounts.singleWhere((a) => a.name == 'HDFC Visa');
+      final rupay =
+          accountProvider.accounts.singleWhere((a) => a.name == 'HDFC RuPay');
+      expect(rupay.sharedLimitWith, visa.id);
+      expect(rupay.creditLimit, isNull);
+      expect(visa.creditLimit, 20000000);
+
+      // 10,000 + 5,000 of 2,00,000: 1,85,000 left, on both cards.
+      expect(find.text('8% of ₹2,00,000.00 shared used · ₹1,85,000.00 left'),
+          findsNWidgets(2));
+      expect(
+          find.text('Limit shared with HDFC RuPay · ₹10,000.00 of it on this '
+              'card'),
+          findsOneWidget);
+      expect(
+          find.text('Limit shared with HDFC Visa · ₹5,000.00 of it on this '
+              'card'),
+          findsOneWidget);
+      // The totals count the shared limit once.
+      expect(find.text('₹1,85,000.00'), findsOneWidget);
     }, timeout: const Timeout(Duration(seconds: 45)));
   });
 }

@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 18;
+  static const int dbVersion = 19;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -61,6 +61,10 @@ class DbConstants {
 
   // A credit card's credit limit in minor units (v18). Null when not set.
   static const String colCreditLimit = 'creditLimit';
+
+  // Id of the credit card whose limit this one shares (v19): two cards a bank
+  // issues on one limit, such as a Visa and a RuPay card. Null otherwise.
+  static const String colSharedLimitWith = 'sharedLimitWith';
 
   // SMS messages the user dismissed in the import review queue, so a later
   // rescan of the inbox does not offer them again.

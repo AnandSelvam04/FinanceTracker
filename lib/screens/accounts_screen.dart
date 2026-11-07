@@ -78,6 +78,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
     _statementDay = account?.statementDay;
     _dueDay = account?.dueDay;
     _creditLimit = account?.creditLimit;
+    // A card on another card's limit (Visa + RuPay pair) keeps that link; the
+    // shared limit is edited in the card's set-up on the Credit cards screen.
+    final sharedWith = account?.type == 'credit_card'
+        ? context.read<AccountProvider>().accountById(account?.sharedLimitWith)
+        : null;
 
     final base = context.read<SettingsProvider>().currencySymbol;
     // Offer the base symbol plus the standard options, de-duplicated.
@@ -226,32 +231,44 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           validator: _dayValidator,
                           onSaved: (v) => _dueDay = _parseDay(v),
                         ),
-                        TextFormField(
-                          initialValue: _creditLimit == null
-                              ? ''
-                              : minorToEditString(_creditLimit!),
-                          decoration: InputDecoration(
-                            labelText:
-                                'Credit limit (${_currency ?? base}, optional)',
-                            helperText: 'Shows how much of it you have used',
+                        if (sharedWith != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(
+                              'Shares its credit limit with '
+                              '${sharedWith.name}. Change it under Credit '
+                              'cards → set up.',
+                              style: TextStyle(
+                                  fontSize: 12, color: mutedTextColor(context)),
+                            ),
+                          )
+                        else
+                          TextFormField(
+                            initialValue: _creditLimit == null
+                                ? ''
+                                : minorToEditString(_creditLimit!),
+                            decoration: InputDecoration(
+                              labelText:
+                                  'Credit limit (${_currency ?? base}, optional)',
+                              helperText: 'Shows how much of it you have used',
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
+                            validator: (value) {
+                              final text = value?.trim() ?? '';
+                              if (text.isEmpty) return null;
+                              final limit = parseMinor(text);
+                              if (limit == null) return 'Invalid number';
+                              return limit <= 0
+                                  ? 'Enter an amount above zero'
+                                  : null;
+                            },
+                            onSaved: (value) {
+                              final text = value?.trim() ?? '';
+                              _creditLimit =
+                                  text.isEmpty ? null : parseMinor(text);
+                            },
                           ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          validator: (value) {
-                            final text = value?.trim() ?? '';
-                            if (text.isEmpty) return null;
-                            final limit = parseMinor(text);
-                            if (limit == null) return 'Invalid number';
-                            return limit <= 0
-                                ? 'Enter an amount above zero'
-                                : null;
-                          },
-                          onSaved: (value) {
-                            final text = value?.trim() ?? '';
-                            _creditLimit =
-                                text.isEmpty ? null : parseMinor(text);
-                          },
-                        ),
                       ],
                     ],
                   ),
@@ -279,7 +296,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         // Billing cycle only applies to credit cards.
                         statementDay: isCard ? _statementDay : null,
                         dueDay: isCard ? _dueDay : null,
-                        creditLimit: isCard ? _creditLimit : null,
+                        creditLimit:
+                            isCard && sharedWith == null ? _creditLimit : null,
+                        sharedLimitWith: isCard ? sharedWith?.id : null,
                       );
                       final provider = context.read<AccountProvider>();
                       if (account == null) {

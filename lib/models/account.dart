@@ -33,6 +33,12 @@ class Account {
   /// when not set; with it, the dashboard shows how much of it is used.
   final int? creditLimit;
 
+  /// Id of the credit card whose limit this card draws on, for banks that
+  /// issue two cards on one limit (a Visa and a RuPay card, say): spending on
+  /// either uses up the same limit. Null when the card has a limit of its own.
+  /// The card it points to holds the shared [creditLimit]; see `limitPools`.
+  final int? sharedLimitWith;
+
   Account({
     this.id,
     required this.name,
@@ -45,6 +51,7 @@ class Account {
     this.statementDay,
     this.dueDay,
     this.creditLimit,
+    this.sharedLimitWith,
   });
 
   /// Whether this credit card has a billing cycle configured.
@@ -86,6 +93,7 @@ class Account {
         DbConstants.colStatementDay: statementDay,
         DbConstants.colDueDay: dueDay,
         DbConstants.colCreditLimit: creditLimit,
+        DbConstants.colSharedLimitWith: sharedLimitWith,
       };
 
   factory Account.fromMap(Map<String, dynamic> map) => Account(
@@ -104,5 +112,7 @@ class Account {
         dueDay: (map[DbConstants.colDueDay] as num?)?.toInt(),
         // Rows/backups from before schema v18 have no credit limit.
         creditLimit: (map[DbConstants.colCreditLimit] as num?)?.toInt(),
+        // Rows/backups from before schema v19 share no limit.
+        sharedLimitWith: (map[DbConstants.colSharedLimitWith] as num?)?.toInt(),
       );
 }

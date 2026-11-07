@@ -166,6 +166,12 @@ void main() {
         await affinityOf(DbConstants.tableAccounts, DbConstants.colCreditLimit),
         'INTEGER');
 
+    // v19 lets two cards share one credit limit.
+    expect(
+        await affinityOf(
+            DbConstants.tableAccounts, DbConstants.colSharedLimitWith),
+        'INTEGER');
+
     final tables = await db
         .rawQuery("SELECT name FROM sqlite_master WHERE type = 'table'");
     expect(tables.map((r) => r['name']), contains(DbConstants.tableSmsIgnored));

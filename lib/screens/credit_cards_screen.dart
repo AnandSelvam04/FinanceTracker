@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/account.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
@@ -225,7 +226,14 @@ class _Totals extends StatelessWidget {
     final spent = rows.fold<int>(0, (s, r) => s + r.spent);
     final owed = rows.fold<int>(0, (s, r) => s + r.summary.owed);
     final limited = rows.where((r) => r.summary.limit != null).toList();
-    final available = limited.fold<int>(0, (s, r) => s + r.summary.available!);
+    // Cards sharing one limit have the same amount available; count it once.
+    final byPool = <int, int>{};
+    for (final r in limited) {
+      final s = r.summary;
+      final ids = [s.account.id!, for (final c in s.sharesLimitWith) c.id!];
+      byPool[ids.reduce((a, b) => a < b ? a : b)] = s.available!;
+    }
+    final available = byPool.values.fold<int>(0, (s, v) => s + v);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -456,17 +464,22 @@ class _UsageBar extends StatelessWidget {
       CreditUsageLevel.moderate => warningColor(context),
       CreditUsageLevel.high => dangerColor(context),
     };
-    final over = s.owed - s.limit!;
+    final over = s.limitUsed - s.limit!;
+    final limitText =
+        '${formatMoneyIn(symbol, s.limit!)}${s.isSharedLimit ? ' shared' : ''}';
     final caption = over > 0
-        ? 'Over the ${formatMoneyIn(symbol, s.limit!)} limit by '
-            '${formatMoneyIn(symbol, over)}'
-        : '${(usage * 100).round()}% of ${formatMoneyIn(symbol, s.limit!)} '
+        ? 'Over the $limitText limit by ${formatMoneyIn(symbol, over)}'
+        : '${(usage * 100).round()}% of $limitText '
             'used · ${formatMoneyIn(symbol, s.available!)} left';
+    final shared = s.isSharedLimit
+        ? 'Limit shared with ${s.sharesLimitWith.map(_cardLabel).join(', ')}'
+            ' · ${formatMoneyIn(symbol, s.owed)} of it on this card'
+        : null;
     final low = s.usageLevel == CreditUsageLevel.low;
 
     return Semantics(
       label: 'Credit limit usage',
-      value: caption,
+      value: shared == null ? caption : '$caption. $shared',
       child: Padding(
         padding: const EdgeInsets.only(top: 10),
         child: Column(
@@ -489,12 +502,33 @@ class _UsageBar extends StatelessWidget {
                       color: low ? mutedTextColor(context) : color,
                       fontWeight: low ? FontWeight.normal : FontWeight.w600)),
             ),
+            if (shared != null)
+              ExcludeSemantics(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(
+                    children: [
+                      Icon(Icons.link,
+                          size: 14, color: mutedTextColor(context)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(shared,
+                            style: TextStyle(
+                                fontSize: 12, color: mutedTextColor(context))),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 }
+
+String _cardLabel(Account card) =>
+    card.last4 == null ? card.name : '${card.name} ••${card.last4}';
 
 /// Where the numbers come from, so a card that looks wrong can be fixed.
 class _HowItWorks extends StatelessWidget {
@@ -515,7 +549,10 @@ class _HowItWorks extends StatelessWidget {
               'Spending is tracked automatically from the SMS alerts filed '
               'against a card (its last 4 digits route them) and the expenses '
               'you add with it. Bill payments recorded as a transfer to the '
-              'card bring "owed" down. Tap a card for its statement by cycle.',
+              'card bring "owed" down. Two cards on one limit (a Visa and a '
+              'RuPay card, say) can be linked under the card\'s set-up so '
+              'both show what is left of it. Tap a card for its statement by '
+              'cycle.',
               style: TextStyle(fontSize: 12, color: muted),
             ),
           ),

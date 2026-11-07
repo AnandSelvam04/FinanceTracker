@@ -3,11 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../models/account.dart';
 import '../providers/account_provider.dart';
+import '../utils/credit_card_summary.dart';
 import '../utils/currency_format.dart';
 
 /// Adds a credit card, or fills in what an existing one needs for tracking:
 /// its limit, statement and due days, the last four digits SMS alerts quote,
-/// and what was already owed on it when tracking started. Everything after
+/// what was already owed on it when tracking started, and — for a bank that
+/// issues two cards on one limit, like a Visa and a RuPay card — which other
+/// card it shares that limit with. Everything after
 /// that — purchases from SMS alerts or added by hand, bill payments — moves
 /// the figures on its own.
 ///
@@ -38,17 +41,51 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
   late final TextEditingController _owed;
   bool _saving = false;
 
+  /// Cards this one can share a limit with, and the card chosen (null: a
+  /// limit of its own).
+  late final List<Account> _partners;
+  int? _sharesWith;
+
+  /// Every credit card, by id, as the dialog opened.
+  late final Map<int, Account> _cards;
+
   Account? get _card => widget.card;
   String get _symbol => _card?.symbol ?? CurrencyFormat.symbol;
+
+  /// The card holding the limit of the pool [id] belongs to.
+  Account? _holderOf(int? id) {
+    final c = id == null ? null : _cards[id];
+    return c == null ? null : limitHolderOf(c, _cards);
+  }
 
   @override
   void initState() {
     super.initState();
     final c = _card;
+    final all = context.read<AccountProvider>().accounts;
+    _cards = {
+      for (final a in all)
+        if (a.type == 'credit_card' && a.id != null) a.id!: a
+    };
+    // Another card in the same currency, and not one already drawing on this
+    // card's limit — choosing that would make the pair point at each other.
+    _partners = [
+      for (final a in _cards.values)
+        if (a.id != c?.id &&
+            a.currency == c?.currency &&
+            (c?.id == null || _holderOf(a.id)?.id != c!.id))
+          a
+    ];
+    final holder = c == null ? null : limitHolderOf(c, _cards);
+    _sharesWith = holder != null && holder.id != c!.id ? holder.id : null;
+    // Linked, the field edits the shared limit, which the holder carries.
+    final limit = _sharesWith == null
+        ? c?.creditLimit
+        : (limitPools(all)[c!.id]?.limit ?? c.creditLimit);
     _name = TextEditingController(text: c?.name ?? '');
     _last4 = TextEditingController(text: c?.last4 ?? '');
     _limit = TextEditingController(
-        text: c?.creditLimit == null ? '' : minorToEditString(c!.creditLimit!));
+        text: limit == null ? '' : minorToEditString(limit));
     _statementDay = TextEditingController(text: c?.statementDay?.toString());
     _dueDay = TextEditingController(text: c?.dueDay?.toString());
     // A card's opening balance is negative while something is owed on it.
@@ -92,8 +129,29 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
         // Left blank: keep a credit the card already started with.
         ? ((c?.openingBalance ?? 0) > 0 ? c!.openingBalance : 0)
         : -(parseMinor(owedText) ?? 0);
-    final limit =
+    final parsed =
         _limit.text.trim().isEmpty ? null : parseMinor(_limit.text.trim());
+    final limit = parsed == null || parsed <= 0 ? null : parsed;
+    // Linking points at the card that carries the pool's limit.
+    final holder = _holderOf(_sharesWith);
+    final provider = context.read<AccountProvider>();
+    if (holder != null && holder.creditLimit != limit) {
+      // The shared limit lives on the holder: set it there.
+      await provider.updateAccount(Account(
+        id: holder.id,
+        name: holder.name,
+        type: holder.type,
+        openingBalance: holder.openingBalance,
+        color: holder.color,
+        currency: holder.currency,
+        rate: holder.rate,
+        last4: holder.last4,
+        statementDay: holder.statementDay,
+        dueDay: holder.dueDay,
+        creditLimit: limit,
+        sharedLimitWith: holder.sharedLimitWith,
+      ));
+    }
     final account = Account(
       id: c?.id,
       name: _name.text.trim(),
@@ -105,9 +163,9 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
       last4: _last4.text.trim().isEmpty ? null : _last4.text.trim(),
       statementDay: _day(_statementDay.text),
       dueDay: _day(_dueDay.text),
-      creditLimit: limit == null || limit <= 0 ? null : limit,
+      creditLimit: holder == null ? limit : null,
+      sharedLimitWith: holder?.id,
     );
-    final provider = context.read<AccountProvider>();
     if (c == null) {
       await provider.addAccount(account);
     } else {
@@ -151,11 +209,47 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                       : 'Enter exactly 4 digits';
                 },
               ),
+              if (_partners.isNotEmpty)
+                DropdownButtonFormField<int?>(
+                  initialValue: _sharesWith,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Shares limit with',
+                    helperText: 'Two cards on one limit, like a Visa and a '
+                        'RuPay card from the same bank',
+                    helperMaxLines: 2,
+                  ),
+                  items: [
+                    const DropdownMenuItem<int?>(
+                        value: null, child: Text('No other card')),
+                    for (final p in _partners)
+                      DropdownMenuItem<int?>(
+                        value: p.id,
+                        child: Text(
+                            p.last4 == null ? p.name : '${p.name} ••${p.last4}',
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() {
+                    // Picking a card shows the limit it already carries.
+                    final pick = _holderOf(v);
+                    if (pick?.creditLimit != null) {
+                      _limit.text = minorToEditString(pick!.creditLimit!);
+                    }
+                    _sharesWith = v;
+                  }),
+                ),
               TextFormField(
                 controller: _limit,
                 decoration: InputDecoration(
-                  labelText: 'Credit limit ($_symbol)',
-                  helperText: 'Shows how much of it you have used',
+                  labelText: _sharesWith == null
+                      ? 'Credit limit ($_symbol)'
+                      : 'Shared credit limit ($_symbol)',
+                  helperText: _sharesWith == null
+                      ? 'Shows how much of it you have used'
+                      : 'One limit for both cards: spending on either '
+                          'uses it up',
+                  helperMaxLines: 2,
                 ),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),

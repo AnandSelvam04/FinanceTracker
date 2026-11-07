@@ -49,8 +49,8 @@ void main() {
       final bankId = await db.insertAccount(
           Account(name: 'Bank', type: 'bank', openingBalance: 5000));
 
-      await db.insertExpense(tx(
-          amount: 200, type: DbConstants.txExpense, accountId: cashId));
+      await db.insertExpense(
+          tx(amount: 200, type: DbConstants.txExpense, accountId: cashId));
       await db.insertExpense(
           tx(amount: 3000, type: DbConstants.txIncome, accountId: bankId));
       // Transfer 500 bank → cash
@@ -74,8 +74,8 @@ void main() {
           await db.insertAccount(Account(name: 'Cash', type: 'cash'));
       final bankId =
           await db.insertAccount(Account(name: 'Bank', type: 'bank'));
-      await db.insertExpense(tx(
-          amount: 100, type: DbConstants.txExpense, accountId: cashId));
+      await db.insertExpense(
+          tx(amount: 100, type: DbConstants.txExpense, accountId: cashId));
       await db.insertExpense(tx(
           amount: 200,
           type: DbConstants.txTransfer,
@@ -194,5 +194,53 @@ void main() {
         Account.fromMap({'id': 9, 'name': 'Old', 'type': 'credit_card'});
     expect(old.creditLimit, isNull);
     expect(Account.fromMap(saved.toMap()).creditLimit, 10000000);
+  });
+
+  group('shared credit limit', () {
+    test('saved, read back, and absent from old rows', () async {
+      final visa = await DBService().insertAccount(
+          Account(name: 'Visa', type: 'credit_card', creditLimit: 20000000));
+      final rupay = await DBService().insertAccount(
+          Account(name: 'RuPay', type: 'credit_card', sharedLimitWith: visa));
+      final saved =
+          (await DBService().getAccounts()).firstWhere((a) => a.id == rupay);
+      expect(saved.sharedLimitWith, visa);
+      expect(Account.fromMap(saved.toMap()).sharedLimitWith, visa);
+      expect(
+          Account.fromMap({'id': 9, 'name': 'Old', 'type': 'credit_card'})
+              .sharedLimitWith,
+          isNull);
+    });
+
+    test('deleting the card that holds the limit hands it to the other',
+        () async {
+      final visa = await DBService().insertAccount(
+          Account(name: 'Visa', type: 'credit_card', creditLimit: 20000000));
+      final rupay = await DBService().insertAccount(
+          Account(name: 'RuPay', type: 'credit_card', sharedLimitWith: visa));
+      final third = await DBService().insertAccount(
+          Account(name: 'Third', type: 'credit_card', sharedLimitWith: visa));
+
+      await DBService().deleteAccount(visa);
+      final left = {for (final a in await DBService().getAccounts()) a.id: a};
+      expect(left[rupay]!.sharedLimitWith, isNull);
+      expect(left[rupay]!.creditLimit, 20000000);
+      expect(left[third]!.sharedLimitWith, rupay);
+    });
+
+    test('linking a holder to another card brings its cards along', () async {
+      final a = await DBService().insertAccount(
+          Account(name: 'A', type: 'credit_card', creditLimit: 100));
+      final b = await DBService().insertAccount(
+          Account(name: 'B', type: 'credit_card', sharedLimitWith: a));
+      final c = await DBService().insertAccount(
+          Account(name: 'C', type: 'credit_card', creditLimit: 500));
+
+      await DBService().updateAccount(
+          Account(id: a, name: 'A', type: 'credit_card', sharedLimitWith: c));
+      final all = {for (final x in await DBService().getAccounts()) x.id: x};
+      expect(all[a]!.sharedLimitWith, c);
+      expect(all[b]!.sharedLimitWith, c);
+    });
   });
 }
