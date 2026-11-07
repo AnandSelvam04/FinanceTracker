@@ -550,6 +550,11 @@ class _CardTile extends StatelessWidget {
                           style: TextStyle(
                               fontSize: 12, color: incomeColor(context))),
                     ),
+                  // Up top, where it is seen before buying: when a purchase
+                  // on this card today has to be paid.
+                  if (window != null)
+                    _BuyTodayPill(
+                        due: window.due, days: window.interestFreeDays),
                   if (s.owesMoreThanCycle) _OwedExplainer(summary: s),
                   if (s.limit != null && !pooled) _UsageBar(summary: s),
                   if (!pooled && figures.bankCheck != null)
@@ -575,24 +580,6 @@ class _CardTile extends StatelessWidget {
                           '${formatMoneyIn(symbol, s.minimumDueEstimate)} — '
                           'paying only that leaves the rest charged interest',
                           style: TextStyle(fontSize: 12, color: muted)),
-                    ),
-                  if (window != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Row(
-                        children: [
-                          Icon(Icons.shopping_bag_outlined,
-                              size: 14, color: muted),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                                'Buy today, pay by '
-                                '${formatCompactDate(window.due)} · '
-                                '${window.interestFreeDays} days interest-free',
-                                style: TextStyle(fontSize: 12, color: muted)),
-                          ),
-                        ],
-                      ),
                     ),
                   if (figures.rewards != null)
                     _RewardsLine(estimate: figures.rewards!, symbol: symbol),
@@ -813,6 +800,57 @@ class _OwedExplainerState extends State<_OwedExplainer> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// "Buy today, pay by 25 Dec · 48 days interest-free", as a tinted pill so
+/// it reads at a glance.
+class _BuyTodayPill extends StatelessWidget {
+  final DateTime due;
+  final int days;
+  const _BuyTodayPill({required this.due, required this.days});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final fg = scheme.onSecondaryContainer;
+    return Semantics(
+      label: 'Buy today, pay by ${formatCompactDate(due)}, '
+          '$days days interest-free',
+      excludeSemantics: true,
+      child: Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: scheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.shopping_bag_outlined, size: 18, color: fg),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  style: TextStyle(fontSize: 14, color: fg),
+                  children: [
+                    const TextSpan(text: 'Buy today, pay by '),
+                    TextSpan(
+                        text: formatCompactDate(due),
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const TextSpan(text: ' · '),
+                    TextSpan(
+                        text: '$days days',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const TextSpan(text: ' interest-free'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1350,7 +1388,7 @@ class _HowItWorks extends StatelessWidget {
               'against a card (its last 4 digits route them) and the expenses '
               'you add with it. Bill payments recorded as a transfer to the '
               'card bring "owed" down. Two cards on one limit (a Visa and a '
-              'RuPay card, say) can be linked from a card\'s ⋮ menu or its '
+              'RuPay card, say) can be linked from a card\'s menu or its '
               'set-up, and then show as one shared limit. Tap a card for its '
               'statement by cycle.',
               style: TextStyle(fontSize: 12, color: muted),

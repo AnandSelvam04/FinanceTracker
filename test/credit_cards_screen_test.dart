@@ -663,6 +663,11 @@ void main() {
       expect(find.textContaining('Add '), findsNothing);
       expect(find.text('24% of ₹50,000.00 used · ₹38,000.00 left'),
           findsOneWidget);
+      // With billing days set, the card says when a purchase today is due.
+      expect(find.textContaining('Buy today, pay by', findRichText: true),
+          findsOneWidget);
+      expect(find.textContaining('days interest-free', findRichText: true),
+          findsOneWidget);
     }, timeout: const Timeout(Duration(seconds: 45)));
 
     testWidgets('two cards on one limit show what is left of it on both',
