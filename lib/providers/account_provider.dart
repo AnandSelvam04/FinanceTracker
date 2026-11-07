@@ -63,6 +63,26 @@ class AccountProvider extends ChangeNotifier {
     await fetchAccounts();
   }
 
+  /// Puts [card] on [holder]'s credit limit — two cards a bank issues on one
+  /// limit, like a Visa and a RuPay card. [holder] keeps the limit (taking
+  /// [card]'s when it has none of its own), and [card] picks up the holder's
+  /// billing days when it has none set.
+  Future<void> shareLimit(Account card, Account holder) async {
+    if (card.id == null || holder.id == null || card.id == holder.id) return;
+    final limit = holder.creditLimit ?? card.creditLimit;
+    if (limit != holder.creditLimit) {
+      await DBService().updateAccount(holder.copyWith(creditLimit: limit));
+    }
+    final copyDays = !card.hasBillingCycle && holder.hasBillingCycle;
+    await DBService().updateAccount(card.copyWith(
+      sharedLimitWith: holder.id,
+      clearCreditLimit: true,
+      statementDay: copyDays ? holder.statementDay : null,
+      dueDay: copyDays ? holder.dueDay : null,
+    ));
+    await fetchAccounts();
+  }
+
   Future<void> deleteAccount(int id) async {
     await DBService().deleteAccount(id);
     await fetchAccounts();

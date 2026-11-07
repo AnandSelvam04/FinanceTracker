@@ -250,6 +250,49 @@ void main() {
     });
   });
 
+  group('limitTwinSuggestions', () {
+    Account card(int id, String name, {int? limit, String? currency}) =>
+        Account(
+            id: id,
+            name: name,
+            type: 'credit_card',
+            creditLimit: limit,
+            currency: currency);
+
+    test('pairs cards from one bank, the one with the limit keeping it', () {
+      final s = limitTwinSuggestions([
+        card(1, 'HDFC RuPay'),
+        card(2, 'HDFC Visa', limit: 100),
+        card(3, 'Scapia'),
+      ]).single;
+      expect(s.holder.id, 2);
+      expect(s.other.id, 1);
+      expect(s.key, '1-2');
+    });
+
+    test('skips different limits, currencies, linked and dismissed pairs', () {
+      expect(
+          limitTwinSuggestions(
+              [card(1, 'HDFC A', limit: 100), card(2, 'HDFC B', limit: 200)]),
+          isEmpty);
+      expect(
+          limitTwinSuggestions(
+              [card(1, 'HDFC A'), card(2, 'HDFC B', currency: r'$')]),
+          isEmpty);
+      expect(
+          limitTwinSuggestions([
+            card(1, 'HDFC A', limit: 100),
+            Account(
+                id: 2, name: 'HDFC B', type: 'credit_card', sharedLimitWith: 1),
+          ]),
+          isEmpty);
+      expect(
+          limitTwinSuggestions([card(1, 'HDFC A'), card(2, 'HDFC B')],
+              dismissed: {'1-2'}),
+          isEmpty);
+    });
+  });
+
   group('cardRange', () {
     final now = DateTime(2026, 3, 20, 15);
     final cycled = Account(
@@ -345,7 +388,7 @@ void main() {
     /// closing dialog's text field was still on screen.
     Future<void> settle(WidgetTester tester) async {
       for (var i = 0;
-          i < 60 && find.byType(AlertDialog).evaluate().isNotEmpty;
+          i < 60 && find.byType(Dialog).evaluate().isNotEmpty;
           i++) {
         await tester.runAsync(
             () => Future<void>.delayed(const Duration(milliseconds: 50)));
@@ -498,12 +541,11 @@ void main() {
         ],
       );
 
-      // Link the RuPay card to the Visa card's limit.
+      // Link the RuPay card to the Visa card's limit: "Shared" picks the
+      // only other card on its own.
       await tester.tap(find.byTooltip('Set up HDFC RuPay'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('No other card'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('HDFC Visa').last);
+      await tester.tap(find.text('Shared'));
       await tester.pumpAndSettle();
       // The field now edits the shared limit, filled in from the Visa card.
       expect(find.widgetWithText(TextFormField, 'Shared credit limit (₹)'),
@@ -520,19 +562,90 @@ void main() {
       expect(rupay.creditLimit, isNull);
       expect(visa.creditLimit, 20000000);
 
-      // 10,000 + 5,000 of 2,00,000: 1,85,000 left, on both cards.
-      expect(find.text('8% of ₹2,00,000.00 shared used · ₹1,85,000.00 left'),
-          findsNWidgets(2));
-      expect(
-          find.text('Limit shared with HDFC RuPay · ₹10,000.00 of it on this '
-              'card'),
+      // One frame for both cards, with one bar: 10,000 + 5,000 of 2,00,000.
+      expect(find.text('Shared limit · 2 cards'), findsOneWidget);
+      expect(find.text('8% of ₹2,00,000.00 used · ₹1,85,000.00 left'),
           findsOneWidget);
-      expect(
-          find.text('Limit shared with HDFC Visa · ₹5,000.00 of it on this '
-              'card'),
-          findsOneWidget);
+      // Each card still shows what is owed on it.
+      expect(find.text('₹10,000.00'), findsWidgets);
+      expect(find.text('₹5,000.00'), findsWidgets);
       // The totals count the shared limit once.
       expect(find.text('₹1,85,000.00'), findsOneWidget);
+    }, timeout: const Timeout(Duration(seconds: 45)));
+
+    testWidgets('two cards from one bank are offered for linking',
+        (tester) async {
+      await pumpScreen(tester, accounts: [
+        Account(
+            name: 'Scapia Visa',
+            type: 'credit_card',
+            creditLimit: 15000000,
+            statementDay: 3,
+            dueDay: 20),
+        Account(name: 'Scapia RuPay', type: 'credit_card'),
+      ]);
+      expect(
+          find.text('Do Scapia Visa and Scapia RuPay share one credit '
+              'limit?'),
+          findsOneWidget);
+      await tester.tap(find.text('Link them'));
+      await settle(tester);
+
+      final visa =
+          accountProvider.accounts.singleWhere((a) => a.name == 'Scapia Visa');
+      final rupay =
+          accountProvider.accounts.singleWhere((a) => a.name == 'Scapia RuPay');
+      expect(rupay.sharedLimitWith, visa.id);
+      // The RuPay card picks up the Visa card's billing days.
+      expect(rupay.statementDay, 3);
+      expect(rupay.dueDay, 20);
+      expect(find.textContaining('share one credit limit?'), findsNothing);
+      expect(find.text('Shared limit · 2 cards'), findsOneWidget);
+    }, timeout: const Timeout(Duration(seconds: 45)));
+
+    testWidgets('"Not shared" hides the suggestion', (tester) async {
+      await pumpScreen(tester, accounts: [
+        Account(name: 'HDFC Regalia', type: 'credit_card'),
+        Account(name: 'HDFC Millennia', type: 'credit_card'),
+      ]);
+      await tester.tap(find.text('Not shared'));
+      await settle(tester);
+      expect(find.textContaining('share one credit limit?'), findsNothing);
+      expect(accountProvider.accounts.every((a) => a.sharedLimitWith == null),
+          isTrue);
+    }, timeout: const Timeout(Duration(seconds: 45)));
+
+    testWidgets('a card is added straight onto another card\'s limit',
+        (tester) async {
+      await pumpScreen(tester, accounts: [
+        Account(
+            name: 'HDFC Visa',
+            type: 'credit_card',
+            creditLimit: 20000000,
+            statementDay: 5,
+            dueDay: 25),
+      ]);
+      await tester.tap(find.byTooltip('More for HDFC Visa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add a card on this limit'));
+      await tester.pumpAndSettle();
+      expect(
+          find.text('Copied from HDFC Visa — change them if this card '
+              'bills on other days.'),
+          findsOneWidget);
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Card name'), 'HDFC RuPay');
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await settle(tester);
+
+      final visa =
+          accountProvider.accounts.singleWhere((a) => a.name == 'HDFC Visa');
+      final rupay =
+          accountProvider.accounts.singleWhere((a) => a.name == 'HDFC RuPay');
+      expect(rupay.sharedLimitWith, visa.id);
+      expect(rupay.statementDay, 5);
+      expect(rupay.dueDay, 25);
+      expect(visa.creditLimit, 20000000);
     }, timeout: const Timeout(Duration(seconds: 45)));
   });
 }

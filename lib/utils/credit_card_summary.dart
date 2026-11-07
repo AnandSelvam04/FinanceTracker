@@ -289,3 +289,69 @@ List<CreditCardSummary> creditCardSummaries({
   });
   return out;
 }
+
+/// Two cards that look like a pair a bank issued on one limit — "HDFC Visa"
+/// and "HDFC RuPay" — and are not linked yet, so the Credit cards screen can
+/// offer to link them. [holder] is the one that keeps the limit.
+class LimitTwinSuggestion {
+  final Account holder;
+  final Account other;
+  const LimitTwinSuggestion(this.holder, this.other);
+
+  /// Stable key for remembering a dismissed suggestion.
+  String get key {
+    final a = holder.id!, b = other.id!;
+    return a < b ? '$a-$b' : '$b-$a';
+  }
+}
+
+/// The bank part of a card's name: its first word, lower-cased, letters and
+/// digits only ("HDFC" in "HDFC Millennia RuPay"). Null when too short to
+/// tell banks apart.
+String? _issuerOf(String name) {
+  final first = name.trim().split(RegExp(r'\s+')).first;
+  final w = first.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  return w.length < 2 ? null : w;
+}
+
+/// Pairs of unlinked credit cards from the same issuer (same first word of
+/// the name) in the same currency whose limits do not disagree: equal, or
+/// set on only one of them. Each card is offered in at most one pair, and
+/// pairs whose [LimitTwinSuggestion.key] is in [dismissed] are left out.
+List<LimitTwinSuggestion> limitTwinSuggestions(List<Account> accounts,
+    {Set<String> dismissed = const {}}) {
+  final pools = limitPools(accounts);
+  final solo = [
+    for (final a in accounts)
+      if (a.type == 'credit_card' &&
+          a.id != null &&
+          !(pools[a.id]?.isShared ?? false) &&
+          _issuerOf(a.name) != null)
+        a
+  ]..sort((x, y) => x.id!.compareTo(y.id!));
+  final used = <int>{};
+  final out = <LimitTwinSuggestion>[];
+  for (var i = 0; i < solo.length; i++) {
+    final a = solo[i];
+    if (used.contains(a.id)) continue;
+    for (var j = i + 1; j < solo.length; j++) {
+      final b = solo[j];
+      if (used.contains(b.id) ||
+          a.currency != b.currency ||
+          _issuerOf(a.name) != _issuerOf(b.name)) {
+        continue;
+      }
+      final la = a.creditLimit, lb = b.creditLimit;
+      if (la != null && lb != null && la != lb) continue;
+      // The card with the limit keeps it; with both or neither, the older.
+      final s = (la == null && lb != null)
+          ? LimitTwinSuggestion(b, a)
+          : LimitTwinSuggestion(a, b);
+      if (dismissed.contains(s.key)) continue;
+      used.addAll([a.id!, b.id!]);
+      out.add(s);
+      break;
+    }
+  }
+  return out;
+}

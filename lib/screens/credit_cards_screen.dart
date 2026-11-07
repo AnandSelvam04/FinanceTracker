@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/account.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
@@ -37,7 +37,40 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
   DateTime? _customStart;
   DateTime? _customEnd;
 
+  /// Pair suggestions ("these two look like one limit") the user turned
+  /// down, by [LimitTwinSuggestion.key]; remembered across launches.
+  Set<String> _dismissedTwins = {};
+  static const _dismissedTwinsKey = 'dismissedLimitTwins';
+
   DateTime get _now => widget.now ?? DateTime.now();
+
+  Future<void> _loadDismissedTwins() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(_dismissedTwinsKey) ?? const [];
+      if (mounted && saved.isNotEmpty) {
+        setState(() => _dismissedTwins = saved.toSet());
+      }
+    } catch (_) {
+      // Preferences unavailable: suggestions simply show again.
+    }
+  }
+
+  Future<void> _dismissTwin(LimitTwinSuggestion t) async {
+    setState(() => _dismissedTwins = {..._dismissedTwins, t.key});
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_dismissedTwinsKey, _dismissedTwins.toList());
+    } catch (_) {}
+  }
+
+  Future<void> _linkTwin(LimitTwinSuggestion t) async {
+    await context.read<AccountProvider>().shareLimit(t.other, t.holder);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${t.holder.name} and ${t.other.name} now share one '
+            'limit')));
+  }
 
   @override
   void initState() {
@@ -50,6 +83,7 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
       context.read<InvestmentProvider>().fetchInvestments();
       // A cycle, or last month, can reach back into the previous year.
       _ensureLoaded(_now.year - 1, _now.year);
+      _loadDismissedTwins();
     });
   }
 
@@ -149,12 +183,52 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
                 ),
                 const SizedBox(height: 8),
                 _Totals(rows: rows),
-                for (final r in rows) _CardTile(figures: r),
+                for (final t in limitTwinSuggestions(accounts.accounts,
+                    dismissed: _dismissedTwins))
+                  _TwinSuggestion(
+                    suggestion: t,
+                    onLink: () => _linkTwin(t),
+                    onDismiss: () => _dismissTwin(t),
+                  ),
+                for (final g in _groupByLimit(rows))
+                  g.length == 1
+                      ? _CardTile(figures: g.single)
+                      : _SharedLimitGroup(rows: g),
                 const _HowItWorks(),
               ],
             ),
     );
   }
+}
+
+/// The cards sharing [s]'s limit (itself included) are known by their lowest
+/// id.
+int _poolKey(CreditCardSummary s) => [
+      s.account.id!,
+      for (final c in s.sharesLimitWith) c.id!
+    ].reduce((a, b) => a < b ? a : b);
+
+/// [rows] in their order, with the cards sharing a limit gathered into one
+/// group where the first of them appears.
+List<List<_CardFigures>> _groupByLimit(List<_CardFigures> rows) {
+  final groups = <int, List<_CardFigures>>{};
+  final out = <List<_CardFigures>>[];
+  for (final r in rows) {
+    if (!r.summary.isSharedLimit) {
+      out.add([r]);
+      continue;
+    }
+    final key = _poolKey(r.summary);
+    final g = groups[key];
+    if (g == null) {
+      final fresh = [r];
+      groups[key] = fresh;
+      out.add(fresh);
+    } else {
+      g.add(r);
+    }
+  }
+  return out;
 }
 
 /// One card's figures for the chosen period, next to its standing ones.
@@ -229,9 +303,7 @@ class _Totals extends StatelessWidget {
     // Cards sharing one limit have the same amount available; count it once.
     final byPool = <int, int>{};
     for (final r in limited) {
-      final s = r.summary;
-      final ids = [s.account.id!, for (final c in s.sharesLimitWith) c.id!];
-      byPool[ids.reduce((a, b) => a < b ? a : b)] = s.available!;
+      byPool[_poolKey(r.summary)] = r.summary.available!;
     }
     final available = byPool.values.fold<int>(0, (s, v) => s + v);
 
@@ -289,7 +361,11 @@ class _Figure extends StatelessWidget {
 
 class _CardTile extends StatelessWidget {
   final _CardFigures figures;
-  const _CardTile({required this.figures});
+
+  /// Shown inside a [_SharedLimitGroup], which draws the card frame and the
+  /// shared limit's bar itself.
+  final bool pooled;
+  const _CardTile({required this.figures, this.pooled = false});
 
   /// Where the last bill stands, and how urgent it is; null without a cycle.
   (String, Color?)? _billStatus(BuildContext context) {
@@ -335,113 +411,319 @@ class _CardTile extends StatelessWidget {
       if (account.last4 == null) 'last 4 digits',
     ];
 
+    final body = InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              AccountDetailScreen(account: account, showActions: false),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: own == null
+                      ? scheme.secondaryContainer
+                      : own.withValues(alpha: dark ? 0.28 : 0.15),
+                  child: Icon(Icons.credit_card,
+                      size: 20, color: own ?? scheme.onSecondaryContainer),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    [
+                      account.name,
+                      if (account.last4 != null) '••${account.last4}'
+                    ].join(' '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.tune),
+                  tooltip: 'Set up ${account.name}',
+                  onPressed: () => showCardSetupDialog(context, card: account),
+                ),
+                _CardMenu(summary: s),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 10, top: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: _Figure(
+                            label: 'Spent · ${figures.range.label}',
+                            value: formatMoneyIn(symbol, figures.spent)),
+                      ),
+                      Expanded(
+                        child: _Figure(
+                          label: 'Owed now',
+                          value: s.credit > 0
+                              ? '${formatMoneyIn(symbol, s.credit)} credit'
+                              : formatMoneyIn(symbol, s.owed),
+                          color: s.owed > 0 ? expenseColor(context) : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (figures.paidIn > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                          'Paid in ${formatMoneyIn(symbol, figures.paidIn)} '
+                          'in this period',
+                          style: TextStyle(
+                              fontSize: 12, color: incomeColor(context))),
+                    ),
+                  if (s.limit != null && !pooled) _UsageBar(summary: s),
+                  if (bill != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(bill.$1,
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: bill.$2 ?? muted,
+                              fontWeight: bill.$2 == null
+                                  ? FontWeight.normal
+                                  : FontWeight.w600)),
+                    ),
+                  if (missing.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: ActionChip(
+                        avatar: const Icon(Icons.add, size: 18),
+                        label: Text('Add ${missing.join(', ')}',
+                            maxLines: 3, softWrap: true),
+                        onPressed: () =>
+                            showCardSetupDialog(context, card: account),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (pooled) return body;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                AccountDetailScreen(account: account, showActions: false),
+      child: body,
+    );
+  }
+}
+
+/// Cards on one credit limit (a bank's Visa and RuPay pair) in one frame:
+/// the shared limit's bar on top, then each card with its own spending,
+/// amount owed and bill.
+class _SharedLimitGroup extends StatelessWidget {
+  final List<_CardFigures> rows;
+  const _SharedLimitGroup({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = rows.first.summary;
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: scheme.primary.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            color: scheme.primaryContainer.withValues(alpha: 0.35),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.link, size: 18, color: scheme.primary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Shared limit · ${rows.length} cards',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, color: scheme.primary),
+                      ),
+                    ),
+                  ],
+                ),
+                if (s.limit != null)
+                  _UsageBar(summary: s)
+                else
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text('No limit set yet — set it on either card',
+                        style: TextStyle(
+                            fontSize: 12, color: mutedTextColor(context))),
+                  ),
+              ],
+            ),
+          ),
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0) const Divider(height: 1),
+            _CardTile(figures: rows[i], pooled: true),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A card's extra actions: add or link a second card on its limit, or take
+/// it off a shared limit.
+class _CardMenu extends StatelessWidget {
+  final CreditCardSummary summary;
+  const _CardMenu({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final card = summary.account;
+    return PopupMenuButton<String>(
+      tooltip: 'More for ${card.name}',
+      onSelected: (v) async {
+        final provider = context.read<AccountProvider>();
+        switch (v) {
+          case 'add':
+            await showCardSetupDialog(context, linkTo: card);
+          case 'link':
+            await showCardSetupDialog(context, card: card, startShared: true);
+          case 'unlink':
+            // Off the shared limit: the card keeps a copy of the limit.
+            if (card.sharedLimitWith != null) {
+              await provider.updateAccount(card.copyWith(
+                  clearSharedLimitWith: true, creditLimit: summary.limit));
+            } else {
+              // The holder leaving hands the limit to the other card(s); it
+              // keeps its own limit.
+              final other = summary.sharesLimitWith.first;
+              await provider.updateAccount(other.copyWith(
+                  clearSharedLimitWith: true, creditLimit: summary.limit));
+              for (final o in summary.sharesLimitWith.skip(1)) {
+                await provider
+                    .updateAccount(o.copyWith(sharedLimitWith: other.id));
+              }
+            }
+        }
+      },
+      itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'add',
+          child: ListTile(
+            leading: Icon(Icons.add_card),
+            title: Text('Add a card on this limit'),
+            subtitle: Text('e.g. the RuPay card that came with it'),
+            contentPadding: EdgeInsets.zero,
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        if (!summary.isSharedLimit)
+          const PopupMenuItem(
+            value: 'link',
+            child: ListTile(
+              leading: Icon(Icons.link),
+              title: Text('Share limit with a card I have added'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (summary.isSharedLimit)
+          const PopupMenuItem(
+            value: 'unlink',
+            child: ListTile(
+              leading: Icon(Icons.link_off),
+              title: Text('Stop sharing the limit'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// "HDFC Visa and HDFC RuPay may share one limit" — two unlinked cards from
+/// the same bank, offered for linking in one tap.
+class _TwinSuggestion extends StatelessWidget {
+  final LimitTwinSuggestion suggestion;
+  final VoidCallback onLink;
+  final VoidCallback onDismiss;
+  const _TwinSuggestion({
+    required this.suggestion,
+    required this.onLink,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final a = suggestion.holder, b = suggestion.other;
+    final limit = a.creditLimit ?? b.creditLimit;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: scheme.tertiaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.link, color: scheme.onTertiaryContainer),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Do ${a.name} and ${b.name} share one credit limit?',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onTertiaryContainer),
+                  ),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 34, top: 4),
+              child: Text(
+                'Banks often issue a Visa and a RuPay card on one limit. '
+                'Linked, both show what is left of '
+                '${limit == null ? 'it' : formatMoneyIn(a.symbol, limit)}.',
+                style:
+                    TextStyle(fontSize: 13, color: scheme.onTertiaryContainer),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Wrap(
+                spacing: 4,
                 children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: own == null
-                        ? scheme.secondaryContainer
-                        : own.withValues(alpha: dark ? 0.28 : 0.15),
-                    child: Icon(Icons.credit_card,
-                        size: 20, color: own ?? scheme.onSecondaryContainer),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      [
-                        account.name,
-                        if (account.last4 != null) '••${account.last4}'
-                      ].join(' '),
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 15),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.tune),
-                    tooltip: 'Set up ${account.name}',
-                    onPressed: () =>
-                        showCardSetupDialog(context, card: account),
+                  TextButton(
+                      onPressed: onDismiss, child: const Text('Not shared')),
+                  FilledButton.tonalIcon(
+                    onPressed: onLink,
+                    icon: const Icon(Icons.link, size: 18),
+                    label: const Text('Link them'),
                   ),
                 ],
               ),
-              Padding(
-                padding: const EdgeInsets.only(right: 10, top: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: _Figure(
-                              label: 'Spent · ${figures.range.label}',
-                              value: formatMoneyIn(symbol, figures.spent)),
-                        ),
-                        Expanded(
-                          child: _Figure(
-                            label: 'Owed now',
-                            value: s.credit > 0
-                                ? '${formatMoneyIn(symbol, s.credit)} credit'
-                                : formatMoneyIn(symbol, s.owed),
-                            color: s.owed > 0 ? expenseColor(context) : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (figures.paidIn > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                            'Paid in ${formatMoneyIn(symbol, figures.paidIn)} '
-                            'in this period',
-                            style: TextStyle(
-                                fontSize: 12, color: incomeColor(context))),
-                      ),
-                    if (s.limit != null) _UsageBar(summary: s),
-                    if (bill != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(bill.$1,
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: bill.$2 ?? muted,
-                                fontWeight: bill.$2 == null
-                                    ? FontWeight.normal
-                                    : FontWeight.w600)),
-                      ),
-                    if (missing.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: ActionChip(
-                          avatar: const Icon(Icons.add, size: 18),
-                          label: Text('Add ${missing.join(', ')}',
-                              overflow: TextOverflow.ellipsis),
-                          onPressed: () =>
-                              showCardSetupDialog(context, card: account),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -465,21 +747,16 @@ class _UsageBar extends StatelessWidget {
       CreditUsageLevel.high => dangerColor(context),
     };
     final over = s.limitUsed - s.limit!;
-    final limitText =
-        '${formatMoneyIn(symbol, s.limit!)}${s.isSharedLimit ? ' shared' : ''}';
+    final limitText = formatMoneyIn(symbol, s.limit!);
     final caption = over > 0
         ? 'Over the $limitText limit by ${formatMoneyIn(symbol, over)}'
         : '${(usage * 100).round()}% of $limitText '
             'used · ${formatMoneyIn(symbol, s.available!)} left';
-    final shared = s.isSharedLimit
-        ? 'Limit shared with ${s.sharesLimitWith.map(_cardLabel).join(', ')}'
-            ' · ${formatMoneyIn(symbol, s.owed)} of it on this card'
-        : null;
     final low = s.usageLevel == CreditUsageLevel.low;
 
     return Semantics(
       label: 'Credit limit usage',
-      value: shared == null ? caption : '$caption. $shared',
+      value: caption,
       child: Padding(
         padding: const EdgeInsets.only(top: 10),
         child: Column(
@@ -502,33 +779,12 @@ class _UsageBar extends StatelessWidget {
                       color: low ? mutedTextColor(context) : color,
                       fontWeight: low ? FontWeight.normal : FontWeight.w600)),
             ),
-            if (shared != null)
-              ExcludeSemantics(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Row(
-                    children: [
-                      Icon(Icons.link,
-                          size: 14, color: mutedTextColor(context)),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(shared,
-                            style: TextStyle(
-                                fontSize: 12, color: mutedTextColor(context))),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
           ],
         ),
       ),
     );
   }
 }
-
-String _cardLabel(Account card) =>
-    card.last4 == null ? card.name : '${card.name} ••${card.last4}';
 
 /// Where the numbers come from, so a card that looks wrong can be fixed.
 class _HowItWorks extends StatelessWidget {
@@ -550,9 +806,9 @@ class _HowItWorks extends StatelessWidget {
               'against a card (its last 4 digits route them) and the expenses '
               'you add with it. Bill payments recorded as a transfer to the '
               'card bring "owed" down. Two cards on one limit (a Visa and a '
-              'RuPay card, say) can be linked under the card\'s set-up so '
-              'both show what is left of it. Tap a card for its statement by '
-              'cycle.',
+              'RuPay card, say) can be linked from a card\'s ⋮ menu or its '
+              'set-up, and then show as one shared limit. Tap a card for its '
+              'statement by cycle.',
               style: TextStyle(fontSize: 12, color: muted),
             ),
           ),

@@ -54,6 +54,37 @@ class Account {
     this.sharedLimitWith,
   });
 
+  /// A copy with the given fields changed. The nullable card fields take a
+  /// `clear…` flag to set them back to null.
+  Account copyWith({
+    String? name,
+    int? openingBalance,
+    String? last4,
+    int? statementDay,
+    int? dueDay,
+    int? creditLimit,
+    bool clearCreditLimit = false,
+    int? sharedLimitWith,
+    bool clearSharedLimitWith = false,
+  }) =>
+      Account(
+        id: id,
+        name: name ?? this.name,
+        type: type,
+        openingBalance: openingBalance ?? this.openingBalance,
+        color: color,
+        currency: currency,
+        rate: rate,
+        last4: last4 ?? this.last4,
+        statementDay: statementDay ?? this.statementDay,
+        dueDay: dueDay ?? this.dueDay,
+        creditLimit:
+            clearCreditLimit ? null : (creditLimit ?? this.creditLimit),
+        sharedLimitWith: clearSharedLimitWith
+            ? null
+            : (sharedLimitWith ?? this.sharedLimitWith),
+      );
+
   /// Whether this credit card has a billing cycle configured.
   bool get hasBillingCycle =>
       type == 'credit_card' && statementDay != null && dueDay != null;
