@@ -1547,6 +1547,52 @@ class DBService {
     });
   }
 
+  /// Money into and out of each account, in its own currency: income and
+  /// transfers in, against expenses and transfers out (investments paid
+  /// from it count as out). For loans and money lent, where "in" and "out"
+  /// are what was repaid and what was borrowed or lent.
+  Future<Map<int, ({int inflow, int outflow})>> getAccountInOut() async {
+    final db = await database;
+    final inflow = <int, int>{}, outflow = <int, int>{};
+    final rows = await db.rawQuery(
+        'SELECT ${DbConstants.colAccountId} AS id, ${DbConstants.colType} AS t, '
+        'SUM(${DbConstants.colAmount}) AS amt FROM ${DbConstants.tableExpenses} '
+        'WHERE ${DbConstants.colAccountId} IS NOT NULL GROUP BY id, t');
+    for (final r in rows) {
+      final id = r['id'] as int;
+      final amt = ((r['amt'] ?? 0) as num).round();
+      if (r['t'] == DbConstants.txIncome) {
+        inflow[id] = (inflow[id] ?? 0) + amt;
+      } else {
+        outflow[id] = (outflow[id] ?? 0) + amt;
+      }
+    }
+    final ins = await db.rawQuery(
+        'SELECT ${DbConstants.colToAccountId} AS id, '
+        'SUM(COALESCE(${DbConstants.colToAmount}, ${DbConstants.colAmount})) '
+        'AS amt FROM ${DbConstants.tableExpenses} '
+        'WHERE ${DbConstants.colType} = ? AND '
+        '${DbConstants.colToAccountId} IS NOT NULL GROUP BY id',
+        [DbConstants.txTransfer]);
+    for (final r in ins) {
+      final id = r['id'] as int;
+      inflow[id] = (inflow[id] ?? 0) + ((r['amt'] ?? 0) as num).round();
+    }
+    final inv = await db.rawQuery(
+        'SELECT ${DbConstants.colAccountId} AS id, '
+        'SUM(${DbConstants.colAmount}) AS amt '
+        'FROM ${DbConstants.tableInvestments} '
+        'WHERE ${DbConstants.colAccountId} IS NOT NULL GROUP BY id');
+    for (final r in inv) {
+      final id = r['id'] as int;
+      outflow[id] = (outflow[id] ?? 0) + ((r['amt'] ?? 0) as num).round();
+    }
+    return {
+      for (final id in {...inflow.keys, ...outflow.keys})
+        id: (inflow: inflow[id] ?? 0, outflow: outflow[id] ?? 0)
+    };
+  }
+
   Future<void> clearAccounts() async {
     final db = await database;
     await db.delete(DbConstants.tableAccounts);

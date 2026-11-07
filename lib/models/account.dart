@@ -4,7 +4,7 @@ import '../utils/db_constants.dart';
 class Account {
   final int? id;
   final String name;
-  final String type; // cash | bank | upi | credit_card
+  final String type; // cash | bank | upi | credit_card | loan | lent
 
   /// Opening balance in minor units (paise/cents), in this account's currency.
   final int openingBalance;
@@ -95,7 +95,16 @@ class Account {
   /// Whether this account is held in a non-base currency.
   bool get isForeign => currency != null && currency != CurrencyFormat.symbol;
 
-  static const types = ['cash', 'bank', 'upi', 'credit_card'];
+  static const types = ['cash', 'bank', 'upi', 'credit_card', 'loan', 'lent'];
+
+  /// Money borrowed — a personal loan, or from a friend. Its balance is
+  /// negative while something is still to repay: borrowing is a transfer
+  /// out of it into a bank account, a repayment a transfer into it.
+  bool get isLoan => type == 'loan';
+
+  /// Money lent to someone. Its balance is what they still owe you: lending
+  /// is a transfer into it, being paid back a transfer out of it.
+  bool get isLent => type == 'lent';
 
   static String typeLabel(String type) {
     switch (type) {
@@ -107,6 +116,10 @@ class Account {
         return 'UPI';
       case 'credit_card':
         return 'Credit Card';
+      case 'loan':
+        return 'Loan (I owe)';
+      case 'lent':
+        return 'Money lent';
       default:
         return type;
     }

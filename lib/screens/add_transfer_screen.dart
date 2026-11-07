@@ -20,11 +20,18 @@ class AddTransferScreen extends StatefulWidget {
   final int? initialToAccountId;
   final int? initialAmount;
 
+  /// Opens with the source filled in (money coming back from a loan to
+  /// someone, say), and a note.
+  final int? initialFromAccountId;
+  final String? initialNote;
+
   const AddTransferScreen({
     super.key,
     this.duplicateOf,
     this.initialToAccountId,
     this.initialAmount,
+    this.initialFromAccountId,
+    this.initialNote,
   });
 
   @override
@@ -61,13 +68,19 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
       }
     } else {
       _toAccountId = live(widget.initialToAccountId);
+      _fromAccountId = live(widget.initialFromAccountId);
+      if (widget.initialNote != null) {
+        _noteController.text = widget.initialNote!;
+      }
       if (widget.initialAmount != null) {
         _amountController.text = minorToEditString(widget.initialAmount!);
       }
       // Paying something: start from the default account, when that isn't
       // the destination itself.
       final defaultId = live(context.read<SettingsProvider>().defaultAccountId);
-      if (_toAccountId != null && defaultId != _toAccountId) {
+      if (_fromAccountId == null &&
+          _toAccountId != null &&
+          defaultId != _toAccountId) {
         _fromAccountId = defaultId;
       }
     }
