@@ -13,6 +13,7 @@ import '../utils/date_format.dart';
 import '../utils/insets.dart';
 import '../widgets/card_setup_dialog.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/reconcile_dialog.dart';
 import 'account_detail_screen.dart';
 import 'add_transfer_screen.dart';
 
@@ -700,6 +701,12 @@ class _OwedExplainerState extends State<_OwedExplainer> {
                           ),
                         ),
                       ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.balance, size: 18),
+                        label: const Text('Match bank balance'),
+                        onPressed: () =>
+                            showReconcileDialog(context, s.account),
+                      ),
                       if (s.openingOwed > 0)
                         TextButton.icon(
                           icon: const Icon(Icons.tune, size: 18),
@@ -798,6 +805,8 @@ class _CardMenu extends StatelessWidget {
             await showCardSetupDialog(context, linkTo: card);
           case 'link':
             await showCardSetupDialog(context, card: card, startShared: true);
+          case 'match':
+            await showReconcileDialog(context, card);
           case 'unlink':
             // Off the shared limit: the card keeps a copy of the limit.
             if (card.sharedLimitWith != null) {
@@ -823,6 +832,15 @@ class _CardMenu extends StatelessWidget {
             leading: Icon(Icons.add_card),
             title: Text('Add a card on this limit'),
             subtitle: Text('e.g. the RuPay card that came with it'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'match',
+          child: ListTile(
+            leading: Icon(Icons.balance),
+            title: Text('Match bank balance'),
+            subtitle: Text('Outstanding or available limit'),
             contentPadding: EdgeInsets.zero,
           ),
         ),

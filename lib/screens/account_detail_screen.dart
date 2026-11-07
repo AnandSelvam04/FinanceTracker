@@ -18,6 +18,7 @@ import '../utils/ledger_cycles.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/hero_total_card.dart';
+import '../widgets/reconcile_dialog.dart';
 import '../widgets/transaction_edit_sheet.dart';
 
 /// What the user asked for from the statement's app bar; the Accounts screen
@@ -132,6 +133,17 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                       '${ledger.length} '
                           '${ledger.length == 1 ? 'entry' : 'entries'}',
                     ].join(' · '),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.balance, size: 18),
+                      label: const Text('Match bank balance'),
+                      onPressed: () => showReconcileDialog(context, account),
+                    ),
                   ),
                 ),
                 if (ledger.isEmpty)
