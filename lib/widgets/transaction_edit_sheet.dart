@@ -434,7 +434,11 @@ Future<void> showEditTransferSheet(
                       // nothing and said nothing.
                       String? problem =
                           validateAmountField(amountController.text);
-                      if (problem == null && (fromId == null || toId == null)) {
+                      // A card bill paid from an account the app doesn't
+                      // track was saved with no source; it may stay so.
+                      if (problem == null &&
+                          ((fromId == null && transfer.accountId != null) ||
+                              toId == null)) {
                         problem = 'Pick both accounts';
                       } else if (problem == null && fromId == toId) {
                         problem = 'Pick two different accounts';

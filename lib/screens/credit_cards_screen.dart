@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/expense.dart';
+import '../utils/db_constants.dart';
+import '../widgets/bill_payment_dialog.dart';
+import '../models/account.dart';
 import '../providers/account_provider.dart';
 import '../services/card_limit_readings.dart';
 import '../providers/expense_provider.dart';
@@ -165,6 +169,12 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
               CardLimitReadings.forCard(_pointReadings, s.account.last4);
           return _CardFigures(
             now: now,
+            paymentGuesses: s.cycle == null
+                ? const []
+                : likelyBillPayments(
+                    s,
+                    expenses.expensesInRange(s.cycle!.statementDate,
+                        DateTime(now.year, now.month, now.day + 1))),
             rewards: rewardEstimate(
               s.account,
               now: now,
@@ -297,8 +307,12 @@ class _CardFigures {
 
   /// The card's reward points, when it tracks them.
   final RewardEstimate? rewards;
+
+  /// Expenses that look like this card's bill payment saved as spending.
+  final List<Expense> paymentGuesses;
   const _CardFigures({
     this.rewards,
+    this.paymentGuesses = const [],
     this.bankCheck,
     this.now,
     required this.summary,
@@ -581,6 +595,19 @@ class _CardTile extends StatelessWidget {
                           'paying only that leaves the rest charged interest',
                           style: TextStyle(fontSize: 12, color: muted)),
                     ),
+                  if (s.dueRemaining > 0) ...[
+                    for (final e in figures.paymentGuesses)
+                      _PaymentGuess(expense: e, card: account),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: FilledButton.tonalIcon(
+                        icon: const Icon(Icons.task_alt, size: 18),
+                        label: const Text('Mark as paid'),
+                        onPressed: () =>
+                            showBillPaymentDialog(context, s, now: figures.now),
+                      ),
+                    ),
+                  ],
                   if (figures.rewards != null)
                     _RewardsLine(estimate: figures.rewards!, symbol: symbol),
                   if (missing.isNotEmpty)
@@ -799,6 +826,73 @@ class _OwedExplainerState extends State<_OwedExplainer> {
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Is 'CRED ₹8,015 on 6 Nov' this bill's payment?" — an expense that looks
+/// like the card bill was paid but saved as spending. One tap makes it a
+/// payment into the card: the bill clears, and it stops counting as spending.
+class _PaymentGuess extends StatelessWidget {
+  final Expense expense;
+  final Account card;
+  const _PaymentGuess({required this.expense, required this.card});
+
+  Future<void> _confirm(BuildContext context) async {
+    final expenses = context.read<ExpenseProvider>();
+    final accounts = context.read<AccountProvider>();
+    await expenses.updateExpense(Expense(
+      id: expense.id,
+      description: expense.description,
+      amount: expense.amount,
+      date: expense.date,
+      category: 'Transfer',
+      paymentMode: expense.paymentMode,
+      type: DbConstants.txTransfer,
+      accountId: expense.accountId,
+      toAccountId: card.id,
+      sourceRef: expense.sourceRef,
+      note: expense.note,
+      attachment: expense.attachment,
+    ));
+    await accounts.refreshBalances();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Recorded as a payment to ${card.name}')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final from = context.read<AccountProvider>().accountById(expense.accountId);
+    final symbol = from?.symbol ?? card.symbol;
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(10, 8, 4, 2),
+      decoration: BoxDecoration(
+        color: scheme.tertiaryContainer.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Is "${expense.description}" '
+            '${formatMoneyIn(symbol, expense.amount)} on '
+            '${formatCompactDate(expense.date)}'
+            '${from == null ? '' : ' from ${from.name}'} this bill\'s '
+            'payment? It is saved as spending, so the bill still shows due.',
+            style: TextStyle(fontSize: 13, color: scheme.onTertiaryContainer),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => _confirm(context),
+              child: const Text('Yes, it\'s the payment'),
+            ),
+          ),
         ],
       ),
     );

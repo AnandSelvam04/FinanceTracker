@@ -1,4 +1,5 @@
 import '../models/account.dart';
+import '../models/expense.dart';
 import 'alerts.dart' show calendarDaysBetween;
 import 'billing_cycle.dart';
 
@@ -610,4 +611,39 @@ RewardEstimate? rewardEstimate(
     fromSms: fromSms,
     value: pv == null ? null : (points * pv * 100).round(),
   );
+}
+
+/// Words that mark a debit as paying a credit card bill: a payment app made
+/// for it, or the bill named outright.
+final _billPaymentWords = RegExp(
+    r'\bcred\b|credit\s*card|\bcc\s*(?:bill|payment)|card\s*(?:bill|dues|payment)|bill\s*desk|billdesk',
+    caseSensitive: false);
+
+/// Spending in [candidates] that looks like [summary]'s card bill was paid
+/// but saved as an expense — so the bill still shows as due, and the payment
+/// counts as spending. A match is an expense on another account (or none),
+/// dated on or after the last statement, that either names a card bill (CRED,
+/// "credit card bill") or is within a rupee of what is due or what was
+/// billed. Closest amounts first; at most [max].
+List<Expense> likelyBillPayments(
+    CreditCardSummary summary, Iterable<Expense> candidates,
+    {int max = 2}) {
+  final cycle = summary.cycle;
+  if (cycle == null || summary.dueRemaining <= 0) return const [];
+  bool near(int a, int b) => (a - b).abs() <= 100;
+  final out = <Expense>[];
+  for (final e in candidates) {
+    if (!e.isExpense || e.amount <= 0) continue;
+    if (e.accountId == summary.account.id) continue;
+    if (e.date.isBefore(cycle.statementDate)) continue;
+    final text = '${e.description} ${e.category} ${e.note ?? ''}';
+    final named = _billPaymentWords.hasMatch(text) &&
+        e.amount <= summary.statementAmount + 100;
+    final exact = near(e.amount, summary.dueRemaining) ||
+        near(e.amount, summary.statementAmount);
+    if (named || exact) out.add(e);
+  }
+  int gap(Expense e) => (e.amount - summary.dueRemaining).abs();
+  out.sort((a, b) => gap(a).compareTo(gap(b)));
+  return out.take(max).toList();
 }

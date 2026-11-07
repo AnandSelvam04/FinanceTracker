@@ -281,6 +281,56 @@ void main() {
     });
   });
 
+  group('likelyBillPayments', () {
+    // Statement 5th, due 25th; today 20 Nov. 50,000 billed, unpaid.
+    final now = DateTime(2026, 11, 20);
+    final card = Account(
+        id: 1,
+        name: 'HDFC Visa',
+        type: 'credit_card',
+        statementDay: 5,
+        dueDay: 25);
+    final s = creditCardSummaries(
+      accounts: [card],
+      now: now,
+      spendInRange: (_, start, __) =>
+          start == DateTime(2026, 10, 6) ? 5000000 : 0,
+      paidInRange: (_, __, ___) => 0,
+      balanceOf: (_) => -5000000,
+    ).single;
+    Expense e(String desc, int amount, DateTime date, {int? accountId = 9}) =>
+        Expense(
+            description: desc,
+            amount: amount,
+            date: date,
+            category: 'Bills',
+            paymentMode: 'UPI',
+            accountId: accountId);
+
+    test('finds the payment saved as spending', () {
+      final found = likelyBillPayments(s, [
+        e('CRED', 3000000, DateTime(2026, 11, 8)), // part payment, named
+        e('Electricity', 5000000, DateTime(2026, 11, 9)), // exactly the bill
+        e('Groceries', 300000, DateTime(2026, 11, 9)),
+        e('Amazon', 5000000, DateTime(2026, 11, 9), accountId: 1), // on card
+        e('CRED', 5000000, DateTime(2026, 11, 2)), // before the statement
+      ]);
+      expect(found.map((x) => x.description), ['Electricity', 'CRED']);
+    });
+
+    test('nothing to find once the bill is paid', () {
+      final paid = creditCardSummaries(
+        accounts: [card],
+        now: now,
+        spendInRange: (_, start, __) =>
+            start == DateTime(2026, 10, 6) ? 5000000 : 0,
+        paidInRange: (_, __, ___) => 5000000,
+        balanceOf: (_) => 0,
+      ).single;
+      expect(likelyBillPayments(paid, [e('CRED', 5000000, now)]), isEmpty);
+    });
+  });
+
   group('statement details', () {
     test('a purchase today: billed on the next statement, due after it', () {
       // Statement 5th, due 25th.
@@ -901,6 +951,83 @@ void main() {
       expect(card.rewardRate, 10);
       // Set today, so nothing is estimated on top yet.
       expect(find.textContaining('2,000 points · ≈ ₹400.00'), findsOneWidget);
+    }, timeout: const Timeout(Duration(seconds: 45)));
+
+    // A card whose last statement billed 8,015 that the app saw no payment
+    // for.
+    Future<(Account, int)> billedCard(WidgetTester tester,
+        {List<Expense> Function(Map<String, int> ids, CreditCardCycle c)?
+            more}) async {
+      final today = DateTime.now();
+      final cycle =
+          computeCreditCardCycle(statementDay: 5, dueDay: 25, now: today);
+      await pumpScreen(
+        tester,
+        accounts: [
+          Account(name: 'Savings', type: 'bank'),
+          Account(
+              name: 'HDFC Visa',
+              type: 'credit_card',
+              statementDay: 5,
+              dueDay: 25),
+        ],
+        rows: (ids) => [
+          spend(801500, cycle.billedCycleStart.add(const Duration(hours: 12)),
+              ids['HDFC Visa']),
+          ...?more?.call(ids, cycle),
+        ],
+      );
+      final card =
+          accountProvider.accounts.singleWhere((a) => a.name == 'HDFC Visa');
+      return (card, cycle.statementDate.day);
+    }
+
+    testWidgets('a bill paid outside the app can be marked as paid',
+        (tester) async {
+      await billedCard(tester);
+      expect(find.textContaining('₹8,015.00 '), findsWidgets);
+      await tester.tap(find.widgetWithText(FilledButton, 'Mark as paid'));
+      await tester.pumpAndSettle();
+      expect(find.text('Full ₹8,015.00'), findsOneWidget);
+      // No default account here, so it starts as not tracked.
+      await tester.tap(find.text('Not tracked in the app'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Savings').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Mark as paid').last);
+      await settle(tester);
+
+      expect(find.textContaining('Bill paid'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Mark as paid'), findsNothing);
+      final rows = await tester.runAsync(() => DBService().getExpenses());
+      final payment = rows!.singleWhere((e) => e.isTransfer);
+      final savings =
+          accountProvider.accounts.singleWhere((a) => a.name == 'Savings');
+      expect(payment.amount, 801500);
+      expect(payment.accountId, savings.id);
+    }, timeout: const Timeout(Duration(seconds: 45)));
+
+    testWidgets('a payment saved as spending is offered as the bill payment',
+        (tester) async {
+      await billedCard(tester,
+          more: (ids, cycle) => [
+                Expense(
+                  description: 'CRED',
+                  amount: 801500,
+                  date: cycle.statementDate.add(const Duration(hours: 12)),
+                  category: 'Bills',
+                  paymentMode: 'UPI',
+                  accountId: ids['Savings'],
+                ),
+              ]);
+      expect(find.textContaining('Is "CRED" ₹8,015.00'), findsOneWidget);
+      await tester.tap(find.text('Yes, it\'s the payment'));
+      await settle(tester);
+
+      expect(find.textContaining('Bill paid'), findsOneWidget);
+      final rows = await tester.runAsync(() => DBService().getExpenses());
+      final cred = rows!.singleWhere((e) => e.description == 'CRED');
+      expect(cred.isTransfer, isTrue);
     }, timeout: const Timeout(Duration(seconds: 45)));
   });
 }
