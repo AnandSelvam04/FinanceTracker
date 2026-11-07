@@ -89,6 +89,20 @@
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="ocr" />
+        <!-- Home-screen widget: this month's spending and an Add button.
+             Exported so the launcher can bind it; it only draws text the app
+             saved (see SpendWidgetProvider). -->
+        <receiver
+            android:name=".SpendWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_loading_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/spend_widget_info" />
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
