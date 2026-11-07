@@ -754,5 +754,44 @@ void main() {
       await tester.pump();
       expect(find.textContaining('Matches the bank\'s SMS'), findsOneWidget);
     }, timeout: const Timeout(Duration(seconds: 45)));
+
+    testWidgets('a purchase converted to EMI holds the limit, not the bill',
+        (tester) async {
+      final today = DateTime.now();
+      await pumpScreen(
+        tester,
+        accounts: [
+          Account(
+              name: 'HDFC Visa', type: 'credit_card', creditLimit: 20000000),
+        ],
+        rows: (ids) => [
+          spend(6000000, DateTime(today.year, today.month, today.day),
+              ids['HDFC Visa']),
+        ],
+      );
+      await tester.tap(find.byTooltip('More for HDFC Visa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Convert a purchase to EMI'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'What was bought'), 'iPhone');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Amount converted (₹)'), '60000');
+      await tester.pump();
+      expect(find.textContaining('₹10,000.00 a month for 6 months'),
+          findsOneWidget);
+      expect(find.textContaining('No-cost EMI'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Convert'));
+      await settle(tester);
+
+      final plans = await tester.runAsync(() => DBService().getEmiPlans());
+      expect(plans!.single.months, 6);
+      final card =
+          accountProvider.accounts.singleWhere((a) => a.name == 'HDFC Visa');
+      expect(accountProvider.balanceOf(card), 0);
+      expect(find.text('Includes ₹60,000.00 held for EMIs'), findsOneWidget);
+      expect(find.text('30% of ₹2,00,000.00 used · ₹1,40,000.00 left'),
+          findsOneWidget);
+    }, timeout: const Timeout(Duration(seconds: 45)));
   });
 }

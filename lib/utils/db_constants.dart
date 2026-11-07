@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 19;
+  static const int dbVersion = 20;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -95,6 +95,15 @@ class DbConstants {
   // Savings goals table (added in schema v14). colAmount holds the target,
   // colSaved the amount set aside so far, colDate the optional target date.
   static const String tableGoals = 'goals';
+
+  // Credit-card EMI plans (v20): a converted purchase, its instalments, and
+  // the loan account that holds its unpaid principal. See EmiPlan.
+  static const String tableEmiPlans = 'emi_plans';
+  static const String colEmiCardId = 'cardId';
+  static const String colEmiLoanId = 'loanAccountId';
+  static const String colEmiPrincipal = 'principal';
+  static const String colEmiMonths = 'months';
+  static const String colEmiMonthly = 'monthlyAmount';
   static const String colSaved = 'saved';
 
   // Current market value per investment type (added in schema v15): one row

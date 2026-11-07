@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/account.dart';
+import '../models/emi_plan.dart';
 import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
@@ -33,6 +34,9 @@ class LoansScreen extends StatefulWidget {
 class _LoansScreenState extends State<LoansScreen> {
   Map<int, ({int inflow, int outflow})>? _io;
 
+  /// Card EMI plans, by the loan account that holds their principal.
+  Map<int, EmiPlan> _emis = {};
+
   @override
   void initState() {
     super.initState();
@@ -43,7 +47,13 @@ class _LoansScreenState extends State<LoansScreen> {
     if (!mounted) return;
     await context.read<AccountProvider>().fetchAccounts();
     final io = await DBService().getAccountInOut();
-    if (mounted) setState(() => _io = io);
+    final plans = await DBService().getEmiPlans();
+    if (mounted) {
+      setState(() {
+        _io = io;
+        _emis = {for (final p in plans) p.loanAccountId: p};
+      });
+    }
   }
 
   Future<void> _open(Widget screen) async {
@@ -116,6 +126,9 @@ class _LoansScreenState extends State<LoansScreen> {
                         for (final s in owe)
                           _DebtTile(
                             summary: s,
+                            emi: _emis[s.account.id],
+                            emiCard: accounts
+                                .accountById(_emis[s.account.id]?.cardId),
                             onOpen: () => _open(AccountDetailScreen(
                                 account: s.account, showActions: false)),
                             onRepay: () => _open(AddTransferScreen(
@@ -240,11 +253,17 @@ class _Totals extends StatelessWidget {
 
 class _DebtTile extends StatelessWidget {
   final DebtSummary summary;
+
+  /// Set for a card EMI: it is repaid through the card's bill.
+  final EmiPlan? emi;
+  final Account? emiCard;
   final VoidCallback onOpen;
   final VoidCallback onRepay;
   final VoidCallback onMore;
   const _DebtTile({
     required this.summary,
+    this.emi,
+    this.emiCard,
     required this.onOpen,
     required this.onRepay,
     required this.onMore,
@@ -311,23 +330,35 @@ class _DebtTile extends StatelessWidget {
                   style: TextStyle(fontSize: 12, color: muted),
                 ),
               ],
-              Wrap(
-                spacing: 4,
-                children: [
-                  if (!s.settled)
-                    TextButton.icon(
-                      icon: const Icon(Icons.payments_outlined, size: 18),
-                      label:
-                          Text(isLoan ? 'Record repayment' : 'Got paid back'),
-                      onPressed: onRepay,
-                    ),
-                  TextButton.icon(
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(isLoan ? 'Borrowed more' : 'Lent more'),
-                    onPressed: onMore,
+              if (emi != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, bottom: 10),
+                  child: Text(
+                    '${formatMoneyIn(symbol, emi!.monthlyAmount)}/month on '
+                    '${emiCard?.name ?? 'the card'}\'s bill · '
+                    '${emi!.billedBy(DateTime.now())} of ${emi!.months} '
+                    'billed',
+                    style: TextStyle(fontSize: 12, color: muted),
                   ),
-                ],
-              ),
+                )
+              else
+                Wrap(
+                  spacing: 4,
+                  children: [
+                    if (!s.settled)
+                      TextButton.icon(
+                        icon: const Icon(Icons.payments_outlined, size: 18),
+                        label:
+                            Text(isLoan ? 'Record repayment' : 'Got paid back'),
+                        onPressed: onRepay,
+                      ),
+                    TextButton.icon(
+                      icon: const Icon(Icons.add, size: 18),
+                      label: Text(isLoan ? 'Borrowed more' : 'Lent more'),
+                      onPressed: onMore,
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

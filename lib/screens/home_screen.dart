@@ -14,6 +14,7 @@ import '../providers/settings_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 import '../services/notification_service.dart';
+import '../services/emi_service.dart';
 import '../services/recurring_service.dart';
 import '../services/sms_service.dart';
 import '../utils/alerts.dart';
@@ -181,7 +182,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final investmentProvider = context.read<InvestmentProvider>();
     final recurringProvider = context.read<RecurringProvider>();
     final messenger = ScaffoldMessenger.of(context);
-    final posted = await RecurringService.instance.postDueTransactions();
+    final posted = await RecurringService.instance.postDueTransactions() +
+        // Card EMI instalments fall due the same way.
+        await EmiService.postDue();
     if (posted > 0) {
       await expenseProvider.reloadLoadedYears();
       await accountProvider.refreshBalances();

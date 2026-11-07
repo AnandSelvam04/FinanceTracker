@@ -13,6 +13,7 @@ import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
 import '../widgets/card_setup_dialog.dart';
+import '../widgets/emi_dialog.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/reconcile_dialog.dart';
 import 'account_detail_screen.dart';
@@ -905,6 +906,8 @@ class _CardMenu extends StatelessWidget {
             await showCardSetupDialog(context, linkTo: card);
           case 'link':
             await showCardSetupDialog(context, card: card, startShared: true);
+          case 'emi':
+            await showEmiDialog(context, card);
           case 'match':
             await showReconcileDialog(context, card);
           case 'unlink':
@@ -932,6 +935,14 @@ class _CardMenu extends StatelessWidget {
             leading: Icon(Icons.add_card),
             title: Text('Add a card on this limit'),
             subtitle: Text('e.g. the RuPay card that came with it'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'emi',
+          child: ListTile(
+            leading: Icon(Icons.calendar_view_month),
+            title: Text('Convert a purchase to EMI'),
             contentPadding: EdgeInsets.zero,
           ),
         ),
@@ -1088,6 +1099,15 @@ class _UsageBar extends StatelessWidget {
                       color: low ? mutedTextColor(context) : color,
                       fontWeight: low ? FontWeight.normal : FontWeight.w600)),
             ),
+            if (s.emiBlocked > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                    'Includes ${formatMoneyIn(symbol, s.emiBlocked)} held '
+                    'for EMIs',
+                    style: TextStyle(
+                        fontSize: 12, color: mutedTextColor(context))),
+              ),
           ],
         ),
       ),

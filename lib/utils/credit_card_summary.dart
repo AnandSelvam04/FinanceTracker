@@ -134,6 +134,10 @@ class CreditCardSummary {
   /// not empty.
   final int? _poolOwed;
 
+  /// Unpaid principal of EMIs on this card (or the cards sharing its limit):
+  /// not owed yet, but held against the limit until billed.
+  final int emiBlocked;
+
   const CreditCardSummary({
     required this.account,
     required this.periodStart,
@@ -148,6 +152,7 @@ class CreditCardSummary {
     this.sharesLimitWith = const [],
     int? poolLimit,
     int? poolOwed,
+    this.emiBlocked = 0,
   })  : _poolLimit = poolLimit,
         _poolOwed = poolOwed;
 
@@ -198,7 +203,8 @@ class CreditCardSummary {
 
   /// What counts against [limit]: owed on this card, plus on the cards it
   /// shares the limit with.
-  int get limitUsed => isSharedLimit ? (_poolOwed ?? owed) : owed;
+  int get limitUsed =>
+      (isSharedLimit ? (_poolOwed ?? owed) : owed) + emiBlocked;
 
   /// Share of [limit] in use: [limitUsed] over the limit, from 0 up (above
   /// 1 when over the limit). Null without a limit.
@@ -256,6 +262,14 @@ List<CreditCardSummary> creditCardSummaries({
     return b < 0 ? -b : 0;
   }
 
+  // EMI loans hold the limit of the card they are on.
+  final emiOn = <int, int>{};
+  for (final a in accounts) {
+    if (a.isLoan && a.sharedLimitWith != null) {
+      emiOn[a.sharedLimitWith!] = (emiOn[a.sharedLimitWith!] ?? 0) + owedOn(a);
+    }
+  }
+
   final out = <CreditCardSummary>[];
   for (final a in accounts) {
     if (a.type != 'credit_card' || a.id == null) continue;
@@ -269,6 +283,9 @@ List<CreditCardSummary> creditCardSummaries({
     final poolLimit = shared ? pool.limit : null;
     final poolOwed =
         shared ? pool.cards.fold<int>(0, (s, c) => s + owedOn(c)) : null;
+    final emiBlocked = shared
+        ? pool.cards.fold<int>(0, (s, c) => s + (emiOn[c.id] ?? 0))
+        : (emiOn[id] ?? 0);
 
     if (!a.hasBillingCycle) {
       final start = DateTime(today.year, today.month, 1);
@@ -282,6 +299,7 @@ List<CreditCardSummary> creditCardSummaries({
         sharesLimitWith: sharesWith,
         poolLimit: poolLimit,
         poolOwed: poolOwed,
+        emiBlocked: emiBlocked,
       ));
       continue;
     }
@@ -304,6 +322,7 @@ List<CreditCardSummary> creditCardSummaries({
       sharesLimitWith: sharesWith,
       poolLimit: poolLimit,
       poolOwed: poolOwed,
+      emiBlocked: emiBlocked,
     ));
   }
 

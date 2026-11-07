@@ -175,6 +175,8 @@ void main() {
     final tables = await db
         .rawQuery("SELECT name FROM sqlite_master WHERE type = 'table'");
     expect(tables.map((r) => r['name']), contains(DbConstants.tableSmsIgnored));
+    // v20 adds credit-card EMI plans.
+    expect(tables.map((r) => r['name']), contains(DbConstants.tableEmiPlans));
 
     // Rows that predate the column read back as null rather than failing.
     expect(expenses.first.sourceRef, isNull);

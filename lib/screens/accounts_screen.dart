@@ -321,7 +321,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         dueDay: isCard ? _dueDay : null,
                         creditLimit:
                             isCard && sharedWith == null ? _creditLimit : null,
-                        sharedLimitWith: isCard ? sharedWith?.id : null,
+                        // A card's shared limit, or the card an EMI's loan
+                        // is on.
+                        sharedLimitWith: isCard
+                            ? sharedWith?.id
+                            : (_type == 'loan'
+                                ? account?.sharedLimitWith
+                                : null),
                       );
                       final provider = context.read<AccountProvider>();
                       if (account == null) {
