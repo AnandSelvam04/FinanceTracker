@@ -62,12 +62,121 @@ class _BackupsScreenState extends State<BackupsScreen> {
   /// Email of the Google account signed in for Drive, or null when nobody is.
   String? _driveEmail;
 
+  /// Whether automatic Drive backup is on, what its last attempt did, and
+  /// when this phone last wrote to Drive.
+  bool _autoDrive = false;
+  AutoDriveStatus? _autoDriveStatus;
+  DateTime? _lastDriveBackup;
+
   @override
   void initState() {
     super.initState();
     _loadLastBackup();
     _loadDriveAccount();
     _loadEncryption();
+    _loadAutoDrive();
+  }
+
+  Future<void> _loadAutoDrive() async {
+    final on = await _backupService.isAutoDriveBackupOn();
+    final status = await _backupService.lastAutoDriveStatus();
+    final last = await _backupService.lastDriveBackupTime();
+    if (!mounted) return;
+    setState(() {
+      _autoDrive = on;
+      _autoDriveStatus = status;
+      _lastDriveBackup = last;
+    });
+  }
+
+  Future<String?> _promptAutoDrivePassphrase() => _promptPassphrase(
+        title: 'Protect automatic backups',
+        action: 'Save',
+        message: 'Your database is encrypted, so the Drive copy is sealed '
+            'with a passphrase. It is kept in this phone\'s secure storage '
+            'for the automatic backups. You will need it to restore on a '
+            'new phone.',
+        confirm: true,
+      );
+
+  Future<void> _setAutoDrive(bool on) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isWorking = true);
+    try {
+      if (!on) {
+        await _backupService.disableAutoDriveBackup();
+      } else {
+        String? passphrase;
+        if (_dbEncrypted) {
+          passphrase = await _promptAutoDrivePassphrase();
+          if (passphrase == null) return;
+        }
+        await _backupService.enableAutoDriveBackup(passphrase: passphrase);
+        // Back up straight away, so the switch shows a real result.
+        final status = await _backupService.autoDriveBackupIfDue(force: true);
+        messenger.showSnackBar(SnackBar(
+          content: Text(status == AutoDriveStatus.done
+              ? 'Automatic Drive backup is on. Backed up just now.'
+              : 'Automatic Drive backup is on. ${_autoDriveProblem(status)}'),
+          duration: const Duration(seconds: 6),
+        ));
+        await _loadDriveAccount();
+        await _loadLastBackup();
+      }
+    } catch (e) {
+      messenger.showSnackBar(_errorSnackBar(e));
+    } finally {
+      await _loadAutoDrive();
+      if (mounted) setState(() => _isWorking = false);
+    }
+  }
+
+  Future<void> _setAutoDrivePassphrase() async {
+    final passphrase = await _promptAutoDrivePassphrase();
+    if (passphrase == null) return;
+    await _runTask(() async {
+      await _backupService.setAutoDrivePassphrase(passphrase);
+      final status = await _backupService.autoDriveBackupIfDue(force: true);
+      if (status != AutoDriveStatus.done) {
+        throw DriveBackupException(_autoDriveProblem(status));
+      }
+    }, 'Passphrase saved. Backed up to Drive.');
+    await _loadAutoDrive();
+  }
+
+  /// What a status that didn't upload means for the user, and what to do.
+  static String _autoDriveProblem(AutoDriveStatus? status) {
+    switch (status) {
+      case AutoDriveStatus.notSignedIn:
+        return 'Not signed in to Google. Back up to Drive once by hand to '
+            'sign in.';
+      case AutoDriveStatus.needsPassphrase:
+        return 'Your database is encrypted, so automatic backups need a '
+            'passphrase. Tap Set passphrase.';
+      case AutoDriveStatus.remoteNewer:
+        return 'The Drive copy was saved by another phone, so it was not '
+            'overwritten. Back up by hand once to choose which to keep.';
+      case AutoDriveStatus.failed:
+        return 'The last try failed (offline?). It tries again later.';
+      default:
+        return 'The first backup runs the next time the app opens.';
+    }
+  }
+
+  /// One line under the switch: when it last backed up, or what's wrong.
+  String _autoDriveSubtitle() {
+    if (!_autoDrive) {
+      return 'Once a day when the app opens, to the signed-in account. '
+          'Never overwrites a newer copy from another phone.';
+    }
+    final status = _autoDriveStatus;
+    if (status == null || status == AutoDriveStatus.done) {
+      final last = _lastDriveBackup;
+      return last == null
+          ? 'On. The first backup runs the next time the app opens.'
+          : 'On. Last backed up on ${formatCompactDate(last)}.';
+    }
+    return _autoDriveProblem(status);
   }
 
   Future<void> _loadLastBackup() async {
@@ -552,6 +661,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         // Signing in during the backup may have established the
                         // account — show it.
                         await _loadDriveAccount();
+                        await _loadAutoDrive();
                       } finally {
                         if (mounted) setState(() => _isWorking = false);
                       }
@@ -565,8 +675,29 @@ class _BackupsScreenState extends State<BackupsScreen> {
                       await _restoreProtected(_backupService.restoreFromDrive,
                           'Restored from Drive');
                       await _loadDriveAccount();
+                      await _loadAutoDrive();
                     },
                   ),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.cloud_sync),
+                    title: const Text('Back up to Drive automatically'),
+                    subtitle: Text(_autoDriveSubtitle()),
+                    value: _autoDrive,
+                    onChanged: _isWorking ? null : _setAutoDrive,
+                  ),
+                  if (_autoDrive &&
+                      _autoDriveStatus == AutoDriveStatus.needsPassphrase)
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: TextButton(
+                          onPressed:
+                              _isWorking ? null : _setAutoDrivePassphrase,
+                          child: const Text('Set passphrase'),
+                        ),
+                      ),
+                    ),
                   // Which Google account holds the backup, and where it lives.
                   if (_driveEmail != null)
                     ListTile(
