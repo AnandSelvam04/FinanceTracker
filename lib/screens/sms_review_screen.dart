@@ -334,8 +334,8 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
       // One transaction, matching the CSV importer: a failure part-way through
       // leaves nothing half-imported.
       if (txDrafts.isNotEmpty) {
-        await DBService()
-            .insertExpenses([for (final d in txDrafts) d.toExpense()]);
+        await expenseProvider
+            .addExpenses([for (final d in txDrafts) d.toExpense()]);
       }
       // The investments table carries no sourceRef, so a contribution imported
       // from a message can't be deduped by the sourceRef check — mark its ref
@@ -378,7 +378,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
         investments: investmentDrafts,
         expenses: txDrafts.where((d) => d.canBeInvestment),
       );
-      await expenseProvider.reloadLoadedYears();
       await accountProvider.refreshBalances();
       if (!mounted) return;
       setState(() => _drafts.removeWhere((d) => d.selected));

@@ -192,8 +192,7 @@ class _ImportScreenState extends State<ImportScreen> {
       }
       // One transaction, so a failure part-way through leaves no half-imported
       // file behind for the user to untangle by hand.
-      await DBService().insertExpenses(result.expenses);
-      await expenseProvider.reloadLoadedYears();
+      await expenseProvider.addExpenses(result.expenses);
       await accountProvider.refreshBalances();
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
@@ -272,7 +271,9 @@ class _ImportScreenState extends State<ImportScreen> {
                   }),
                 ),
                 _mapDropdown(
-                    _splitAmounts ? 'Withdrawal (debit) column' : 'Amount column',
+                    _splitAmounts
+                        ? 'Withdrawal (debit) column'
+                        : 'Amount column',
                     _amountCol,
                     columns,
                     (v) => setState(() => _amountCol = v!)),

@@ -60,9 +60,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     final templates = context.read<TemplateProvider>();
     final messenger = ScaffoldMessenger.of(context);
     final merging = others.any((c) => isSameCategory(c, to));
-    final moved = await DBService().renameCategory(from, to, type: _type);
+    final moved = await expenses.renameCategory(from, to, type: _type);
     await Future.wait([
-      expenses.reloadLoadedYears(),
       budgets.fetchBudgets(),
       recurring.fetchRules(),
       templates.fetchTemplates(),

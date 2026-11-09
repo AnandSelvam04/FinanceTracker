@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
-import '../services/db_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
@@ -508,8 +507,7 @@ Future<void> splitTransaction(BuildContext context, Expense original) async {
   final provider = context.read<ExpenseProvider>();
   final accountProvider = context.read<AccountProvider>();
   try {
-    await DBService().splitExpense(original.id!, parts);
-    await provider.reloadLoadedYears();
+    await provider.splitExpense(original.id!, parts);
     await accountProvider.refreshBalances();
     if (!context.mounted) return;
     messenger.showSnackBar(

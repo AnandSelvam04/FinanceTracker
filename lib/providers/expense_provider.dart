@@ -216,6 +216,50 @@ class ExpenseProvider extends ChangeNotifier {
     }
   }
 
+  // Bulk writes. Each one writes in a single database transaction and then
+  // reloads the loaded years, so the totals screens read can't go stale.
+  // Account balances are refreshed by the caller (AccountProvider), as
+  // after [addExpense].
+
+  /// Inserts [rows] together (an import, or undoing a bulk delete). Returns
+  /// how many were inserted.
+  Future<int> addExpenses(List<Expense> rows) async {
+    final n = await DBService().insertExpenses(rows);
+    if (n > 0) await reloadLoadedYears();
+    return n;
+  }
+
+  /// Deletes every row in [ids] together. Returns how many were removed.
+  Future<int> deleteExpenses(Iterable<int> ids) async {
+    final n = await DBService().deleteExpenses(ids);
+    await reloadLoadedYears();
+    return n;
+  }
+
+  /// Files every row in [ids] under [category]; transfers are skipped.
+  /// Returns how many changed.
+  Future<int> setCategory(Iterable<int> ids, String category) async {
+    final n = await DBService().setCategory(ids, category);
+    await reloadLoadedYears();
+    return n;
+  }
+
+  /// Replaces transaction [originalId] with [parts], which sum to it.
+  Future<void> splitExpense(int originalId, List<Expense> parts) async {
+    await DBService().splitExpense(originalId, parts);
+    await reloadLoadedYears();
+  }
+
+  /// Renames (or merges) category [from] into [to] on every [type] row.
+  /// Budgets, recurring rules and templates move too, in the database; the
+  /// caller reloads those providers. Returns how many transactions moved.
+  Future<int> renameCategory(String from, String to,
+      {required String type}) async {
+    final n = await DBService().renameCategory(from, to, type: type);
+    await reloadLoadedYears();
+    return n;
+  }
+
   /// Returns all transaction rows for a given month and year.
   List<Expense> expensesForMonth(int year, int month) {
     return _expenses

@@ -260,10 +260,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       ),
     );
     if (ok != true) return;
-    await DBService().deleteExpenses([for (final e in rows) e.id!]);
-    // Leave selection mode at once, not after the reload below.
+    // Leave selection mode at once, not after the delete's reload.
     if (mounted) setState(_selected.clear);
-    await expenses.reloadLoadedYears();
+    await expenses.deleteExpenses([for (final e in rows) e.id!]);
     await accounts.refreshBalances();
     messenger.showSnackBar(SnackBar(
       content: Text('Deleted ${rows.length} '
@@ -272,8 +271,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         label: 'Undo',
         onPressed: () async {
           // Same ids, so anything referring to them still lines up.
-          await DBService().insertExpenses(rows);
-          await expenses.reloadLoadedYears();
+          await expenses.addExpenses(rows);
           await accounts.refreshBalances();
         },
       ),
@@ -302,9 +300,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     );
     if (category == null || category.trim().isEmpty) return;
     final before = [for (final e in movable) (e.id!, e.category)];
-    await DBService().setCategory([for (final e in movable) e.id!], category);
     if (mounted) setState(_selected.clear);
-    await expenses.reloadLoadedYears();
+    await expenses.setCategory([for (final e in movable) e.id!], category);
     final skipped = rows.length - movable.length;
     messenger.showSnackBar(SnackBar(
       content: Text('Moved ${movable.length} to $category'
@@ -312,10 +309,15 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       action: SnackBarAction(
         label: 'Undo',
         onPressed: () async {
+          // Grouped by old category: one write (and one reload) per group,
+          // not per row.
+          final byOld = <String, List<int>>{};
           for (final (id, old) in before) {
-            await DBService().setCategory([id], old);
+            byOld.putIfAbsent(old, () => []).add(id);
           }
-          await expenses.reloadLoadedYears();
+          for (final MapEntry(key: old, value: ids) in byOld.entries) {
+            await expenses.setCategory(ids, old);
+          }
         },
       ),
     ));

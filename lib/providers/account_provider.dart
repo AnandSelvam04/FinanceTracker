@@ -53,9 +53,11 @@ class AccountProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> addAccount(Account account) async {
-    await DBService().insertAccount(account);
+  /// Inserts [account] and returns its new id.
+  Future<int> addAccount(Account account) async {
+    final id = await DBService().insertAccount(account);
     await fetchAccounts();
+    return id;
   }
 
   Future<void> updateAccount(Account account) async {

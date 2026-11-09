@@ -403,7 +403,7 @@ class _NewDebtDialogState extends State<_NewDebtDialog> {
     final accounts = context.read<AccountProvider>();
     final expenses = context.read<ExpenseProvider>();
     final via = accounts.accountById(_accountId);
-    final id = await DBService().insertAccount(Account(
+    final id = await accounts.addAccount(Account(
       name: _name.text.trim(),
       type: widget.type,
       currency: via?.currency,
