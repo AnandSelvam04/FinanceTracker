@@ -52,6 +52,7 @@ lib/
   models/                   # Expense (expense/income/transfer), account, investment, budget, recurring rule, template, savings goal
   providers/                # Expense, Investment, Budget, Account, Recurring, Template, Goal providers
   services/                 # DB (schema v22, migrations), backup + crypto, auth, notifications, recurring, CSV + SMS import, PDF statement
+    db/                     # DbSchema (tables + v2-v22 migrations) and DBService queries split by area (expenses, accounts, budgets, ...)
   screens/                  # UI screens (home, add expense/transfer, accounts, budgets, recurring, insights, backups, list)
   widgets/                  # Charts (pie, trends, cash flow, category trend), month selector
   utils/                    # DbConstants, category colors, currency format, logger

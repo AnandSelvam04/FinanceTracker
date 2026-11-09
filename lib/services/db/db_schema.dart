@@ -64,7 +64,8 @@ class DbSchema {
     await _createEmiPlansTable(db);
   }
 
-  static Future<void> onUpgrade(Database db, int oldVersion, int newVersion) async {
+  static Future<void> onUpgrade(
+      Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       // Rename 'title' to 'description' in expenses table
       await db.execute(
