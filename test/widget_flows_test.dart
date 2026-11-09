@@ -234,6 +234,71 @@ void main() {
     await teardownTree(tester);
   }, timeout: testTimeout);
 
+  testWidgets('Transactions: filter by amount, apply, then reset',
+      (tester) async {
+    final (expenses, accounts) = (await tester.runAsync(() async {
+      for (final (name, amount) in [('Snack', 5000), ('Rent', 2000000)]) {
+        await DBService().insertExpense(Expense(
+          description: name,
+          amount: amount,
+          date: DateTime(now.year, now.month, now.day),
+          category: 'Food',
+          paymentMode: 'UPI',
+        ));
+      }
+      final e = ExpenseProvider();
+      await e.ensureYearLoaded(now.year);
+      final a = AccountProvider();
+      await a.fetchAccounts();
+      return (e, a);
+    }))!;
+
+    await pumpScreen(tester, const ExpenseListScreen(), [
+      ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
+      ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      ChangeNotifierProvider<InvestmentProvider>(
+          create: (_) => InvestmentProvider()),
+    ]);
+    expect(find.text('Snack'), findsOneWidget);
+    expect(find.text('Rent'), findsOneWidget);
+
+    // Dismissing the sheet changes nothing.
+    await tester.tap(find.byTooltip('Filters'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Min amount'), '1000');
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+    expect(find.text('Snack'), findsOneWidget);
+    expect(find.widgetWithIcon(IconButton, Icons.filter_alt), findsNothing);
+
+    // Apply keeps only rows of at least ₹1,000.
+    await tester.tap(find.byTooltip('Filters'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Min amount'), '1000');
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(find.text('Snack'), findsNothing);
+    expect(find.text('Rent'), findsOneWidget);
+    expect(find.widgetWithIcon(IconButton, Icons.filter_alt), findsOneWidget);
+
+    // The sheet reopens with the applied value; Reset all clears it.
+    await tester.tap(find.byTooltip('Filters'));
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'Min amount'))
+            .controller!
+            .text,
+        '1000.00');
+    await tester.tap(find.text('Reset all'));
+    await tester.pumpAndSettle();
+    expect(find.text('Snack'), findsOneWidget);
+    expect(find.widgetWithIcon(IconButton, Icons.filter_alt), findsNothing);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+
   testWidgets('Transactions: select rows, delete them, sort by amount',
       (tester) async {
     final (expenses, accounts) = (await tester.runAsync(() async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../models/account.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
 import '../providers/account_provider.dart';
@@ -22,8 +23,10 @@ import '../widgets/fade_slide_in.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/swipe_delete_background.dart';
 import '../widgets/transaction_edit_sheet.dart';
-import '../widgets/dispose_with_route.dart';
 import 'investment_type_screen.dart';
+
+part 'expense_list/filter_sheet.dart';
+part 'expense_list/list_widgets.dart';
 
 class ExpenseListScreen extends StatefulWidget {
   const ExpenseListScreen({super.key});
@@ -386,179 +389,39 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         .toList()
       ..sort();
 
-    // Working copies so the sheet only applies on confirm.
-    String? category = _categoryFilter;
-    int? accountId = _accountFilter;
-    final minController = TextEditingController(
-        text: _minAmount == null ? '' : minorToEditString(_minAmount!));
-    final maxController = TextEditingController(
-        text: _maxAmount == null ? '' : minorToEditString(_maxAmount!));
-    DateTimeRange? range = _dateRange;
-
-    // DisposeWithRoute disposes the controllers once the sheet has closed.
-    await showModalBottomSheet(
+    // Null when the sheet is dismissed: the filters stay as they were.
+    final picked = await showModalBottomSheet<_AdvancedFilters>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => DisposeWithRoute(
-        notifiers: [minController, maxController],
-        child: StatefulBuilder(
-          builder: (context, setSheet) => Padding(
-            padding: bottomSheetPadding(context),
-            // Scrollable so the filter list can still be reached (and Apply
-            // tapped) when the keyboard shrinks the available height.
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Filters',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String?>(
-                    isExpanded: true,
-                    initialValue:
-                        categories.contains(category) ? category : null,
-                    decoration: const InputDecoration(labelText: 'Category'),
-                    items: [
-                      DropdownMenuItem<String?>(
-                          value: null, child: const Text('Any')),
-                      ...categories.map((c) => DropdownMenuItem<String?>(
-                          value: c,
-                          child: Text(c, overflow: TextOverflow.ellipsis))),
-                    ],
-                    onChanged: (v) => setSheet(() => category = v),
-                  ),
-                  const SizedBox(height: 12),
-                  if (accounts.isNotEmpty) ...[
-                    DropdownButtonFormField<int?>(
-                      isExpanded: true,
-                      initialValue: accounts.any((a) => a.id == accountId)
-                          ? accountId
-                          : null,
-                      decoration: const InputDecoration(labelText: 'Account'),
-                      items: [
-                        DropdownMenuItem<int?>(
-                            value: null, child: const Text('Any')),
-                        ...accounts.map((a) => DropdownMenuItem<int?>(
-                            value: a.id,
-                            child:
-                                Text(a.name, overflow: TextOverflow.ellipsis))),
-                      ],
-                      onChanged: (v) => setSheet(() => accountId = v),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: minController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          decoration:
-                              const InputDecoration(labelText: 'Min amount'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: maxController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          decoration:
-                              const InputDecoration(labelText: 'Max amount'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(range == null
-                            ? 'Date range: uses Year/Month above'
-                            : 'Date range: ${_fmtRange(range!)}'),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          final picked = await showDateRangePicker(
-                            context: context,
-                            firstDate: _pickerFirstDate,
-                            lastDate: DateTime.now(),
-                            initialDateRange: range,
-                          );
-                          if (picked != null) setSheet(() => range = picked);
-                        },
-                        child: const Text('Pick'),
-                      ),
-                      if (range != null)
-                        TextButton(
-                          onPressed: () => setSheet(() => range = null),
-                          child: const Text('Clear'),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _categoryFilter = null;
-                            _accountFilter = null;
-                            _minAmount = null;
-                            _maxAmount = null;
-                            _dateRange = null;
-                          });
-                          Navigator.pop(context);
-                        },
-                        child: const Text('Reset all'),
-                      ),
-                      const Spacer(),
-                      SizedBox(
-                        height: kSheetActionHeight,
-                        child: FilledButton(
-                          onPressed: () {
-                            final appliedRange = range;
-                            setState(() {
-                              _categoryFilter = category;
-                              _accountFilter = accountId;
-                              _minAmount =
-                                  parseMinor(minController.text.trim());
-                              _maxAmount =
-                                  parseMinor(maxController.text.trim());
-                              _dateRange = appliedRange;
-                            });
-                            // A custom range can span years the provider hasn't
-                            // loaded yet; load them so the filter shows everything.
-                            if (appliedRange != null) {
-                              context
-                                  .read<ExpenseProvider>()
-                                  .ensureYearsLoaded([
-                                for (var y = appliedRange.start.year;
-                                    y <= appliedRange.end.year;
-                                    y++)
-                                  y
-                              ]);
-                            }
-                            Navigator.pop(context);
-                          },
-                          child: const Text('Apply'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
+      builder: (_) => _FilterSheet(
+        categories: categories,
+        accounts: accounts,
+        firstDate: _pickerFirstDate,
+        initial: (
+          category: _categoryFilter,
+          accountId: _accountFilter,
+          minAmount: _minAmount,
+          maxAmount: _maxAmount,
+          range: _dateRange,
         ),
       ),
     );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _categoryFilter = picked.category;
+      _accountFilter = picked.accountId;
+      _minAmount = picked.minAmount;
+      _maxAmount = picked.maxAmount;
+      _dateRange = picked.range;
+    });
+    // A custom range can span years the provider hasn't loaded yet; load
+    // them so the filter shows everything.
+    final range = picked.range;
+    if (range != null) {
+      provider.ensureYearsLoaded(
+          [for (var y = range.start.year; y <= range.end.year; y++) y]);
+    }
   }
-
-  String _fmtRange(DateTimeRange r) =>
-      '${formatShortDate(r.start)} → ${formatShortDate(r.end)}';
 
   String get _filterLabel {
     final period = _selectedMonth == null
@@ -944,256 +807,3 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 }
 
-/// Totals for whatever the current filters show, leading the list so the
-/// period's spend is visible without leaving the Transactions tab.
-class _PeriodSummary extends StatelessWidget {
-  final int count;
-  final int spent;
-  final int income;
-
-  const _PeriodSummary({
-    required this.count,
-    required this.spent,
-    required this.income,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = mutedTextColor(context);
-    Widget figure(String label, int amount, Color color) => Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label.toUpperCase(),
-                  style: TextStyle(
-                      fontSize: 11,
-                      letterSpacing: 0.6,
-                      fontWeight: FontWeight.w600,
-                      color: muted)),
-              const SizedBox(height: 2),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(formatMoney(amount),
-                    style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: color)),
-              ),
-            ],
-          ),
-        );
-    return Card(
-      margin: const EdgeInsets.only(bottom: 4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            figure('Spent', spent, expenseColor(context)),
-            figure('Income', income, incomeColor(context)),
-            Text('$count ${count == 1 ? 'entry' : 'entries'}',
-                style: TextStyle(fontSize: 12, color: muted)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Date heading over one day's transactions, with that day's spend.
-class _DayHeader extends StatelessWidget {
-  final DateTime day;
-  final int spent;
-
-  const _DayHeader({required this.day, required this.spent});
-
-  String _label() {
-    final today = DateUtils.dateOnly(DateTime.now());
-    if (day == today) return 'Today';
-    // Calendar arithmetic, not a 24h Duration, so a DST change doesn't lose
-    // the "Yesterday" label for a day.
-    if (day == DateTime(today.year, today.month, today.day - 1)) {
-      return 'Yesterday';
-    }
-    return formatDateWithDay(day);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final style = TextStyle(
-      fontSize: 13,
-      fontWeight: FontWeight.w600,
-      color: mutedTextColor(context),
-    );
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
-      child: Row(
-        children: [
-          Expanded(child: Text(_label(), style: style)),
-          if (spent > 0) Text('-${formatMoney(spent)}', style: style),
-        ],
-      ),
-    );
-  }
-}
-
-/// Leading avatar for a transaction row: a category icon on the category's
-/// colour for spends, keeping the green/blue-grey semantics for income and
-/// transfers.
-class _CategoryAvatar extends StatelessWidget {
-  final Expense expense;
-  const _CategoryAvatar({required this.expense});
-
-  @override
-  Widget build(BuildContext context) {
-    if (expense.isTransfer) {
-      return CircleAvatar(
-        backgroundColor: transferAvatarColor(context),
-        child: Icon(Icons.swap_horiz, color: transferColor(context)),
-      );
-    }
-    if (expense.isIncome) {
-      return CircleAvatar(
-        backgroundColor: incomeAvatarColor(context),
-        child:
-            Icon(categoryIcon(expense.category), color: incomeColor(context)),
-      );
-    }
-    return CategoryAvatar(category: expense.category);
-  }
-}
-
-/// A short vertical rule separating the period chip from the type chips in the
-/// transactions toolbar.
-class _ToolbarDivider extends StatelessWidget {
-  const _ToolbarDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 1,
-        height: 24,
-        color: Theme.of(context).colorScheme.outlineVariant,
-      ),
-    );
-  }
-}
-
-/// An investment paid from (or back into) the filtered account. Tapping it
-/// opens its type, where it can be edited like any other contribution.
-class _InvestmentRow extends StatelessWidget {
-  final Investment investment;
-  const _InvestmentRow({required this.investment});
-
-  @override
-  Widget build(BuildContext context) {
-    final i = investment;
-    // Money out of the account for a contribution, back in for a withdrawal.
-    final amount = i.isWithdrawal
-        ? '+${formatMoney(-i.amount)}'
-        : '-${formatMoney(i.amount)}';
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: incomeAvatarColor(context),
-          child: Icon(Icons.trending_up, color: incomeColor(context)),
-        ),
-        title: Text(i.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(
-            '${i.isWithdrawal ? 'Investment withdrawal' : 'Investment'}'
-            ' · ${i.type}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis),
-        trailing: Text(amount,
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: i.isWithdrawal
-                    ? incomeColor(context)
-                    : expenseColor(context))),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => InvestmentTypeScreen(type: i.type)),
-        ),
-      ),
-    );
-  }
-}
-
-/// Asks which category to file the selected rows under: an existing one from
-/// the chips, or a new name typed in.
-class _CategoryPickerDialog extends StatefulWidget {
-  final int count;
-  final List<String> suggestions;
-  const _CategoryPickerDialog({required this.count, required this.suggestions});
-
-  @override
-  State<_CategoryPickerDialog> createState() => _CategoryPickerDialogState();
-}
-
-class _CategoryPickerDialogState extends State<_CategoryPickerDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final typed = _controller.text.trim();
-    return AlertDialog(
-      title: Text('Move ${widget.count} to'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: _controller,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Category'),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                for (final c in widget.suggestions)
-                  ChoiceChip(
-                    label: Text(c),
-                    selected: c.toLowerCase() == typed.toLowerCase(),
-                    onSelected: (_) => setState(() => _controller.text = c),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
-        FilledButton(
-          onPressed: typed.isEmpty
-              ? null
-              : () {
-                  // Reuse an existing spelling rather than start a near-twin.
-                  final match = widget.suggestions.firstWhere(
-                      (c) => c.toLowerCase() == typed.toLowerCase(),
-                      orElse: () => typed);
-                  Navigator.pop(context, match);
-                },
-          child: const Text('Move'),
-        ),
-      ],
-    );
-  }
-}
