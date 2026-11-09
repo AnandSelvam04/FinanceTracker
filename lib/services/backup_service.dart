@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart' show PlatformException;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
@@ -21,8 +22,11 @@ import '../utils/app_logger.dart';
 import '../providers/settings_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import 'auto_drive_backup.dart';
 import 'backup_crypto.dart';
 import 'db_service.dart';
+
+export 'auto_drive_backup.dart' show AutoDriveStatus;
 
 // Export expenses to CSV
 
@@ -87,8 +91,7 @@ List<List<dynamic>> _expenseCsvRows(
 /// exactly what they see.
 Future<File> writeExpensesCsvFile(List<Expense> expenses,
     {String filename = 'expenses_export.csv'}) async {
-  final csvData = const ListToCsvConverter()
-      .convert(_expenseCsvRows(expenses, await _accountNames()));
+  final csvData = csv.encode(_expenseCsvRows(expenses, await _accountNames()));
   final path = await BackupService()._localPath;
   final file = File('$path/$filename');
   await file.writeAsString(csvData);
@@ -121,7 +124,7 @@ Future<File> exportInvestmentsToCsv() async {
           csvSafeCell(accountNames[i.accountId] ?? ''),
         ]),
   ];
-  String csvData = const ListToCsvConverter().convert(rows);
+  String csvData = csv.encode(rows);
   final backupService = BackupService();
   final path = await backupService._localPath;
   final file = File('$path/investments_export.csv');
@@ -268,7 +271,8 @@ class BackupService {
   static const historyDays = 7;
 
   static const _historyDir = 'backup_history';
-  static final _historyName = RegExp(r'^finance_backup_(\d{4})-(\d{2})-(\d{2})\.json$');
+  static final _historyName =
+      RegExp(r'^finance_backup_(\d{4})-(\d{2})-(\d{2})\.json$');
 
   Future<Directory> get _historyDirectory async =>
       Directory('${await _localPath}/$_historyDir');
@@ -323,8 +327,8 @@ class BackupService {
       final m = _historyName.firstMatch(entity.uri.pathSegments.last);
       if (m == null) continue;
       out.add((
-        day: DateTime(
-            int.parse(m.group(1)!), int.parse(m.group(2)!), int.parse(m.group(3)!)),
+        day: DateTime(int.parse(m.group(1)!), int.parse(m.group(2)!),
+            int.parse(m.group(3)!)),
         file: entity,
       ));
     }
@@ -794,13 +798,120 @@ class BackupService {
   /// used to be sealed with this device's key instead — but that key lives
   /// only on this phone, so the one backup meant to survive losing the phone
   /// could only be opened *on* that phone.
+  ///
+  /// When automatic Drive backup is on, [passphrase] also becomes the one it
+  /// seals with, so the Drive copy never switches between two passphrases.
   Future<void> backupToDrive({String? passphrase}) async {
     if (passphrase == null && await DBService().isEncryptionEnabled()) {
       throw DriveBackupException(
           'Database encryption is on, so the Drive backup needs a '
           'passphrase to protect it.');
     }
-    final driveApi = await _getDriveApi();
+    await _backupToDriveWith(await _getDriveApi(), passphrase);
+    await _clearAutoDriveProblem();
+    if (passphrase != null && await AutoDriveBackup.isOn()) {
+      try {
+        await _secureStorage.write(
+            key: _kAutoDrivePassphrase, value: passphrase);
+      } catch (e) {
+        // The backup itself succeeded; the automatic one keeps the old
+        // passphrase until the next manual backup.
+        AppLogger.error('Could not store the automatic backup passphrase', e);
+      }
+    }
+  }
+
+  // --- Automatic Drive backup ---------------------------------------------
+
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+
+  /// The passphrase the automatic Drive backup seals with. Kept in the
+  /// device keystore, next to the database key, never in plain preferences.
+  static const _kAutoDrivePassphrase = 'auto_drive_backup_passphrase';
+
+  /// When this phone last wrote to (or restored from) the Drive copy.
+  Future<DateTime?> lastDriveBackupTime() async {
+    final raw =
+        (await SharedPreferences.getInstance()).getString(_kLastDriveBackup);
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  Future<bool> isAutoDriveBackupOn() => AutoDriveBackup.isOn();
+
+  Future<AutoDriveStatus?> lastAutoDriveStatus() =>
+      AutoDriveBackup.lastStatus();
+
+  /// Switches automatic Drive backup on. Signs in to Google first (this may
+  /// show the account picker), so later backups can run without a prompt.
+  /// [passphrase] seals the Drive copy; it is required while database
+  /// encryption is on.
+  Future<void> enableAutoDriveBackup({String? passphrase}) async {
+    if (passphrase == null && await DBService().readEncryptionFlagOrThrow()) {
+      throw DriveBackupException(
+          'Database encryption is on, so automatic Drive backups need a '
+          'passphrase to protect them.');
+    }
+    await _getDriveApi();
+    if (passphrase != null) await setAutoDrivePassphrase(passphrase);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(AutoDriveBackup.kEnabled, true);
+    // A fresh start: an old attempt must not delay the first backup.
+    await prefs.remove(AutoDriveBackup.kLastAttempt);
+    await prefs.remove(AutoDriveBackup.kStatus);
+  }
+
+  /// Switches automatic Drive backup off and forgets its passphrase.
+  Future<void> disableAutoDriveBackup() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(AutoDriveBackup.kEnabled, false);
+    await prefs.remove(AutoDriveBackup.kStatus);
+    try {
+      await _secureStorage.delete(key: _kAutoDrivePassphrase);
+    } catch (e) {
+      AppLogger.error('Could not remove the automatic backup passphrase', e);
+    }
+  }
+
+  /// After a manual backup or a restore the Drive copy and this phone agree,
+  /// so whatever held up the automatic backup (another phone's newer copy,
+  /// not signed in) no longer applies. Clearing it lets the next launch try
+  /// again instead of waiting out [AutoDriveBackup.retryAfter].
+  Future<void> _clearAutoDriveProblem() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(AutoDriveBackup.kStatus);
+    await prefs.remove(AutoDriveBackup.kLastAttempt);
+  }
+
+  Future<void> setAutoDrivePassphrase(String passphrase) =>
+      _secureStorage.write(key: _kAutoDrivePassphrase, value: passphrase);
+
+  /// Backs up to Drive if automatic backup is on and one is due. Never
+  /// prompts and never throws; safe to call on every launch.
+  Future<AutoDriveStatus> autoDriveBackupIfDue({bool force = false}) {
+    drive.DriveApi? api;
+    return AutoDriveBackup(
+      lastDriveBackup: lastDriveBackupTime,
+      isEncrypted: DBService().readEncryptionFlagOrThrow,
+      readPassphrase: () => _secureStorage.read(key: _kAutoDrivePassphrase),
+      isSignedIn: () async => (api = await _silentDriveApi()) != null,
+      remoteIsNewer: () => _remoteNewerThanThisPhone(api!, strict: true),
+      upload: (passphrase) => _backupToDriveWith(api!, passphrase),
+    ).run(force: force);
+  }
+
+  /// The Drive client for the account already signed in on this phone, or
+  /// null when there is none. Unlike [_getDriveApi] it never shows the
+  /// sign-in prompt. A failure (offline) throws rather than reading as
+  /// "not signed in".
+  Future<drive.DriveApi?> _silentDriveApi() async {
+    final account =
+        _googleSignIn.currentUser ?? await _googleSignIn.signInSilently();
+    if (account == null) return null;
+    return drive.DriveApi(_GoogleAuthClient(await account.authHeaders));
+  }
+
+  Future<void> _backupToDriveWith(
+      drive.DriveApi driveApi, String? passphrase) async {
     var content = jsonEncode(await _collectBackupData());
     if (passphrase != null) {
       content = await BackupCrypto.encryptString(content, passphrase);
@@ -867,45 +978,58 @@ class BackupService {
   /// Whether the Drive copy was written after this device last backed up to
   /// (or restored from) Drive — i.e. by another phone, so overwriting it
   /// would lose that phone's data.
+  ///
+  /// When the check fails this answers false, so the manual backup isn't
+  /// blocked; the automatic one uses [_remoteNewerThanThisPhone], which
+  /// throws instead and so skips the upload.
   Future<bool> isRemoteBackupNewer() async {
     try {
-      final driveApi = await _getDriveApi();
-      final fileList = await driveApi.files.list(
-        spaces: 'appDataFolder',
-        q: "name = 'finance_backup.json' and trashed = false",
-        orderBy: 'modifiedTime desc',
-        pageSize: 1,
-        $fields: 'files(id, modifiedTime)',
-      );
-
-      if (fileList.files == null || fileList.files!.isEmpty) {
-        return false; // No remote backup exists
-      }
-
-      final remoteFile = fileList.files!.first;
-      if (remoteFile.modifiedTime == null) return false;
-
-      final prefs = await SharedPreferences.getInstance();
-      // Before the Drive time was kept separately, the Drive backup only
-      // stamped the shared one; fall back to it until the next Drive backup.
-      final lastBackupStr =
-          prefs.getString(_kLastDriveBackup) ?? prefs.getString(_kLastBackup);
-
-      if (lastBackupStr == null) {
-        // We have never backed up from this device, but a remote file exists.
-        // Remote is definitely "newer" (or at least unknown).
-        return true;
-      }
-
-      final lastLocalBackupTime = DateTime.parse(lastBackupStr);
-      // Drive returns UTC time
-      return remoteFile.modifiedTime!.isAfter(lastLocalBackupTime);
+      return await _remoteNewerThanThisPhone(await _getDriveApi());
     } catch (e) {
       // If we can't check, assume false to avoid blocking the user,
       // but log the error.
       AppLogger.error('Error checking remote backup', e);
       return false;
     }
+  }
+
+  /// [strict] is for the automatic backup: it ignores the fallback to the
+  /// general backup time, which the daily on-device backup keeps bumping. A
+  /// phone that has never written to Drive then treats an existing Drive copy
+  /// as another phone's, instead of overwriting, say, the old phone's backup
+  /// on a new phone that was set up without restoring it.
+  Future<bool> _remoteNewerThanThisPhone(drive.DriveApi driveApi,
+      {bool strict = false}) async {
+    final fileList = await driveApi.files.list(
+      spaces: 'appDataFolder',
+      q: "name = 'finance_backup.json' and trashed = false",
+      orderBy: 'modifiedTime desc',
+      pageSize: 1,
+      $fields: 'files(id, modifiedTime)',
+    );
+
+    if (fileList.files == null || fileList.files!.isEmpty) {
+      return false; // No remote backup exists
+    }
+
+    final remoteFile = fileList.files!.first;
+    if (remoteFile.modifiedTime == null) return false;
+
+    final prefs = await SharedPreferences.getInstance();
+    // Before the Drive time was kept separately, the Drive backup only
+    // stamped the shared one; fall back to it until the next Drive backup.
+    final lastBackupStr = prefs.getString(_kLastDriveBackup) ??
+        (strict ? null : prefs.getString(_kLastBackup));
+
+    if (lastBackupStr == null) {
+      // We have never backed up from this device, but a remote file exists.
+      // Remote is definitely "newer" (or at least unknown).
+      return true;
+    }
+
+    final lastLocalBackupTime = DateTime.parse(lastBackupStr);
+    // Drive returns UTC time
+    return remoteFile.modifiedTime!.isAfter(lastLocalBackupTime);
   }
 
   /// Restores the Drive copy. Throws [PassphraseRequiredException] when it
@@ -964,6 +1088,7 @@ class BackupService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
           _kLastDriveBackup, DateTime.now().toIso8601String());
+      await _clearAutoDriveProblem();
     } finally {
       if (await temp.exists()) {
         try {

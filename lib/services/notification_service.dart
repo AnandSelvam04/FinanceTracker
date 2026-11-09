@@ -40,7 +40,7 @@ class NotificationService {
     try {
       const android = AndroidInitializationSettings('@mipmap/ic_launcher');
       const settings = InitializationSettings(android: android);
-      await _plugin.initialize(settings);
+      await _plugin.initialize(settings: settings);
       await _initTimezone();
       _initialized = true;
     } catch (e, st) {
@@ -52,7 +52,7 @@ class NotificationService {
     if (_tzReady) return;
     try {
       tzdata.initializeTimeZones();
-      final name = await FlutterTimezone.getLocalTimezone();
+      final name = (await FlutterTimezone.getLocalTimezone()).identifier;
       tz.setLocalLocation(tz.getLocation(name));
       _tzReady = true;
     } catch (e) {
@@ -95,7 +95,8 @@ class NotificationService {
   Future<void> _show(int id, String title, String body) async {
     if (!_initialized) return;
     try {
-      await _plugin.show(id, title, body, _details());
+      await _plugin.show(
+          id: id, title: title, body: body, notificationDetails: _details());
     } catch (e) {
       AppLogger.error('Notification show failed', e);
     }
@@ -113,7 +114,7 @@ class NotificationService {
       // left intact regardless of the order these two are called in.
       for (final p in await _plugin.pendingNotificationRequests()) {
         if (p.id >= _billIdBase && p.id < _creditIdBase) {
-          await _plugin.cancel(p.id);
+          await _plugin.cancel(id: p.id);
         }
       }
       final now = tz.TZDateTime.now(tz.local);
@@ -128,15 +129,13 @@ class NotificationService {
             tz.local, due.year, due.month, due.day - daysBefore, hour);
         if (!when.isAfter(now)) continue;
         await _plugin.zonedSchedule(
-          _billIdBase + rule.id!,
-          'Bill due soon',
-          '${rule.description} ${formatMoneyExact(rule.amount)} is due '
+          id: _billIdBase + rule.id!,
+          title: 'Bill due soon',
+          body: '${rule.description} ${formatMoneyExact(rule.amount)} is due '
               '${_dueLabel(daysBefore)}',
-          when,
-          _details(),
+          scheduledDate: when,
+          notificationDetails: _details(),
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
         );
       }
     } catch (e, st) {
@@ -154,7 +153,7 @@ class NotificationService {
       // Clear only this band's previous reminders before re-arming.
       for (final p in await _plugin.pendingNotificationRequests()) {
         if (p.id >= _creditIdBase && p.id < _creditIdBase + 100000) {
-          await _plugin.cancel(p.id);
+          await _plugin.cancel(id: p.id);
         }
       }
       final now = tz.TZDateTime.now(tz.local);
@@ -164,15 +163,14 @@ class NotificationService {
             tz.local, due.year, due.month, due.day - daysBefore, hour);
         if (!when.isAfter(now)) continue;
         await _plugin.zonedSchedule(
-          _creditIdBase + r.accountId,
-          'Credit card payment due',
-          '${r.accountName}: ${formatMoneyInExact(r.symbol, r.amountDue)} '
+          id: _creditIdBase + r.accountId,
+          title: 'Credit card payment due',
+          body:
+              '${r.accountName}: ${formatMoneyInExact(r.symbol, r.amountDue)} '
               'due ${_dueLabel(daysBefore)}',
-          when,
-          _details(),
+          scheduledDate: when,
+          notificationDetails: _details(),
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
         );
       }
     } catch (e, st) {
@@ -189,20 +187,18 @@ class NotificationService {
       {required bool loggedToday}) async {
     if (!_initialized || !_tzReady) return;
     try {
-      await _plugin.cancel(_dailyReminderId);
+      await _plugin.cancel(id: _dailyReminderId);
       if (minutes == null) return;
       final now = tz.TZDateTime.now(tz.local);
       final when = nextDailyReminder(now, minutes, loggedToday: loggedToday);
       await _plugin.zonedSchedule(
-        _dailyReminderId,
-        'Anything to log today?',
-        'Take a few seconds to add today\'s spending.',
-        tz.TZDateTime(
+        id: _dailyReminderId,
+        title: 'Anything to log today?',
+        body: 'Take a few seconds to add today\'s spending.',
+        scheduledDate: tz.TZDateTime(
             tz.local, when.year, when.month, when.day, when.hour, when.minute),
-        _details(),
+        notificationDetails: _details(),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
         // Repeat at this time every day.
         matchDateTimeComponents: DateTimeComponents.time,
       );

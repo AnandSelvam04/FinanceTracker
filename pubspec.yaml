@@ -1,11 +1,11 @@
 name: finance_tracker
 description: Android personal finance tracker — spending, accounts, credit cards, budgets, investments and bank-SMS import, stored on the device.
-version: 1.46.1+70
+version: 1.47.1+72
 environment:
   sdk: ">=3.0.0 <4.0.0"
 dependencies:
   cryptography: ^2.7.0
-  csv: ^6.0.0
+  csv: ^8.0.0
   file_picker: ^10.3.7
   fl_chart: ^1.1.1
   flutter:
@@ -16,14 +16,14 @@ dependencies:
   # On-device OCR (ML Kit) that reads a bill photo into text; parsed by
   # lib/services/receipt_parser.dart into a draft transaction. Runs locally —
   # the image never leaves the device.
-  google_mlkit_text_recognition: ^0.13.1
+  google_mlkit_text_recognition: ^1.0.1
   # On-device speech recognition for the "add by voice" flow.
   speech_to_text: ^7.0.0
-  flutter_local_notifications: ^17.2.3
-  flutter_timezone: ^3.0.1
+  flutter_local_notifications: ^22.3.3
+  flutter_timezone: ^5.1.1
   http: ^1.1.0
   google_sign_in: ^6.1.5
-  googleapis: ^15.0.0
+  googleapis: ^18.0.0
   googleapis_auth: ^2.0.0
   local_auth: ^3.0.0
   package_info_plus: ^8.0.0
@@ -37,7 +37,7 @@ dependencies:
   # at-rest encryption of the local database.
   sqflite_sqlcipher: ^3.1.0
   flutter_secure_storage: ^9.2.2
-  timezone: ^0.9.4
+  timezone: ^0.11.2
   # Reads the SMS inbox for bank transaction alerts (Android only). The
   # original `telephony` package is unmaintained; this is the maintained fork.
   # Requires READ_SMS, which Play Store policy restricts — fine here because

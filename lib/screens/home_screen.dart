@@ -137,6 +137,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       await _syncNotifications();
       if (!mounted) return;
+      // The on-device backup above is lost with the phone; this copy isn't.
+      // Opt-in, silent (no sign-in prompt), and not awaited: it waits on the
+      // network, which must not hold up the rest of the launch.
+      unawaited(BackupService().autoDriveBackupIfDue());
       // From here on keep reminders in step with the data, not just the
       // launch-time snapshot: a deleted or edited rule used to keep its old
       // "Bill due soon" reminder, and switching notifications back on
