@@ -91,8 +91,7 @@ List<List<dynamic>> _expenseCsvRows(
 /// exactly what they see.
 Future<File> writeExpensesCsvFile(List<Expense> expenses,
     {String filename = 'expenses_export.csv'}) async {
-  final csvData = const ListToCsvConverter()
-      .convert(_expenseCsvRows(expenses, await _accountNames()));
+  final csvData = csv.encode(_expenseCsvRows(expenses, await _accountNames()));
   final path = await BackupService()._localPath;
   final file = File('$path/$filename');
   await file.writeAsString(csvData);
@@ -125,7 +124,7 @@ Future<File> exportInvestmentsToCsv() async {
           csvSafeCell(accountNames[i.accountId] ?? ''),
         ]),
   ];
-  String csvData = const ListToCsvConverter().convert(rows);
+  String csvData = csv.encode(rows);
   final backupService = BackupService();
   final path = await backupService._localPath;
   final file = File('$path/investments_export.csv');

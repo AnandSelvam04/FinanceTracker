@@ -78,8 +78,10 @@ class _ImportScreenState extends State<ImportScreen> {
       // Not every export is UTF-8; a Latin-1 statement used to throw an
       // unhandled decoding error with no feedback at all.
       final content = await file.readAsString();
-      rows =
-          const CsvToListConverter(shouldParseNumbers: false).convert(content);
+      // Comma-separated, every cell kept as text (amounts are parsed by the
+      // column mapping, not guessed here). autoDetect is off so a statement
+      // is read the same way it always was.
+      rows = Csv(autoDetect: false).decode(content);
     } catch (e) {
       AppLogger.error('Could not read the selected CSV', e);
       messenger.showSnackBar(SnackBar(
@@ -272,7 +274,9 @@ class _ImportScreenState extends State<ImportScreen> {
                   }),
                 ),
                 _mapDropdown(
-                    _splitAmounts ? 'Withdrawal (debit) column' : 'Amount column',
+                    _splitAmounts
+                        ? 'Withdrawal (debit) column'
+                        : 'Amount column',
                     _amountCol,
                     columns,
                     (v) => setState(() => _amountCol = v!)),

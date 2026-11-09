@@ -141,10 +141,10 @@ packages:
     dependency: "direct main"
     description:
       name: csv
-      sha256: c6aa2679b2a18cb57652920f674488d89712efaf4d3fdf2e537215b35fc19d6c
+      sha256: "2e0a52fb729f2faacd19c9c0c954ff450bba37aa8ab999410309e2342e7013a2"
       url: "https://pub.dev"
     source: hosted
-    version: "6.0.0"
+    version: "8.0.0"
   dbus:
     dependency: transitive
     description:
@@ -351,10 +351,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_timezone
-      sha256: ea53c61c9152f271a5e30624a624184804947b6a733ff2b64186bb2579446892
+      sha256: "7830bc64bef0b003468fc1f58fc3f3faf54817f8cd6e68fa818b306560410d68"
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.1"
+    version: "5.1.1"
   flutter_web_plugins:
     dependency: transitive
     description: flutter
@@ -388,18 +388,18 @@ packages:
     dependency: transitive
     description:
       name: google_mlkit_commons
-      sha256: "9990a65f407a3ef6bae646bf10143faa93fec126683771465bc6c0b43fb0e6e9"
+      sha256: ed1e143c24b43acce8c4af8c5f0b06eb47fd4ccdc2b92aff5dffadadd7028a78
       url: "https://pub.dev"
     source: hosted
-    version: "0.8.1"
+    version: "1.0.1"
   google_mlkit_text_recognition:
     dependency: "direct main"
     description:
       name: google_mlkit_text_recognition
-      sha256: "179349417066fa2c275d7a6ed6cbceeb7fa265d73aacdb2d732f1a2991face0a"
+      sha256: b8de7cf1b21dd8f10e8031e61fc060925ac45dfb1c9b1a2ff5e70ea8fc7f11c6
       url: "https://pub.dev"
     source: hosted
-    version: "0.13.1"
+    version: "1.0.1"
   google_sign_in:
     dependency: "direct main"
     description:
@@ -444,10 +444,10 @@ packages:
     dependency: "direct main"
     description:
       name: googleapis
-      sha256: "692fb9e90c321b61a7a2123de0353ec8a20691cd979db2553d8d732f710f6535"
+      sha256: "4b38c6e217c53404a7f2a785067017846ce9a004a618635674398138fcc2f2ce"
       url: "https://pub.dev"
     source: hosted
-    version: "15.0.0"
+    version: "18.0.0"
   googleapis_auth:
     dependency: "direct main"
     description:
