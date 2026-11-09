@@ -19,7 +19,7 @@ dependencies:
   google_mlkit_text_recognition: ^1.0.1
   # On-device speech recognition for the "add by voice" flow.
   speech_to_text: ^7.0.0
-  flutter_local_notifications: ^17.2.3
+  flutter_local_notifications: ^22.3.3
   flutter_timezone: ^5.1.1
   http: ^1.1.0
   google_sign_in: ^6.1.5
@@ -37,7 +37,7 @@ dependencies:
   # at-rest encryption of the local database.
   sqflite_sqlcipher: ^3.1.0
   flutter_secure_storage: ^9.2.2
-  timezone: ^0.9.4
+  timezone: ^0.11.2
   # Reads the SMS inbox for bank transaction alerts (Android only). The
   # original `telephony` package is unmaintained; this is the maintained fork.
   # Requires READ_SMS, which Play Store policy restricts — fine here because
