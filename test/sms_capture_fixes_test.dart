@@ -78,8 +78,7 @@ void main() {
     });
 
     test('two accounts ending in the digits are ambiguous', () {
-      final other =
-          Account(id: 3, name: 'Other', type: 'bank', last4: '9123');
+      final other = Account(id: 3, name: 'Other', type: 'bank', last4: '9123');
       final r = parse('ICICI Bank Acct XX123 debited for Rs 240.00; '
           'SWIGGY credited.')!;
       expect(r.matchAccount([icici, other]), isNull);
@@ -93,8 +92,10 @@ void main() {
     });
 
     test('a long reference number is still not an account', () {
-      final r = parse('Rs.499 debited from A/c XX4821 to SWIGGY. '
-          'UPI Ref 123456789012', sender: 'VM-HDFCBK')!;
+      final r = parse(
+          'Rs.499 debited from A/c XX4821 to SWIGGY. '
+          'UPI Ref 123456789012',
+          sender: 'VM-HDFCBK')!;
       expect(r.last4, '4821');
       expect(r.toLast4, isNull);
     });
@@ -116,7 +117,7 @@ void main() {
         body: 'Rs.5,000.00 credited to A/c XX4821 on 28-Oct-25',
         receivedAt: received.add(const Duration(minutes: 1)),
       )!;
-      final merged = SmsImport.collapseTransferPairs([debit, credit]);
+      final merged = SmsMatching.collapseTransferPairs([debit, credit]);
       expect(merged, hasLength(1));
       expect(merged.single.isTransfer, isTrue);
       expect(merged.single.last4, '123');

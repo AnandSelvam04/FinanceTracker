@@ -134,7 +134,7 @@ void main() {
     test('are never paired with a same-amount debit as a transfer', () {
       final debit = parse('Rs.500 debited from A/c XX4821 to FLIPKART');
       final refund = parse(body);
-      final collapsed = SmsImport.collapseTransferPairs([debit, refund]);
+      final collapsed = SmsMatching.collapseTransferPairs([debit, refund]);
       expect(collapsed.length, 2);
       expect(collapsed.any((p) => p.isTransfer), isFalse);
     });
@@ -211,15 +211,15 @@ void main() {
       final existing = [typed('Tea', id: 7)];
       final claimed = <Object>{};
 
-      expect(SmsImport.findDuplicate(first, 1, existing, claimed: claimed),
+      expect(SmsMatching.findDuplicate(first, 1, existing, claimed: claimed),
           isNotNull);
-      expect(SmsImport.findDuplicate(second, 1, existing, claimed: claimed),
+      expect(SmsMatching.findDuplicate(second, 1, existing, claimed: claimed),
           isNull);
     });
 
     test('prefers the row naming the same merchant', () {
       final p = parse('Rs.100 debited from A/c XX4821 to SWIGGY 88213');
-      final match = SmsImport.findDuplicate(p, 1, [
+      final match = SmsMatching.findDuplicate(p, 1, [
         typed('Lunch', id: 1),
         typed('Swiggy', id: 2, date: DateTime(2025, 7, 31)),
       ]);
@@ -228,7 +228,7 @@ void main() {
 
     test('otherwise the closest in date', () {
       final p = parse('Rs.100 debited from A/c XX4821 to SWIGGY');
-      final match = SmsImport.findDuplicate(p, 1, [
+      final match = SmsMatching.findDuplicate(p, 1, [
         typed('Lunch', id: 1, date: DateTime(2025, 7, 30)),
         typed('Snacks', id: 2, date: DateTime(2025, 8, 1)),
       ]);
@@ -238,21 +238,21 @@ void main() {
     test('a refund matches a hand-entered refund, not a purchase', () {
       final refund = parse('Refund of Rs.100 credited to A/c XX4821 from '
           'SWIGGY');
-      expect(SmsImport.findDuplicate(refund, 1, [typed('Swiggy')]), isNull);
+      expect(SmsMatching.findDuplicate(refund, 1, [typed('Swiggy')]), isNull);
       final handRefund = Expense(
           description: 'Swiggy refund',
           amount: -10000,
           date: DateTime(2025, 8, 1),
           category: 'Food',
           paymentMode: 'Other');
-      expect(SmsImport.findDuplicate(refund, 1, [handRefund]), isNotNull);
+      expect(SmsMatching.findDuplicate(refund, 1, [handRefund]), isNotNull);
     });
 
     test('merchant names match through bank noise', () {
-      expect(SmsImport.sameMerchantName('SWIGGY 88213', 'Swiggy'), isTrue);
-      expect(SmsImport.sameMerchantName('AMAZON PAY', 'Amazon'), isTrue);
-      expect(SmsImport.sameMerchantName('Lunch', 'SWIGGY'), isFalse);
-      expect(SmsImport.sameMerchantName('A', 'A'), isFalse);
+      expect(SmsMatching.sameMerchantName('SWIGGY 88213', 'Swiggy'), isTrue);
+      expect(SmsMatching.sameMerchantName('AMAZON PAY', 'Amazon'), isTrue);
+      expect(SmsMatching.sameMerchantName('Lunch', 'SWIGGY'), isFalse);
+      expect(SmsMatching.sameMerchantName('A', 'A'), isFalse);
     });
   });
 

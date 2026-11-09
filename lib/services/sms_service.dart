@@ -263,8 +263,7 @@ class SmsService {
       // bank's.
       final reading = CardLimitReadings.fromSms(sms.body, sms.receivedAt);
       if (reading != null) readings.add(reading);
-      final points =
-          CardLimitReadings.pointsFromSms(sms.body, sms.receivedAt);
+      final points = CardLimitReadings.pointsFromSms(sms.body, sms.receivedAt);
       if (points != null) pointReadings.add(points);
       final candidate = SmsImport.parse(
         sender: sms.sender,
@@ -279,7 +278,7 @@ class SmsService {
     await CardLimitReadings.points.record(pointReadings);
     // Pair up the two alerts one movement produces before sorting, so a card
     // payment shows as a single transfer rather than a debit and a credit.
-    final collapsed = SmsImport.collapseTransferPairs(parsed)
+    final collapsed = SmsMatching.collapseTransferPairs(parsed)
       ..sort((a, b) => b.date.compareTo(a.date));
     return collapsed;
   }
@@ -529,8 +528,8 @@ class SmsDraft {
 
     final account = parsed.matchAccount(accounts);
     final accountId = account?.id;
-    final duplicate =
-        SmsImport.findDuplicate(parsed, accountId, existing, claimed: claimed);
+    final duplicate = SmsMatching.findDuplicate(parsed, accountId, existing,
+        claimed: claimed);
     final remembered =
         parsed.isTransfer ? null : memory.categoryFor(parsed.description);
     final spending = parsed.isExpense || parsed.isRefund;

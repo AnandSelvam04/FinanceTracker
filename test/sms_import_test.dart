@@ -109,8 +109,8 @@ void main() {
     });
 
     test('handles thousands separators and the INR prefix', () {
-      expect(parse('INR 1,23,456.78 debited from A/c XX1111')!.amount,
-          12345678);
+      expect(
+          parse('INR 1,23,456.78 debited from A/c XX1111')!.amount, 12345678);
     });
 
     test('handles the rupee symbol with no space', () {
@@ -152,9 +152,11 @@ void main() {
 
   group('merchant', () {
     test('picks an upper-case merchant after "to"', () {
-      expect(parse('Rs.499 debited from A/c XX4821 on 01-Aug-25 to SWIGGY. '
-              'Avl Bal Rs.12,340')!
-          .description, 'SWIGGY');
+      expect(
+          parse('Rs.499 debited from A/c XX4821 on 01-Aug-25 to SWIGGY. '
+                  'Avl Bal Rs.12,340')!
+              .description,
+          'SWIGGY');
     });
 
     test('picks a multi-word merchant after "at"', () {
@@ -172,15 +174,18 @@ void main() {
     });
 
     test('falls back to the cleaned sender id', () {
-      expect(parse('Rs.100 debited from A/c XX4821', sender: 'VM-HDFCBK')!
-          .description, 'HDFCBK');
+      expect(
+          parse('Rs.100 debited from A/c XX4821', sender: 'VM-HDFCBK')!
+              .description,
+          'HDFCBK');
     });
   });
 
   group('date', () {
     test('prefers the date inside the message', () {
-      expect(parse('Rs.499 debited from A/c XX4821 on 12-Jul-25 to SWIGGY')!
-          .date, DateTime(2025, 7, 12));
+      expect(
+          parse('Rs.499 debited from A/c XX4821 on 12-Jul-25 to SWIGGY')!.date,
+          DateTime(2025, 7, 12));
     });
 
     test('reads a numeric date', () {
@@ -193,8 +198,7 @@ void main() {
       expect(parse('Rs.499 debited on 08/12/2025 to SWIGGY')!.date, received);
     });
 
-    test('a date long before the SMS arrived is not the transaction date',
-        () {
+    test('a date long before the SMS arrived is not the transaction date', () {
       expect(parse('Rs.499 debited on 03/02/2025 to SWIGGY')!.date, received);
     });
 
@@ -319,8 +323,7 @@ void main() {
         acct(1, 'HDFC Savings', '4821'),
         acct(2, 'HDFC Credit Card', '5678'),
       ];
-      final spend =
-          parse('Rs.2,150 spent on Credit Card XX5678 at AMAZON')!;
+      final spend = parse('Rs.2,150 spent on Credit Card XX5678 at AMAZON')!;
       expect(spend.matchAccount(accounts)!.id, 2);
 
       final debit = parse('Rs.499 debited from A/c XX4821 to SWIGGY')!;
@@ -336,8 +339,7 @@ void main() {
 
     test('is null when the digits are ambiguous', () {
       final accounts = [acct(1, 'A', '4821'), acct(2, 'B', '4821')];
-      expect(
-          parse('Rs.499 debited from A/c XX4821')!.matchAccount(accounts),
+      expect(parse('Rs.499 debited from A/c XX4821')!.matchAccount(accounts),
           isNull);
     });
 
@@ -475,7 +477,7 @@ void _transferTests() {
           hour: 13,
           sender: 'VM-HDFCBK2');
 
-      final out = SmsImport.collapseTransferPairs([bank, card]);
+      final out = SmsMatching.collapseTransferPairs([bank, card]);
       expect(out.length, 1);
       expect(out.single.type, DbConstants.txTransfer);
       expect(out.single.last4, '4821');
@@ -491,11 +493,11 @@ void _transferTests() {
           'Payment of Rs.15,000 received on your Credit Card XX5678',
           hour: 13,
           sender: 'VM-HDFCBK2');
-      expect(SmsImport.collapseTransferPairs([card, bank]).length, 1);
+      expect(SmsMatching.collapseTransferPairs([card, bank]).length, 1);
     });
 
     test('a lone debit and a lone credit become one transfer', () {
-      final out = SmsImport.collapseTransferPairs([
+      final out = SmsMatching.collapseTransferPairs([
         at('Rs.20,000 debited from A/c XX4821 to BENEFICIARY'),
         at('INR 20,000 credited to A/c XX9012', hour: 13, sender: 'VM-ICICIB'),
       ]);
@@ -507,7 +509,7 @@ void _transferTests() {
     });
 
     test('different amounts are left alone', () {
-      final out = SmsImport.collapseTransferPairs([
+      final out = SmsMatching.collapseTransferPairs([
         at('Rs.15,000 debited from A/c XX4821 to BENEFICIARY'),
         at('INR 12,000 credited to A/c XX9012', hour: 13),
       ]);
@@ -523,11 +525,11 @@ void _transferTests() {
           sender: 'VM-ICICIB',
           body: 'INR 15,000 credited to A/c XX9012',
           receivedAt: DateTime(2025, 8, 20))!;
-      expect(SmsImport.collapseTransferPairs([a, b]).length, 2);
+      expect(SmsMatching.collapseTransferPairs([a, b]).length, 2);
     });
 
     test('two unrelated expenses of the same amount both survive', () {
-      final out = SmsImport.collapseTransferPairs([
+      final out = SmsMatching.collapseTransferPairs([
         at('Rs.500 debited from A/c XX4821 to SWIGGY'),
         at('Rs.500 debited from A/c XX4821 to ZOMATO', hour: 18),
       ]);
@@ -535,7 +537,7 @@ void _transferTests() {
     });
 
     test('a credit on the same account is not merged into a self-transfer', () {
-      final out = SmsImport.collapseTransferPairs([
+      final out = SmsMatching.collapseTransferPairs([
         at('Rs.500 debited from A/c XX4821 to SWIGGY'),
         at('INR 500 credited to A/c XX4821', hour: 18),
       ]);
@@ -543,9 +545,9 @@ void _transferTests() {
     });
 
     test('an empty list and a single item are unchanged', () {
-      expect(SmsImport.collapseTransferPairs([]), isEmpty);
+      expect(SmsMatching.collapseTransferPairs([]), isEmpty);
       final one = [at('Rs.500 debited from A/c XX4821 to SWIGGY')];
-      expect(SmsImport.collapseTransferPairs(one).length, 1);
+      expect(SmsMatching.collapseTransferPairs(one).length, 1);
     });
   });
 
@@ -571,41 +573,43 @@ void _transferTests() {
     final parsed = parse('Rs.499 debited from A/c XX4821 to SWIGGY')!;
 
     test('flags a same-amount row on the same account and day', () {
-      expect(SmsImport.findDuplicate(parsed, 1, [typed()]), isNotNull);
+      expect(SmsMatching.findDuplicate(parsed, 1, [typed()]), isNotNull);
     });
 
     test('flags one a day either side', () {
       expect(
-          SmsImport.findDuplicate(
+          SmsMatching.findDuplicate(
               parsed, 1, [typed(date: DateTime(2025, 7, 31))]),
           isNotNull);
     });
 
     test('ignores one outside the window', () {
       expect(
-          SmsImport.findDuplicate(
+          SmsMatching.findDuplicate(
               parsed, 1, [typed(date: DateTime(2025, 7, 20))]),
           isNull);
     });
 
     test('ignores a different amount', () {
-      expect(SmsImport.findDuplicate(parsed, 1, [typed(amount: 10000)]), isNull);
+      expect(
+          SmsMatching.findDuplicate(parsed, 1, [typed(amount: 10000)]), isNull);
     });
 
     test('ignores a different account', () {
-      expect(SmsImport.findDuplicate(parsed, 1, [typed(accountId: 2)]), isNull);
+      expect(
+          SmsMatching.findDuplicate(parsed, 1, [typed(accountId: 2)]), isNull);
     });
 
     test('still matches when either side has no account', () {
-      expect(
-          SmsImport.findDuplicate(parsed, null, [typed(accountId: 2)]), isNotNull);
-      expect(
-          SmsImport.findDuplicate(parsed, 1, [typed(accountId: null)]), isNotNull);
+      expect(SmsMatching.findDuplicate(parsed, null, [typed(accountId: 2)]),
+          isNotNull);
+      expect(SmsMatching.findDuplicate(parsed, 1, [typed(accountId: null)]),
+          isNotNull);
     });
 
     test('ignores a different direction', () {
       expect(
-          SmsImport.findDuplicate(
+          SmsMatching.findDuplicate(
               parsed, 1, [typed(type: DbConstants.txIncome)]),
           isNull);
     });
@@ -614,19 +618,19 @@ void _transferTests() {
       // Those are already handled by the sourceRef check; matching them would
       // flag a genuine second purchase of the same amount.
       expect(
-          SmsImport.findDuplicate(parsed, 1, [typed(sourceRef: 'sms:x:1:a')]),
+          SmsMatching.findDuplicate(parsed, 1, [typed(sourceRef: 'sms:x:1:a')]),
           isNull);
     });
 
     test('still flags a row that came in from a CSV statement', () {
       expect(
-          SmsImport.findDuplicate(parsed, 1,
+          SmsMatching.findDuplicate(parsed, 1,
               [typed(sourceRef: 'csv:2025-08-01|expense|49900|lunch#1')]),
           isNotNull);
     });
 
     test('no history means no duplicate', () {
-      expect(SmsImport.findDuplicate(parsed, 1, const []), isNull);
+      expect(SmsMatching.findDuplicate(parsed, 1, const []), isNull);
     });
   });
 }
