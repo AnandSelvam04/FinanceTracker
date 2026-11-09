@@ -32,7 +32,9 @@ class ReceiptStore {
         p.extension(sourcePath).isEmpty ? '.jpg' : p.extension(sourcePath);
     final name = 'r${DateTime.now().microsecondsSinceEpoch}$ext';
     await File(sourcePath).copy(p.join(dir.path, name));
-    return p.join(_folder, name);
+    // Stored with `/` on every platform (posix), so a saved path reads the
+    // same on any host and matches the key [prune] builds.
+    return p.posix.join(_folder, name);
   }
 
   /// The file for a stored [attachment] path.
@@ -49,7 +51,7 @@ class ReceiptStore {
     var removed = 0;
     await for (final f in dir.list()) {
       if (f is! File) continue;
-      final rel = p.join(_folder, p.basename(f.path));
+      final rel = p.posix.join(_folder, p.basename(f.path));
       if (keep.contains(rel)) continue;
       await f.delete();
       removed++;
