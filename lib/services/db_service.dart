@@ -1289,7 +1289,9 @@ class DBService {
       'FROM ${DbConstants.tableExpenses} '
       'WHERE ${DbConstants.colType} = ? AND ${DbConstants.colDate} >= ? '
       'AND ${DbConstants.colCategory} IS NOT NULL '
-      'AND ${DbConstants.colCategory} != "" '
+      // '' not "": SQLite reads "" as a column name, and newer builds
+      // reject it instead of falling back to a string.
+      "AND ${DbConstants.colCategory} != '' "
       'GROUP BY ${DbConstants.colCategory} '
       'ORDER BY n DESC LIMIT ?',
       [type, cutoff, limit],
