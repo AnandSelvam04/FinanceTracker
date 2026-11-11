@@ -110,8 +110,9 @@ class VoiceExpenseParser {
     for (final c in sorted) {
       final needle = c.toLowerCase().trim();
       if (needle.isEmpty) continue;
-      if (RegExp('\\b${RegExp.escape(needle)}\\b').hasMatch(lower))
+      if (RegExp('\\b${RegExp.escape(needle)}\\b').hasMatch(lower)) {
         return needle;
+      }
     }
     return null;
   }
