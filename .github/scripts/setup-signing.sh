@@ -9,13 +9,6 @@
 # See docs/SIGNING.md for how to create them.
 set -euo pipefail
 
-if [[ -z "${ANDROID_KEYSTORE_BASE64:-}" && -f android/key.properties ]]; then
-  # Transition: the key is still committed. Keep signing with it so builds
-  # stay installable over existing copies until the secrets are added.
-  echo "::warning::Signing with the key committed to the repository. Move it to secrets and delete it from git (docs/SIGNING.md)."
-  exit 0
-fi
-
 if [[ -z "${ANDROID_KEYSTORE_BASE64:-}" ]]; then
   # Pull requests from forks never see secrets. Let those still build (with
   # the debug key, see android/app/build.gradle.kts) but never ship a
