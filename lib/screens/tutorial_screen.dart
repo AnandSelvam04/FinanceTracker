@@ -13,15 +13,17 @@ class TutorialScreen extends StatelessWidget {
         title: 'Add a transaction',
         body:
             'Tap Add in the bottom bar for an expense or income, a transfer between '
-            'your accounts, or an investment. Save one you repeat as a '
-            'quick-add and it becomes a one-tap chip on Home.',
+            'your accounts, or an investment. The amount works out sums: '
+            'type 250+80 or 1200/3 with the + − × ÷ keys under it. Save one '
+            'you repeat as a quick-add and it becomes a one-tap chip on Home.',
         icon: Icons.playlist_add,
       ),
       _TutorialStep(
         title: 'Scan a receipt or speak',
         body: 'From Add, Scan receipt reads the amount, date and shop from a '
             'photo; Add by voice takes "Spent 250 on lunch". Both only fill '
-            'in the form — you review before saving.',
+            'in the form — you review before saving. Long-press the app icon '
+            'to start either one straight from the home screen.',
         icon: Icons.document_scanner_outlined,
       ),
       _TutorialStep(
@@ -52,7 +54,8 @@ class TutorialScreen extends StatelessWidget {
         body:
             'On the Activity tab, search, filter or pick All years. Tap a row '
             'to edit, split or duplicate it; long-press to select several '
-            'and move or delete them together.',
+            'and move or delete them together. Budgets, recurring rules, '
+            'goals and accounts swipe left to delete and right to edit.',
         icon: Icons.search,
       ),
       _TutorialStep(
@@ -66,7 +69,8 @@ class TutorialScreen extends StatelessWidget {
         body: 'Home switches between Month and Year. More → Reports covers '
             'a week, month, year or any dates, with a year in review, and '
             'shares as PDF or Excel. Insights also has cash flow, category '
-            'trends and a spending calendar.',
+            'trends and a spending calendar. Home sums the month up in a few '
+            'lines under Insights.',
         icon: Icons.bar_chart,
       ),
       _TutorialStep(
@@ -75,6 +79,14 @@ class TutorialScreen extends StatelessWidget {
             'saves it to Google Drive (automatically, once a day, if you '
             'switch that on) or to a file, and restores it on a new phone.',
         icon: Icons.cloud_upload,
+      ),
+      _TutorialStep(
+        title: 'Make it yours',
+        body: 'More → Customise home reorders or hides the sections of Home '
+            'and picks its shortcuts. More → Settings has the theme, a true '
+            'black dark mode and the accent colour. The search box at the '
+            'top of More finds any screen or setting by name.',
+        icon: Icons.dashboard_customize_outlined,
       ),
       _TutorialStep(
         title: 'Privacy',

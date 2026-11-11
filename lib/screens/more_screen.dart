@@ -7,14 +7,19 @@ import '../utils/build_info.dart';
 import '../utils/insets.dart';
 import '../widgets/section_header.dart';
 import 'accounts_screen.dart';
+import '../widgets/empty_state.dart';
 import 'backups_screen.dart';
+import 'budgets_screen.dart';
 import 'cashflow_screen.dart';
 import 'categories_screen.dart';
+import 'credit_cards_screen.dart';
+import 'customize_home_screen.dart';
 import 'category_trends_screen.dart';
 import 'goals_screen.dart';
 import 'investments_screen.dart';
 import 'loans_screen.dart';
 import 'tags_screen.dart';
+import 'tutorial_screen.dart';
 import 'monthly_summary_screen.dart';
 import 'recurring_screen.dart';
 import 'settings_screen.dart';
@@ -58,154 +63,256 @@ class _MoreScreenState extends State<MoreScreen> {
     return 'Last backup off this phone: $ago';
   }
 
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   void _open(Widget screen) =>
       Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
+
+  /// Every destination, grouped the way the menu shows them. [_Entry.words]
+  /// are extra things someone might type to find it.
+  List<_Entry> _entries(BuildContext context, {required bool stale}) {
+    final warn = warningColor(context);
+    final sms = context.watch<SettingsProvider>().smsImportEnabled;
+    return [
+      _Entry('Insights', Icons.summarize, _MenuColors.blue, 'Reports',
+          subtitle: 'Week, month, year or any dates · PDF and Excel',
+          words: 'summary statement year in review merchants export',
+          onTap: () => _open(const MonthlySummaryScreen())),
+      _Entry('Insights', Icons.stacked_bar_chart, _MenuColors.teal, 'Cash Flow',
+          words: 'income expense chart net',
+          onTap: () => _open(const CashflowScreen())),
+      _Entry(
+          'Insights', Icons.show_chart, _MenuColors.violet, 'Category Trends',
+          words: 'compare months chart',
+          onTap: () => _open(const CategoryTrendsScreen())),
+      _Entry('Insights', Icons.calendar_month, _MenuColors.red,
+          'Spending Calendar',
+          words: 'daily heatmap no-spend days',
+          onTap: () => _open(const SpendingCalendarScreen())),
+      _Entry('Manage', Icons.account_balance, _MenuColors.indigo, 'Accounts',
+          words: 'bank cash upi wallet balance statement',
+          onTap: () => _open(const AccountsScreen())),
+      // Used to be reachable only from the dashboard shortcut.
+      _Entry('Manage', Icons.credit_card, _MenuColors.blue, 'Cards',
+          subtitle: 'Bills, limits, EMIs and reward points',
+          words: 'credit card statement due emi rewards limit',
+          onTap: () => _open(const CreditCardsScreen())),
+      _Entry(
+          'Manage', Icons.category_outlined, _MenuColors.violet, 'Categories',
+          subtitle: 'Add your own, set icons, rename or merge',
+          words: 'icon colour color',
+          onTap: () => _open(const CategoriesScreen())),
+      _Entry('Manage', Icons.handshake_outlined, _MenuColors.orange,
+          'Loans & lending',
+          subtitle: 'Money you owe, and money owed to you',
+          words: 'debt borrowed lent repay',
+          onTap: () => _open(const LoansScreen())),
+      _Entry('Manage', Icons.sell_outlined, _MenuColors.teal, 'Tags',
+          subtitle: 'Totals for #tags in your notes',
+          words: 'hashtag notes',
+          onTap: () => _open(const TagsScreen())),
+      _Entry('Manage', Icons.flag_outlined, _MenuColors.green, 'Savings Goals',
+          subtitle: 'Save toward a target by a date',
+          words: 'target save',
+          onTap: () => _open(const GoalsScreen())),
+      _Entry('Manage', Icons.repeat, _MenuColors.pink, 'Recurring',
+          words: 'subscription bills rent sip repeat monthly',
+          onTap: () => _open(const RecurringScreen())),
+      _Entry('Manage', Icons.trending_up, _MenuColors.teal, 'Investments',
+          words: 'mutual fund stocks sip portfolio',
+          onTap: () => _open(const InvestmentsScreen())),
+      // Hidden until SMS reading is switched on in Settings, so the
+      // entry never leads to a screen that can only report it is off.
+      if (sms)
+        _Entry('Data', Icons.sms, _MenuColors.blue, 'Import from SMS',
+            subtitle: 'Find transactions in bank alerts',
+            words: 'bank alerts messages review',
+            onTap: () => _open(const SmsReviewScreen())),
+      _Entry('Data', Icons.cloud, stale ? warn : _MenuColors.indigo,
+          'Backup & Export',
+          subtitle: _backupSubtitle,
+          subtitleColor: stale ? warn : null,
+          words: 'restore drive csv excel json import download pdf',
+          onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const BackupsScreen()),
+        );
+        _loadLastBackup();
+      }),
+      _Entry('App', Icons.dashboard_customize_outlined, _MenuColors.violet,
+          'Customise home',
+          subtitle: 'Reorder or hide sections, pick shortcuts',
+          words: 'customize dashboard layout widgets arrange',
+          onTap: () => _open(const CustomizeHomeScreen())),
+      _Entry('App', Icons.settings, _MenuColors.slate, 'Settings',
+          subtitle: 'Currency, theme, alerts, app lock',
+          onTap: () => _open(const SettingsScreen())),
+    ];
+  }
+
+  /// Things that live on other screens but are looked for by name: the
+  /// Budgets tab, the guide, and each setting. Only offered by search.
+  List<_Entry> _searchOnly() {
+    _Entry setting(String title, String words) =>
+        _Entry('Settings', Icons.settings, _MenuColors.slate, title,
+            subtitle: 'In Settings',
+            words: words,
+            onTap: () => _open(const SettingsScreen()));
+    return [
+      _Entry('Screens', Icons.account_balance_wallet_outlined,
+          _MenuColors.green, 'Budgets',
+          subtitle: 'Monthly caps per category',
+          words: 'limit cap rollover',
+          onTap: () => _open(const BudgetsScreen())),
+      _Entry('Screens', Icons.help_outline, _MenuColors.blue, 'How to use',
+          subtitle: 'A short guide to the app',
+          words: 'help tutorial guide',
+          onTap: () => _open(const TutorialScreen())),
+      setting('Currency symbol', 'rupee dollar euro'),
+      setting('Theme', 'dark light mode night true black amoled'),
+      setting('Accent color', 'colour wallpaper material you'),
+      setting('Default account', 'preselected'),
+      setting('Roll over unspent budget', 'rollover carry'),
+      setting('Budget & bill alerts', 'warnings banner'),
+      setting('Read SMS for transactions', 'sms import bank alerts'),
+      setting('Push notifications', 'reminders bills'),
+      setting('Daily reminder', 'notification log'),
+      setting('App lock', 'biometric fingerprint pin security auto-lock'),
+      setting('Encrypt database', 'encryption security sqlcipher'),
+      setting("What's new", 'version update changes about'),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     final stale = _lastBackup == null ||
         DateTime.now().difference(_lastBackup!) > const Duration(days: 7);
-    final warn = warningColor(context);
+    final entries = _entries(context, stale: stale);
+    final query = _query.trim().toLowerCase();
+    final sections = <String>[];
+    for (final e in entries) {
+      if (!sections.contains(e.section)) sections.add(e.section);
+    }
+    final matches = query.isEmpty
+        ? const <_Entry>[]
+        : [...entries, ..._searchOnly()]
+            .where((e) => e.matches(query))
+            .toList();
+
     return Scaffold(
       body: ListView(
         padding: scrollPadding(context, all: 12),
+        // Dragging the list puts the keyboard away, so results are not
+        // hidden behind it.
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         children: [
-          // Grouped into carded sections so a growing list of destinations
-          // stays scannable instead of reading as one long plain column, and
-          // each entry wears a tinted icon badge so it is found by colour as
-          // well as by name.
-          const SectionHeader('Insights',
-              padding: EdgeInsets.fromLTRB(4, 4, 4, 8)),
-          _MenuCard(children: [
-            _MenuTile(
-              icon: Icons.summarize,
-              color: _MenuColors.blue,
-              title: 'Reports',
-              subtitle: 'Week, month, year or any dates · PDF and Excel',
-              onTap: () => _open(const MonthlySummaryScreen()),
+          // The menu has grown past a screenful, and settings sit a level
+          // further down: finding one by name beats scanning for it.
+          TextField(
+            controller: _searchController,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search screens and settings',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close),
+                      tooltip: 'Clear search',
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _query = '');
+                      },
+                    ),
             ),
-            _MenuTile(
-              icon: Icons.stacked_bar_chart,
-              color: _MenuColors.teal,
-              title: 'Cash Flow',
-              onTap: () => _open(const CashflowScreen()),
-            ),
-            _MenuTile(
-              icon: Icons.show_chart,
-              color: _MenuColors.violet,
-              title: 'Category Trends',
-              onTap: () => _open(const CategoryTrendsScreen()),
-            ),
-            _MenuTile(
-              icon: Icons.calendar_month,
-              color: _MenuColors.red,
-              title: 'Spending Calendar',
-              onTap: () => _open(const SpendingCalendarScreen()),
-            ),
-          ]),
-          const SectionHeader('Manage',
-              padding: EdgeInsets.fromLTRB(4, 16, 4, 8)),
-          _MenuCard(children: [
-            _MenuTile(
-              icon: Icons.account_balance,
-              color: _MenuColors.indigo,
-              title: 'Accounts',
-              onTap: () => _open(const AccountsScreen()),
-            ),
-            _MenuTile(
-              icon: Icons.category_outlined,
-              color: _MenuColors.violet,
-              title: 'Categories',
-              subtitle: 'Add your own, set icons, rename or merge',
-              onTap: () => _open(const CategoriesScreen()),
-            ),
-            _MenuTile(
-              icon: Icons.handshake_outlined,
-              color: _MenuColors.orange,
-              title: 'Loans & lending',
-              subtitle: 'Money you owe, and money owed to you',
-              onTap: () => _open(const LoansScreen()),
-            ),
-            _MenuTile(
-              icon: Icons.sell_outlined,
-              color: _MenuColors.teal,
-              title: 'Tags',
-              subtitle: 'Totals for #tags in your notes',
-              onTap: () => _open(const TagsScreen()),
-            ),
-            _MenuTile(
-              icon: Icons.flag_outlined,
-              color: _MenuColors.green,
-              title: 'Savings Goals',
-              subtitle: 'Save toward a target by a date',
-              onTap: () => _open(const GoalsScreen()),
-            ),
-            _MenuTile(
-              icon: Icons.repeat,
-              color: _MenuColors.pink,
-              title: 'Recurring',
-              onTap: () => _open(const RecurringScreen()),
-            ),
-            _MenuTile(
-              icon: Icons.trending_up,
-              color: _MenuColors.teal,
-              title: 'Investments',
-              onTap: () => _open(const InvestmentsScreen()),
-            ),
-          ]),
-          const SectionHeader('Data',
-              padding: EdgeInsets.fromLTRB(4, 16, 4, 8)),
-          _MenuCard(children: [
-            // Hidden until SMS reading is switched on in Settings, so the
-            // entry never leads to a screen that can only report it is off.
-            if (context.watch<SettingsProvider>().smsImportEnabled)
-              _MenuTile(
-                icon: Icons.sms,
-                color: _MenuColors.blue,
-                title: 'Import from SMS',
-                subtitle: 'Find transactions in bank alerts',
-                onTap: () => _open(const SmsReviewScreen()),
-              ),
-            _MenuTile(
-              icon: Icons.cloud,
-              color: stale ? warn : _MenuColors.indigo,
-              title: 'Backup & Export',
-              subtitle: _backupSubtitle,
-              subtitleColor: stale ? warn : null,
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const BackupsScreen()),
-                );
-                _loadLastBackup();
-              },
-            ),
-          ]),
-          const SectionHeader('App', padding: EdgeInsets.fromLTRB(4, 16, 4, 8)),
-          _MenuCard(children: [
-            _MenuTile(
-              icon: Icons.settings,
-              color: _MenuColors.slate,
-              title: 'Settings',
-              subtitle: 'Currency, theme, alerts, app lock',
-              onTap: () => _open(const SettingsScreen()),
-            ),
-          ]),
-          // Visible without digging into Settings > About, so "which build am
-          // I running" is answerable at a glance.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              'Finance Tracker ${BuildInfo.label}',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
-            ),
+            onChanged: (v) => setState(() => _query = v),
           ),
+          if (query.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            if (matches.isEmpty)
+              EmptyState(
+                icon: Icons.search_off,
+                title: 'Nothing called "${_query.trim()}"',
+                message: 'Try another word, such as "backup", "theme" or '
+                    '"cards".',
+              )
+            else
+              _MenuCard(children: [for (final e in matches) e.tile()]),
+          ] else ...[
+            // Grouped into carded sections so a growing list of destinations
+            // stays scannable instead of reading as one long plain column,
+            // and each entry wears a tinted icon badge so it is found by
+            // colour as well as by name.
+            for (final section in sections) ...[
+              SectionHeader(section,
+                  padding: const EdgeInsets.fromLTRB(4, 16, 4, 8)),
+              _MenuCard(children: [
+                for (final e in entries)
+                  if (e.section == section) e.tile(),
+              ]),
+            ],
+            // Visible without digging into Settings > About, so "which build
+            // am I running" is answerable at a glance.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'Finance Tracker ${BuildInfo.label}',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+}
+
+/// One destination in the More menu (or its search results).
+class _Entry {
+  final String section;
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String? subtitle;
+  final Color? subtitleColor;
+
+  /// Extra search terms, space separated.
+  final String words;
+  final VoidCallback onTap;
+
+  const _Entry(this.section, this.icon, this.color, this.title,
+      {this.subtitle,
+      this.subtitleColor,
+      this.words = '',
+      required this.onTap});
+
+  /// Whether every word of [query] (lower case) appears somewhere in the
+  /// title, the subtitle or the extra terms.
+  bool matches(String query) {
+    final haystack = '$title ${subtitle ?? ''} $words'.toLowerCase();
+    return query
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .every(haystack.contains);
+  }
+
+  Widget tile() => _MenuTile(
+        icon: icon,
+        color: color,
+        title: title,
+        subtitle: subtitle,
+        subtitleColor: subtitleColor,
+        onTap: onTap,
+      );
 }
 
 /// Badge colours for the menu. Mid-tone shades that hold contrast as an icon

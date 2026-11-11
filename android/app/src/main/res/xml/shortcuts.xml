@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Long-press shortcuts on the app icon: add an expense, scan a receipt, or
+  dictate one, without going through the home screen first.
+
+  Each opens MainActivity with the home_widget plugin's launch action and a
+  financetracker:// link, exactly as the home-screen widget's Add button does
+  (SpendWidgetProvider), so the Dart side reads which one was tapped through
+  the same channel (lib/services/home_widget_service.dart, handled in
+  lib/screens/home_screen.dart). targetPackage must match applicationId in
+  android/app/build.gradle.kts.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="add_expense"
+        android:enabled="true"
+        android:icon="@drawable/shortcut_add"
+        android:shortcutShortLabel="@string/shortcut_add_short"
+        android:shortcutLongLabel="@string/shortcut_add_long">
+        <intent
+            android:action="es.antonborri.home_widget.action.LAUNCH"
+            android:targetPackage="com.example.finance_tracker"
+            android:targetClass="com.example.finance_tracker.MainActivity"
+            android:data="financetracker://add" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="scan_receipt"
+        android:enabled="true"
+        android:icon="@drawable/shortcut_scan"
+        android:shortcutShortLabel="@string/shortcut_scan_short"
+        android:shortcutLongLabel="@string/shortcut_scan_long">
+        <intent
+            android:action="es.antonborri.home_widget.action.LAUNCH"
+            android:targetPackage="com.example.finance_tracker"
+            android:targetClass="com.example.finance_tracker.MainActivity"
+            android:data="financetracker://scan" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="add_by_voice"
+        android:enabled="true"
+        android:icon="@drawable/shortcut_voice"
+        android:shortcutShortLabel="@string/shortcut_voice_short"
+        android:shortcutLongLabel="@string/shortcut_voice_long">
+        <intent
+            android:action="es.antonborri.home_widget.action.LAUNCH"
+            android:targetPackage="com.example.finance_tracker"
+            android:targetClass="com.example.finance_tracker.MainActivity"
+            android:data="financetracker://voice" />
+    </shortcut>
+</shortcuts>

@@ -1,3 +1,5 @@
+import 'amount_expression.dart';
+
 /// Money is stored and computed as integer minor units (e.g. paise/cents)
 /// to avoid floating-point rounding errors. Convert to/from the double the
 /// user types only at the UI edges via these helpers.
@@ -43,8 +45,15 @@ double minorToMajor(int minor) => minor / 100;
 /// Tolerates the digit grouping amounts are shown with ("1,250.50",
 /// "12,34,567", "1 250"), so a figure pasted from a bank alert or copied off
 /// this app's own screens is accepted rather than rejected as invalid.
-double? parseMajor(String input) =>
-    double.tryParse(input.trim().replaceAll(RegExp(r'[,\s]'), ''));
+///
+/// A sum is worked out too: "250+80" is 330 and "1200/3" is 400 (see
+/// [evaluateAmountExpression]), so every amount field doubles as a
+/// calculator.
+double? parseMajor(String input) {
+  final plain = double.tryParse(input.trim().replaceAll(RegExp(r'[,\s]'), ''));
+  if (plain != null || !isAmountExpression(input)) return plain;
+  return evaluateAmountExpression(input);
+}
 
 /// Parses a user-entered amount string into minor units, or null if it isn't a
 /// number or is out of range.

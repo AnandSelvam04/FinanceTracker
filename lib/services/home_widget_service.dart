@@ -65,6 +65,11 @@ class HomeWidgetService {
   static final addUri = Uri.parse('financetracker://add');
   static final openUri = Uri.parse('financetracker://open');
 
+  /// The app icon's long-press shortcuts (android/.../xml/shortcuts.xml)
+  /// open the app the same way, on [addUri] and on these two.
+  static final scanUri = Uri.parse('financetracker://scan');
+  static final voiceUri = Uri.parse('financetracker://voice');
+
   static HomeWidgetData? _last;
 
   /// Only Android has the widget (and the plugin's channels). Elsewhere —

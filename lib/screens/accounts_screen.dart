@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 import '../models/account.dart';
 import '../providers/account_provider.dart';
 import '../providers/settings_provider.dart';
+import '../utils/account_icons.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/swipe_actions.dart';
 import '../widgets/hero_total_card.dart';
 import 'account_detail_screen.dart';
 import 'add_transfer_screen.dart';
@@ -51,25 +53,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
   int? _parseDay(String? v) {
     final t = v?.trim() ?? '';
     return t.isEmpty ? null : int.tryParse(t);
-  }
-
-  IconData _iconForType(String type) {
-    switch (type) {
-      case 'cash':
-        return Icons.payments;
-      case 'bank':
-        return Icons.account_balance;
-      case 'upi':
-        return Icons.qr_code;
-      case 'credit_card':
-        return Icons.credit_card;
-      case 'loan':
-        return Icons.request_quote_outlined;
-      case 'lent':
-        return Icons.handshake_outlined;
-      default:
-        return Icons.account_balance_wallet;
-    }
   }
 
   Future<void> _showAccountDialog({Account? account}) async {
@@ -462,62 +445,72 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   itemBuilder: (context, index) {
                     final account = accounts[index];
                     final balance = provider.balanceOf(account);
-                    return Card(
-                      margin: EdgeInsets.zero,
-                      child: ListTile(
-                        // The account's own colour when one was picked, as a
-                        // tint like the category avatars; the theme's
-                        // secondary container otherwise.
-                        leading: Builder(builder: (context) {
-                          final scheme = Theme.of(context).colorScheme;
-                          final own = account.color == null
-                              ? null
-                              : Color(account.color!);
-                          final dark =
-                              Theme.of(context).brightness == Brightness.dark;
-                          return CircleAvatar(
-                            backgroundColor: own == null
-                                ? scheme.secondaryContainer
-                                : own.withValues(alpha: dark ? 0.28 : 0.15),
-                            child: Icon(_iconForType(account.type),
-                                color: own ?? scheme.onSecondaryContainer),
-                          );
-                        }),
-                        title: Text(account.name,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text([
-                          Account.typeLabel(account.type),
-                          if (account.isForeign) account.currency!,
-                          // Visible at a glance so it is obvious which
-                          // accounts SMS import can route to.
-                          if (account.last4 != null) '••${account.last4}',
-                          // Surfaces that a card has a billing cycle set.
-                          if (account.hasBillingCycle) 'Due ${account.dueDay}',
-                        ].join(' · ')),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              balance == null
-                                  ? '…'
-                                  : formatMoneySignedIn(
-                                      account.symbol, balance),
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: balance != null && balance < 0
-                                      ? expenseColor(context)
-                                      : null),
+                    return SwipeActions(
+                      key: ValueKey('account-${account.id}'),
+                      onEdit: () => _showAccountDialog(account: account),
+                      onDelete: () => _confirmDelete(account),
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        child: ListTile(
+                          // The account's own colour when one was picked, as a
+                          // tint like the category avatars; the theme's
+                          // secondary container otherwise.
+                          leading: Builder(builder: (context) {
+                            final scheme = Theme.of(context).colorScheme;
+                            final own = account.color == null
+                                ? null
+                                : Color(account.color!);
+                            final dark =
+                                Theme.of(context).brightness == Brightness.dark;
+                            // Flies into the statement's header as it opens.
+                            return Hero(
+                              tag: 'account-${account.id}',
+                              child: CircleAvatar(
+                              backgroundColor: own == null
+                                  ? scheme.secondaryContainer
+                                  : own.withValues(alpha: dark ? 0.28 : 0.15),
+                              child: Icon(accountTypeIcon(account.type),
+                                  color: own ?? scheme.onSecondaryContainer),
                             ),
-                            const SizedBox(width: 4),
-                            Icon(Icons.chevron_right,
-                                color: mutedTextColor(context)),
-                          ],
+                            );
+                          }),
+                          title: Text(account.name,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: Text([
+                            Account.typeLabel(account.type),
+                            if (account.isForeign) account.currency!,
+                            // Visible at a glance so it is obvious which
+                            // accounts SMS import can route to.
+                            if (account.last4 != null) '••${account.last4}',
+                            // Surfaces that a card has a billing cycle set.
+                            if (account.hasBillingCycle)
+                              'Due ${account.dueDay}',
+                          ].join(' · ')),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                balance == null
+                                    ? '…'
+                                    : formatMoneySignedIn(
+                                        account.symbol, balance),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: balance != null && balance < 0
+                                        ? expenseColor(context)
+                                        : null),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(Icons.chevron_right,
+                                  color: mutedTextColor(context)),
+                            ],
+                          ),
+                          // Opens the account's statement; edit and delete
+                          // live in its app bar (a bin on every row was one
+                          // stray tap from deleting an account).
+                          onTap: () => _openStatement(account),
                         ),
-                        // Opens the account's statement; edit and delete
-                        // live in its app bar (a bin on every row was one
-                        // stray tap from deleting an account).
-                        onTap: () => _openStatement(account),
                       ),
                     );
                   },

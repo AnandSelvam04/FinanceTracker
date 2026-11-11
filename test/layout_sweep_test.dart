@@ -22,6 +22,7 @@ import 'package:finance_tracker/providers/recurring_provider.dart';
 import 'package:finance_tracker/providers/settings_provider.dart';
 import 'package:finance_tracker/providers/template_provider.dart';
 import 'package:finance_tracker/screens/credit_cards_screen.dart';
+import 'package:finance_tracker/screens/customize_home_screen.dart';
 import 'package:finance_tracker/screens/account_detail_screen.dart';
 import 'package:finance_tracker/screens/accounts_screen.dart';
 import 'package:finance_tracker/screens/add_expense_screen.dart';
@@ -47,6 +48,7 @@ import 'package:finance_tracker/screens/sms_review_screen.dart';
 import 'package:finance_tracker/screens/spending_calendar_screen.dart';
 import 'package:finance_tracker/screens/tutorial_screen.dart';
 import 'package:finance_tracker/services/db_service.dart';
+import 'package:finance_tracker/utils/dashboard_layout.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
 
 /// Renders every main screen at a 360dp phone width, with long names and
@@ -198,18 +200,43 @@ void main() {
     'Backups': () => const BackupsScreen(),
     'Import': () => const ImportScreen(),
     'SmsReview': () => const SmsReviewScreen(),
+    'CustomizeHome': () => const CustomizeHomeScreen(),
   };
 
+  // Every screen on a phone, then the home screen in the shapes its layout
+  // changes for: four shortcuts across (icon above label), a phone held
+  // sideways (rail instead of the bottom bar) and a tablet (two columns).
+  const phone = Size(360, 780);
+  final cases = <(String, Widget Function(), Size, bool)>[
+    for (final entry in screens.entries) (entry.key, entry.value, phone, false),
+    ('Home, four shortcuts', () => const HomeScreen(), phone, true),
+    (
+      'Home, phone sideways',
+      () => const HomeScreen(),
+      const Size(780, 360),
+      true
+    ),
+    ('Home, tablet', () => const HomeScreen(), const Size(1100, 760), true),
+  ];
+
   for (final scale in [1.0, 1.3]) {
-    for (final entry in screens.entries) {
-      testWidgets('${entry.key} @ ${scale}x', (tester) async {
+    for (final (name, build, size, fourShortcuts) in cases) {
+      testWidgets('$name @ ${scale}x', (tester) async {
         final settings = (await tester.runAsync(() async {
           await seed();
           final s = SettingsProvider();
           await s.load();
+          if (fourShortcuts) {
+            await s.setHomeShortcuts(const [
+              DashboardLayout.investments,
+              DashboardLayout.cards,
+              DashboardLayout.recurring,
+              DashboardLayout.calendar,
+            ]);
+          }
           return s;
         }))!;
-        tester.view.physicalSize = const Size(360 * 3, 780 * 3);
+        tester.view.physicalSize = size * 3;
         tester.view.devicePixelRatio = 3;
         tester.platformDispatcher.textScaleFactorTestValue = scale;
         addTearDown(tester.view.reset);
@@ -241,7 +268,7 @@ void main() {
             ChangeNotifierProvider(create: (_) => GoalProvider()),
             ChangeNotifierProvider.value(value: settings),
           ],
-          child: MaterialApp(home: entry.value()),
+          child: MaterialApp(home: build()),
         ));
         for (var i = 0; i < 10; i++) {
           await tester.runAsync(

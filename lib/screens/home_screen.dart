@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/expense.dart';
 import '../models/tx_template.dart';
@@ -24,14 +25,19 @@ import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
 import '../utils/billing_cycle.dart';
 import '../utils/currency_format.dart';
+import '../utils/dashboard_insights.dart';
+import '../utils/dashboard_layout.dart';
 import '../utils/date_format.dart';
+import '../utils/haptics.dart';
 import '../utils/insets.dart';
 import '../utils/merchant_summary.dart';
+import '../utils/whats_new.dart';
 import '../widgets/alerts_banner.dart';
 import '../widgets/animated_money.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/category_bar_chart.dart';
+import '../widgets/celebration.dart';
 import '../widgets/expense_trends_chart.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/net_worth_card.dart';
@@ -39,15 +45,23 @@ import '../widgets/section_header.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/top_merchants_card.dart';
 import '../widgets/transaction_edit_sheet.dart';
+import '../widgets/whats_new_sheet.dart';
 import 'add_expense_screen.dart';
 import 'add_investment_screen.dart';
 import 'add_transfer_screen.dart';
+import 'accounts_screen.dart';
 import 'budgets_screen.dart';
+import 'cashflow_screen.dart';
 import 'expense_list_screen.dart';
 import 'credit_cards_screen.dart';
+import 'goals_screen.dart';
 import 'investments_screen.dart';
+import 'loans_screen.dart';
+import 'monthly_summary_screen.dart';
 import 'more_screen.dart';
+import 'recurring_screen.dart';
 import 'sms_review_screen.dart';
+import 'spending_calendar_screen.dart';
 import 'tutorial_screen.dart';
 
 part 'home/dashboard.dart';
@@ -72,11 +86,64 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// stays in step (it only sends when the figures differ).
   List<ChangeNotifier> _widgetSources = const [];
 
-  /// The home-screen widget's Add button opens the Add Expense form.
+  /// The home-screen widget's Add button opens the Add Expense form, and so
+  /// do the app icon's long-press shortcuts — Scan receipt and Add by voice
+  /// going straight to the camera and the microphone.
   void _openFromWidget(Uri? uri) {
-    if (!mounted || uri?.host != HomeWidgetService.addUri.host) return;
-    Navigator.push(context,
-        MaterialPageRoute(builder: (context) => const AddExpenseScreen()));
+    if (!mounted || uri == null) return;
+    final AddExpenseAction action;
+    if (uri.host == HomeWidgetService.addUri.host) {
+      action = AddExpenseAction.none;
+    } else if (uri.host == HomeWidgetService.scanUri.host) {
+      action = AddExpenseAction.scan;
+    } else if (uri.host == HomeWidgetService.voiceUri.host) {
+      action = AddExpenseAction.voice;
+    } else {
+      return;
+    }
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => AddExpenseScreen(autoStart: action)));
+  }
+
+  /// Once after an update, says what changed in it.
+  Future<void> _showWhatsNewIfUpdated() async {
+    if (!await WhatsNew.shouldShow() || !mounted) return;
+    await WhatsNew.markSeen();
+    if (!mounted) return;
+    await showWhatsNewSheet(context);
+  }
+
+  static const _kCelebratedMonth = 'celebratedBudgetMonth';
+
+  /// Marks a month that ended within its overall budget, once, the first
+  /// time the app is opened after it.
+  Future<void> _celebrateLastMonth() async {
+    final expenses = context.read<ExpenseProvider>();
+    final budgets = context.read<BudgetProvider>();
+    final settings = context.read<SettingsProvider>();
+    final now = DateTime.now();
+    final last = DateTime(now.year, now.month - 1);
+    final key = '${last.year}-${last.month}';
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(_kCelebratedMonth) == key) return;
+    await expenses.ensureYearsLoaded({last.year, last.year - 1});
+    if (!mounted) return;
+    final row = budgets.overallBudgetRow(last.year, last.month);
+    if (row == null) return;
+    final cap =
+        budgets.capFor(row, expenses, rollover: settings.budgetRollover);
+    final spent = expenses.totalForMonth(last.year, last.month);
+    // Decided either way now, so an over-budget month is not looked at
+    // again on every launch.
+    await prefs.setString(_kCelebratedMonth, key);
+    // A month with nothing recorded was not "under budget", just unused.
+    if (!mounted || cap <= 0 || spent <= 0 || spent > cap) return;
+    celebrate(
+        context,
+        'You finished ${monthName(last.month)} '
+        '${formatMoneyRounded(cap - spent)} under budget!');
   }
 
   /// Opens what a tapped notification asked for: the SMS review queue, for
@@ -167,6 +234,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // Opt-in, silent (no sign-in prompt), and not awaited: it waits on the
       // network, which must not hold up the rest of the launch.
       unawaited(BackupService().autoDriveBackupIfDue());
+      await _celebrateLastMonth();
+      if (!mounted) return;
+      unawaited(_showWhatsNewIfUpdated());
       // From here on keep reminders in step with the data, not just the
       // launch-time snapshot: a deleted or edited rule used to keep its old
       // "Bill due soon" reminder, and switching notifications back on
@@ -262,6 +332,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // The SMS permission may have been granted in Android's settings while
       // the app was away; listening could not start without it.
       if (_settings?.smsAutoCapture ?? false) SmsAutoCapture.listen(on: true);
+      // The wallpaper, and so its accent colour, may have changed meanwhile.
+      _settings?.refreshWallpaperAccent();
     }
   }
 
@@ -407,13 +479,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
           ),
           onSeeAllTransactions: () => setState(() => _selectedIndex = 1),
+          onOpenBudgets: () => setState(() => _selectedIndex = 2),
           onMonthChanged: (y, m) {
             setState(() {
               _selectedYear = y;
               _selectedMonth = m;
             });
-            // Ensure the selected year is loaded
-            context.read<ExpenseProvider>().ensureYearLoaded(y);
+            // Ensure the selected year is loaded — and, in January, the
+            // year before it, which the insights compare against.
+            final expenses = context.read<ExpenseProvider>();
+            expenses.ensureYearLoaded(y);
+            if (m == 1) expenses.ensureYearLoaded(y - 1);
           },
           onViewToggle: (isYear) {
             setState(() {
@@ -497,8 +573,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  /// Width from which the tabs move from a bottom bar to a rail down the
+  /// side: a tablet, or a phone held sideways, where a bottom bar spends the
+  /// short axis and stretches five buttons across the long one.
+  static const _railWidth = 720.0;
+
+  void _selectTab(int index) {
+    if (index == _selectedIndex) return;
+    Haptics.tick();
+    setState(() => _selectedIndex = index);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= _railWidth;
+    final scheme = Theme.of(context).colorScheme;
+    // IndexedStack keeps every tab mounted, so the Transactions screen's
+    // search, filters, and scroll position survive tab switches.
+    final tabs = IndexedStack(index: _selectedIndex, children: _screens);
     return Scaffold(
       // Transactions and Budgets bring their own app bar (with their own
       // actions); showing this one above it stacked two purple bars and cost
@@ -517,8 +609,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         : Icons.visibility_outlined),
                     tooltip:
                         settings.hideAmounts ? 'Show amounts' : 'Hide amounts',
-                    onPressed: () =>
-                        settings.setHideAmounts(!settings.hideAmounts),
+                    onPressed: () {
+                      Haptics.light();
+                      settings.setHideAmounts(!settings.hideAmounts);
+                    },
                   );
                 }),
                 IconButton(
@@ -532,62 +626,115 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ],
             ),
-      // IndexedStack keeps every tab mounted, so the Transactions screen's
-      // search, filters, and scroll position survive tab switches.
-      body: IndexedStack(index: _selectedIndex, children: _screens),
+      body: !wide
+          ? tabs
+          : Row(
+              children: [
+                SafeArea(
+                  right: false,
+                  child: NavigationRail(
+                    // Scrolls rather than overflowing on a phone held
+                    // sideways, where the rail is taller than the screen.
+                    scrollable: true,
+                    labelType: NavigationRailLabelType.all,
+                    backgroundColor: scheme.surface,
+                    indicatorColor: scheme.secondaryContainer,
+                    selectedIndex: _selectedIndex,
+                    onDestinationSelected: _selectTab,
+                    leading: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: FloatingActionButton(
+                        elevation: 0,
+                        tooltip: 'Add transaction',
+                        onPressed: () => _showAddOptions(context),
+                        child: const Icon(Icons.add),
+                      ),
+                    ),
+                    destinations: const [
+                      NavigationRailDestination(
+                        icon: Icon(Icons.home_outlined),
+                        selectedIcon: Icon(Icons.home),
+                        label: Text('Home'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.receipt_long_outlined),
+                        selectedIcon: Icon(Icons.receipt_long),
+                        label: Text('Activity'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.account_balance_wallet_outlined),
+                        selectedIcon: Icon(Icons.account_balance_wallet),
+                        label: Text('Budgets'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.more_horiz),
+                        label: Text('More'),
+                      ),
+                    ],
+                  ),
+                ),
+                VerticalDivider(
+                    width: 1, thickness: 1, color: scheme.outlineVariant),
+                Expanded(child: tabs),
+              ],
+            ),
       // Add sits in the middle of the bar rather than floating over the
       // content, where it covered the amount of whichever row was behind it.
-      bottomNavigationBar: NavigationBar(
-        // Bar slots: Home, Transactions, Add, Budgets, More. Add is an
-        // action, not a tab, so the tabs after it are one slot along.
-        selectedIndex: _selectedIndex < 2 ? _selectedIndex : _selectedIndex + 1,
-        onDestinationSelected: (i) {
-          if (i == 2) {
-            _showAddOptions(context);
-            return;
-          }
-          setState(() => _selectedIndex = i < 2 ? i : i - 1);
-        },
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            // Short enough to fit a fifth of a narrow phone at large text;
-            // the screen itself is titled "Transactions".
-            label: 'Activity',
-            tooltip: 'Transactions',
-          ),
-          NavigationDestination(
-            icon: Container(
-              width: 56,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(Icons.add,
-                  color: Theme.of(context).colorScheme.onPrimary),
+      bottomNavigationBar: wide
+          ? null
+          : NavigationBar(
+              // Bar slots: Home, Transactions, Add, Budgets, More. Add is an
+              // action, not a tab, so the tabs after it are one slot along.
+              selectedIndex:
+                  _selectedIndex < 2 ? _selectedIndex : _selectedIndex + 1,
+              onDestinationSelected: (i) {
+                if (i == 2) {
+                  Haptics.light();
+                  _showAddOptions(context);
+                  return;
+                }
+                _selectTab(i < 2 ? i : i - 1);
+              },
+              destinations: [
+                const NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: 'Home',
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.receipt_long_outlined),
+                  selectedIcon: Icon(Icons.receipt_long),
+                  // Short enough to fit a fifth of a narrow phone at large text;
+                  // the screen itself is titled "Transactions".
+                  label: 'Activity',
+                  tooltip: 'Transactions',
+                ),
+                NavigationDestination(
+                  icon: Container(
+                    width: 56,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(Icons.add,
+                        color: Theme.of(context).colorScheme.onPrimary),
+                  ),
+                  label: 'Add',
+                  tooltip: 'Add transaction',
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.account_balance_wallet_outlined),
+                  selectedIcon: Icon(Icons.account_balance_wallet),
+                  label: 'Budgets',
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.more_horiz),
+                  selectedIcon: Icon(Icons.more_horiz),
+                  label: 'More',
+                ),
+              ],
             ),
-            label: 'Add',
-            tooltip: 'Add transaction',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet),
-            label: 'Budgets',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.more_horiz),
-            selectedIcon: Icon(Icons.more_horiz),
-            label: 'More',
-          ),
-        ],
-      ),
     );
   }
 }

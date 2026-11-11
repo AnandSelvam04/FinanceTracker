@@ -13,6 +13,7 @@ import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/debt_summary.dart';
 import '../utils/insets.dart';
+import '../widgets/celebration.dart';
 import '../widgets/empty_state.dart';
 import 'account_detail_screen.dart';
 import 'add_transfer_screen.dart';
@@ -56,9 +57,36 @@ class _LoansScreenState extends State<LoansScreen> {
     }
   }
 
+  List<DebtSummary> _summaries(AccountProvider accounts) => [
+        for (final a in accounts.accounts)
+          if (a.isLoan || a.isLent)
+            debtSummary(
+                a, accounts.balanceOf(a) ?? a.openingBalance, _io?[a.id])!
+      ];
+
   Future<void> _open(Widget screen) async {
+    final accounts = context.read<AccountProvider>();
+    final settledBefore = {
+      for (final s in _summaries(accounts))
+        if (s.settled) s.account.id,
+    };
+    final knownBefore = {for (final s in _summaries(accounts)) s.account.id};
     await Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
     await _reload();
+    if (!mounted) return;
+    // A loan cleared by what was just recorded is worth marking.
+    for (final s in _summaries(accounts)) {
+      if (s.settled &&
+          knownBefore.contains(s.account.id) &&
+          !settledBefore.contains(s.account.id)) {
+        celebrate(
+            context,
+            s.account.isLoan
+                ? '${s.account.name} is fully repaid!'
+                : '${s.account.name} has paid you back in full!');
+        break;
+      }
+    }
   }
 
   Future<void> _add(String type) async {
@@ -73,11 +101,7 @@ class _LoansScreenState extends State<LoansScreen> {
   Widget build(BuildContext context) {
     final accounts = context.watch<AccountProvider>();
     final io = _io;
-    final summaries = [
-      for (final a in accounts.accounts)
-        if (a.isLoan || a.isLent)
-          debtSummary(a, accounts.balanceOf(a) ?? a.openingBalance, io?[a.id])!
-    ];
+    final summaries = _summaries(accounts);
     final owe = summaries.where((s) => s.account.isLoan).toList()
       ..sort((a, b) => b.outstanding.compareTo(a.outstanding));
     final owed = summaries.where((s) => s.account.isLent).toList()
