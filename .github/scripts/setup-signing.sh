@@ -18,6 +18,15 @@ if [[ -z "${ANDROID_KEYSTORE_BASE64:-}" ]]; then
     echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; this APK is debug-signed and cannot update an installed release build."
     exit 0
   fi
+  # A build started by hand on a branch other than main is a try-out build:
+  # let it through debug-signed too, so a branch can be installed and looked
+  # at before the release key exists. Each such APK is signed with that
+  # run's own throwaway key, so one cannot update another (uninstall first)
+  # and Google Drive sign-in will not accept it.
+  if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" && "${GITHUB_REF_NAME:-}" != "main" ]]; then
+    echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; this try-out APK is debug-signed. It cannot update another build and Drive sign-in will not work."
+    exit 0
+  fi
   echo "::error::ANDROID_KEYSTORE_BASE64 is not set. Add the signing secrets described in docs/SIGNING.md."
   exit 1
 fi
