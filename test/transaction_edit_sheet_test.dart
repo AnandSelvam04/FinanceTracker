@@ -169,7 +169,13 @@ void main() {
       {for (final r in rows) r.category: r.amount},
       {'Groceries': 70000, 'Gifts': 30000},
     );
-    expect(find.text('Split into 2 transactions.'), findsOneWidget);
+    // The message follows a balance refresh that runs after the rows are
+    // written, and on a slow machine that can outlast one settle.
+    final done = find.text('Split into 2 transactions.');
+    for (var i = 0; i < 20 && done.evaluate().isEmpty; i++) {
+      await settle(tester);
+    }
+    expect(done, findsOneWidget);
   });
 
   testWidgets('Duplicate opens Add pre-filled and dated today', (tester) async {
