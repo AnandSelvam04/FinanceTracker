@@ -124,7 +124,7 @@ class _MoreScreenState extends State<MoreScreen> {
               icon: Icons.category_outlined,
               color: _MenuColors.violet,
               title: 'Categories',
-              subtitle: 'Rename or merge categories',
+              subtitle: 'Add your own, set icons, rename or merge',
               onTap: () => _open(const CategoriesScreen()),
             ),
             _MenuTile(

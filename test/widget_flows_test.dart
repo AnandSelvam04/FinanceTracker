@@ -480,7 +480,7 @@ void main() {
     await teardownTree(tester);
   }, timeout: testTimeout);
 
-  testWidgets('Add expense: typing a category lights up its chip, any case',
+  testWidgets('Add expense: a category found in the full list lights up its chip',
       (tester) async {
     final (accounts, expenses, templates) = (await tester.runAsync(() async {
       final a = AccountProvider();
@@ -509,10 +509,20 @@ void main() {
         .selected;
 
     expect(selected('Food'), isFalse);
-    // Lower case and a trailing space still name the built-in category.
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'Category'), 'food ');
+    // The full list, searched in lower case with a trailing space, still
+    // finds the built-in category instead of offering to create a second one.
+    await tester.ensureVisible(find.widgetWithText(ActionChip, 'More'));
+    await tester.tap(find.widgetWithText(ActionChip, 'More'));
+    await tester.pumpAndSettle();
+    // The list reads the categories in use; let that query land.
+    await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 50)));
     await tester.pump();
+    await tester.enterText(find.byType(TextField).last, 'food ');
+    await tester.pump();
+    expect(find.textContaining('Create'), findsNothing);
+    await tester.tap(find.widgetWithText(ListTile, 'Food'));
+    await tester.pumpAndSettle();
     expect(selected('Food'), isTrue);
     expect(selected('Bills'), isFalse);
     await teardownTree(tester);

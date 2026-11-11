@@ -12,6 +12,7 @@ import '../utils/insets.dart';
 import '../screens/add_expense_screen.dart';
 import '../screens/add_transfer_screen.dart';
 import '../services/receipt_store.dart';
+import 'category_picker.dart';
 import 'dispose_with_route.dart';
 import 'receipt_photo.dart';
 import 'spend_account_picker.dart';
@@ -185,9 +186,16 @@ Future<void> showEditExpenseSheet(
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(labelText: 'Amount'),
                   ),
-                  TextField(
-                    controller: categoryController,
-                    decoration: const InputDecoration(labelText: 'Category'),
+                  // Picked from the list (which can also add a new one)
+                  // rather than typed, so an edit can't misspell a category
+                  // into a second one.
+                  CategoryPickerTile(
+                    type: expense.isIncome
+                        ? DbConstants.txIncome
+                        : DbConstants.txExpense,
+                    value: categoryController.text,
+                    onChanged: (c) =>
+                        setModalState(() => categoryController.text = c),
                   ),
                   DropdownButtonFormField<String>(
                     // Keyed so a mode set by the card chips below shows.

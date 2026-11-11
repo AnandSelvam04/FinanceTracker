@@ -260,6 +260,10 @@ class ExpenseProvider extends ChangeNotifier {
     return n;
   }
 
+  /// A category was given another icon or colour. Nothing in the ledger
+  /// changed, but the charts built from this provider colour by category.
+  void categoryLooksChanged() => notifyListeners();
+
   /// Returns all transaction rows for a given month and year.
   List<Expense> expensesForMonth(int year, int month) {
     return _expenses

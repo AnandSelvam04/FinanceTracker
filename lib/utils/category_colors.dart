@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'category_store.dart';
+
 /// Deterministic category → color mapping shared by all charts,
 /// so a category keeps the same color across screens and app restarts.
 class CategoryColors {
@@ -52,6 +54,9 @@ class CategoryColors {
   static const double darkMinLightness = 0.68;
 
   static Color forCategory(String category) {
+    // A colour the user picked for the category (More → Categories) wins.
+    final chosen = CategoryStore.instance.colorFor(category);
+    if (chosen != null) return chosen;
     final builtIn = _builtIn[category];
     if (builtIn != null) return builtIn;
     // String.hashCode is not guaranteed stable across Dart releases,

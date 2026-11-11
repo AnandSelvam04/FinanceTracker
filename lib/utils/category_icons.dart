@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 
+import 'category_store.dart';
+
 /// Deterministic category → icon mapping, the companion to [CategoryColors].
 ///
 /// Built-in categories (and a handful of common synonyms) get a hand-picked
 /// icon; anything else falls back to a stable icon chosen from a small pool by
 /// a code-unit hash, so a custom category keeps the same icon across screens
 /// and restarts (String.hashCode is not stable across Dart releases).
+///
+/// An icon the user picked for the category (More → Categories) wins over
+/// both.
 IconData categoryIcon(String category) {
+  final chosen = CategoryStore.instance.iconFor(category);
+  if (chosen != null) return chosen;
   final key = category.trim().toLowerCase();
   final mapped = _byName[key];
   if (mapped != null) return mapped;

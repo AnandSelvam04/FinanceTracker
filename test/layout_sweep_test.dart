@@ -38,6 +38,7 @@ import 'package:finance_tracker/screens/investment_type_screen.dart';
 import 'package:finance_tracker/screens/investments_screen.dart';
 import 'package:finance_tracker/screens/monthly_summary_screen.dart';
 import 'package:finance_tracker/screens/more_screen.dart';
+import 'package:finance_tracker/screens/categories_screen.dart';
 import 'package:finance_tracker/screens/onboarding_screen.dart';
 import 'package:finance_tracker/screens/recurring_screen.dart';
 import 'package:finance_tracker/screens/settings_screen.dart';
@@ -193,6 +194,7 @@ void main() {
     'AddInvestment': () => const AddInvestmentScreen(),
     'Onboarding': () => const OnboardingScreen(),
     'Tutorial': () => const TutorialScreen(),
+    'Categories': () => const CategoriesScreen(),
     'SpendingCalendar': () => const SpendingCalendarScreen(),
     'CreditCards': () => const CreditCardsScreen(),
     'Backups': () => const BackupsScreen(),

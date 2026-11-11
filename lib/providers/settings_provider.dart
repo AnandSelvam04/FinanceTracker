@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/sms_service.dart';
 import '../utils/app_theme.dart';
+import '../utils/category_store.dart';
 import '../utils/currency_format.dart';
 
 /// User preferences persisted in SharedPreferences: currency, theme, app
@@ -98,6 +99,9 @@ class SettingsProvider extends ChangeNotifier {
     _seedColor = storedSeed != null ? Color(storedSeed) : AppTheme.seed;
     SmsService.enabled = _smsImportEnabled;
     CurrencyFormat.symbol = _currencySymbol;
+    // Loaded here so a restore, which reloads the settings, brings the
+    // backup's categories back too.
+    await CategoryStore.instance.load();
     notifyListeners();
   }
 
@@ -223,6 +227,8 @@ class SettingsProvider extends ChangeNotifier {
     _kAlertsEnabled: bool,
     _kNotificationsEnabled: bool,
     _kDailyReminder: int,
+    // The user's own categories and the icons and colours they chose.
+    CategoryStore.prefsKey: String,
   };
 
   /// The backed-up preferences currently set.

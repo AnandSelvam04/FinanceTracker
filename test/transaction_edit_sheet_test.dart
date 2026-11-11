@@ -184,7 +184,11 @@ void main() {
     expect(find.text('Duplicate Expense'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, 'Swiggy'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, '450.00'), findsOneWidget);
-    expect(find.widgetWithText(TextFormField, 'Food'), findsOneWidget);
+    expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Food'))
+            .selected,
+        isTrue);
 
     final add = find.widgetWithText(FilledButton, 'Add Expense');
     await tester.ensureVisible(add);

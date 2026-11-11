@@ -17,10 +17,12 @@ import '../services/receipt_store.dart';
 import '../services/voice_expense_parser.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_logger.dart';
+import '../utils/category_store.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
-import '../widgets/category_choice_chip.dart';
+import '../widgets/category_choice_chip.dart' show isSameCategory;
+import '../widgets/category_picker.dart';
 import '../widgets/date_field_row.dart';
 import '../widgets/spend_account_picker.dart';
 import '../widgets/voice_capture_sheet.dart';
@@ -72,27 +74,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   bool _saveAsTemplate = false;
   List<String> _frequentExpenseCategories = const [];
   List<String> _frequentIncomeCategories = const [];
-
-  final List<String> _expenseCategories = const [
-    'Food',
-    'Transport',
-    'Shopping',
-    'Bills',
-    'Entertainment',
-    'Health',
-    'Education',
-    'Other',
-  ];
-
-  final List<String> _incomeCategories = const [
-    'Salary',
-    'Business',
-    'Interest',
-    'Dividends',
-    'Gift',
-    'Refund',
-    'Other',
-  ];
 
   final List<String> _paymentModes = [
     'Cash',
@@ -214,16 +195,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  /// Recent categories first, then built-in defaults, de-duplicated
+  /// Recent categories first, then the user's own and the built-in ones, de-duplicated
   /// ignoring case — so a past "food" entry and the built-in "Food" show as
   /// one chip, not two.
   List<String> get _suggestions {
     final frequent =
         _isIncome ? _frequentIncomeCategories : _frequentExpenseCategories;
-    final defaults = _isIncome ? _incomeCategories : _expenseCategories;
+    // The user's own categories, then the built-in ones they kept.
+    final offered = CategoryStore.instance.offered(_txType);
     final seen = <String>{};
     return [
-      for (final c in [...frequent, ...defaults])
+      for (final c in [...frequent, ...offered])
         if (seen.add(c.trim().toLowerCase())) c,
     ];
   }
@@ -496,30 +478,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 onChanged: (d) => setState(() => _selectedDate = d),
               ),
               const SizedBox(height: 4),
-              TextFormField(
-                controller: _categoryController,
-                decoration: InputDecoration(
-                    labelText: _isIncome ? 'Source' : 'Category'),
-                textInputAction: TextInputAction.next,
-                validator: (value) => value!.trim().isEmpty
-                    ? (_isIncome ? 'Enter a source' : 'Enter a category')
+              const SizedBox(height: 8),
+              // Picked, not typed: a typo in a free-text field used to start
+              // a second category. "More" lists them all and adds new ones.
+              FormField<String>(
+                validator: (_) => _categoryController.text.trim().isEmpty
+                    ? (_isIncome ? 'Choose a source' : 'Choose a category')
                     : null,
-                // Rebuild as the user types so the matching chip below lights
-                // up; without it the chips only reflected taps.
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: categorySuggestions
-                    .map((c) => CategoryChoiceChip(
-                          category: c,
-                          selected: isSameCategory(_categoryController.text, c),
-                          onSelected: () =>
-                              setState(() => _categoryController.text = c),
-                        ))
-                    .toList(),
+                builder: (field) => CategoryPickerField(
+                  type: _txType,
+                  value: _categoryController.text,
+                  suggestions: categorySuggestions,
+                  errorText: field.errorText,
+                  onChanged: (c) {
+                    setState(() => _categoryController.text = c);
+                    field.didChange(c);
+                    if (field.hasError) field.validate();
+                  },
+                ),
               ),
               if (!_isIncome) ...[
                 const SizedBox(height: 16),

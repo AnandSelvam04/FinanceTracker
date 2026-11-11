@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/category_colors.dart';
 import '../utils/category_icons.dart';
+import '../utils/category_store.dart';
 
 /// The app's standard way to depict a spending category: its icon in its
 /// colour on a tint of that colour. Used wherever a category is listed so the
@@ -14,14 +15,21 @@ class CategoryAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = CategoryColors.forCategory(category);
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: color.withValues(alpha: dark ? 0.28 : 0.15),
-      child: Icon(categoryIcon(category),
-          color: CategoryColors.foreground(color, Theme.of(context).brightness),
-          size: radius * 1.1),
+    // Rebuilt when the user gives a category another icon or colour.
+    return ListenableBuilder(
+      listenable: CategoryStore.instance,
+      builder: (context, _) {
+        final color = CategoryColors.forCategory(category);
+        final dark = Theme.of(context).brightness == Brightness.dark;
+        return CircleAvatar(
+          radius: radius,
+          backgroundColor: color.withValues(alpha: dark ? 0.28 : 0.15),
+          child: Icon(categoryIcon(category),
+              color: CategoryColors.foreground(
+                  color, Theme.of(context).brightness),
+              size: radius * 1.1),
+        );
+      },
     );
   }
 }

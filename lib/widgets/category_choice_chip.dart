@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../utils/category_colors.dart';
 import '../utils/category_icons.dart';
+import '../utils/category_store.dart';
 
 /// A pickable category: its icon in its colour, with a tint and outline of
 /// that colour when selected.
@@ -23,18 +24,25 @@ class CategoryChoiceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = CategoryColors.forCategory(category);
-    final fg = CategoryColors.foreground(color, Theme.of(context).brightness);
-    return ChoiceChip(
-      avatar: Icon(categoryIcon(category), size: 18, color: fg),
-      label: Text(category),
-      selected: selected,
-      showCheckmark: false,
-      selectedColor: color.withValues(alpha: 0.22),
-      side: selected
-          ? BorderSide(color: fg, width: 1.5)
-          : BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      onSelected: (_) => onSelected(),
+    // Rebuilt when the user gives a category another icon or colour.
+    return ListenableBuilder(
+      listenable: CategoryStore.instance,
+      builder: (context, _) {
+        final color = CategoryColors.forCategory(category);
+        final fg =
+            CategoryColors.foreground(color, Theme.of(context).brightness);
+        return ChoiceChip(
+          avatar: Icon(categoryIcon(category), size: 18, color: fg),
+          label: Text(category),
+          selected: selected,
+          showCheckmark: false,
+          selectedColor: color.withValues(alpha: 0.22),
+          side: selected
+              ? BorderSide(color: fg, width: 1.5)
+              : BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+          onSelected: (_) => onSelected(),
+        );
+      },
     );
   }
 }

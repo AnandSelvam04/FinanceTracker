@@ -88,7 +88,9 @@ class TutorialScreen extends StatelessWidget {
           final step = steps[index];
           final scheme = Theme.of(context).colorScheme;
           return FadeSlideIn(
-            delay: Duration(milliseconds: 60 * index),
+            // Only the steps on screen at first are staggered: one scrolled
+            // into view later should appear at once, not after a wait.
+            delay: Duration(milliseconds: index < 5 ? 60 * index : 0),
             child: Card(
               child: ListTile(
                 leading: CircleAvatar(
