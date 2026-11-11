@@ -7,19 +7,29 @@ mode — nothing is published or reviewed.
 
 ## Your app's values (fill these into the console)
 
-CI signs every build with the **same** release key (supplied through
-repository secrets, see `docs/SIGNING.md`), so every build has the same
-fingerprint. The SHA-1 below belongs to the key that used to be committed; if
-you rotate to a new key, register the new key's SHA-1 instead.
+Google matches an Android OAuth client on **package name + signing SHA-1**,
+so both halves have to describe the APK you actually install.
 
 | Field | Value |
 |-------|-------|
 | **Package name** | `io.github.anandselvam04.financetracker` |
-| **SHA-1 fingerprint** | `7D:54:82:58:A6:0C:8D:AA:14:2C:B4:09:EF:CC:E6:2B:09:50:12:5E` |
+| **SHA-1 fingerprint** | of whichever key signs your build — see section 1 |
 
-Then do sections **2, 3, 4** below (skip section 1 — the SHA-1 is already
-above), install a fresh CI build, and sign in with the Gmail you added as a
-test user.
+> **An earlier registration no longer matches.** Up to 1.49 this app was
+> registered as `com.example.finance_tracker` with the SHA-1
+> `7D:54:82:58:A6:0C:8D:AA:14:2C:B4:09:EF:CC:E6:2B:09:50:12:5E`, the key that
+> used to be committed to the repository. **Both** halves have since changed:
+> the package name was renamed at 1.50.0, and that key was removed as
+> compromised. That OAuth client can be deleted; create a new one.
+>
+> Registering is only about Drive sign-in. Nothing needs registering for an
+> APK to install on your phone.
+
+Settle the signing key **first** (`docs/SIGNING.md`): a try-out build mints a
+throwaway key per run, so its SHA-1 changes every build and is not worth
+registering. Once CI signs with one stable release key from the repository
+secrets, take that key's SHA-1, do sections **2, 3, 4** below, install a fresh
+CI build, and sign in with the Gmail you added as a test user.
 
 ---
 
@@ -48,19 +58,18 @@ Google matches the Android OAuth client by **package name + signing SHA-1**.
 So the SHA-1 you register must belong to the exact key that signs the APK
 people install:
 
-- APKs built by CI here are signed with the **debug key** (see
-  `android/app/build.gradle.kts`). Every debug keystore is different, so a
-  debug-signed APK from CI has a different SHA-1 than one built on your laptop.
-- For a real, shareable build, sign with a single **release keystore** and
-  register that key's SHA-1 (set up `android/key.properties`).
+- With the signing secrets set, CI signs every build with that one release
+  key, so the SHA-1 stays the same build after build. This is the only setup
+  worth registering.
+- Without them, a hand-started branch build mints a **throwaway key per run**,
+  so its SHA-1 differs every time and Drive sign-in cannot work. Likewise a
+  build from your own laptop uses your own debug keystore, with its own SHA-1.
 
 The app id is `io.github.anandselvam04.financetracker` (see `applicationId` in
 `android/app/build.gradle.kts`). Until 1.50.0 it was the Flutter template's
-`com.example.finance_tracker`: an Android OAuth client registered under the
-old id no longer matches, so create a new one with this package name. A build
-with the new id also installs as a separate app beside the old one rather
-than updating it — back up in the old app, restore in the new, then uninstall
-the old.
+`com.example.finance_tracker`. A build with the new id installs as a separate
+app beside the old one rather than updating it — back up in the old app,
+restore in the new, then uninstall the old.
 
 ## 1. Get the signing certificate SHA-1
 
