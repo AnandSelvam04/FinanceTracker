@@ -1,6 +1,6 @@
 name: finance_tracker
 description: Android personal finance tracker — spending, accounts, credit cards, budgets, investments and bank-SMS import, stored on the device.
-version: 1.50.1+76
+version: 1.50.2+77
 environment:
   sdk: ">=3.0.0 <4.0.0"
 dependencies:
@@ -46,6 +46,7 @@ dependencies:
   # the app is sideloaded, but it is why this cannot ship to the store.
   another_telephony: ^0.4.1
   home_widget: ^0.10.0
+  permission_handler: ^13.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

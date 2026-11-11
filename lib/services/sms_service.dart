@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:another_telephony/telephony.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/account.dart';
@@ -210,17 +211,68 @@ class SmsService {
     }
   }
 
-  /// Asks for READ_SMS, returning whether it was granted. Safe to call again;
-  /// Android shows the dialog only until the user has answered it.
+  /// Asks for the SMS permission, returning whether it is granted after.
+  /// Safe to call again; Android shows the dialog only until the user has
+  /// answered it.
+  ///
+  /// Asked through permission_handler rather than the telephony plugin. That
+  /// plugin keeps a single reply slot for every method call it handles, so a
+  /// second call arriving while its permission dialog is open takes the slot,
+  /// and answering the dialog then replies to an already-answered call. The
+  /// activity dies with "Reply already submitted" — easy to hit here, because
+  /// the dashboard's unread-SMS badge reads the inbox on its own while the
+  /// dialog is up.
   static Future<bool> requestPermission() async {
     if (!isSupported || !enabled) return false;
     // A test's stand-in inbox needs no permission (see [isSupported]).
     if (inboxOverride != null) return true;
     try {
-      return await Telephony.instance.requestSmsPermissions ?? false;
+      return (await Permission.sms.request()).isGranted;
     } catch (e, s) {
       AppLogger.error('SMS permission request failed', e, s);
       return false;
+    }
+  }
+
+  /// Whether the SMS permission is already granted. Every inbox read checks
+  /// this first, so the telephony plugin is never the one to ask for it (see
+  /// [requestPermission]).
+  static Future<bool> hasPermission() async {
+    if (inboxOverride != null) return true;
+    if (!isSupported) return false;
+    try {
+      return await Permission.sms.isGranted;
+    } catch (e, s) {
+      AppLogger.error('Reading the SMS permission state failed', e, s);
+      return false;
+    }
+  }
+
+  /// Whether asking again cannot help: the user refused twice, or Android is
+  /// withholding the permission outright.
+  ///
+  /// A build installed from a file rather than a store hits the second case.
+  /// SMS is a *restricted* permission, released only by the installer, so the
+  /// request is refused without a dialog and the phone's own permission
+  /// screen shows "Allow" greyed out.
+  static Future<bool> isPermissionBlocked() async {
+    if (inboxOverride != null || !isSupported) return false;
+    try {
+      final status = await Permission.sms.status;
+      return status.isPermanentlyDenied || status.isRestricted;
+    } catch (e, s) {
+      AppLogger.error('Reading the SMS permission state failed', e, s);
+      return false;
+    }
+  }
+
+  /// Opens this app's page in Android's settings, where the permission can be
+  /// changed by hand when Android is not withholding it.
+  static Future<void> openPermissionSettings() async {
+    try {
+      await openAppSettings();
+    } catch (e, s) {
+      AppLogger.error('Opening the app settings failed', e, s);
     }
   }
 
@@ -307,6 +359,9 @@ class SmsService {
   static Future<List<RawSms>> _inbox({required DateTime since}) async {
     final override = inboxOverride;
     if (override != null) return override();
+    // Never reach the plugin without the permission in hand: it would ask for
+    // it itself, down the crashing path described in [requestPermission].
+    if (!await hasPermission()) return const [];
     try {
       final messages = await Telephony.instance.getInboxSms(
         columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],

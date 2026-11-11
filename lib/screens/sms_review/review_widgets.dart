@@ -2,11 +2,15 @@ part of '../sms_review_screen.dart';
 
 class _EmptyState extends StatelessWidget {
   final bool permissionDenied;
+
+  /// Asking again cannot help; only Android's settings or a reinstall can.
+  final bool permissionBlocked;
   final String rangeLabel;
   final bool includeDismissed;
   final VoidCallback onRetry;
   const _EmptyState({
     required this.permissionDenied,
+    required this.permissionBlocked,
     required this.rangeLabel,
     required this.includeDismissed,
     required this.onRetry,
@@ -18,6 +22,18 @@ class _EmptyState extends StatelessWidget {
     final String message;
     if (!supported) {
       message = 'SMS import works on Android only.';
+    } else if (permissionBlocked) {
+      // The request is refused without a dialog ever showing, so "try again"
+      // would just look broken. Say what is really holding it, and offer the
+      // one screen that can sometimes release it.
+      message = 'Android is holding the SMS permission back, so it cannot be '
+          'granted from here. That happens when an app is installed from a '
+          'file instead of a store: SMS is a restricted permission, and only '
+          'the installer can release it.\n\nTry App info, then the three-dot '
+          'menu, then "Allow restricted settings", and set Permissions > SMS '
+          'to Allow. If it stays greyed out, only reinstalling over USB with '
+          '"adb install -g" can lift it.\n\nEverything else in the app works '
+          'without it.';
     } else if (permissionDenied) {
       message = 'Finance Tracker needs permission to read SMS so it can find '
           'bank transaction alerts. Nothing is sent anywhere — messages are '
@@ -43,8 +59,14 @@ class _EmptyState extends StatelessWidget {
             if (supported) ...[
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: onRetry,
-                child: Text(permissionDenied ? 'Grant permission' : 'Rescan'),
+                onPressed: permissionBlocked
+                    ? SmsService.openPermissionSettings
+                    : onRetry,
+                child: Text(permissionBlocked
+                    ? 'Open app settings'
+                    : permissionDenied
+                        ? 'Grant permission'
+                        : 'Rescan'),
               ),
             ],
           ],

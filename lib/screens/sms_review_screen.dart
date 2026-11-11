@@ -56,6 +56,9 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
   /// empty state can explain itself rather than claiming nothing was found.
   bool _permissionDenied = false;
 
+  /// Asking again cannot help - see [SmsService.isPermissionBlocked].
+  bool _permissionBlocked = false;
+
   /// Which span the next scan covers. [_customRange] carries the dates when
   /// this is [_ScanSpan.custom].
   _ScanSpan _span = _ScanSpan.sinceReview;
@@ -166,11 +169,13 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     }
 
     final granted = await SmsService.requestPermission();
+    final blocked = granted ? false : await SmsService.isPermissionBlocked();
     if (!mounted) return;
     if (!granted) {
       setState(() {
         _loading = false;
         _permissionDenied = true;
+        _permissionBlocked = blocked;
         _drafts = [];
       });
       return;
@@ -217,6 +222,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     final claimed = <Object>{};
     setState(() {
       _permissionDenied = false;
+      _permissionBlocked = false;
       _scannedAt = now;
       _scanCoversBacklog = range.to == null && !lower.isAfter(backlogStart);
       _drafts = [
@@ -651,6 +657,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
           : _drafts.isEmpty
               ? _EmptyState(
                   permissionDenied: _permissionDenied,
+                  permissionBlocked: _permissionBlocked,
                   rangeLabel: _range.label,
                   includeDismissed: _includeDismissed,
                   onRetry: _scan)

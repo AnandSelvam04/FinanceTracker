@@ -62,6 +62,31 @@ assets/                     # App assets (declared in pubspec)
 android/                  # Platform target (Android only)
 ```
 
+## Installing a CI build on a phone
+
+The APK comes from the Actions run as a **zip** — extract it and install the
+`.apk` inside; installing the zip itself fails with "App not installed".
+
+Three things get in the way of a sideloaded build, none of them a fault in
+the APK:
+
+- **Play Protect blocks it.** The app declares `READ_SMS` and `RECEIVE_SMS`,
+  which on a finance app is the profile of banking malware, so Play Protect
+  refuses it on sight ("App blocked to protect your device"). Turn the scan
+  off while installing: Play Store → profile picture → Play Protect → gear →
+  *Scan apps with Play Protect*, then turn it back on afterwards.
+- **SMS permission cannot be granted.** SMS is a *restricted* permission:
+  only the installer can release it, and a file manager does not. The app's
+  permission screen then shows "Allow" greyed out. App info → ⋮ → *Allow
+  restricted settings* sometimes frees it; otherwise install over USB with
+  `adb install -g app-arm64-v8a-release.apk`, which grants restricted
+  permissions at install time. Everything except SMS import works without it.
+- **The signature must match.** An APK signed with a different key than the
+  installed copy is refused. CI signs with the release key from the
+  repository secrets; without them a hand-started branch build mints a
+  throwaway key per run, which can be installed only after uninstalling the
+  existing app (see `docs/SIGNING.md`).
+
 ## Continuous integration
 `.github/workflows/ci.yml` runs `flutter analyze` and `flutter test`, then builds split-per-ABI release APKs and uploads them as artifacts (14-day retention), on every push to `main` and on pull requests.
 
