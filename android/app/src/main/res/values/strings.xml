@@ -5,4 +5,12 @@
     <string name="widget_loading_title">Finance Tracker</string>
     <string name="widget_loading_amount">Open the app</string>
     <string name="widget_add">+ Add</string>
+
+    <!-- App-icon long-press shortcuts (res/xml/shortcuts.xml). -->
+    <string name="shortcut_add_short">Add expense</string>
+    <string name="shortcut_add_long">Add an expense</string>
+    <string name="shortcut_scan_short">Scan receipt</string>
+    <string name="shortcut_scan_long">Scan a receipt</string>
+    <string name="shortcut_voice_short">Add by voice</string>
+    <string name="shortcut_voice_long">Add an expense by voice</string>
 </resources>

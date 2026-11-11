@@ -5,6 +5,7 @@ import '../providers/budget_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/db_service.dart';
+import '../utils/haptics.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
 import '../utils/category_suggestions.dart';
@@ -15,6 +16,7 @@ import '../utils/insets.dart';
 import '../widgets/category_picker.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/swipe_actions.dart';
 import '../widgets/dispose_with_route.dart';
 
 class BudgetsScreen extends StatefulWidget {
@@ -48,6 +50,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   }
 
   Future<void> _stepMonth(int delta) async {
+    Haptics.tick();
     final target = DateTime(_viewYear, _viewMonth + delta);
     setState(() {
       _viewYear = target.year;
@@ -446,8 +449,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               .spentForCategoryInMonth(b.year, b.month, b.category);
 
           return ListView(
-            padding:
-                scrollPadding(context, all: 12, fab: !widget.embedded),
+            padding: scrollPadding(context, all: 12, fab: !widget.embedded),
             children: [
               _BudgetMonthStepper(
                 year: _viewYear,
@@ -490,45 +492,54 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 )
               else
                 for (final budget in categoryBudgets) ...[
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: ListTile(
-                      leading: CategoryAvatar(category: budget.category),
-                      title: Text(budget.category,
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Builder(builder: (context) {
-                        final spent = spentForBudget(budget);
-                        final cap = capOf(budget);
-                        final carry = carryOf(budget);
-                        final progress = _ratio(spent, cap);
-                        final pace = budgetPace(
-                          spent: spent,
-                          cap: cap,
-                          year: budget.year,
-                          month: budget.month,
-                          now: now,
-                        );
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('${formatMoney(spent)} of '
-                                '${formatMoneyRounded(cap)}'),
-                            if (carry != null) _CarryLine(carry: carry),
-                            if (pace != null)
-                              _PaceLine(pace: pace, compact: true),
-                            const SizedBox(height: 4),
-                            LinearProgressIndicator(
-                              value: progress.clamp(0.0, 1.0).toDouble(),
-                              color: progressColor(progress),
-                            ),
-                          ],
-                        );
-                      }),
-                      // Tap to edit (Delete is in the dialog). Edit and delete
-                      // buttons here squeezed a long category name onto three
-                      // lines and shrank the progress bar to a stub.
-                      onTap: () => _showBudgetDialog(budget: budget),
-                      trailing: const Icon(Icons.chevron_right),
+                  SwipeActions(
+                    key: ValueKey('budget-${budget.id}'),
+                    onEdit: () => _showBudgetDialog(budget: budget),
+                    onDelete: budget.id == null
+                        ? null
+                        : () =>
+                            _confirmDeleteBudget(budget.id!, budget.category),
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        leading: CategoryAvatar(category: budget.category),
+                        title: Text(budget.category,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Builder(builder: (context) {
+                          final spent = spentForBudget(budget);
+                          final cap = capOf(budget);
+                          final carry = carryOf(budget);
+                          final progress = _ratio(spent, cap);
+                          final pace = budgetPace(
+                            spent: spent,
+                            cap: cap,
+                            year: budget.year,
+                            month: budget.month,
+                            now: now,
+                          );
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${formatMoney(spent)} of '
+                                  '${formatMoneyRounded(cap)}'),
+                              if (carry != null) _CarryLine(carry: carry),
+                              if (pace != null)
+                                _PaceLine(pace: pace, compact: true),
+                              const SizedBox(height: 4),
+                              LinearProgressIndicator(
+                                value: progress.clamp(0.0, 1.0).toDouble(),
+                                color: progressColor(progress),
+                              ),
+                            ],
+                          );
+                        }),
+                        // Tap to edit (Delete is in the dialog). Edit and delete
+                        // buttons here squeezed a long category name onto three
+                        // lines and shrank the progress bar to a stub.
+                        onTap: () => _showBudgetDialog(budget: budget),
+                        trailing: const Icon(Icons.chevron_right),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),

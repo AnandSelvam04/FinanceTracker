@@ -19,6 +19,7 @@ import 'package:finance_tracker/services/sms_auto_capture.dart';
 import 'package:finance_tracker/utils/app_logger.dart';
 import 'package:finance_tracker/utils/app_theme.dart';
 import 'package:finance_tracker/utils/build_info.dart';
+import 'package:finance_tracker/utils/whats_new.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -101,8 +102,8 @@ class FinanceTrackerApp extends StatelessWidget {
           // Material 3 with the same brand seed in both modes, so dark mode
           // keeps the brand color instead of falling back to grey. Component
           // theming (cards, nav bar, inputs, transitions) lives in AppTheme.
-          theme: AppTheme.light(settings.seedColor),
-          darkTheme: AppTheme.dark(settings.seedColor),
+          theme: AppTheme.light(settings.themeSeed),
+          darkTheme: AppTheme.dark(settings.themeSeed, settings.trueBlack),
           themeMode: settings.themeMode,
           // The gate wraps the Navigator (via builder) rather than being the
           // home route. As the home route it could only hide the bottom of the
@@ -295,6 +296,8 @@ class _OnboardingWrapperState extends State<OnboardingWrapper> {
       onFinish: () async {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('seenOnboarding', true);
+        // Someone who has only just arrived has no "what's new" to be told.
+        await WhatsNew.markSeen();
         if (!mounted) return;
         // ignore: use_build_context_synchronously
         Navigator.of(context).pushReplacement(

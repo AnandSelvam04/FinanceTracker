@@ -17,21 +17,41 @@ class AppTheme {
 
   static ThemeData light([Color? seedColor]) =>
       _build(Brightness.light, seedColor ?? seed);
-  static ThemeData dark([Color? seedColor]) =>
-      _build(Brightness.dark, seedColor ?? seed);
 
-  static ThemeData _build(Brightness brightness, Color seedColor) {
+  /// [trueBlack] paints the backgrounds pure black instead of dark grey: on
+  /// an OLED screen black pixels are off, which saves battery and gives the
+  /// cards and figures more contrast at night.
+  static ThemeData dark([Color? seedColor, bool trueBlack = false]) =>
+      _build(Brightness.dark, seedColor ?? seed, trueBlack: trueBlack);
+
+  static ThemeData _build(Brightness brightness, Color seedColor,
+      {bool trueBlack = false}) {
     // Fidelity keeps `primary` true to the seed. The default tonal-spot
     // variant desaturated the vivid brand blue into a muted slate-purple, so
     // the FAB, switches, hero cards and headline totals clashed with the
     // saturated app bar (which paints the raw seed). Fidelity makes every
     // accent read as the same brand colour the header shows.
-    final scheme = ColorScheme.fromSeed(
+    final seeded = ColorScheme.fromSeed(
       seedColor: seedColor,
       brightness: brightness,
       dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
     );
     final isDark = brightness == Brightness.dark;
+    // True black: the page is black and each container step is pulled most
+    // of the way down to it, keeping the steps apart so cards, sheets and
+    // menus still read as raised surfaces.
+    Color deepen(Color c) => Color.lerp(Colors.black, c, 0.45)!;
+    final scheme = isDark && trueBlack
+        ? seeded.copyWith(
+            surface: Colors.black,
+            surfaceDim: Colors.black,
+            surfaceContainerLowest: Colors.black,
+            surfaceContainerLow: deepen(seeded.surfaceContainerLow),
+            surfaceContainer: deepen(seeded.surfaceContainer),
+            surfaceContainerHigh: deepen(seeded.surfaceContainerHigh),
+            surfaceContainerHighest: deepen(seeded.surfaceContainerHighest),
+          )
+        : seeded;
 
     // A curated type scale layered over the Material 3 defaults. Tightening the
     // tracking on the big display/headline sizes and firming up the title/label

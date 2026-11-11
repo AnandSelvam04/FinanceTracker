@@ -1,52 +1,97 @@
 part of '../home_screen.dart';
 
 /// Quick navigation shortcuts on the dashboard for destinations otherwise a
-/// couple of taps away under More: Investments always, and Import from SMS
-/// when SMS reading is switched on (so the shortcut never leads to a screen
-/// that can only report it is off). Both stay listed under More as well; this
-/// is just a faster path from the home screen.
+/// couple of taps away under More. Which ones show, and in what order, is the
+/// user's choice (More → Customise home); Investments, Cards and Import SMS
+/// by default. Import SMS only shows while SMS reading is switched on, so
+/// the shortcut never leads to a screen that can only report it is off.
+/// Everything stays listed under More as well; this is just a faster path.
 class _ShortcutsRow extends StatelessWidget {
   const _ShortcutsRow();
 
+  // Distinct accents (not one shared container) so the shortcuts read as
+  // separate destinations at a glance.
+  static const _specs = <String, (IconData, Color, Widget)>{
+    DashboardLayout.investments: (
+      Icons.trending_up,
+      Color(0xFF00897B), // teal
+      InvestmentsScreen()
+    ),
+    // Credit cards have their own screen — spend by period, limit and
+    // bills — rather than a section here, to keep the dashboard clear.
+    DashboardLayout.cards: (
+      Icons.credit_card,
+      Color(0xFF1E6FD9), // blue
+      CreditCardsScreen()
+    ),
+    DashboardLayout.reports: (
+      Icons.summarize,
+      Color(0xFF3949AB), // indigo
+      MonthlySummaryScreen()
+    ),
+    DashboardLayout.accounts: (
+      Icons.account_balance,
+      Color(0xFF546E7A), // slate
+      AccountsScreen()
+    ),
+    DashboardLayout.goals: (
+      Icons.flag_outlined,
+      Color(0xFF43A047), // green
+      GoalsScreen()
+    ),
+    DashboardLayout.calendar: (
+      Icons.calendar_month,
+      Color(0xFFD84315), // deep orange
+      SpendingCalendarScreen()
+    ),
+    DashboardLayout.loans: (
+      Icons.handshake_outlined,
+      Color(0xFFEF6C00), // orange
+      LoansScreen()
+    ),
+    DashboardLayout.recurring: (
+      Icons.repeat,
+      Color(0xFFD81B60), // pink
+      RecurringScreen()
+    ),
+    DashboardLayout.cashflow: (
+      Icons.stacked_bar_chart,
+      Color(0xFF00838F), // cyan
+      CashflowScreen()
+    ),
+  };
+
   @override
   Widget build(BuildContext context) {
-    final smsEnabled = context.watch<SettingsProvider>().smsImportEnabled;
+    final settings = context.watch<SettingsProvider>();
+    final ids = [
+      for (final id in settings.homeShortcuts)
+        if (id != DashboardLayout.sms || settings.smsImportEnabled) id,
+    ];
+    if (ids.isEmpty) return const SizedBox.shrink();
+    // Four across leaves no room for an icon beside its label on a phone;
+    // stack them instead.
+    final compact = ids.length > 3;
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Row(
         children: [
-          Expanded(
-            child: _ShortcutButton(
-              icon: Icons.trending_up,
-              label: 'Investments',
-              // Distinct accents (not one shared container) so the shortcuts
-              // read as separate destinations at a glance.
-              accent: const Color(0xFF00897B), // teal
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const InvestmentsScreen()),
-              ),
+          for (final (i, id) in ids.indexed) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: id == DashboardLayout.sms
+                  ? _SmsShortcut(compact: compact)
+                  : _ShortcutButton(
+                      icon: _specs[id]!.$1,
+                      label: DashboardLayout.shortcutLabels[id]!,
+                      accent: _specs[id]!.$2,
+                      compact: compact,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => _specs[id]!.$3),
+                      ),
+                    ),
             ),
-          ),
-          const SizedBox(width: 8),
-          // Credit cards have their own screen — spend by period, limit and
-          // bills — rather than a section here, to keep the dashboard clear.
-          Expanded(
-            child: _ShortcutButton(
-              icon: Icons.credit_card,
-              label: 'Cards',
-              accent: const Color(0xFF1E6FD9), // blue
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const CreditCardsScreen()),
-              ),
-            ),
-          ),
-          if (smsEnabled) ...[
-            const SizedBox(width: 8),
-            const Expanded(child: _SmsShortcut()),
           ],
         ],
       ),
@@ -59,7 +104,8 @@ class _ShortcutsRow extends StatelessWidget {
 /// on the user remembering to open it. Recounted when the app comes back to
 /// the foreground and after returning from the review screen.
 class _SmsShortcut extends StatefulWidget {
-  const _SmsShortcut();
+  final bool compact;
+  const _SmsShortcut({this.compact = false});
 
   @override
   State<_SmsShortcut> createState() => _SmsShortcutState();
@@ -94,6 +140,7 @@ class _SmsShortcutState extends State<_SmsShortcut> {
       label: 'Import SMS',
       accent: const Color(0xFF6A3DE8), // violet
       badge: _pending,
+      compact: widget.compact,
       onTap: () async {
         await Navigator.push(
           context,
@@ -114,12 +161,16 @@ class _ShortcutButton extends StatelessWidget {
 
   /// A count shown on the icon (new items waiting); hidden at zero.
   final int badge;
+
+  /// Icon above the label rather than beside it, for a row of four.
+  final bool compact;
   const _ShortcutButton({
     required this.icon,
     required this.label,
     required this.accent,
     required this.onTap,
     this.badge = 0,
+    this.compact = false,
   });
 
   @override
@@ -140,26 +191,45 @@ class _ShortcutButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-          child: Row(
+          padding: EdgeInsets.symmetric(
+              vertical: compact ? 10 : 12, horizontal: compact ? 6 : 12),
+          child: Flex(
+            direction: compact ? Axis.vertical : Axis.horizontal,
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
             children: [
               Badge(
                 isLabelVisible: badge > 0,
                 label: Text(badge > 99 ? '99+' : '$badge'),
                 child: Icon(icon, size: 20, color: foreground),
               ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: foreground,
+              SizedBox(width: compact ? 0 : 8, height: compact ? 4 : 0),
+              if (compact)
+                // Shrinks to fit rather than being cut: a quarter of a phone
+                // is narrower than "Investments".
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: foreground,
+                    ),
+                  ),
+                )
+              else
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: foreground,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -244,7 +314,10 @@ class _QuickAddRow extends StatelessWidget {
                       avatar: const Icon(Icons.bolt, size: 18),
                       label: Text(
                           '${template.name} · ${formatMoneyRounded(template.amount)}'),
-                      onPressed: () => onQuickAdd(template),
+                      onPressed: () {
+                        Haptics.light();
+                        onQuickAdd(template);
+                      },
                       onDeleted: template.id == null
                           ? null
                           : () => _confirmDelete(context, provider, template),

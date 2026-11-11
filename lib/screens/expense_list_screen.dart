@@ -11,6 +11,7 @@ import '../providers/investment_provider.dart';
 import '../services/backup_service.dart';
 import '../services/db_service.dart';
 import '../services/excel_export.dart';
+import '../utils/haptics.dart';
 import '../utils/app_colors.dart';
 import '../utils/category_icons.dart';
 import '../utils/currency_format.dart';
@@ -219,6 +220,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   void _toggleSelected(Expense e) {
     final id = e.id;
     if (id == null) return;
+    // Entering multi-select (the first pick) is the weightier moment.
+    _selected.isEmpty ? Haptics.medium() : Haptics.tick();
     setState(() =>
         _selected.contains(id) ? _selected.remove(id) : _selected.add(id));
   }
@@ -354,6 +357,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 
   Future<bool> _confirmDelete(Expense expense) async {
+    Haptics.medium();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

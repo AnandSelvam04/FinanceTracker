@@ -22,6 +22,7 @@ import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/category_choice_chip.dart' show isSameCategory;
+import '../widgets/amount_calculator_bar.dart';
 import '../widgets/category_picker.dart';
 import '../widgets/date_field_row.dart';
 import '../widgets/spend_account_picker.dart';
@@ -470,6 +471,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       textInputAction: TextInputAction.next,
                       validator: validateAmountField,
                     ),
+                    const SizedBox(height: 6),
+                    AmountCalculatorBar(controller: _amountController),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _descriptionController,

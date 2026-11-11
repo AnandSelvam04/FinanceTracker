@@ -106,12 +106,16 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                       final c = _typeColor(index - 1);
                       final dark =
                           Theme.of(context).brightness == Brightness.dark;
-                      return CircleAvatar(
-                        backgroundColor:
-                            c.withValues(alpha: dark ? 0.28 : 0.15),
-                        child: Icon(Icons.trending_up,
-                            color: CategoryColors.foreground(
-                                c, Theme.of(context).brightness)),
+                      // Flies into the type screen's header as it opens.
+                      return Hero(
+                        tag: 'investment-type-$type',
+                        child: CircleAvatar(
+                          backgroundColor:
+                              c.withValues(alpha: dark ? 0.28 : 0.15),
+                          child: Icon(Icons.trending_up,
+                              color: CategoryColors.foreground(
+                                  c, Theme.of(context).brightness)),
+                        ),
                       );
                     }),
                     title: Text(type,

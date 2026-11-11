@@ -788,12 +788,18 @@ void main() {
               'limit?'),
           findsOneWidget);
       await tester.tap(find.text('Link them'));
-      await settle(tester);
+      Account named(String name) =>
+          accountProvider.accounts.singleWhere((a) => a.name == name);
+      // No dialog here for settle to wait on, only its short fixed pause,
+      // which a slow machine's database write and refresh can outlast.
+      for (var i = 0;
+          i < 20 && named('Scapia RuPay').sharedLimitWith == null;
+          i++) {
+        await settle(tester);
+      }
 
-      final visa =
-          accountProvider.accounts.singleWhere((a) => a.name == 'Scapia Visa');
-      final rupay =
-          accountProvider.accounts.singleWhere((a) => a.name == 'Scapia RuPay');
+      final visa = named('Scapia Visa');
+      final rupay = named('Scapia RuPay');
       expect(rupay.sharedLimitWith, visa.id);
       // The RuPay card picks up the Visa card's billing days.
       expect(rupay.statementDay, 3);

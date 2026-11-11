@@ -1,10 +1,15 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/sms_auto_capture.dart';
 import '../services/sms_service.dart';
 import '../utils/app_theme.dart';
 import '../utils/category_store.dart';
 import '../utils/currency_format.dart';
+import '../utils/dashboard_layout.dart';
 
 /// User preferences persisted in SharedPreferences: currency, theme, app
 /// lock, and the default account for new transactions.
@@ -22,6 +27,15 @@ class SettingsProvider extends ChangeNotifier {
   static const _kHideAmounts = 'hideAmounts';
   static const _kBudgetRollover = 'budgetRollover';
   static const _kSmsAutoCapture = SmsAutoCapture.prefsKey;
+  static const _kTrueBlack = 'trueBlackDark';
+  static const _kWallpaperAccent = 'useWallpaperAccent';
+  static const _kWallpaperAccentValue = 'wallpaperAccentValue';
+  static const _kDashboardOrder = 'dashboardOrder';
+  static const _kDashboardHidden = 'dashboardHidden';
+  static const _kHomeShortcuts = 'homeShortcuts';
+
+  /// Asks Android for the wallpaper's accent (Material You, Android 12+).
+  static const _system = MethodChannel('finance_tracker/system');
 
   /// Accent colours the user can choose from; the first is the app default.
   static const List<Color> seedOptions = [
@@ -45,6 +59,12 @@ class SettingsProvider extends ChangeNotifier {
   int? _dailyReminderMinutes;
   bool _hideAmounts = false;
   bool _budgetRollover = false;
+  bool _trueBlack = false;
+  bool _useWallpaperAccent = false;
+  Color? _wallpaperAccent;
+  List<String> _dashboardOrder = DashboardLayout.defaultOrder;
+  Set<String> _dashboardHidden = const {};
+  List<String> _homeShortcuts = DashboardLayout.defaultShortcuts;
 
   /// Off by default: reading the SMS inbox is the app's most intrusive
   /// permission, so it stays inert until the user turns it on.
@@ -54,6 +74,38 @@ class SettingsProvider extends ChangeNotifier {
   String get currencySymbol => _currencySymbol;
   ThemeMode get themeMode => _themeMode;
   Color get seedColor => _seedColor;
+
+  /// The colour the theme is built from: the wallpaper's accent when the
+  /// user chose to follow it and the phone offers one, else [seedColor].
+  Color get themeSeed =>
+      _useWallpaperAccent ? (_wallpaperAccent ?? _seedColor) : _seedColor;
+
+  /// The wallpaper's accent colour, or null where the phone has none to
+  /// offer (before Android 12, and off Android).
+  Color? get wallpaperAccent => _wallpaperAccent;
+
+  /// Whether the theme follows the wallpaper instead of a fixed accent.
+  bool get useWallpaperAccent =>
+      _useWallpaperAccent && _wallpaperAccent != null;
+
+  /// Whether dark mode paints pure black backgrounds (for OLED screens).
+  bool get trueBlack => _trueBlack;
+
+  /// The dashboard's sections in the order shown, hidden ones included.
+  List<String> get dashboardOrder => _dashboardOrder;
+
+  /// Dashboard sections the user switched off.
+  Set<String> get dashboardHidden => _dashboardHidden;
+
+  /// The dashboard sections on show, in order.
+  List<String> get dashboardSections => [
+        for (final id in _dashboardOrder)
+          if (!_dashboardHidden.contains(id)) id,
+      ];
+
+  /// The shortcut buttons on the dashboard, in order.
+  List<String> get homeShortcuts => _homeShortcuts;
+
   int get lockTimeoutSeconds => _lockTimeoutSeconds;
   Duration get lockTimeout => Duration(seconds: _lockTimeoutSeconds);
 
@@ -103,6 +155,19 @@ class SettingsProvider extends ChangeNotifier {
     _hideAmounts = prefs.getBool(_kHideAmounts) ?? false;
     _budgetRollover = prefs.getBool(_kBudgetRollover) ?? false;
     CurrencyFormat.hideAmounts = _hideAmounts;
+    _trueBlack = prefs.getBool(_kTrueBlack) ?? false;
+    _useWallpaperAccent = prefs.getBool(_kWallpaperAccent) ?? false;
+    _dashboardOrder =
+        DashboardLayout.normaliseOrder(prefs.getString(_kDashboardOrder));
+    _dashboardHidden =
+        DashboardLayout.normaliseHidden(prefs.getString(_kDashboardHidden));
+    _homeShortcuts =
+        DashboardLayout.normaliseShortcuts(prefs.getString(_kHomeShortcuts));
+    // The colour last read from the phone, so the theme is right from the
+    // first frame; the phone is then asked again without holding up launch.
+    final storedAccent = prefs.getInt(_kWallpaperAccentValue);
+    _wallpaperAccent = storedAccent == null ? null : Color(storedAccent);
+    unawaited(refreshWallpaperAccent());
     final storedSeed = prefs.getInt(_kSeedColor);
     _seedColor = storedSeed != null ? Color(storedSeed) : AppTheme.seed;
     SmsService.enabled = _smsImportEnabled;
@@ -202,8 +267,69 @@ class SettingsProvider extends ChangeNotifier {
 
   Future<void> setSeedColor(Color color) async {
     _seedColor = color;
+    // Picking a colour by hand stops following the wallpaper.
+    _useWallpaperAccent = false;
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kWallpaperAccent, false);
     await prefs.setInt(_kSeedColor, color.toARGB32());
+    notifyListeners();
+  }
+
+  /// Reads the wallpaper's accent again: it changes when the wallpaper does.
+  /// Only Android has one (and the channel that reports it); elsewhere —
+  /// tests on the host included — this does nothing.
+  Future<void> refreshWallpaperAccent() async {
+    if (!Platform.isAndroid) return;
+    Color? accent;
+    try {
+      final value = await _system.invokeMethod<int>('wallpaperAccent');
+      if (value != null) accent = Color(value & 0xFFFFFFFF).withAlpha(255);
+    } catch (_) {
+      // A build without the channel: there is no accent to follow.
+    }
+    if (accent == _wallpaperAccent) return;
+    _wallpaperAccent = accent;
+    final prefs = await SharedPreferences.getInstance();
+    if (accent == null) {
+      await prefs.remove(_kWallpaperAccentValue);
+    } else {
+      await prefs.setInt(_kWallpaperAccentValue, accent.toARGB32());
+    }
+    notifyListeners();
+  }
+
+  Future<void> setUseWallpaperAccent(bool value) async {
+    _useWallpaperAccent = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kWallpaperAccent, value);
+    notifyListeners();
+  }
+
+  Future<void> setTrueBlack(bool value) async {
+    _trueBlack = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kTrueBlack, value);
+    notifyListeners();
+  }
+
+  /// Saves the dashboard's section order and which of them are hidden.
+  Future<void> setDashboardLayout({
+    required List<String> order,
+    required Set<String> hidden,
+  }) async {
+    _dashboardOrder = DashboardLayout.normaliseOrder(order.join(','));
+    _dashboardHidden = DashboardLayout.normaliseHidden(hidden.join(','));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kDashboardOrder, _dashboardOrder.join(','));
+    await prefs.setString(_kDashboardHidden, _dashboardHidden.join(','));
+    notifyListeners();
+  }
+
+  /// Saves which shortcut buttons the dashboard shows, in order.
+  Future<void> setHomeShortcuts(List<String> ids) async {
+    _homeShortcuts = DashboardLayout.normaliseShortcuts(ids.join(','));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kHomeShortcuts, _homeShortcuts.join(','));
     notifyListeners();
   }
 
@@ -240,6 +366,11 @@ class SettingsProvider extends ChangeNotifier {
     _kCurrency: String,
     _kThemeMode: String,
     _kSeedColor: int,
+    _kTrueBlack: bool,
+    _kWallpaperAccent: bool,
+    _kDashboardOrder: String,
+    _kDashboardHidden: String,
+    _kHomeShortcuts: String,
     _kLockTimeout: int,
     _kDefaultAccount: int,
     _kAlertsEnabled: bool,

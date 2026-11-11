@@ -7,7 +7,9 @@ import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
+import '../widgets/celebration.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/swipe_actions.dart';
 import '../widgets/dispose_with_route.dart';
 
 /// Ring colors offered when creating a goal. Mid-tone shades that read on
@@ -260,6 +262,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
     final delta = withdraw ? -amount : amount;
     final updated = await provider.contribute(goal, delta);
     final reached = !goal.isComplete && updated.isComplete;
+    if (reached && mounted) showConfetti(context);
     messenger.showSnackBar(SnackBar(
       content: Text(reached
           ? '🎉 ${goal.name} reached!'
@@ -331,15 +334,20 @@ class _GoalsScreenState extends State<GoalsScreen> {
               ),
               const SizedBox(height: 12),
               for (final goal in goals) ...[
-                _GoalCard(
-                  goal: goal,
-                  now: now,
-                  onAdd: () => _showContributionDialog(goal),
-                  onWithdraw: goal.saved > 0
-                      ? () => _showContributionDialog(goal, withdraw: true)
-                      : null,
+                SwipeActions(
+                  key: ValueKey('goal-${goal.id}'),
                   onEdit: () => _showGoalDialog(goal: goal),
                   onDelete: () => _confirmDelete(goal),
+                  child: _GoalCard(
+                    goal: goal,
+                    now: now,
+                    onAdd: () => _showContributionDialog(goal),
+                    onWithdraw: goal.saved > 0
+                        ? () => _showContributionDialog(goal, withdraw: true)
+                        : null,
+                    onEdit: () => _showGoalDialog(goal: goal),
+                    onDelete: () => _confirmDelete(goal),
+                  ),
                 ),
                 const SizedBox(height: 10),
               ],

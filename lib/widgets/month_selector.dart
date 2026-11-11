@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/date_format.dart';
+import '../utils/haptics.dart';
 
 /// Month stepper shared by the dashboard and the monthly summary screen.
 class MonthSelector extends StatefulWidget {
@@ -35,6 +36,7 @@ class _MonthSelectorState extends State<MonthSelector> {
   }
 
   void _changeMonth(int delta) {
+    Haptics.tick();
     setState(() {
       final total = year * 12 + (month - 1) + delta;
       year = total ~/ 12;

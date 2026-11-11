@@ -239,6 +239,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                 child: HeroTotalCard(
                   label: 'Total in $type',
                   amount: formatMoneySigned(total),
+                  badge: Icons.trending_up,
+                  heroTag: 'investment-type-$type',
                   caption: '${entries.length} '
                       '${entries.length == 1 ? 'contribution' : 'contributions'}'
                       ' · latest ${formatShortDate(entries.first.date)}',

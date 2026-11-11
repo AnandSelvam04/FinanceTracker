@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/recurring_rule.dart';
 import '../providers/account_provider.dart';
 import '../providers/recurring_provider.dart';
+import '../utils/haptics.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
@@ -10,6 +11,7 @@ import '../utils/insets.dart';
 import '../utils/date_format.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/swipe_actions.dart';
 
 class RecurringScreen extends StatefulWidget {
   const RecurringScreen({super.key});
@@ -321,58 +323,67 @@ class _RecurringScreenState extends State<RecurringScreen> {
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final rule = rules[index];
-              return Card(
-                margin: EdgeInsets.zero,
-                child: ListTile(
-                  // Expense rules wear their category's avatar, so "Netflix"
-                  // looks the same here as on the dashboard and transaction
-                  // list; income and SIP rules keep the green up-arrow.
-                  leading:
-                      !rule.isInvestment && rule.type != DbConstants.txIncome
-                          ? CategoryAvatar(category: rule.category)
-                          : CircleAvatar(
-                              backgroundColor: incomeAvatarColor(context),
-                              child: Icon(
-                                  rule.isInvestment
-                                      ? Icons.trending_up
-                                      : Icons.south_west,
-                                  color: incomeColor(context)),
-                            ),
-                  // The amount sits beside the name and Delete lives in the
-                  // edit dialog: with both in the trailing slot the name and
-                  // category broke mid-word on a phone.
-                  title: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(rule.description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+              return SwipeActions(
+                key: ValueKey('rule-${rule.id}'),
+                onEdit: () => _showRuleDialog(rule: rule),
+                onDelete: () => _confirmDeleteRule(rule),
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  child: ListTile(
+                    // Expense rules wear their category's avatar, so "Netflix"
+                    // looks the same here as on the dashboard and transaction
+                    // list; income and SIP rules keep the green up-arrow.
+                    leading:
+                        !rule.isInvestment && rule.type != DbConstants.txIncome
+                            ? CategoryAvatar(category: rule.category)
+                            : CircleAvatar(
+                                backgroundColor: incomeAvatarColor(context),
+                                child: Icon(
+                                    rule.isInvestment
+                                        ? Icons.trending_up
+                                        : Icons.south_west,
+                                    color: incomeColor(context)),
+                              ),
+                    // The amount sits beside the name and Delete lives in the
+                    // edit dialog: with both in the trailing slot the name and
+                    // category broke mid-word on a phone.
+                    title: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(rule.description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600)),
+                        ),
+                        const SizedBox(width: 8),
+                        // In the account's currency: a rule posting to a
+                        // USD account showed its amount with the base symbol.
+                        Text(
+                            switch (context
+                                .watch<AccountProvider>()
+                                .accountById(rule.accountId)) {
+                              final a? when a.isForeign =>
+                                formatMoneyIn(a.symbol, rule.amount),
+                              _ => formatMoneyRounded(rule.amount),
+                            },
                             style:
-                                const TextStyle(fontWeight: FontWeight.w600)),
-                      ),
-                      const SizedBox(width: 8),
-                      // In the account's currency: a rule posting to a
-                      // USD account showed its amount with the base symbol.
-                      Text(
-                          switch (context
-                              .watch<AccountProvider>()
-                              .accountById(rule.accountId)) {
-                            final a? when a.isForeign =>
-                              formatMoneyIn(a.symbol, rule.amount),
-                            _ => formatMoneyRounded(rule.amount),
-                          },
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ],
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    subtitle: Text(
+                        '${rule.isInvestment ? 'SIP · ' : ''}${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatCompactDate(rule.nextDue)}'
+                        '${rule.endDate != null ? ' · ends ${formatCompactDate(rule.endDate!)}' : ''}'),
+                    trailing: Switch(
+                      value: rule.enabled,
+                      onChanged: (_) {
+                        Haptics.light();
+                        provider.toggleEnabled(rule);
+                      },
+                    ),
+                    onTap: () => _showRuleDialog(rule: rule),
                   ),
-                  subtitle: Text(
-                      '${rule.isInvestment ? 'SIP · ' : ''}${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatCompactDate(rule.nextDue)}'
-                      '${rule.endDate != null ? ' · ends ${formatCompactDate(rule.endDate!)}' : ''}'),
-                  trailing: Switch(
-                    value: rule.enabled,
-                    onChanged: (_) => provider.toggleEnabled(rule),
-                  ),
-                  onTap: () => _showRuleDialog(rule: rule),
                 ),
               );
             },

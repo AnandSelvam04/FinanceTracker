@@ -11,6 +11,7 @@ import '../services/sms_service.dart';
 import '../utils/build_info.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
+import '../widgets/whats_new_sheet.dart';
 import '../widgets/section_header.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -220,6 +221,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                 ),
               ),
+              SwitchListTile(
+                secondary: const Icon(Icons.contrast),
+                title: const Text('True black dark theme'),
+                subtitle: const Text(
+                    'Pure black backgrounds in dark mode — easier on OLED '
+                    'screens and the battery'),
+                value: settings.trueBlack,
+                onChanged: (v) => settings.setTrueBlack(v),
+              ),
               ListTile(
                 leading: const Icon(Icons.palette_outlined),
                 title: const Text('Accent color'),
@@ -230,12 +240,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     for (final c in SettingsProvider.seedOptions)
                       _AccentSwatch(
                         color: c,
-                        selected: settings.seedColor.toARGB32() == c.toARGB32(),
+                        selected: !settings.useWallpaperAccent &&
+                            settings.seedColor.toARGB32() == c.toARGB32(),
                         onTap: () => settings.setSeedColor(c),
                       ),
                   ],
                 ),
               ),
+              // Only where the phone offers a wallpaper colour (Android 12+).
+              if (settings.wallpaperAccent != null)
+                SwitchListTile(
+                  secondary: const Icon(Icons.wallpaper),
+                  title: const Text('Match my wallpaper'),
+                  subtitle: const Text(
+                      'Take the accent colour from the phone\'s wallpaper'),
+                  value: settings.useWallpaperAccent,
+                  onChanged: (v) => settings.setUseWallpaperAccent(v),
+                ),
               ListTile(
                 leading: const Icon(Icons.account_balance_wallet),
                 title: const Text('Default account'),
@@ -424,6 +445,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SnackBar(content: Text('Version copied')),
                   );
                 },
+              ),
+              ListTile(
+                leading: const Icon(Icons.new_releases_outlined),
+                title: const Text("What's new"),
+                subtitle: const Text('What changed in this version'),
+                onTap: () => showWhatsNewSheet(context),
               ),
             ],
           );

@@ -8,6 +8,7 @@ import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
 import '../services/db_service.dart';
+import '../utils/account_icons.dart';
 import '../utils/account_ledger.dart';
 import '../utils/app_colors.dart';
 import '../utils/credit_card_summary.dart';
@@ -126,6 +127,8 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                         ? 'Balance (negative = owed)'
                         : 'Balance',
                     amount: formatMoneySignedIn(account.symbol, balance),
+                    badge: accountTypeIcon(account.type),
+                    heroTag: 'account-$_id',
                     caption: [
                       Account.typeLabel(account.type),
                       if (account.last4 != null) '••${account.last4}',

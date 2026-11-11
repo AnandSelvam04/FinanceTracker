@@ -10,6 +10,7 @@ class _DashboardView extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final VoidCallback onAddExpense;
   final VoidCallback onSeeAllTransactions;
+  final VoidCallback onOpenBudgets;
 
   const _DashboardView({
     required this.selectedYear,
@@ -21,6 +22,7 @@ class _DashboardView extends StatelessWidget {
     required this.onRefresh,
     required this.onAddExpense,
     required this.onSeeAllTransactions,
+    required this.onOpenBudgets,
   });
 
   /// Opens the transactions that make up one category's slice for the current
@@ -72,174 +74,220 @@ class _DashboardView extends StatelessWidget {
     return selectedYear == now.year && selectedMonth == now.month;
   }
 
+  /// Each dashboard section's widgets, keyed by its [DashboardLayout] id. A
+  /// section with nothing to show for the period (no data yet, or a chart
+  /// that only makes sense for a month) is simply absent.
+  Map<String, List<Widget>> _sections(
+      BuildContext context, ExpenseProvider provider) {
+    final monthlyExpenses =
+        provider.spendingForMonth(selectedYear, selectedMonth);
+    final yearlyExpenses = provider
+        .expensesForYear(selectedYear)
+        .where((e) => e.isExpense)
+        .toList();
+    final monthlyIncome = provider.incomeForMonth(selectedYear, selectedMonth);
+    final yearlyIncome = provider.incomeForYear(selectedYear);
+    // The per-period totals below are read straight from the provider; it
+    // memoizes each aggregate until the data changes, so repeated calls in
+    // one build (and across the other screens) are free.
+    final monthTotal = provider.totalForMonth(selectedYear, selectedMonth);
+    final yearTotal = provider.totalForYear(selectedYear);
+    final rows = yearView ? yearlyExpenses : monthlyExpenses;
+    final income = yearView ? yearlyIncome : monthlyIncome;
+    // Tell "still loading" apart from "nothing recorded"; the empty text
+    // otherwise flashes on every cold start.
+    final loading = rows.isEmpty && provider.isLoading;
+    // Income alone is still something to show: a month with only income
+    // used to show "No expenses" and hide the salary that had come in.
+    final empty = !loading && rows.isEmpty && income == 0;
+    final hasData = !loading && !empty;
+    final now = DateTime.now();
+
+    final figures = <Widget>[
+      MonthSelector(
+        initialYear: selectedYear,
+        initialMonth: selectedMonth,
+        yearOnly: yearView,
+        onChanged: onMonthChanged,
+      ),
+      const SizedBox(height: 12),
+      SegmentedButton<bool>(
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment(value: false, label: Text('Month')),
+          ButtonSegment(value: true, label: Text('Year')),
+        ],
+        selected: {yearView},
+        onSelectionChanged: (s) {
+          Haptics.tick();
+          onViewToggle(s.first);
+        },
+      ),
+      const SizedBox(height: 16),
+      if (loading)
+        const DashboardSkeleton()
+      else if (empty)
+        EmptyState(
+          icon: yearView
+              ? Icons.savings_outlined
+              : Icons.account_balance_wallet_outlined,
+          title: yearView
+              ? 'Nothing recorded in $selectedYear yet'
+              : 'Nothing recorded this month',
+          message: yearView
+              ? 'Add a transaction to see your yearly breakdown.'
+              : 'Track your first expense to see charts and trends.',
+          actionLabel: 'Add expense',
+          onAction: onAddExpense,
+        )
+      else ...[
+        _TotalHeadline(
+          label: yearView
+              ? 'Spent in $selectedYear'
+              : _isCurrentMonth
+                  ? 'Spent this month'
+                  : 'Spent in ${formatMonthYear(selectedYear, selectedMonth)}',
+          amount: yearView ? yearTotal : monthTotal,
+        ),
+        const SizedBox(height: 12),
+        _SummaryPills(
+          income: income,
+          expense: yearView ? yearTotal : monthTotal,
+        ),
+        if (!yearView) ...[
+          _BudgetRing(
+            cap: _overallCap(context, provider),
+            spent: monthTotal,
+            onTap: onOpenBudgets,
+          ),
+          if (_isCurrentMonth)
+            _StreakChip(days: noSpendStreak(provider.expenses, now)),
+        ],
+      ],
+    ];
+
+    List<Widget> insights() {
+      final previous = DateTime(selectedYear, selectedMonth - 1);
+      final found = dashboardInsights(
+        year: selectedYear,
+        month: selectedMonth,
+        now: now,
+        thisMonth: monthlyExpenses,
+        lastMonth: provider.spendingForMonth(previous.year, previous.month),
+        baseAmountOf: provider.baseAmountOf,
+        income: monthlyIncome,
+        overallCap: _overallCap(context, provider),
+        money: formatMoneyRounded,
+      );
+      return found.isEmpty ? const [] : [_InsightsCard(insights: found)];
+    }
+
+    return {
+      DashboardLayout.netWorth: const [NetWorthCard()],
+      DashboardLayout.quickAdd: [_QuickAddRow(onQuickAdd: onQuickAdd)],
+      DashboardLayout.figures: figures,
+      if (hasData && !yearView) DashboardLayout.insights: insights(),
+      DashboardLayout.shortcuts: const [_ShortcutsRow()],
+      DashboardLayout.recent: [
+        _RecentTransactions(provider: provider, onSeeAll: onSeeAllTransactions),
+      ],
+      if (hasData)
+        DashboardLayout.categories: [
+          const SizedBox(height: 16),
+          SectionHeader(yearView
+              ? 'Spending by category (year)'
+              : 'Spending by category'),
+          const SizedBox(height: 4),
+          CategoryBarChart(
+            totals: yearView
+                ? provider.categoryTotalsForYear(selectedYear)
+                : provider.categoryTotalsForMonth(selectedYear, selectedMonth),
+            onCategoryTap: (c) =>
+                _showCategoryDetail(context, provider, c, isYear: yearView),
+          ),
+        ],
+      if (hasData)
+        DashboardLayout.merchants: [
+          _DashboardMerchants(
+            rows: rows,
+            total: yearView ? yearTotal : monthTotal,
+            baseAmountOf: provider.baseAmountOf,
+          ),
+        ],
+      if (hasData && !yearView)
+        DashboardLayout.trends: [
+          const SizedBox(height: 16),
+          const SectionHeader('Trends (last 12 months)'),
+          ExpenseTrendsChart(provider: provider),
+        ],
+    };
+  }
+
+  /// Width from which the dashboard splits into two columns: figures on the
+  /// left, charts on the right. Below it a tablet in portrait still gets one
+  /// readable column rather than two cramped ones.
+  static const _twoColumnWidth = 840.0;
+
+  /// Widest a single column is allowed to stretch on a large screen.
+  static const _maxColumnWidth = 720.0;
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ExpenseProvider>(
       builder: (context, provider, _) {
-        final monthlyExpenses =
-            provider.spendingForMonth(selectedYear, selectedMonth);
-        final yearlyExpenses = provider
-            .expensesForYear(selectedYear)
-            .where((e) => e.isExpense)
-            .toList();
-        final monthlyIncome =
-            provider.incomeForMonth(selectedYear, selectedMonth);
-        final yearlyIncome = provider.incomeForYear(selectedYear);
-        // The per-period totals below are read straight from the provider; it
-        // memoizes each aggregate until the data changes, so repeated calls in
-        // one build (and across the other screens) are free.
-
-        // The shortcuts and the latest transactions sit straight after the
-        // period's figures and ahead of the charts: they are what the screen
-        // is opened for most often, and used to be a long scroll away at the
-        // very bottom. Still below the figures, so the month's spend stays
-        // near the top.
-        final shortcutsAndRecent = <Widget>[
-          const _ShortcutsRow(),
-          _RecentTransactions(
-            provider: provider,
-            onSeeAll: onSeeAllTransactions,
-          ),
-        ];
+        // The user's own arrangement (More → Customise home): which sections
+        // show, and in what order.
+        final order = context.watch<SettingsProvider>().dashboardSections;
+        final sections = _sections(context, provider);
+        List<Widget> widgetsFor(Iterable<String> ids) => [
+              for (final id in ids) ...?sections[id],
+            ];
 
         return RefreshIndicator(
           onRefresh: onRefresh,
-          child: SingleChildScrollView(
-            // AlwaysScrollable so pull-to-refresh works even when the content
-            // is short enough not to overflow.
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Padding(
-              padding: scrollPadding(context, all: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final charts = order
+                .where((id) =>
+                    DashboardLayout.chartSections.contains(id) &&
+                    (sections[id]?.isNotEmpty ?? false))
+                .toList();
+            final twoColumns =
+                constraints.maxWidth >= _twoColumnWidth && charts.isNotEmpty;
+            final Widget body;
+            if (twoColumns) {
+              body = Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const AlertsBanner(),
-                  const NetWorthCard(),
-                  _QuickAddRow(onQuickAdd: onQuickAdd),
-                  MonthSelector(
-                    initialYear: selectedYear,
-                    initialMonth: selectedMonth,
-                    yearOnly: yearView,
-                    onChanged: onMonthChanged,
+                  Expanded(
+                    child: Column(
+                      children: widgetsFor(order.where(
+                          (id) => !DashboardLayout.chartSections.contains(id))),
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  SegmentedButton<bool>(
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(value: false, label: Text('Month')),
-                      ButtonSegment(value: true, label: Text('Year')),
-                    ],
-                    selected: {yearView},
-                    onSelectionChanged: (s) => onViewToggle(s.first),
-                  ),
-                  const SizedBox(height: 16),
-                  if (yearView) ...[
-                    // Tell "still loading" apart from "nothing recorded"; the
-                    // empty text otherwise flashes on every cold start.
-                    if (yearlyExpenses.isEmpty && provider.isLoading) ...[
-                      const DashboardSkeleton(),
-                      ...shortcutsAndRecent,
-                    ]
-                    // Income alone is still something to show.
-                    else if (yearlyExpenses.isEmpty && yearlyIncome == 0) ...[
-                      EmptyState(
-                        icon: Icons.savings_outlined,
-                        title: 'Nothing recorded in $selectedYear yet',
-                        message:
-                            'Add a transaction to see your yearly breakdown.',
-                        actionLabel: 'Add expense',
-                        onAction: onAddExpense,
-                      ),
-                      ...shortcutsAndRecent,
-                    ] else ...[
-                      _TotalHeadline(
-                        label: 'Spent in $selectedYear',
-                        amount: provider.totalForYear(selectedYear),
-                      ),
-                      const SizedBox(height: 12),
-                      _SummaryPills(
-                        income: yearlyIncome,
-                        expense: provider.totalForYear(selectedYear),
-                      ),
-                      ...shortcutsAndRecent,
-                      const SizedBox(height: 16),
-                      const SectionHeader('Spending by category (year)'),
-                      const SizedBox(height: 4),
-                      CategoryBarChart(
-                        totals: provider.categoryTotalsForYear(selectedYear),
-                        onCategoryTap: (c) => _showCategoryDetail(
-                            context, provider, c,
-                            isYear: true),
-                      ),
-                      _DashboardMerchants(
-                        rows: yearlyExpenses,
-                        total: provider.totalForYear(selectedYear),
-                        baseAmountOf: provider.baseAmountOf,
-                      ),
-                    ],
-                  ] else ...[
-                    if (monthlyExpenses.isEmpty && provider.isLoading) ...[
-                      const DashboardSkeleton(),
-                      ...shortcutsAndRecent,
-                    ]
-                    // A month with only income used to show "No expenses"
-                    // and hide the salary that had come in.
-                    else if (monthlyExpenses.isEmpty && monthlyIncome == 0) ...[
-                      EmptyState(
-                        icon: Icons.account_balance_wallet_outlined,
-                        title: 'Nothing recorded this month',
-                        message:
-                            'Track your first expense to see charts and trends.',
-                        actionLabel: 'Add expense',
-                        onAction: onAddExpense,
-                      ),
-                      ...shortcutsAndRecent,
-                    ] else ...[
-                      _TotalHeadline(
-                        label: _isCurrentMonth
-                            ? 'Spent this month'
-                            : 'Spent in ${formatMonthYear(selectedYear, selectedMonth)}',
-                        amount:
-                            provider.totalForMonth(selectedYear, selectedMonth),
-                      ),
-                      const SizedBox(height: 12),
-                      _SummaryPills(
-                        income: monthlyIncome,
-                        expense:
-                            provider.totalForMonth(selectedYear, selectedMonth),
-                      ),
-                      const SizedBox(height: 4),
-                      _LeftToSpend(
-                        cap: _overallCap(context, provider),
-                        spent:
-                            provider.totalForMonth(selectedYear, selectedMonth),
-                      ),
-                      ...shortcutsAndRecent,
-                      const SizedBox(height: 16),
-                      const SectionHeader('Spending by category'),
-                      const SizedBox(height: 4),
-                      CategoryBarChart(
-                        totals: provider.categoryTotalsForMonth(
-                            selectedYear, selectedMonth),
-                        onCategoryTap: (c) => _showCategoryDetail(
-                            context, provider, c,
-                            isYear: false),
-                      ),
-                      _DashboardMerchants(
-                        rows: monthlyExpenses,
-                        total:
-                            provider.totalForMonth(selectedYear, selectedMonth),
-                        baseAmountOf: provider.baseAmountOf,
-                      ),
-                      const SizedBox(height: 16),
-                      const SectionHeader('Trends (last 12 months)'),
-                      ExpenseTrendsChart(provider: provider),
-                    ],
-                  ],
+                  const SizedBox(width: 24),
+                  Expanded(child: Column(children: widgetsFor(charts))),
                 ],
+              );
+            } else {
+              body = Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: _maxColumnWidth),
+                  child: Column(children: widgetsFor(order)),
+                ),
+              );
+            }
+            return SingleChildScrollView(
+              // AlwaysScrollable so pull-to-refresh works even when the
+              // content is short enough not to overflow.
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Padding(
+                padding: scrollPadding(context, all: 16),
+                child: Column(
+                  children: [const AlertsBanner(), body],
+                ),
               ),
-            ),
-          ),
+            );
+          }),
         );
       },
     );
@@ -608,9 +656,6 @@ class _SummaryPill extends StatelessWidget {
   }
 }
 
-/// One line under the month total showing how much of the overall monthly
-/// budget is left (or how far over it is). Renders nothing when no overall
-/// budget is set for the month.
 /// The period's top three merchants under the category chart; hidden when
 /// no expense names a merchant.
 class _DashboardMerchants extends StatelessWidget {
@@ -634,28 +679,221 @@ class _DashboardMerchants extends StatelessWidget {
   }
 }
 
-class _LeftToSpend extends StatelessWidget {
+/// How much of the month's overall budget is used, as a ring beside what is
+/// left (or how far over it is) — read at a glance, where the Budgets tab
+/// takes a tap. Tapping it opens that tab. Renders nothing when no overall
+/// budget is set for the month.
+class _BudgetRing extends StatelessWidget {
   /// Overall cap and spend for the month, in base-currency minor units.
   final int cap;
   final int spent;
-  const _LeftToSpend({required this.cap, required this.spent});
+  final VoidCallback onTap;
+  const _BudgetRing(
+      {required this.cap, required this.spent, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     if (cap <= 0) return const SizedBox.shrink();
     final left = cap - spent;
     final over = left < 0;
+    final ratio = (spent / cap).clamp(0.0, 1.0).toDouble();
+    final percent = (spent * 100 / cap).round();
+    final color = over
+        ? dangerColor(context)
+        : percent >= 90
+            ? warningColor(context)
+            : incomeColor(context);
+    // The ring gives the share away even with the figures masked.
+    final hidden = CurrencyFormat.hideAmounts;
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Text(
-        over
-            ? 'Over budget by ${formatMoney(-left)}'
-            : '${formatMoney(left)} left to spend',
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: over ? expenseColor(context) : incomeColor(context),
+      padding: const EdgeInsets.only(top: 12),
+      child: Card(
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            Haptics.tick();
+            onTap();
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+            child: Row(
+              children: [
+                Semantics(
+                  label: hidden ? 'Budget used' : '$percent% of budget used',
+                  excludeSemantics: true,
+                  child: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: hidden ? 0 : ratio),
+                          duration: const Duration(milliseconds: 700),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, value, _) =>
+                              CircularProgressIndicator(
+                            value: value,
+                            strokeWidth: 6,
+                            strokeCap: StrokeCap.round,
+                            color: color,
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                          ),
+                        ),
+                        Center(
+                          child: Text(
+                            hidden ? '••' : '$percent%',
+                            // Sized to the ring, not to the text setting.
+                            textScaler: TextScaler.noScaling,
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        over
+                            ? 'Over budget by ${formatMoney(-left)}'
+                            : '${formatMoney(left)} left to spend',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${formatMoneyRounded(spent)} of '
+                        '${formatMoneyRounded(cap)} budget',
+                        style: TextStyle(
+                            fontSize: 12, color: mutedTextColor(context)),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: mutedTextColor(context)),
+              ],
+            ),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// A run of days without spending, shown once it is two or more: a small
+/// reason to open the app and keep it going. Hidden otherwise.
+class _StreakChip extends StatelessWidget {
+  final int days;
+  const _StreakChip({required this.days});
+
+  @override
+  Widget build(BuildContext context) {
+    if (days < 2) return const SizedBox.shrink();
+    final warn = warningColor(context);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: warn.withValues(alpha: dark ? 0.2 : 0.14),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.local_fire_department, size: 18, color: warn),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                '$days no-spend days in a row',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The month in plain words: what [dashboardInsights] found worth saying,
+/// each line with an icon tinted by whether it is good news.
+class _InsightsCard extends StatelessWidget {
+  final List<Insight> insights;
+  const _InsightsCard({required this.insights});
+
+  static IconData _icon(InsightKind kind) => switch (kind) {
+        InsightKind.budget => Icons.donut_large,
+        InsightKind.category => Icons.category_outlined,
+        InsightKind.total => Icons.compare_arrows,
+        InsightKind.savings => Icons.savings_outlined,
+        InsightKind.biggest => Icons.receipt_long_outlined,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        children: [
+          const SectionHeader('Insights'),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              child: Column(
+                children: [
+                  for (final insight in insights)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Builder(builder: (context) {
+                            final color = switch (insight.tone) {
+                              InsightTone.good => incomeColor(context),
+                              InsightTone.warn => warningColor(context),
+                              InsightTone.neutral => infoColor(context),
+                            };
+                            return Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color:
+                                    color.withValues(alpha: dark ? 0.24 : 0.14),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(_icon(insight.kind),
+                                  size: 18, color: color),
+                            );
+                          }),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(insight.text,
+                                style: const TextStyle(fontSize: 14)),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

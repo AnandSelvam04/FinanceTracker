@@ -12,6 +12,7 @@ import '../utils/insets.dart';
 import '../screens/add_expense_screen.dart';
 import '../screens/add_transfer_screen.dart';
 import '../services/receipt_store.dart';
+import 'amount_calculator_bar.dart';
 import 'category_picker.dart';
 import 'dispose_with_route.dart';
 import 'receipt_photo.dart';
@@ -186,6 +187,8 @@ Future<void> showEditExpenseSheet(
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(labelText: 'Amount'),
                   ),
+                  const SizedBox(height: 6),
+                  AmountCalculatorBar(controller: amountController),
                   // Picked from the list (which can also add a new one)
                   // rather than typed, so an edit can't misspell a category
                   // into a second one.
