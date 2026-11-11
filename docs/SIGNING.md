@@ -26,10 +26,13 @@ secret**:
 | `ANDROID_KEY_PASSWORD` | the key password |
 
 A push to `main` without the secrets fails loudly rather than producing a
-debug-signed APK. Pull requests (which never see secrets from forks) and
-builds started by hand on a branch other than `main` build debug-signed with
-a warning: good for trying a branch out, but each is signed with that run's
-own throwaway key, so one cannot update another and Drive sign-in rejects it.
+debug-signed APK. Pull requests (which never see secrets from forks) build debug-signed with a
+warning. A build started by hand on a branch other than `main` mints a
+throwaway key with `keytool` and signs with that: good for trying a branch
+out, but each run's key is different, so one try-out build cannot update
+another (uninstall first) and Drive sign-in rejects it. The build then prints
+the APK's package name, minimum Android version and signature schemes, so a
+mis-signed APK is caught in CI rather than on the phone.
 
 ## The key that used to be committed
 

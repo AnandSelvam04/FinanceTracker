@@ -68,6 +68,18 @@ jobs:
             --target-platform android-arm64 \
             --dart-define=APP_VERSION=${{ steps.build_id.outputs.version }} \
             --dart-define=GIT_SHA=${{ steps.build_id.outputs.sha }}
+      # Proves what was actually produced: the package name the phone will
+      # install under, the Android version it needs, and that the APK really
+      # carries a v2/v3 signature. An unsigned or v1-only APK is refused by
+      # Android 11+ with nothing but "App not installed", so it is worth
+      # catching here rather than on the phone.
+      - name: Describe and verify the APK
+        run: |
+          set -euo pipefail
+          apk=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+          "${tools}aapt2" dump badging "$apk" | grep -E "^(package|sdkVersion|targetSdkVersion|native-code)"
+          "${tools}apksigner" verify --verbose --print-certs "$apk"
       - name: Upload arm64-v8a APK
         uses: actions/upload-artifact@v4
         with:

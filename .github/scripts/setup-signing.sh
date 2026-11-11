@@ -19,12 +19,25 @@ if [[ -z "${ANDROID_KEYSTORE_BASE64:-}" ]]; then
     exit 0
   fi
   # A build started by hand on a branch other than main is a try-out build:
-  # let it through debug-signed too, so a branch can be installed and looked
-  # at before the release key exists. Each such APK is signed with that
-  # run's own throwaway key, so one cannot update another (uninstall first)
-  # and Google Drive sign-in will not accept it.
+  # let it through so a branch can be installed and looked at before the
+  # release key exists. A throwaway key is minted here rather than leaving
+  # it to Gradle's debug-keystore fallback: that fallback is silent, and an
+  # APK it fails to sign still builds and uploads, only to be refused by
+  # the phone with a bare "App not installed". Each run mints its own key,
+  # so one try-out build cannot update another (uninstall first) and Google
+  # Drive sign-in will not accept it.
   if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" && "${GITHUB_REF_NAME:-}" != "main" ]]; then
-    echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; this try-out APK is debug-signed. It cannot update another build and Drive sign-in will not work."
+    echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; this try-out APK is signed with a throwaway key. It cannot update another build and Drive sign-in will not work."
+    keytool -genkeypair -v -keystore android/app/release.jks \
+      -storepass tryout -keypass tryout -alias tryout \
+      -keyalg RSA -keysize 2048 -validity 3650 \
+      -dname "CN=Finance Tracker try-out, O=Finance Tracker, C=IN"
+    cat > android/key.properties <<PROPS
+storeFile=app/release.jks
+storePassword=tryout
+keyAlias=tryout
+keyPassword=tryout
+PROPS
     exit 0
   fi
   echo "::error::ANDROID_KEYSTORE_BASE64 is not set. Add the signing secrets described in docs/SIGNING.md."
