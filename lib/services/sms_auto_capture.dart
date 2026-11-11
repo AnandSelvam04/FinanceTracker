@@ -127,9 +127,16 @@ class SmsAutoCapture {
 
   /// Starts (or, with [on] false, stops) listening for incoming messages.
   /// Safe to call on every launch; does nothing where SMS isn't supported.
-  static void listen({required bool on}) {
+  ///
+  /// Listening starts only with the SMS permission already granted. Without
+  /// it the plugin asks for the permission itself, so a launch would open a
+  /// permission dialog out of nowhere, and a refusal comes back as an error
+  /// nothing is waiting for. Call again once the permission is granted; the
+  /// home screen does on every return to the app.
+  static Future<void> listen({required bool on}) async {
     if (!SmsService.isSupported || SmsService.inboxOverride != null) return;
     try {
+      if (on && !await SmsService.hasPermission()) return;
       if (on) {
         Telephony.instance.listenIncomingSms(
           onNewMessage: onMessage,
