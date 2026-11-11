@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/backup_service.dart';
 import '../utils/app_colors.dart';
-import '../utils/app_lock.dart';
 import '../utils/build_info.dart';
 import '../utils/insets.dart';
 import '../widgets/section_header.dart';
@@ -69,8 +68,7 @@ class _MoreScreenState extends State<MoreScreen> {
     final warn = warningColor(context);
     return Scaffold(
       body: ListView(
-        // Leaves room under the dashboard FAB so the last tile stays tappable.
-        padding: scrollPadding(context, all: 12, fab: true),
+        padding: scrollPadding(context, all: 12),
         children: [
           // Grouped into carded sections so a growing list of destinations
           // stays scannable instead of reading as one long plain column, and
@@ -190,16 +188,8 @@ class _MoreScreenState extends State<MoreScreen> {
               icon: Icons.settings,
               color: _MenuColors.slate,
               title: 'Settings',
+              subtitle: 'Currency, theme, alerts, app lock',
               onTap: () => _open(const SettingsScreen()),
-            ),
-            SwitchListTile(
-              secondary: const _IconBadge(
-                  icon: Icons.fingerprint, color: _MenuColors.violet),
-              title: const Text('App lock'),
-              subtitle:
-                  const Text('Require biometrics or device PIN on launch'),
-              value: context.watch<SettingsProvider>().appLockEnabled,
-              onChanged: (on) => setAppLockChecked(context, on),
             ),
           ]),
           // Visible without digging into Settings > About, so "which build am

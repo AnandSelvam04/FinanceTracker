@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/settings_provider.dart';
+import '../utils/app_lock.dart';
 import '../services/db_service.dart';
 import '../services/notification_service.dart';
 import '../services/sms_service.dart';
@@ -359,11 +360,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const Divider(),
               const SectionHeader('Security',
                   padding: EdgeInsets.fromLTRB(16, 16, 16, 4)),
+              // Next to its timer: the switch used to sit on the More tab
+              // while the timer it governs was here.
+              SwitchListTile(
+                secondary: const Icon(Icons.fingerprint),
+                title: const Text('App lock'),
+                subtitle:
+                    const Text('Require biometrics or device PIN on launch'),
+                value: settings.appLockEnabled,
+                onChanged: (on) => setAppLockChecked(context, on),
+              ),
               ListTile(
+                // Only means something while the lock is on.
+                enabled: settings.appLockEnabled,
                 leading: const Icon(Icons.timer_outlined),
                 title: const Text('Auto-lock'),
-                subtitle:
-                    const Text('When app lock is on, re-lock after being away'),
+                subtitle: const Text('Re-lock after being away this long'),
                 trailing: DropdownButton<int>(
                   value: _lockOptions.containsKey(settings.lockTimeoutSeconds)
                       ? settings.lockTimeoutSeconds
@@ -373,9 +385,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       .map((e) =>
                           DropdownMenuItem(value: e.key, child: Text(e.value)))
                       .toList(),
-                  onChanged: (v) {
-                    if (v != null) settings.setLockTimeoutSeconds(v);
-                  },
+                  onChanged: !settings.appLockEnabled
+                      ? null
+                      : (v) {
+                          if (v != null) settings.setLockTimeoutSeconds(v);
+                        },
                 ),
               ),
               SwitchListTile(

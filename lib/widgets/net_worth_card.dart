@@ -54,7 +54,7 @@ class NetWorthCard extends StatelessWidget {
               gradient: brandGradient(context),
               borderRadius: BorderRadius.circular(18),
             ),
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -93,9 +93,11 @@ class NetWorthCard extends StatelessWidget {
                   'Investments ${formatMoneySigned(invested)} (at cost)',
                   style: TextStyle(fontSize: 12, color: subtle),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
+                // Short: the trend is a glance, and a taller chart pushed the
+                // month's spending off the first screen.
                 SizedBox(
-                  height: 120,
+                  height: 64,
                   // key forces the FutureBuilder to refetch when totals change.
                   child: _NetWorthTrend(
                     lineColor: onGradient,

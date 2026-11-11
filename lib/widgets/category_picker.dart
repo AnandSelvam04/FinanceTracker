@@ -99,11 +99,23 @@ class CategoryPickerTile extends StatelessWidget {
   final String value;
   final ValueChanged<String> onChanged;
 
+  /// Overrides the field's label ("Category", or "Source" for income).
+  final String? label;
+
+  /// Compact, for a row that shares its line with another field.
+  final bool dense;
+
+  /// Shown under the field (a form's validation message).
+  final String? errorText;
+
   const CategoryPickerTile({
     super.key,
     required this.type,
     required this.value,
     required this.onChanged,
+    this.label,
+    this.dense = false,
+    this.errorText,
   });
 
   @override
@@ -117,13 +129,17 @@ class CategoryPickerTile extends StatelessWidget {
       },
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: income ? 'Source' : 'Category',
+          labelText: label ?? (income ? 'Source' : 'Category'),
+          isDense: dense,
+          errorText: errorText,
           suffixIcon: const Icon(Icons.arrow_drop_down),
+          suffixIconConstraints:
+              dense ? const BoxConstraints(minWidth: 28, minHeight: 28) : null,
         ),
         child: Row(
           children: [
             if (value.trim().isNotEmpty) ...[
-              CategoryAvatar(category: value, radius: 12),
+              CategoryAvatar(category: value, radius: dense ? 10 : 12),
               const SizedBox(width: 8),
             ],
             Expanded(

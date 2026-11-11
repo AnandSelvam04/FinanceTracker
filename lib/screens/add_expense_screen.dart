@@ -354,310 +354,325 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           title: Text(widget.duplicateOf != null
               ? (_isIncome ? 'Duplicate Income' : 'Duplicate Expense')
               : (_isIncome ? 'Add Income' : 'Add Expense'))),
-      body: SingleChildScrollView(
-        padding: scrollPadding(context),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<String>(
-                  segments: [
-                    ButtonSegment(
-                      value: DbConstants.txExpense,
-                      label: const Text('Expense'),
-                      icon: const Icon(Icons.remove_circle_outline),
-                    ),
-                    ButtonSegment(
-                      value: DbConstants.txIncome,
-                      label: const Text('Income'),
-                      icon: const Icon(Icons.add_circle_outline),
-                    ),
-                  ],
-                  selected: {_txType},
-                  onSelectionChanged: (selection) {
-                    setState(() {
-                      _txType = selection.first;
-                      _categoryController.clear();
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Quick-capture shortcuts: read a bill photo, or dictate the
-              // transaction. Both only pre-fill the fields below.
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _isScanning ? null : _scanReceipt,
-                      icon: _isScanning
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2.5),
-                            )
-                          : const Icon(Icons.document_scanner_outlined),
-                      label: Text(_isScanning ? 'Scanning…' : 'Scan receipt'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _isScanning ? null : _addByVoice,
-                      icon: const Icon(Icons.mic_none),
-                      label: const Text('Speak'),
-                    ),
-                  ),
-                ],
-              ),
-              if (_receiptPhoto != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Image.file(File(_receiptPhoto!),
-                            width: 48,
-                            height: 48,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const Icon(Icons.receipt_long, size: 40)),
+      // The form scrolls; the save button stays put beneath it (and above
+      // the keyboard, as the body shrinks to make room for it). At the end
+      // of the form it was a scroll away on every entry.
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<String>(
+                        segments: [
+                          ButtonSegment(
+                            value: DbConstants.txExpense,
+                            label: const Text('Expense'),
+                            icon: const Icon(Icons.remove_circle_outline),
+                          ),
+                          ButtonSegment(
+                            value: DbConstants.txIncome,
+                            label: const Text('Income'),
+                            icon: const Icon(Icons.add_circle_outline),
+                          ),
+                        ],
+                        selected: {_txType},
+                        onSelectionChanged: (selection) {
+                          setState(() {
+                            _txType = selection.first;
+                            _categoryController.clear();
+                          });
+                        },
                       ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                          child: Text('Receipt photo will be kept with this '
-                              'transaction')),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        tooltip: 'Don\'t keep the photo',
-                        onPressed: () => setState(() => _receiptPhoto = null),
+                    ),
+                    const SizedBox(height: 16),
+                    // Quick-capture shortcuts: read a bill photo, or dictate the
+                    // transaction. Both only pre-fill the fields below.
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _isScanning ? null : _scanReceipt,
+                            icon: _isScanning
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2.5),
+                                  )
+                                : const Icon(Icons.document_scanner_outlined),
+                            label: Text(
+                                _isScanning ? 'Scanning…' : 'Scan receipt'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _isScanning ? null : _addByVoice,
+                            icon: const Icon(Icons.mic_none),
+                            label: const Text('Speak'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_receiptPhoto != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Image.file(File(_receiptPhoto!),
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      const Icon(Icons.receipt_long, size: 40)),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                                child:
+                                    Text('Receipt photo will be kept with this '
+                                        'transaction')),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              tooltip: 'Don\'t keep the photo',
+                              onPressed: () =>
+                                  setState(() => _receiptPhoto = null),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    // The amount is the focal input, so it is enlarged and carries
+                    // the configured currency symbol as a prefix.
+                    TextFormField(
+                      controller: _amountController,
+                      decoration: InputDecoration(
+                        labelText: 'Amount',
+                        prefixText: '$amountSymbol ',
+                        prefixStyle: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      style: const TextStyle(
+                          fontSize: 28, fontWeight: FontWeight.bold),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      textInputAction: TextInputAction.next,
+                      validator: validateAmountField,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _descriptionController,
+                      // Optional: a blank description saves as the category, so a
+                      // quick "250, Food" entry needs no extra typing.
+                      decoration: const InputDecoration(
+                          labelText: 'Description (optional)'),
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 4),
+                    DateFieldRow(
+                      date: _selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                      onChanged: (d) => setState(() => _selectedDate = d),
+                    ),
+                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
+                    // Picked, not typed: a typo in a free-text field used to start
+                    // a second category. "More" lists them all and adds new ones.
+                    FormField<String>(
+                      validator: (_) => _categoryController.text.trim().isEmpty
+                          ? (_isIncome
+                              ? 'Choose a source'
+                              : 'Choose a category')
+                          : null,
+                      builder: (field) => CategoryPickerField(
+                        type: _txType,
+                        value: _categoryController.text,
+                        suggestions: categorySuggestions,
+                        errorText: field.errorText,
+                        onChanged: (c) {
+                          setState(() => _categoryController.text = c);
+                          field.didChange(c);
+                          if (field.hasError) field.validate();
+                        },
+                      ),
+                    ),
+                    if (!_isIncome) ...[
+                      const SizedBox(height: 16),
+                      Text('Payment mode',
+                          style: TextStyle(
+                              fontSize: 12, color: mutedTextColor(context))),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: _paymentModes.map((p) {
+                          return ChoiceChip(
+                            avatar: Icon(_paymentIcon(p), size: 18),
+                            label: Text(p),
+                            selected: _selectedPaymentMode == p,
+                            // The checkmark replaces the avatar, hiding the icon.
+                            showCheckmark: false,
+                            onSelected: (_) => setState(() {
+                              _selectedPaymentMode = p;
+                              // "Credit Card" asks which card; leaving it drops a
+                              // card account the spend no longer went on.
+                              _accountId = SpendAccountPicker.accountForMode(
+                                  p, _accountId, accounts,
+                                  fallbackId: context
+                                      .read<SettingsProvider>()
+                                      .defaultAccountId);
+                            }),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                    if (accounts.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      SpendAccountPicker(
+                        accounts: accounts,
+                        accountId: _accountId,
+                        // Income has no payment mode, so no card row.
+                        paymentMode: _isIncome ? 'Other' : _selectedPaymentMode,
+                        onChanged: (id, mode) => setState(() {
+                          _accountId = id;
+                          if (!_isIncome) _selectedPaymentMode = mode;
+                        }),
                       ),
                     ],
-                  ),
-                ),
-              const SizedBox(height: 16),
-              // The amount is the focal input, so it is enlarged and carries
-              // the configured currency symbol as a prefix.
-              TextFormField(
-                controller: _amountController,
-                decoration: InputDecoration(
-                  labelText: 'Amount',
-                  prefixText: '$amountSymbol ',
-                  prefixStyle: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-                style:
-                    const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                textInputAction: TextInputAction.next,
-                validator: validateAmountField,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _descriptionController,
-                // Optional: a blank description saves as the category, so a
-                // quick "250, Food" entry needs no extra typing.
-                decoration:
-                    const InputDecoration(labelText: 'Description (optional)'),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 4),
-              DateFieldRow(
-                date: _selectedDate,
-                firstDate: DateTime(2000),
-                lastDate: DateTime.now(),
-                onChanged: (d) => setState(() => _selectedDate = d),
-              ),
-              const SizedBox(height: 4),
-              const SizedBox(height: 8),
-              // Picked, not typed: a typo in a free-text field used to start
-              // a second category. "More" lists them all and adds new ones.
-              FormField<String>(
-                validator: (_) => _categoryController.text.trim().isEmpty
-                    ? (_isIncome ? 'Choose a source' : 'Choose a category')
-                    : null,
-                builder: (field) => CategoryPickerField(
-                  type: _txType,
-                  value: _categoryController.text,
-                  suggestions: categorySuggestions,
-                  errorText: field.errorText,
-                  onChanged: (c) {
-                    setState(() => _categoryController.text = c);
-                    field.didChange(c);
-                    if (field.hasError) field.validate();
-                  },
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _noteController,
+                      minLines: 1,
+                      maxLines: 3,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: const InputDecoration(
+                        labelText: 'Note (optional)',
+                        hintText: 'e.g. split with Ravi, warranty till 2028',
+                        helperText:
+                            'Add #tags to group spending, e.g. #goa-trip',
+                      ),
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text('Save as quick-add template'),
+                      value: _saveAsTemplate,
+                      onChanged: (v) =>
+                          setState(() => _saveAsTemplate = v ?? false),
+                    ),
+                  ],
                 ),
               ),
-              if (!_isIncome) ...[
-                const SizedBox(height: 16),
-                Text('Payment mode',
-                    style: TextStyle(
-                        fontSize: 12, color: mutedTextColor(context))),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: _paymentModes.map((p) {
-                    return ChoiceChip(
-                      avatar: Icon(_paymentIcon(p), size: 18),
-                      label: Text(p),
-                      selected: _selectedPaymentMode == p,
-                      // The checkmark replaces the avatar, hiding the icon.
-                      showCheckmark: false,
-                      onSelected: (_) => setState(() {
-                        _selectedPaymentMode = p;
-                        // "Credit Card" asks which card; leaving it drops a
-                        // card account the spend no longer went on.
-                        _accountId = SpendAccountPicker.accountForMode(
-                            p, _accountId, accounts,
-                            fallbackId: context
-                                .read<SettingsProvider>()
-                                .defaultAccountId);
-                      }),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 4),
-              ],
-              if (accounts.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                SpendAccountPicker(
-                  accounts: accounts,
-                  accountId: _accountId,
-                  // Income has no payment mode, so no card row.
-                  paymentMode: _isIncome ? 'Other' : _selectedPaymentMode,
-                  onChanged: (id, mode) => setState(() {
-                    _accountId = id;
-                    if (!_isIncome) _selectedPaymentMode = mode;
-                  }),
-                ),
-              ],
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _noteController,
-                minLines: 1,
-                maxLines: 3,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Note (optional)',
-                  hintText: 'e.g. split with Ravi, warranty till 2028',
-                  helperText: 'Add #tags to group spending, e.g. #goa-trip',
-                ),
-              ),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('Save as quick-add template'),
-                value: _saveAsTemplate,
-                onChanged: (v) => setState(() => _saveAsTemplate = v ?? false),
-              ),
-              const SizedBox(height: 16),
-              // Full width, filled: the screen's one primary action. As an
-              // FilledButton in a start-aligned column it shrank to its label
-              // at the left edge, and the white saving spinner vanished on its
-              // light fill.
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: _isSaving
-                      ? null
-                      : () async {
-                          if (_formKey.currentState!.validate()) {
-                            setState(() => _isSaving = true);
-                            String? attachment;
-                            if (_receiptPhoto != null) {
-                              try {
-                                attachment =
-                                    await ReceiptStore.save(_receiptPhoto!);
-                              } catch (e, st) {
-                                AppLogger.error(
-                                    'Could not keep the receipt photo', e, st);
-                              }
-                            }
-                            if (!context.mounted) return;
-                            final expense = Expense(
-                              attachment: attachment,
-                              description: _resolvedDescription,
-                              amount: parseMinor(_amountController.text)!,
-                              date: _selectedDate,
-                              category: _resolvedCategory,
-                              paymentMode:
-                                  _isIncome ? 'Other' : _selectedPaymentMode,
-                              type: _txType,
-                              accountId: _accountId,
-                              note: _noteController.text.trim().isEmpty
-                                  ? null
-                                  : _noteController.text.trim(),
-                            );
-                            final provider = context.read<ExpenseProvider>();
-                            final accountProvider =
-                                context.read<AccountProvider>();
-                            final templateProvider =
-                                context.read<TemplateProvider>();
+            ),
+          ),
+          Padding(
+            padding:
+                EdgeInsets.fromLTRB(16, 8, 16, safeBottom(context, extra: 12)),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton(
+                onPressed: _isSaving
+                    ? null
+                    : () async {
+                        if (_formKey.currentState!.validate()) {
+                          setState(() => _isSaving = true);
+                          String? attachment;
+                          if (_receiptPhoto != null) {
                             try {
-                              await provider.addExpense(expense);
-                              await accountProvider.refreshBalances();
-                              if (_saveAsTemplate) {
-                                await templateProvider.addTemplate(TxTemplate(
-                                  name: _resolvedDescription,
-                                  description: _resolvedDescription,
-                                  amount: parseMinor(_amountController.text)!,
-                                  category: _resolvedCategory,
-                                  type: _txType,
-                                  accountId: _accountId,
-                                  paymentMode:
-                                      _isIncome ? null : _selectedPaymentMode,
-                                ));
-                              }
-                              HapticFeedback.lightImpact();
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text(_isIncome
-                                          ? 'Income added'
-                                          : 'Expense added')),
-                                );
-                                Navigator.pop(context);
-                              }
+                              attachment =
+                                  await ReceiptStore.save(_receiptPhoto!);
                             } catch (e, st) {
-                              // Show the error in a SnackBar and log
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(SnackBar(
-                                  content: Text('Failed to save: $e'),
-                                ));
-                              }
-                              AppLogger.error('Error saving expense', e, st);
-                            } finally {
-                              if (mounted) setState(() => _isSaving = false);
+                              AppLogger.error(
+                                  'Could not keep the receipt photo', e, st);
                             }
                           }
-                        },
-                  child: _isSaving
-                      ? SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Theme.of(context).colorScheme.onPrimary,
-                          ),
-                        )
-                      : Text(_isIncome ? 'Add Income' : 'Add Expense'),
-                ),
+                          if (!context.mounted) return;
+                          final expense = Expense(
+                            attachment: attachment,
+                            description: _resolvedDescription,
+                            amount: parseMinor(_amountController.text)!,
+                            date: _selectedDate,
+                            category: _resolvedCategory,
+                            paymentMode:
+                                _isIncome ? 'Other' : _selectedPaymentMode,
+                            type: _txType,
+                            accountId: _accountId,
+                            note: _noteController.text.trim().isEmpty
+                                ? null
+                                : _noteController.text.trim(),
+                          );
+                          final provider = context.read<ExpenseProvider>();
+                          final accountProvider =
+                              context.read<AccountProvider>();
+                          final templateProvider =
+                              context.read<TemplateProvider>();
+                          try {
+                            await provider.addExpense(expense);
+                            await accountProvider.refreshBalances();
+                            if (_saveAsTemplate) {
+                              await templateProvider.addTemplate(TxTemplate(
+                                name: _resolvedDescription,
+                                description: _resolvedDescription,
+                                amount: parseMinor(_amountController.text)!,
+                                category: _resolvedCategory,
+                                type: _txType,
+                                accountId: _accountId,
+                                paymentMode:
+                                    _isIncome ? null : _selectedPaymentMode,
+                              ));
+                            }
+                            HapticFeedback.lightImpact();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(_isIncome
+                                        ? 'Income added'
+                                        : 'Expense added')),
+                              );
+                              Navigator.pop(context);
+                            }
+                          } catch (e, st) {
+                            // Show the error in a SnackBar and log
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                content: Text('Failed to save: $e'),
+                              ));
+                            }
+                            AppLogger.error('Error saving expense', e, st);
+                          } finally {
+                            if (mounted) setState(() => _isSaving = false);
+                          }
+                        }
+                      },
+                child: _isSaving
+                    ? SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
+                      )
+                    : Text(_isIncome ? 'Add Income' : 'Add Expense'),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

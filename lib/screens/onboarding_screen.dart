@@ -14,7 +14,7 @@ import '../utils/currency_format.dart';
 /// from, and whether to read bank SMS and lock the app.
 ///
 /// Every step is optional: Skip (or Get started with nothing filled in)
-/// leaves the defaults, and all of it can be changed later under More.
+/// leaves the defaults, and all of it can be changed later in Settings.
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback? onFinish;
   const OnboardingScreen({super.key, this.onFinish});
@@ -160,7 +160,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     icon: Icons.tune,
                     title: 'Make it yours',
                     description: 'Both are off unless you turn them on, and '
-                        'can be changed any time under More.',
+                        'can be changed any time in Settings.',
                     child: _OptionSwitches(),
                   ),
                 ],

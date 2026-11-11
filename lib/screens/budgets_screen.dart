@@ -12,7 +12,7 @@ import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
-import '../widgets/category_choice_chip.dart';
+import '../widgets/category_picker.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/dispose_with_route.dart';
@@ -141,46 +141,29 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Category field plus quick-pick chips. Picking a chip fills the
-                  // field with the exact spelling used on transactions, so the cap
-                  // matches the spend it tracks. StatefulBuilder rebuilds just this
-                  // block so the selected chip highlights without a full setState.
-                  StatefulBuilder(
-                    builder: (context, setFieldState) {
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextFormField(
-                            controller: categoryController,
-                            decoration:
-                                const InputDecoration(labelText: 'Category'),
-                            validator: (value) =>
-                                (value == null || value.trim().isEmpty)
-                                    ? 'Required'
-                                    : null,
-                            onChanged: (_) => setFieldState(() {}),
-                          ),
-                          if (_categorySuggestions.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: _categorySuggestions
-                                  .map((c) => CategoryChoiceChip(
-                                        category: c,
-                                        selected: isSameCategory(
-                                            categoryController.text, c),
-                                        onSelected: () => setFieldState(
-                                            () => categoryController.text = c),
-                                      ))
-                                  .toList(),
-                            ),
-                          ],
-                        ],
-                      );
-                    },
+                  // Picked from chips (the exact spellings used on
+                  // transactions, so the cap matches the spend it tracks) or
+                  // from the full list behind More.
+                  FormField<String>(
+                    validator: (_) => categoryController.text.trim().isEmpty
+                        ? 'Choose a category'
+                        : null,
+                    builder: (field) => Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: CategoryPickerField(
+                        type: DbConstants.txExpense,
+                        value: categoryController.text,
+                        suggestions: _categorySuggestions,
+                        errorText: field.errorText,
+                        onChanged: (c) {
+                          categoryController.text = c;
+                          field.didChange(c);
+                          if (field.hasError) field.validate();
+                        },
+                      ),
+                    ),
                   ),
+                  const SizedBox(height: 8),
                   TextFormField(
                     initialValue:
                         _amount == 0 ? '' : minorToEditString(_amount),
@@ -463,7 +446,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               .spentForCategoryInMonth(b.year, b.month, b.category);
 
           return ListView(
-            padding: scrollPadding(context, all: 12, fab: true),
+            padding:
+                scrollPadding(context, all: 12, fab: !widget.embedded),
             children: [
               _BudgetMonthStepper(
                 year: _viewYear,

@@ -11,14 +11,15 @@ class TutorialScreen extends StatelessWidget {
     const steps = <_TutorialStep>[
       _TutorialStep(
         title: 'Add a transaction',
-        body: 'Tap + on any tab for an expense or income, a transfer between '
+        body:
+            'Tap Add in the bottom bar for an expense or income, a transfer between '
             'your accounts, or an investment. Save one you repeat as a '
             'quick-add and it becomes a one-tap chip on Home.',
         icon: Icons.playlist_add,
       ),
       _TutorialStep(
         title: 'Scan a receipt or speak',
-        body: 'From +, Scan receipt reads the amount, date and shop from a '
+        body: 'From Add, Scan receipt reads the amount, date and shop from a '
             'photo; Add by voice takes "Spent 250 on lunch". Both only fill '
             'in the form — you review before saving.',
         icon: Icons.document_scanner_outlined,
@@ -48,7 +49,8 @@ class TutorialScreen extends StatelessWidget {
       ),
       _TutorialStep(
         title: 'Find and fix transactions',
-        body: 'On Transactions, search, filter or pick All years. Tap a row '
+        body:
+            'On the Activity tab, search, filter or pick All years. Tap a row '
             'to edit, split or duplicate it; long-press to select several '
             'and move or delete them together.',
         icon: Icons.search,
@@ -76,8 +78,9 @@ class TutorialScreen extends StatelessWidget {
       ),
       _TutorialStep(
         title: 'Privacy',
-        body: 'The eye button on Home hides every amount. App lock in the '
-            'More tab asks for your fingerprint or PIN to open the app.',
+        body: 'The eye button on Home hides every amount. App lock, under '
+            'More → Settings, asks for your fingerprint or PIN to open the '
+            'app.',
         icon: Icons.fingerprint,
       ),
     ];

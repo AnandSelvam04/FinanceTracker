@@ -3,7 +3,6 @@ part of '../sms_review_screen.dart';
 class _DraftCard extends StatefulWidget {
   final SmsDraft draft;
   final List<Account> accounts;
-  final List<String> categories;
   final List<String> investmentTypes;
   final VoidCallback onChanged;
   final VoidCallback onDismiss;
@@ -16,7 +15,6 @@ class _DraftCard extends StatefulWidget {
     super.key,
     required this.draft,
     required this.accounts,
-    required this.categories,
     required this.investmentTypes,
     required this.onChanged,
     required this.onDismiss,
@@ -29,13 +27,11 @@ class _DraftCard extends StatefulWidget {
 }
 
 class _DraftCardState extends State<_DraftCard> {
-  /// Whether the user picked "Other" and is now typing a value, for the
-  /// category box and the investment-type box respectively. The dropdown
-  /// otherwise shows a recalled/preset value directly.
-  bool _categoryOther = false;
+  /// Whether the user picked "Other" in the investment-type box and is now
+  /// typing a value. The dropdown otherwise shows a recalled/preset value
+  /// directly.
   bool _investTypeOther = false;
 
-  final _customCategory = TextEditingController();
   final _customInvestType = TextEditingController();
 
   /// The amount in the account's currency, for a foreign charge.
@@ -47,7 +43,6 @@ class _DraftCardState extends State<_DraftCard> {
 
   @override
   void dispose() {
-    _customCategory.dispose();
     _customInvestType.dispose();
     _convertedAmount.dispose();
     // The description field's controller belongs to its Autocomplete, which
@@ -494,15 +489,16 @@ class _DraftCardState extends State<_DraftCard> {
                                     widget.onChanged();
                                   },
                                 )
-                              : _pickerWithOther(
+                              // The same picker as Add Expense, so an import
+                              // files under the user's own categories.
+                              : CategoryPickerTile(
+                                  type: draft.usesExpenseCategories
+                                      ? DbConstants.txExpense
+                                      : DbConstants.txIncome,
                                   label: 'Category',
-                                  current: draft.category,
-                                  options: widget.categories,
-                                  isOther: _categoryOther,
-                                  controller: _customCategory,
-                                  onOtherChanged: (v) =>
-                                      setState(() => _categoryOther = v),
-                                  onValue: (v) {
+                                  dense: true,
+                                  value: draft.category,
+                                  onChanged: (v) {
                                     draft.category = v;
                                     widget.onChanged();
                                   },

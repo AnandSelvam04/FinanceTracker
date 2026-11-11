@@ -631,11 +631,16 @@ class _SplitSheetState extends State<_SplitSheet> {
                   children: [
                     Expanded(
                       flex: 3,
-                      child: TextField(
-                        controller: _parts[i].category,
-                        decoration: const InputDecoration(
-                            labelText: 'Category', isDense: true),
-                        onChanged: (_) => setState(() {}),
+                      // Picked, like everywhere else a category is set.
+                      child: CategoryPickerTile(
+                        type: widget.original.isIncome
+                            ? DbConstants.txIncome
+                            : DbConstants.txExpense,
+                        label: 'Category',
+                        dense: true,
+                        value: _parts[i].category.text,
+                        onChanged: (c) =>
+                            setState(() => _parts[i].category.text = c),
                       ),
                     ),
                     const SizedBox(width: 8),

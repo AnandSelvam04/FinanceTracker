@@ -700,7 +700,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       itemCount: items.length + 1,
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding:
-                          scrollPadding(context, all: 12, top: 4, fab: true),
+                          scrollPadding(context, all: 12, top: 4),
                       itemBuilder: (context, index) {
                         if (index == 0) {
                           return _PeriodSummary(

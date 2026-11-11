@@ -118,8 +118,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _widgetClicks = HomeWidgetService.clicks
         .listen(_openFromWidget, onError: (Object _) {});
     HomeWidgetService.launchedFrom().then(_openFromWidget);
-    NotificationService.instance.openRequest
-        .addListener(_openFromNotification);
+    NotificationService.instance.openRequest.addListener(_openFromNotification);
     // A tap that launched the app is already waiting.
     WidgetsBinding.instance
         .addPostFrameCallback((_) => _openFromNotification());
@@ -497,65 +496,88 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Finance Tracker'),
-        // Solid bold brand header from the theme (matching the "Expense
-        // Tracker Pro" look), the same as every inner screen.
-        actions: [
-          // Masks every amount, for opening the app in front of others.
-          Builder(builder: (context) {
-            final settings = context.watch<SettingsProvider>();
-            return IconButton(
-              icon: Icon(settings.hideAmounts
-                  ? Icons.visibility_off_outlined
-                  : Icons.visibility_outlined),
-              tooltip: settings.hideAmounts ? 'Show amounts' : 'Hide amounts',
-              onPressed: () => settings.setHideAmounts(!settings.hideAmounts),
-            );
-          }),
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            tooltip: 'How to use',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TutorialScreen()),
-              );
-            },
-          ),
-        ],
-      ),
+      // Transactions and Budgets bring their own app bar (with their own
+      // actions); showing this one above it stacked two purple bars and cost
+      // a tenth of the screen.
+      appBar: _selectedIndex == 1 || _selectedIndex == 2
+          ? null
+          : AppBar(
+              title: Text(_selectedIndex == 3 ? 'More' : 'Finance Tracker'),
+              actions: [
+                // Masks every amount, for opening the app in front of others.
+                Builder(builder: (context) {
+                  final settings = context.watch<SettingsProvider>();
+                  return IconButton(
+                    icon: Icon(settings.hideAmounts
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined),
+                    tooltip:
+                        settings.hideAmounts ? 'Show amounts' : 'Hide amounts',
+                    onPressed: () =>
+                        settings.setHideAmounts(!settings.hideAmounts),
+                  );
+                }),
+                IconButton(
+                  icon: const Icon(Icons.help_outline),
+                  tooltip: 'How to use',
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const TutorialScreen()),
+                    );
+                  },
+                ),
+              ],
+            ),
       // IndexedStack keeps every tab mounted, so the Transactions screen's
       // search, filters, and scroll position survive tab switches.
       body: IndexedStack(index: _selectedIndex, children: _screens),
-      // Compact circular FAB: an extended (labelled) FAB is wide enough to sit
-      // over the trailing amount column on the Transactions tab and hide it.
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddOptions(context),
-        tooltip: 'Add transaction',
-        child: const Icon(Icons.add),
-      ),
+      // Add sits in the middle of the bar rather than floating over the
+      // content, where it covered the amount of whichever row was behind it.
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
-        destinations: const [
-          NavigationDestination(
+        // Bar slots: Home, Transactions, Add, Budgets, More. Add is an
+        // action, not a tab, so the tabs after it are one slot along.
+        selectedIndex: _selectedIndex < 2 ? _selectedIndex : _selectedIndex + 1,
+        onDestinationSelected: (i) {
+          if (i == 2) {
+            _showAddOptions(context);
+            return;
+          }
+          setState(() => _selectedIndex = i < 2 ? i : i - 1);
+        },
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
             label: 'Home',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
-            // The screen behind this tab lists income and transfers too, and is
-            // titled "Transactions" — keep the label the same so they match.
-            label: 'Transactions',
+            // Short enough to fit a fifth of a narrow phone at large text;
+            // the screen itself is titled "Transactions".
+            label: 'Activity',
+            tooltip: 'Transactions',
           ),
           NavigationDestination(
+            icon: Container(
+              width: 56,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(Icons.add,
+                  color: Theme.of(context).colorScheme.onPrimary),
+            ),
+            label: 'Add',
+            tooltip: 'Add transaction',
+          ),
+          const NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet),
             label: 'Budgets',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.more_horiz),
             selectedIcon: Icon(Icons.more_horiz),
             label: 'More',

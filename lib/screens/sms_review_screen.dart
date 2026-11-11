@@ -20,6 +20,7 @@ import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
+import '../widgets/category_picker.dart';
 
 part 'sms_review/draft_card.dart';
 part 'sms_review/review_widgets.dart';
@@ -47,20 +48,6 @@ class SmsReviewScreen extends StatefulWidget {
 enum _ScanSpan { sinceReview, twoDays, week, month, custom }
 
 class _SmsReviewScreenState extends State<SmsReviewScreen> {
-  static const _expenseCategories = [
-    'Food', 'Transport', 'Shopping', 'Bills', //
-    'Entertainment', 'Health', 'Education', _kOther,
-  ];
-  static const _incomeCategories = [
-    'Salary',
-    'Business',
-    'Interest',
-    'Dividends',
-    'Gift',
-    'Refund',
-    _kOther,
-  ];
-
   List<SmsDraft> _drafts = [];
   bool _loading = true;
   bool _importing = false;
@@ -691,9 +678,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
                           key: ValueKey(_drafts[i].parsed.sourceRef),
                           draft: _drafts[i],
                           accounts: context.watch<AccountProvider>().accounts,
-                          categories: _drafts[i].usesExpenseCategories
-                              ? _expenseCategories
-                              : _incomeCategories,
                           investmentTypes: _investmentTypes,
                           onChanged: () => setState(() {}),
                           onDismiss: () => _dismiss(_drafts[i]),

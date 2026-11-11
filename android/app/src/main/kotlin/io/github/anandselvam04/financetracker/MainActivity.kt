@@ -1,4 +1,4 @@
-package com.example.finance_tracker
+package io.github.anandselvam04.financetracker
 
 import android.os.Bundle
 import android.view.WindowManager

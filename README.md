@@ -14,6 +14,7 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 - Reward points: per card, a points balance, points per ₹100 and value per point; the screen adds what spending since has earned, and a newer balance quoted in a card SMS replaces the one typed in.
 - Receipt photos & tags: a scanned bill's photo is kept with its transaction (view, attach, replace or remove it from the edit sheet; a paperclip marks it in the list). Photos stay in the app's private storage and are not part of backups. Write `#tags` in a note to group spending; More → Tags totals each tag across categories and months.
 - Home-screen widget (Android): this month's and today's spending with an Add button. Figures are hidden while app lock is on.
+- Navigation: a bottom bar with Home, Activity (transactions), **Add**, Budgets and More, every tab labelled; each tab has a single app bar of its own.
 - Dashboard: net-worth card (accounts + investments) with a 12-month trend line, proactive budget/bill alerts banner, toggle month/year views (the stepper moves by year in Year view), income totals, shortcuts and the five most recent transactions straight after the period's figures, then category breakdowns, the period's top three merchants (tap for their transactions) and a 12-month trend chart; one-tap quick-add template chips. The + button offers expense/income, receipt scan, voice, transfer, and investment.
 - Alerts: dashboard warnings when a budget category reaches 90%/over its cap, a recurring bill is due within three days, or a credit-card statement is coming due (toggle in Settings).
 - Notifications: an optional daily reminder at a time you pick to log the day's spending (skipped on days you've already added something), plus optional local push notifications reminding you a day before a bill is due, a few days before a credit-card payment is due (with the statement amount), and when a budget limit is hit (rescheduled on each launch; toggle in Settings).
@@ -74,7 +75,7 @@ Both jobs are gated on `github.event.repository.private == false`, so GitHub Act
 5) Tests: `flutter test` (runs against file-backed SQLite via `sqflite_common_ffi`; each test file isolates its own database with `DBService.dbNameOverride`).
 
 ## Configuration notes
-- App lock: toggle "App lock" in the More tab (persists `biometricEnabled` in SharedPreferences); falls back to device PIN and shows a retry lock screen instead of exiting on failure.
+- App lock: toggle "App lock" under More → Settings → Security, next to its auto-lock timer (persists `biometricEnabled` in SharedPreferences); falls back to device PIN and shows a retry lock screen instead of exiting on failure.
 - Backups to Drive: create OAuth credentials and configure the consent screen before shipping; current packages are present but require proper credentials.
 - Budgets: budgets are month- and category-scoped; adjust DB versioning if schema changes further.
 - Version: shown at the foot of the More tab and under Settings > About (tap to copy). Read from the installed package via `package_info_plus`, so it is correct for any build; CI additionally injects the commit SHA via `--dart-define`, which is appended only when known.

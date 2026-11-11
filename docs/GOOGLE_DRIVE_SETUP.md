@@ -14,7 +14,7 @@ you rotate to a new key, register the new key's SHA-1 instead.
 
 | Field | Value |
 |-------|-------|
-| **Package name** | `com.example.finance_tracker` |
+| **Package name** | `io.github.anandselvam04.financetracker` |
 | **SHA-1 fingerprint** | `7D:54:82:58:A6:0C:8D:AA:14:2C:B4:09:EF:CC:E6:2B:09:50:12:5E` |
 
 Then do sections **2, 3, 4** below (skip section 1 — the SHA-1 is already
@@ -54,8 +54,13 @@ people install:
 - For a real, shareable build, sign with a single **release keystore** and
   register that key's SHA-1 (set up `android/key.properties`).
 
-The app id is `com.example.finance_tracker` (see `applicationId` in
-`android/app/build.gradle.kts`). Change it to your own before publishing.
+The app id is `io.github.anandselvam04.financetracker` (see `applicationId` in
+`android/app/build.gradle.kts`). Until 1.50.0 it was the Flutter template's
+`com.example.finance_tracker`: an Android OAuth client registered under the
+old id no longer matches, so create a new one with this package name. A build
+with the new id also installs as a separate app beside the old one rather
+than updating it — back up in the old app, restore in the new, then uninstall
+the old.
 
 ## 1. Get the signing certificate SHA-1
 
@@ -98,7 +103,7 @@ Copy the `SHA1:` value.
 
 1. **APIs & Services → Credentials → Create credentials → OAuth client ID.**
 2. Application type: **Android**.
-3. Package name: `com.example.finance_tracker` (or your own app id).
+3. Package name: `io.github.anandselvam04.financetracker` (or your own app id).
 4. SHA-1: paste the value from step 1.
 5. Create.
 

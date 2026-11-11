@@ -109,9 +109,7 @@ class _DashboardView extends StatelessWidget {
             // is short enough not to overflow.
             physics: const AlwaysScrollableScrollPhysics(),
             child: Padding(
-              // fab: leave room so the last chart/total clears the FAB and the
-              // system nav bar instead of being hidden behind them.
-              padding: scrollPadding(context, all: 16, fab: true),
+              padding: scrollPadding(context, all: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [

@@ -122,7 +122,9 @@ class AppTheme {
         height: 68,
         backgroundColor: scheme.surface,
         indicatorColor: scheme.secondaryContainer,
-        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+        // Every tab named, not just the selected one: icons alone had to
+        // be learnt.
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
             color: states.contains(WidgetState.selected)

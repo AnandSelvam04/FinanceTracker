@@ -12,6 +12,7 @@ import 'package:finance_tracker/providers/settings_provider.dart';
 import 'package:finance_tracker/providers/template_provider.dart';
 import 'package:finance_tracker/services/db_service.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
+import 'package:finance_tracker/widgets/category_picker.dart';
 import 'package:finance_tracker/widgets/transaction_edit_sheet.dart';
 
 /// The shared edit sheet used by the Transactions list and the dashboard.
@@ -149,11 +150,17 @@ void main() {
     expect(find.text('Split transaction'), findsOneWidget);
 
     final amounts = find.widgetWithText(TextField, 'Amount');
-    final categories = find.widgetWithText(TextField, 'Category');
     await tester.enterText(amounts.at(0), '700');
-    await tester.enterText(categories.at(1), 'Gifts');
     await tester.enterText(amounts.at(1), '300');
     await tester.pump();
+    // The second part's category is picked from the list, where a new one
+    // is created by typing it.
+    await tester.tap(find.byType(CategoryPickerTile).at(1));
+    await settle(tester);
+    await tester.enterText(find.byType(TextField).last, 'Gifts');
+    await tester.pump();
+    await tester.tap(find.text('Create "Gifts"'));
+    await settle(tester);
     await tester.tap(find.text('Save split'));
     await settle(tester);
 
