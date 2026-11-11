@@ -29,11 +29,14 @@ class _EmptyState extends StatelessWidget {
       message = 'Android is holding the SMS permission back, so it cannot be '
           'granted from here. That happens when an app is installed from a '
           'file instead of a store: SMS is a restricted permission, and only '
-          'the installer can release it.\n\nTry App info, then the three-dot '
-          'menu, then "Allow restricted settings", and set Permissions > SMS '
-          'to Allow. If it stays greyed out, only reinstalling over USB with '
-          '"adb install -g" can lift it.\n\nEverything else in the app works '
-          'without it.';
+          'the installer can release it.\n\nTo release it: open the SMS '
+          'permission screen and tap the greyed-out "Allow" once, so Android '
+          'shows its "Restricted setting" notice. Go back to App info, open '
+          'the three-dot menu at the top right and choose "Allow restricted '
+          'settings" (the entry appears only after that notice). Then set '
+          'Permissions > SMS to Allow.\n\nIf the menu entry never appears, '
+          'only reinstalling over USB with "adb install -g" can lift it. '
+          'Everything else in the app works without it.';
     } else if (permissionDenied) {
       message = 'Finance Tracker needs permission to read SMS so it can find '
           'bank transaction alerts. Nothing is sent anywhere — messages are '
