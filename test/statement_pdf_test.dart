@@ -60,4 +60,36 @@ void main() {
     expect(String.fromCharCodes(bytes.take(4)), '%PDF');
     expect(file.path, endsWith('statement_2026_06.pdf'));
   });
+
+  test('a yearly statement adds month and category tables', () async {
+    final txns = [
+      for (var m = 1; m <= 12; m++) ...[
+        Expense(
+            description: 'Rent',
+            amount: 1500000,
+            date: DateTime(2025, m, 3),
+            category: 'Rent',
+            paymentMode: 'UPI'),
+        Expense(
+            description: 'Salary',
+            amount: 6000000,
+            date: DateTime(2025, m, 1),
+            category: 'Salary',
+            paymentMode: 'Other',
+            type: DbConstants.txIncome),
+      ],
+    ];
+    final plain = await StatementPdf.build(
+        title: 'Statement', periodLabel: '2025-plain', transactions: txns);
+    final yearly = await StatementPdf.build(
+        title: 'Year in review',
+        periodLabel: '2025',
+        transactions: txns,
+        breakdown: true);
+    final bytes = await yearly.readAsBytes();
+    expect(String.fromCharCodes(bytes.take(4)), '%PDF');
+    expect(yearly.path, endsWith('statement_2025.pdf'));
+    // The two extra tables make it the longer document.
+    expect(bytes.length, greaterThan((await plain.readAsBytes()).length));
+  });
 }

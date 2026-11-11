@@ -15,6 +15,7 @@ import '../providers/settings_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
 import '../services/db_service.dart';
+import '../services/excel_export.dart';
 import 'import_screen.dart';
 import '../utils/app_colors.dart';
 import '../utils/date_format.dart';
@@ -451,8 +452,11 @@ class _BackupsScreenState extends State<BackupsScreen> {
     }
   }
 
-  String _mimeFor(String path) =>
-      path.endsWith('.json') ? 'application/json' : 'text/csv';
+  String _mimeFor(String path) => path.endsWith('.json')
+      ? 'application/json'
+      : path.endsWith('.xlsx')
+          ? ExcelExport.mimeType
+          : 'text/csv';
 
   /// Prompts for a passphrase. When [confirm] is set, requires it to be typed
   /// twice and warns that a lost passphrase is unrecoverable. Returns null if
@@ -791,6 +795,16 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     enabled: !_isWorking,
                     onTap: () => _exportAndShare(exportInvestmentsToCsv,
                         'Finance Tracker — Investments'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.table_view),
+                    title: const Text('Download everything (Excel)'),
+                    subtitle: const Text(
+                        'Transactions, categories, months and investments '
+                        'as sheets'),
+                    enabled: !_isWorking,
+                    onTap: () => _exportAndShare(ExcelExport.writeEverything,
+                        'Finance Tracker — Excel export'),
                   ),
                   ListTile(
                     leading: const Icon(Icons.download),

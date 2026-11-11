@@ -82,7 +82,8 @@ class _MoreScreenState extends State<MoreScreen> {
             _MenuTile(
               icon: Icons.summarize,
               color: _MenuColors.blue,
-              title: 'Monthly Summary',
+              title: 'Reports',
+              subtitle: 'Week, month, year or any dates · PDF and Excel',
               onTap: () => _open(const MonthlySummaryScreen()),
             ),
             _MenuTile(
