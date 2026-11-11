@@ -63,8 +63,7 @@ void main() {
     expect(drive.uploads, ['correct horse battery']);
   });
 
-  test('never uploads in plaintext while the database is encrypted',
-      () async {
+  test('never uploads in plaintext while the database is encrypted', () async {
     drive.encrypted = true;
     expect(await drive.policy(now).run(), AutoDriveStatus.needsPassphrase);
     expect(drive.uploads, isEmpty);
@@ -76,8 +75,7 @@ void main() {
     expect(drive.uploads, isEmpty);
   });
 
-  test('skips when it cannot tell whether Drive holds a newer copy',
-      () async {
+  test('skips when it cannot tell whether Drive holds a newer copy', () async {
     drive.remoteCheckError = Exception('offline');
     expect(await drive.policy(now).run(), AutoDriveStatus.failed);
     expect(drive.uploads, isEmpty);
@@ -89,8 +87,7 @@ void main() {
     expect(drive.uploads, isEmpty);
   });
 
-  test('after a try that did not upload, waits before trying again',
-      () async {
+  test('after a try that did not upload, waits before trying again', () async {
     drive.remoteCheckError = Exception('offline');
     await drive.policy(now).run();
     drive.remoteCheckError = null;

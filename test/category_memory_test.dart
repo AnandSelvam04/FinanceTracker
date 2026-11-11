@@ -3,7 +3,8 @@ import 'package:finance_tracker/services/category_memory.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
 
 void main() {
-  Map<String, Object?> row(String description, String category, {int n = 1}) => {
+  Map<String, Object?> row(String description, String category, {int n = 1}) =>
+      {
         DbConstants.colDescription: description,
         DbConstants.colCategory: category,
         'n': n,

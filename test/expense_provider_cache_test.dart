@@ -98,8 +98,7 @@ void main() {
     expect(rated, isNot(unrated));
   });
 
-  test('concurrent loads of the same year keep one copy of each row',
-      () async {
+  test('concurrent loads of the same year keep one copy of each row', () async {
     await add(10000);
 
     // The dashboard and a pushed screen can both ask for the current year

@@ -79,8 +79,7 @@ CreditCardCycle computeCreditCardCycle({
   // statement date (same month when dueDay >= statementDay, otherwise next).
   var dueDate = _dateWithDay(statementDate.year, statementDate.month, dueDay);
   if (dueDate.isBefore(statementDate)) {
-    dueDate =
-        _dateWithDay(statementDate.year, statementDate.month + 1, dueDay);
+    dueDate = _dateWithDay(statementDate.year, statementDate.month + 1, dueDay);
   }
 
   return CreditCardCycle(
@@ -104,9 +103,8 @@ CreditCardCycle computeCreditCardCycle({
   final today = DateTime(day.year, day.month, day.day);
   final now = computeCreditCardCycle(
       statementDay: statementDay, dueDay: dueDay, now: today);
-  final statement = now.statementDate == today
-      ? now.statementDate
-      : now.nextStatementDate;
+  final statement =
+      now.statementDate == today ? now.statementDate : now.nextStatementDate;
   final due = computeCreditCardCycle(
           statementDay: statementDay, dueDay: dueDay, now: statement)
       .dueDate;

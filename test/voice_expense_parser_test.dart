@@ -43,7 +43,8 @@ void main() {
   });
 
   test('bare "<thing> <amount>" fills a description without a category', () {
-    final r = VoiceExpenseParser.parse('coffee 120', knownCategories: categories);
+    final r =
+        VoiceExpenseParser.parse('coffee 120', knownCategories: categories);
     expect(r.amountMinor, 12000);
     expect(r.category, isNull);
     expect(r.description, 'Coffee');

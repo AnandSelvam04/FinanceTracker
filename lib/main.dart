@@ -1,3 +1,5 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,11 +15,13 @@ import 'package:finance_tracker/screens/home_screen.dart';
 import 'package:finance_tracker/screens/onboarding_screen.dart';
 import 'package:finance_tracker/services/auth_service.dart';
 import 'package:finance_tracker/services/notification_service.dart';
+import 'package:finance_tracker/utils/app_logger.dart';
 import 'package:finance_tracker/utils/app_theme.dart';
 import 'package:finance_tracker/utils/build_info.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  installErrorLogging();
   final prefs = await SharedPreferences.getInstance();
   final seenOnboarding = prefs.getBool('seenOnboarding') ?? false;
   final settings = SettingsProvider();
@@ -29,6 +33,25 @@ void main() async {
     settings: settings,
     seenOnboarding: seenOnboarding,
   ));
+}
+
+/// Sends errors nothing caught to [AppLogger].
+///
+/// Without this an exception in an un-awaited future (a provider load fired
+/// from initState, a listener) left no trace in the log, and one thrown while
+/// building or laying out a widget was only printed by the framework.
+void installErrorLogging() {
+  final presentError = FlutterError.onError;
+  FlutterError.onError = (details) {
+    // Keep the framework's own report (the console dump in debug builds).
+    presentError?.call(details);
+    AppLogger.error('Uncaught Flutter error', details.exception, details.stack);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    AppLogger.error('Uncaught error', error, stack);
+    // Handled: there is nothing more useful the engine could do with it.
+    return true;
+  };
 }
 
 class FinanceTrackerApp extends StatelessWidget {

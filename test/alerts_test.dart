@@ -112,8 +112,8 @@ void main() {
         ],
         now: now,
       );
-      expect(alerts.map((a) => a.description).toList(),
-          ['Phone', 'Gym', 'Rent']);
+      expect(
+          alerts.map((a) => a.description).toList(), ['Phone', 'Gym', 'Rent']);
       expect(alerts.first.isOverdue, isTrue);
       expect(alerts[1].isToday, isTrue);
     });
@@ -150,13 +150,12 @@ void main() {
     // today". Counting in UTC removes the irregular days entirely.
     test('counts whole calendar days regardless of time of day', () {
       expect(
-          calendarDaysBetween(DateTime(2026, 7, 14, 23, 59),
-              DateTime(2026, 7, 15, 0, 1)),
+          calendarDaysBetween(
+              DateTime(2026, 7, 14, 23, 59), DateTime(2026, 7, 15, 0, 1)),
           1);
       expect(
           calendarDaysBetween(DateTime(2026, 7, 14), DateTime(2026, 7, 14)), 0);
-      expect(
-          calendarDaysBetween(DateTime(2026, 7, 14), DateTime(2026, 7, 11)),
+      expect(calendarDaysBetween(DateTime(2026, 7, 14), DateTime(2026, 7, 11)),
           -3);
     });
 
@@ -164,8 +163,7 @@ void main() {
       // US transitions in 2026: 8 March and 1 November.
       expect(
           calendarDaysBetween(DateTime(2026, 3, 7), DateTime(2026, 3, 9)), 2);
-      expect(
-          calendarDaysBetween(DateTime(2026, 10, 31), DateTime(2026, 11, 2)),
+      expect(calendarDaysBetween(DateTime(2026, 10, 31), DateTime(2026, 11, 2)),
           2);
       // ...and across the EU transitions: 29 March and 25 October.
       expect(

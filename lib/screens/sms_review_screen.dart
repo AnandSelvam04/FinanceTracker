@@ -738,4 +738,3 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
     );
   }
 }
-

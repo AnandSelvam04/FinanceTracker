@@ -25,7 +25,9 @@ void main() {
     await tester.pump();
 
     final padding = tester.widget<Padding>(
-      find.ancestor(of: find.text('General'), matching: find.byType(Padding)).first,
+      find
+          .ancestor(of: find.text('General'), matching: find.byType(Padding))
+          .first,
     );
     expect(padding.padding, const EdgeInsets.fromLTRB(16, 16, 16, 4));
   });

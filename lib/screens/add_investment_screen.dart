@@ -316,7 +316,8 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                             final enteredName = _nameController.text.trim();
                             // The field holds a positive magnitude; a withdrawal
                             // is stored negative so the type total drops.
-                            final magnitude = parseMinor(_amountController.text)!;
+                            final magnitude =
+                                parseMinor(_amountController.text)!;
                             final signedAmount =
                                 _isWithdrawal ? -magnitude : magnitude;
                             final investment = Investment(
@@ -352,10 +353,11 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                                 // it in the past made the catch-up post every
                                 // month in between at once — months the user
                                 // usually logs (or already logged) by hand.
-                                final today = DateUtils.dateOnly(DateTime.now());
+                                final today =
+                                    DateUtils.dateOnly(DateTime.now());
                                 while (next.isBefore(today)) {
-                                  next = RecurringService.nextDate(next,
-                                      DbConstants.freqMonthly, anchorDay);
+                                  next = RecurringService.nextDate(
+                                      next, DbConstants.freqMonthly, anchorDay);
                                 }
                                 // A blank name falls back to the instrument type,
                                 // not the month-stamped default — otherwise every

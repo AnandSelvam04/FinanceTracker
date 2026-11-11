@@ -78,7 +78,6 @@ void main() {
         .map(provider.baseAmountOf)
         .fold<int>(0, (a, b) => a + b);
     expect(provider.spentForCategoryInMonth(2026, 5, 'Travel'), expected);
-    expect(provider.spentForCategoryInMonth(2026, 5, 'Travel'),
-        isNot(10000));
+    expect(provider.spentForCategoryInMonth(2026, 5, 'Travel'), isNot(10000));
   });
 }

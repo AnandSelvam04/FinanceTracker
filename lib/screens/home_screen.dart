@@ -131,6 +131,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await budgetProvider.fetchBudgets();
       await budgetProvider.carryForwardIfEmpty(DateTime.now());
       await _postRecurring();
+      // Receipt photos whose transactions are gone. Once per launch only, and
+      // not from _postRecurring (which also runs on every resume and rule
+      // change): a deleted transaction keeps its photo for as long as its
+      // Undo can still bring it back. Not awaited, so it never blocks the
+      // dashboard.
+      unawaited(ReceiptStore.prune().catchError((Object _) => 0));
       // Safety net: keep a fresh local backup even if the user never
       // taps "Backup" (data otherwise lives only on this device).
       await BackupService().autoBackupIfDue();
@@ -244,8 +250,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final posted = await RecurringService.instance.postDueTransactions() +
         // Card EMI instalments fall due the same way.
         await EmiService.postDue();
-    // Receipt photos whose transactions are gone. Never blocks the dashboard.
-    ReceiptStore.prune().catchError((Object _) => 0);
     if (posted > 0) {
       await expenseProvider.reloadLoadedYears();
       await accountProvider.refreshBalances();
@@ -531,4 +535,3 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 }
-

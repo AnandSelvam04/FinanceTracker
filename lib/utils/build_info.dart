@@ -35,8 +35,7 @@ class BuildInfo {
     try {
       final info = await PackageInfo.fromPlatform();
       final build = info.buildNumber;
-      _packageVersion =
-          build.isEmpty ? info.version : '${info.version}+$build';
+      _packageVersion = build.isEmpty ? info.version : '${info.version}+$build';
     } catch (e, s) {
       AppLogger.error('Reading the package version failed', e, s);
     }

@@ -99,15 +99,15 @@ class RecurringService {
         var due = rule.nextDue;
         // Catch-up: one due date per elapsed period.
         final dueDates = <DateTime>[];
-        while (!due.isAfter(endLimit) &&
-            dueDates.length < maxOccurrencesPerRun) {
+        while (
+            !due.isAfter(endLimit) && dueDates.length < maxOccurrencesPerRun) {
           dueDates.add(due);
           due = nextDate(due, rule.frequency, rule.anchorDay);
         }
         // The rule is done once its next occurrence would fall past the end
         // date; disable it so it stops being considered on later launches.
-        final finished = rule.endDate != null &&
-            due.isAfter(_endOfDay(rule.endDate!));
+        final finished =
+            rule.endDate != null && due.isAfter(_endOfDay(rule.endDate!));
         if (dueDates.isEmpty) {
           if (finished) {
             await db.postRecurringOccurrences(

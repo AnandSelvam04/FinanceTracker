@@ -806,4 +806,3 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     return firstAppearance ? FadeSlideIn(child: row) : row;
   }
 }
-

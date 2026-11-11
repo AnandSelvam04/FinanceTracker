@@ -25,6 +25,7 @@ import '../utils/db_constants.dart';
 import 'auto_drive_backup.dart';
 import 'backup_crypto.dart';
 import 'db_service.dart';
+import 'receipt_store.dart';
 
 export 'auto_drive_backup.dart' show AutoDriveStatus;
 
@@ -639,7 +640,21 @@ class BackupService {
     if (clearBeforeRestore && data['settings'] is Map) {
       await SettingsProvider.importFromBackup(data['settings'] as Map);
     }
+    // Backups hold a receipt photo's path, not the image. Where the image
+    // isn't on this phone (a new phone, a reinstall), take the mark off the
+    // transaction instead of leaving a paperclip that opens to nothing. The
+    // restore itself has succeeded, so a failure here is only logged.
+    try {
+      missingReceiptPhotos = await ReceiptStore.forgetMissing();
+    } catch (e, st) {
+      AppLogger.error(
+          'Could not check receipt photos after the restore', e, st);
+    }
   }
+
+  /// How many transactions in the last restore had a receipt photo that is
+  /// not on this device, so the screen can say they came back without one.
+  int missingReceiptPhotos = 0;
 
   /// Parses a validated backup payload into per-table row maps, running every
   /// row through its model so a corrupt row throws here rather than reaching
@@ -920,8 +935,9 @@ class BackupService {
     // on-device auto-backup with a copy this phone may not be able to open.
     final file = File('${await _localPath}/finance_backup_drive.json');
     await file.writeAsString(content);
+    final DateTime? modified;
     try {
-      await _uploadToDrive(driveApi, file);
+      modified = await _uploadToDrive(driveApi, file);
     } finally {
       try {
         await file.delete();
@@ -931,11 +947,32 @@ class BackupService {
     }
 
     await _markBackedUp(offDevice: true);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kLastDriveBackup, DateTime.now().toIso8601String());
+    await _markInStepWithDrive(modified);
   }
 
-  Future<void> _uploadToDrive(drive.DriveApi driveApi, File file) async {
+  /// Records that this phone and the Drive copy now agree, as of
+  /// [driveModified] — the time Drive itself stamped on the file.
+  ///
+  /// [_remoteNewerThanThisPhone] compares this against Drive's modified time,
+  /// so it has to come from the same clock. Stamping the phone's own time
+  /// meant a phone running even a few seconds slow saw its own upload as a
+  /// newer copy from another phone: the automatic backup then refused to
+  /// overwrite it, and the manual one warned every time. The phone's clock is
+  /// only the fallback when Drive doesn't report a time.
+  static Future<void> _markInStepWithDrive(DateTime? driveModified) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kLastDriveBackup,
+        driveStamp(driveModified, DateTime.now()).toIso8601String());
+  }
+
+  /// The time to remember for a Drive copy last modified at [driveModified],
+  /// in local time like the other backup stamps.
+  static DateTime driveStamp(DateTime? driveModified, DateTime now) =>
+      (driveModified ?? now).toLocal();
+
+  /// Uploads [file] as the Drive copy and returns the modified time Drive
+  /// gave it.
+  Future<DateTime?> _uploadToDrive(drive.DriveApi driveApi, File file) async {
     final length = await file.length();
 
     // Update the existing Drive copy in place (instead of creating a new
@@ -951,17 +988,20 @@ class BackupService {
     final existingFiles = existing.files ?? const <drive.File>[];
 
     if (existingFiles.isEmpty) {
-      await driveApi.files.create(
+      final created = await driveApi.files.create(
         drive.File()
           ..name = 'finance_backup.json'
           ..parents = ['appDataFolder'],
         uploadMedia: drive.Media(file.openRead(), length),
+        $fields: 'id, modifiedTime',
       );
+      return created.modifiedTime;
     } else {
-      await driveApi.files.update(
+      final updated = await driveApi.files.update(
         drive.File()..name = 'finance_backup.json',
         existingFiles.first.id!,
         uploadMedia: drive.Media(file.openRead(), length),
+        $fields: 'id, modifiedTime',
       );
       for (final stale in existingFiles.skip(1)) {
         final id = stale.id;
@@ -972,6 +1012,7 @@ class BackupService {
           AppLogger.error('Failed to delete stale Drive backup', e);
         }
       }
+      return updated.modifiedTime;
     }
   }
 
@@ -1042,6 +1083,7 @@ class BackupService {
       q: "name = 'finance_backup.json' and trashed = false",
       orderBy: 'modifiedTime desc',
       pageSize: 1,
+      $fields: 'files(id, modifiedTime)',
     );
 
     if (fileList.files == null || fileList.files!.isEmpty) {
@@ -1049,6 +1091,7 @@ class BackupService {
     }
 
     final fileId = fileList.files!.first.id;
+    final remoteModified = fileList.files!.first.modifiedTime;
     if (fileId == null) {
       throw Exception('Invalid backup file id');
     }
@@ -1085,9 +1128,7 @@ class BackupService {
       await backupToJson(deviceKey: await DBService().deviceKeyIfEncrypted());
       // This device now matches the Drive copy: backing up again straight
       // away is not overwriting someone else's newer data.
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-          _kLastDriveBackup, DateTime.now().toIso8601String());
+      await _markInStepWithDrive(remoteModified);
       await _clearAutoDriveProblem();
     } finally {
       if (await temp.exists()) {

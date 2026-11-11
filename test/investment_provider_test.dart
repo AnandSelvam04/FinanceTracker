@@ -141,25 +141,13 @@ void main() {
     test('breakdownByPeriod groups weekly (Monday) and yearly', () async {
       // 2026-07-20 is a Monday; 07-22 is the same ISO week; 07-27 next week.
       await provider.addInvestment(Investment(
-          name: 'a',
-          amount: 1000,
-          date: DateTime(2026, 7, 20),
-          type: 'Gold'));
+          name: 'a', amount: 1000, date: DateTime(2026, 7, 20), type: 'Gold'));
       await provider.addInvestment(Investment(
-          name: 'b',
-          amount: 2000,
-          date: DateTime(2026, 7, 22),
-          type: 'Gold'));
+          name: 'b', amount: 2000, date: DateTime(2026, 7, 22), type: 'Gold'));
       await provider.addInvestment(Investment(
-          name: 'c',
-          amount: 4000,
-          date: DateTime(2026, 7, 27),
-          type: 'Gold'));
+          name: 'c', amount: 4000, date: DateTime(2026, 7, 27), type: 'Gold'));
       await provider.addInvestment(Investment(
-          name: 'd',
-          amount: 8000,
-          date: DateTime(2025, 3, 1),
-          type: 'Gold'));
+          name: 'd', amount: 8000, date: DateTime(2025, 3, 1), type: 'Gold'));
 
       final weekly =
           provider.breakdownByPeriod('Gold', InvestmentPeriod.weekly);
@@ -174,8 +162,7 @@ void main() {
       expect(yearly['2025']!.length, 1);
     });
 
-    test(
-        'breakdownByName groups a type by fund name, largest total first',
+    test('breakdownByName groups a type by fund name, largest total first',
         () async {
       // Two contributions to one fund, one to another, plus a fund in a
       // different type that must not leak into the Mutual Funds breakdown.
@@ -235,8 +222,7 @@ void main() {
       expect(byName.keys.toList(), ['Alpha Fund', 'Zebra Fund']);
     });
 
-    test(
-        'usedNames scopes to a type, ranks by frequency then alphabetically',
+    test('usedNames scopes to a type, ranks by frequency then alphabetically',
         () async {
       // Nifty 50 twice, Nifty Midcap once, all under Mutual Funds. A Gold
       // holding must not leak into the Mutual Funds suggestions.
@@ -273,15 +259,9 @@ void main() {
 
     test('reassignType moves every contribution to the new type', () async {
       await provider.addInvestment(Investment(
-          name: 'a',
-          amount: 100000,
-          date: DateTime(2026, 1, 1),
-          type: 'Gold'));
+          name: 'a', amount: 100000, date: DateTime(2026, 1, 1), type: 'Gold'));
       await provider.addInvestment(Investment(
-          name: 'b',
-          amount: 250000,
-          date: DateTime(2026, 1, 2),
-          type: 'Gold'));
+          name: 'b', amount: 250000, date: DateTime(2026, 1, 2), type: 'Gold'));
       await provider.addInvestment(Investment(
           name: 'c',
           amount: 50000,
@@ -325,10 +305,7 @@ void main() {
 
     test('current values: set, total, cleared by a type merge', () async {
       await provider.addInvestment(Investment(
-          name: 'a',
-          amount: 100000,
-          date: DateTime(2026, 1, 1),
-          type: 'Gold'));
+          name: 'a', amount: 100000, date: DateTime(2026, 1, 1), type: 'Gold'));
       await provider.addInvestment(Investment(
           name: 'b',
           amount: 50000,
@@ -368,10 +345,7 @@ void main() {
     test('reassignType with the same source and target moves nothing',
         () async {
       await provider.addInvestment(Investment(
-          name: 'a',
-          amount: 100000,
-          date: DateTime(2026, 1, 1),
-          type: 'Gold'));
+          name: 'a', amount: 100000, date: DateTime(2026, 1, 1), type: 'Gold'));
 
       final moved = await provider.reassignType('Gold', 'Gold');
 
@@ -394,27 +368,19 @@ void main() {
       ));
 
       expect(provider.totalInvested, 300000);
-      final stocks = provider.totalsByType().firstWhere((e) => e.key == 'Stocks');
+      final stocks =
+          provider.totalsByType().firstWhere((e) => e.key == 'Stocks');
       expect(stocks.value, 300000);
       expect(provider.ofType('Stocks').any((i) => i.isWithdrawal), isTrue);
     });
 
     test('usedTypes returns distinct types sorted', () async {
       await provider.addInvestment(Investment(
-          name: 'a',
-          amount: 1000,
-          date: DateTime(2026, 1, 1),
-          type: 'Crypto'));
+          name: 'a', amount: 1000, date: DateTime(2026, 1, 1), type: 'Crypto'));
       await provider.addInvestment(Investment(
-          name: 'b',
-          amount: 1000,
-          date: DateTime(2026, 1, 2),
-          type: 'Gold'));
+          name: 'b', amount: 1000, date: DateTime(2026, 1, 2), type: 'Gold'));
       await provider.addInvestment(Investment(
-          name: 'c',
-          amount: 1000,
-          date: DateTime(2026, 1, 3),
-          type: 'Crypto'));
+          name: 'c', amount: 1000, date: DateTime(2026, 1, 3), type: 'Crypto'));
 
       expect(provider.usedTypes(), ['Crypto', 'Gold']);
     });

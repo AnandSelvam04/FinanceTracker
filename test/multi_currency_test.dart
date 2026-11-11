@@ -24,7 +24,11 @@ void main() {
 
     test('Account round-trips currency and rate through toMap/fromMap', () {
       final a = Account(
-          name: 'US', type: 'bank', openingBalance: 5000, currency: '\$', rate: 83);
+          name: 'US',
+          type: 'bank',
+          openingBalance: 5000,
+          currency: '\$',
+          rate: 83);
       final restored = Account.fromMap(a.toMap());
       expect(restored.currency, '\$');
       expect(restored.rate, 83);
@@ -78,8 +82,8 @@ void main() {
         },
       ),
     );
-    await v6.insert('accounts',
-        {'name': 'Cash', 'type': 'cash', 'openingBalance': 5000});
+    await v6.insert(
+        'accounts', {'name': 'Cash', 'type': 'cash', 'openingBalance': 5000});
     await v6.insert('expenses', {
       'description': 'Old transfer',
       'amount': 700,
@@ -107,8 +111,7 @@ void main() {
     expect(expenses.single.receivedAmount, 700);
   });
 
-  test('cross-currency transfer credits the destination-side amount',
-      () async {
+  test('cross-currency transfer credits the destination-side amount', () async {
     // The previous test left the singleton on the synthetic v6 database;
     // reopen on a fresh full-schema database.
     await DBService().close();

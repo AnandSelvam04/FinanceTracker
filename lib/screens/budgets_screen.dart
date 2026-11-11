@@ -422,6 +422,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             final carry = budgetProvider.carryFor(b, expenseProvider);
             return carry == 0 ? null : carry;
           }
+
           final categoryBudgets = budgetProvider.categoryBudgets
               .where((b) => b.year == _viewYear && b.month == _viewMonth)
               .toList()

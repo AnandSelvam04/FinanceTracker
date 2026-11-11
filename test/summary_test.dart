@@ -40,7 +40,8 @@ void main() {
   test('savings rate and net across income/expense', () async {
     final db = DBService();
     final date = DateTime(2026, 6, 10);
-    await db.insertExpense(e(10000, 'Salary', date, type: DbConstants.txIncome));
+    await db
+        .insertExpense(e(10000, 'Salary', date, type: DbConstants.txIncome));
     await db.insertExpense(e(4000, 'Rent', date));
     await db.insertExpense(e(1000, 'Food', date));
 
@@ -80,8 +81,7 @@ void main() {
 
     final totals = provider.categoryTotalsForMonth(2026, 8).entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    expect(totals.map((e) => e.key).toList(),
-        ['Rent', 'Transport', 'Food']);
+    expect(totals.map((e) => e.key).toList(), ['Rent', 'Transport', 'Food']);
   });
 
   test('month-over-month comparison works across a year boundary', () async {

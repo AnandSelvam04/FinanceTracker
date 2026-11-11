@@ -33,8 +33,18 @@ class ReceiptParser {
       caseSensitive: false);
 
   static const _months = {
-    'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-    'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12,
+    'jan': 1,
+    'feb': 2,
+    'mar': 3,
+    'apr': 4,
+    'may': 5,
+    'jun': 6,
+    'jul': 7,
+    'aug': 8,
+    'sep': 9,
+    'oct': 10,
+    'nov': 11,
+    'dec': 12,
   };
 
   /// Parses [rawText] (ML Kit's line-broken output) into a [ParsedReceipt].
@@ -138,25 +148,25 @@ class ReceiptParser {
     }
 
     // "12 Aug 2025" / "12-Aug-25".
-    final dMonY = RegExp(
-            r'\b(\d{1,2})[\s\-]*([A-Za-z]{3,})[\s\-,]*(\d{2,4})\b')
+    final dMonY = RegExp(r'\b(\d{1,2})[\s\-]*([A-Za-z]{3,})[\s\-,]*(\d{2,4})\b')
         .firstMatch(text);
     if (dMonY != null) {
       final mon = _months[dMonY.group(2)!.toLowerCase().substring(0, 3)];
       if (mon != null) {
-        final d = _build(_year(dMonY.group(3)!), mon, int.parse(dMonY.group(1)!));
+        final d =
+            _build(_year(dMonY.group(3)!), mon, int.parse(dMonY.group(1)!));
         if (d != null) return d;
       }
     }
 
     // "Aug 12, 2025".
-    final monDY = RegExp(
-            r'\b([A-Za-z]{3,})[\s\-]*(\d{1,2})[\s\-,]*(\d{2,4})\b')
+    final monDY = RegExp(r'\b([A-Za-z]{3,})[\s\-]*(\d{1,2})[\s\-,]*(\d{2,4})\b')
         .firstMatch(text);
     if (monDY != null) {
       final mon = _months[monDY.group(1)!.toLowerCase().substring(0, 3)];
       if (mon != null) {
-        final d = _build(_year(monDY.group(3)!), mon, int.parse(monDY.group(2)!));
+        final d =
+            _build(_year(monDY.group(3)!), mon, int.parse(monDY.group(2)!));
         if (d != null) return d;
       }
     }

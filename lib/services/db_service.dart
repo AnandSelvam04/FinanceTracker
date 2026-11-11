@@ -161,7 +161,7 @@ class DBService {
       // Test path: plaintext, driven by the injected ffi factory.
       final path = join(await factory.getDatabasesPath(),
           dbNameOverride ?? DbConstants.dbName);
-      return factory.openDatabase(
+      final db = await factory.openDatabase(
         path,
         options: OpenDatabaseOptions(
           version: DbConstants.dbVersion,
@@ -169,16 +169,20 @@ class DBService {
           onUpgrade: DbSchema.onUpgrade,
         ),
       );
+      await _recoverInterruptedMigration(db);
+      return db;
     }
     // Production path: SQLCipher; encrypted when the user has opted in.
     final path = join(await getDatabasesPath(), DbConstants.dbName);
-    return openDatabase(
+    final db = await openDatabase(
       path,
       password: await _password(),
       version: DbConstants.dbVersion,
       onCreate: DbSchema.onCreate,
       onUpgrade: DbSchema.onUpgrade,
     );
+    await _recoverInterruptedMigration(db);
+    return db;
   }
 
   Future<void> clearAll() async {
@@ -275,13 +279,88 @@ class DBService {
     return true;
   }
 
-  Future<String> get _snapshotPath async =>
-      join(await getDatabasesPath(), 'finance_pre_migration.json');
+  /// The snapshot sits beside the database. Named after it in tests, so each
+  /// test file's database has its own.
+  Future<String> get _snapshotPath async {
+    final dir = await (testFactory?.getDatabasesPath() ?? getDatabasesPath());
+    final override = dbNameOverride;
+    return join(
+        dir,
+        override == null
+            ? 'finance_pre_migration.json'
+            : '$override.pre_migration.json');
+  }
 
   Future<void> _writeSafetySnapshot(
       Map<String, List<Map<String, Object?>>> data) async {
-    await File(await _snapshotPath).writeAsString(jsonEncode(data));
+    // Flushed: the database is deleted next, and from then until the copy is
+    // verified this file is the only place the data lives.
+    await File(await _snapshotPath)
+        .writeAsString(jsonEncode(data), flush: true);
   }
+
+  /// Set while [enableEncryption] / [disableEncryption] run. They reopen the
+  /// database themselves and copy the snapshot in; the recovery below must
+  /// not get there first.
+  bool _migrating = false;
+
+  /// Finishes a cipher migration that was cut short.
+  ///
+  /// The migration deletes the database and then refills a fresh one from the
+  /// snapshot. If the app was killed in between, this launch opens an empty
+  /// database while every row sits in the snapshot file: put them back. A
+  /// snapshot found next to a database that still has its data is a leftover
+  /// (the app died before the delete), so it is only removed — it is a
+  /// plaintext copy of everything.
+  ///
+  /// Never throws: a snapshot that can't be read is kept and logged, so the
+  /// data is still on disk for a later attempt.
+  Future<void> _recoverInterruptedMigration(Database db) async {
+    if (_migrating) return;
+    try {
+      final file = File(await _snapshotPath);
+      if (!await file.exists()) return;
+      var empty = true;
+      for (final t in _allTables) {
+        if ((await db.query(t, limit: 1)).isNotEmpty) {
+          empty = false;
+          break;
+        }
+      }
+      if (empty) {
+        final decoded = jsonDecode(await file.readAsString()) as Map;
+        await _restoreAllTables(db, {
+          for (final t in _allTables)
+            t: [
+              for (final row in decoded[t] as List? ?? const [])
+                Map<String, Object?>.from(row as Map),
+            ],
+        });
+        AppLogger.info('Restored the data of an interrupted cipher migration');
+      }
+    } catch (e, st) {
+      AppLogger.error(
+          'Could not recover from the pre-migration snapshot; keeping it',
+          e,
+          st);
+      return;
+    }
+    await _deleteSafetySnapshot();
+  }
+
+  /// Test hook: leaves the database as a cipher migration killed part-way
+  /// would — its rows only in the snapshot, the tables empty (or, with
+  /// [wipe] false, still full) — and closes it.
+  Future<void> debugInterruptMigration({bool wipe = true}) async {
+    final db = await database;
+    await _writeSafetySnapshot(await _dumpAllTables(db));
+    if (wipe) await clearAll();
+    await close();
+  }
+
+  /// Test hook: whether a pre-migration snapshot is on disk.
+  Future<bool> debugSnapshotExists() async =>
+      File(await _snapshotPath).exists();
 
   /// Removes the plaintext pre-migration snapshot once a cipher migration has
   /// been verified, so no readable copy of the data is left on disk.
@@ -312,30 +391,39 @@ class DBService {
       throw Exception('Encryption is not available in test mode');
     }
     if (await isEncryptionEnabled()) return;
-    final snapshot = await _dumpAllTables(await database);
-    await _writeSafetySnapshot(snapshot);
-    final path = join(await getDatabasesPath(), DbConstants.dbName);
-    await close();
-    await deleteDatabase(path);
-    await _getOrCreateKey();
-    await _secureStorage.write(key: _kEncEnabledFlag, value: 'true');
+    _migrating = true;
     try {
-      final enc = await database; // reopens encrypted via _password()
-      await _restoreAllTables(enc, snapshot);
-      if (!_sameCounts(snapshot, await _dumpAllTables(enc))) {
-        throw Exception('Row-count verification failed after encryption');
-      }
-    } catch (e) {
-      // Roll back to plaintext — no data loss.
-      await _secureStorage.write(key: _kEncEnabledFlag, value: 'false');
+      final snapshot = await _dumpAllTables(await database);
+      await _writeSafetySnapshot(snapshot);
+      final path = join(await getDatabasesPath(), DbConstants.dbName);
       await close();
       await deleteDatabase(path);
-      await _restoreAllTables(await database, snapshot);
-      rethrow;
+      await _getOrCreateKey();
+      await _secureStorage.write(key: _kEncEnabledFlag, value: 'true');
+      try {
+        final enc = await database; // reopens encrypted via _password()
+        await _restoreAllTables(enc, snapshot);
+        if (!_sameCounts(snapshot, await _dumpAllTables(enc))) {
+          throw Exception('Row-count verification failed after encryption');
+        }
+      } catch (e) {
+        // Roll back to plaintext — no data loss. The file goes before the
+        // flag changes, so a kill in between never leaves an encrypted file
+        // the flag says is plaintext; the next launch finds no file, creates
+        // one and refills it from the snapshot.
+        await close();
+        await deleteDatabase(path);
+        await _secureStorage.write(key: _kEncEnabledFlag, value: 'false');
+        await _restoreAllTables(await database, snapshot);
+        await _deleteSafetySnapshot();
+        rethrow;
+      }
+      // Success: don't leave a plaintext copy of the data next to the
+      // freshly encrypted database.
+      await _deleteSafetySnapshot();
+    } finally {
+      _migrating = false;
     }
-    // Success: don't leave a plaintext copy of the data next to the
-    // freshly encrypted database.
-    await _deleteSafetySnapshot();
   }
 
   /// Reverses [enableEncryption], returning the database to plaintext with the
@@ -345,25 +433,32 @@ class DBService {
       throw Exception('Encryption is not available in test mode');
     }
     if (!await isEncryptionEnabled()) return;
-    final snapshot = await _dumpAllTables(await database);
-    await _writeSafetySnapshot(snapshot);
-    final path = join(await getDatabasesPath(), DbConstants.dbName);
-    await close();
-    await deleteDatabase(path);
-    await _secureStorage.write(key: _kEncEnabledFlag, value: 'false');
+    _migrating = true;
     try {
-      final plain = await database; // reopens plaintext
-      await _restoreAllTables(plain, snapshot);
-      if (!_sameCounts(snapshot, await _dumpAllTables(plain))) {
-        throw Exception('Row-count verification failed after decryption');
-      }
-    } catch (e) {
-      await _secureStorage.write(key: _kEncEnabledFlag, value: 'true');
+      final snapshot = await _dumpAllTables(await database);
+      await _writeSafetySnapshot(snapshot);
+      final path = join(await getDatabasesPath(), DbConstants.dbName);
       await close();
       await deleteDatabase(path);
-      await _restoreAllTables(await database, snapshot);
-      rethrow;
+      await _secureStorage.write(key: _kEncEnabledFlag, value: 'false');
+      try {
+        final plain = await database; // reopens plaintext
+        await _restoreAllTables(plain, snapshot);
+        if (!_sameCounts(snapshot, await _dumpAllTables(plain))) {
+          throw Exception('Row-count verification failed after decryption');
+        }
+      } catch (e) {
+        // File first, then the flag — see [enableEncryption].
+        await close();
+        await deleteDatabase(path);
+        await _secureStorage.write(key: _kEncEnabledFlag, value: 'true');
+        await _restoreAllTables(await database, snapshot);
+        await _deleteSafetySnapshot();
+        rethrow;
+      }
+      await _deleteSafetySnapshot();
+    } finally {
+      _migrating = false;
     }
-    await _deleteSafetySnapshot();
   }
 }

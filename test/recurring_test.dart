@@ -241,11 +241,13 @@ void main() {
     });
 
     test('daily rolls over month and year boundaries', () {
-      expect(RecurringService.nextDate(DateTime(2026, 1, 31),
-              DbConstants.freqDaily, 31),
+      expect(
+          RecurringService.nextDate(
+              DateTime(2026, 1, 31), DbConstants.freqDaily, 31),
           DateTime(2026, 2, 1));
-      expect(RecurringService.nextDate(DateTime(2026, 12, 31),
-              DbConstants.freqDaily, 31),
+      expect(
+          RecurringService.nextDate(
+              DateTime(2026, 12, 31), DbConstants.freqDaily, 31),
           DateTime(2027, 1, 1));
     });
   });

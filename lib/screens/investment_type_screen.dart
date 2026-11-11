@@ -464,33 +464,33 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                 ],
               ),
               trailing: PopupMenuButton<String>(
-                    tooltip: 'More actions',
-                    onSelected: (value) {
-                      if (value == 'move') {
-                        _moveContribution(context, investment);
-                      } else if (value == 'delete') {
-                        _confirmDelete(context, investment);
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'move',
-                        child: ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.drive_file_move_outline),
-                          title: Text('Move to another type'),
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.delete_outline),
-                          title: Text('Delete'),
-                        ),
-                      ),
-                    ],
+                tooltip: 'More actions',
+                onSelected: (value) {
+                  if (value == 'move') {
+                    _moveContribution(context, investment);
+                  } else if (value == 'delete') {
+                    _confirmDelete(context, investment);
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: 'move',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.drive_file_move_outline),
+                      title: Text('Move to another type'),
+                    ),
                   ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.delete_outline),
+                      title: Text('Delete'),
+                    ),
+                  ),
+                ],
+              ),
               // Edit, Duplicate or Delete — duplicating used to need the
               // edit sheet opened first.
               onTap: () => _rowActions(context, investment),
@@ -501,8 +501,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
   }
 
   /// Asks what this type's holdings are worth now (blank clears it).
-  Future<void> _editCurrentValue(BuildContext context,
-      InvestmentProvider provider,
+  Future<void> _editCurrentValue(
+      BuildContext context, InvestmentProvider provider,
       {required String type, required int invested}) async {
     final existing = provider.currentValueOf(type);
     final controller = TextEditingController(

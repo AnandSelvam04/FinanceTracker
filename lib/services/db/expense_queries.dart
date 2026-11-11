@@ -362,6 +362,21 @@ extension ExpenseQueries on DBService {
     return {for (final r in rows) r['a'] as String};
   }
 
+  /// Detaches the receipt photos in [attachments] from every transaction that
+  /// refers to them. Returns how many transactions lost their photo.
+  Future<int> clearAttachments(Iterable<String> attachments) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      var changed = 0;
+      for (final a in attachments) {
+        changed += await txn.update(
+            DbConstants.tableExpenses, {DbConstants.colAttachment: null},
+            where: '${DbConstants.colAttachment} = ?', whereArgs: [a]);
+      }
+      return changed;
+    });
+  }
+
   /// How often each merchant has been filed under each category, most-used
   /// first and newest first within a tie.
   ///

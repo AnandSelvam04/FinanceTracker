@@ -134,13 +134,13 @@ void main() {
       () async {
     SmsService.inboxOverride =
         () async => [sms('Rs.2,150 spent on Credit Card XX5678 at AMAZON')];
-    final card =
-        Account(name: 'HDFC Card', type: 'credit_card', last4: '5678');
+    final card = Account(name: 'HDFC Card', type: 'credit_card', last4: '5678');
     final cardId = await DBService().insertAccount(card);
 
     final parsed = (await SmsService.scan(now: now)).single;
-    final draft = SmsDraft.from(
-        parsed, [Account(id: cardId, name: 'HDFC Card', type: 'credit_card', last4: '5678')]);
+    final draft = SmsDraft.from(parsed, [
+      Account(id: cardId, name: 'HDFC Card', type: 'credit_card', last4: '5678')
+    ]);
     await DBService().insertExpenses([
       draft.parsed
           .toExpense(accountId: draft.accountId, category: draft.category)
@@ -207,8 +207,10 @@ void main() {
       SmsService.inboxOverride = () async => [
             sms('Rs.15,000 debited from A/c XX4821 on 31-Jul-25 towards '
                 'HDFC Credit Card XX5678 payment'),
-            sms('Payment of Rs.15,000 received on your HDFC Credit Card '
-                'XX5678', sender: 'VM-HDFCB2'),
+            sms(
+                'Payment of Rs.15,000 received on your HDFC Credit Card '
+                'XX5678',
+                sender: 'VM-HDFCB2'),
           ];
       final bankId = await DBService()
           .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
@@ -267,7 +269,8 @@ void main() {
 
       final found = (await SmsService.scan(now: now)).single;
       await DBService().insertExpenses([
-        found.toExpense(accountId: null, category: 'Transfer', toAccountId: null)
+        found.toExpense(
+            accountId: null, category: 'Transfer', toAccountId: null)
       ]);
       await DBService().ignoreSourceRefs(found.alsoCoversRefs);
 
@@ -345,8 +348,7 @@ void main() {
   });
 
   group('category memory', () {
-    test('a familiar merchant arrives with its category already set',
-        () async {
+    test('a familiar merchant arrives with its category already set', () async {
       final bankId = await DBService()
           .insertAccount(Account(name: 'HDFC', type: 'bank', last4: '4821'));
       // Three past Swiggy orders, all filed under Food.
@@ -365,8 +367,7 @@ void main() {
 
       final memory =
           CategoryMemory.fromRows(await DBService().merchantCategoryCounts());
-      final draft = SmsDraft.from(
-          (await SmsService.scan(now: now)).single,
+      final draft = SmsDraft.from((await SmsService.scan(now: now)).single,
           await DBService().getAccounts(),
           memory: memory);
 
@@ -383,8 +384,7 @@ void main() {
 
       final memory =
           CategoryMemory.fromRows(await DBService().merchantCategoryCounts());
-      final draft = SmsDraft.from(
-          (await SmsService.scan(now: now)).single,
+      final draft = SmsDraft.from((await SmsService.scan(now: now)).single,
           await DBService().getAccounts(),
           memory: memory);
 
@@ -418,8 +418,7 @@ void main() {
 
       final memory =
           CategoryMemory.fromRows(await DBService().merchantCategoryCounts());
-      final draft = SmsDraft.from(
-          (await SmsService.scan(now: now)).single,
+      final draft = SmsDraft.from((await SmsService.scan(now: now)).single,
           await DBService().getAccounts(),
           memory: memory);
       expect(draft.category, 'Shopping');
@@ -445,8 +444,7 @@ void main() {
 
       final memory =
           CategoryMemory.fromRows(await DBService().merchantCategoryCounts());
-      final draft = SmsDraft.from(
-          (await SmsService.scan(now: now)).single,
+      final draft = SmsDraft.from((await SmsService.scan(now: now)).single,
           await DBService().getAccounts(),
           memory: memory);
       expect(draft.category, 'Transfer');
@@ -641,8 +639,7 @@ void main() {
       // The normal scan still hides it.
       expect(await SmsService.scan(now: now), isEmpty);
       // Opting in surfaces it again so it can be imported.
-      final recovered =
-          await SmsService.scan(now: now, includeDismissed: true);
+      final recovered = await SmsService.scan(now: now, includeDismissed: true);
       expect(recovered.map((f) => f.description), ['SWIGGY']);
     });
 
@@ -651,11 +648,10 @@ void main() {
       SmsService.inboxOverride =
           () async => [sms('Rs.499 debited from A/c XX4821 to SWIGGY')];
       final parsed = (await SmsService.scan(now: now)).single;
-      await DBService()
-          .insertExpenses([parsed.toExpense(accountId: null, category: 'Food')]);
+      await DBService().insertExpenses(
+          [parsed.toExpense(accountId: null, category: 'Food')]);
 
-      expect(
-          await SmsService.scan(now: now, includeDismissed: true), isEmpty);
+      expect(await SmsService.scan(now: now, includeDismissed: true), isEmpty);
     });
 
     test('unignoreSourceRefs clears a rejection', () async {

@@ -41,6 +41,22 @@ class ReceiptStore {
   static Future<File> fileFor(String attachment) async =>
       File(p.join((await _base()).path, attachment));
 
+  /// Detaches photos that are not on this device from their transactions,
+  /// and returns how many transactions that touched.
+  ///
+  /// Backups carry a photo's path but not the image, so a backup restored on
+  /// another phone (or after a reinstall) brings back transactions marked as
+  /// having a receipt that opens to nothing. Run after a restore.
+  static Future<int> forgetMissing() async {
+    final base = await _base();
+    final missing = <String>[];
+    for (final a in await DBService().referencedAttachments()) {
+      if (!await File(p.join(base.path, a)).exists()) missing.add(a);
+    }
+    if (missing.isEmpty) return 0;
+    return DBService().clearAttachments(missing);
+  }
+
   /// Deletes stored photos no transaction refers to any more — left behind
   /// by deleted or edited transactions. Run at launch rather than on delete,
   /// so undoing a delete keeps its photo.

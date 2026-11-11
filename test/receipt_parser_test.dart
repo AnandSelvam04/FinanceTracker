@@ -63,15 +63,15 @@ Muffin 90.00
 
   group('parse — date', () {
     test('ISO date', () {
-      expect(ReceiptParser.parse('Date: 2025-08-12').date, DateTime(2025, 8, 12));
+      expect(
+          ReceiptParser.parse('Date: 2025-08-12').date, DateTime(2025, 8, 12));
     });
     test('day-first numeric date', () {
       expect(
           ReceiptParser.parse('Billed 13/02/2025').date, DateTime(2025, 2, 13));
     });
     test('falls back to month-first when the first field cannot be a day', () {
-      expect(
-          ReceiptParser.parse('02/13/2025').date, DateTime(2025, 2, 13));
+      expect(ReceiptParser.parse('02/13/2025').date, DateTime(2025, 2, 13));
     });
     test('textual month', () {
       expect(ReceiptParser.parse('12 Aug 2025').date, DateTime(2025, 8, 12));

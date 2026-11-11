@@ -280,13 +280,15 @@ CsvImportResult parseCsvExpenses(
   }
 
   final date = find(RegExp(r'date'));
-  final description = find(RegExp(
-      r'narration|description|particulars|details|remarks|transaction'));
+  final description = find(
+      RegExp(r'narration|description|particulars|details|remarks|transaction'));
   final withdrawal = find(RegExp(r'withdraw|debit|\bdr\b|paid out'));
-  final deposit = find(RegExp(r'deposit|credit|\bcr\b|paid in'),
-      except: withdrawal);
+  final deposit =
+      find(RegExp(r'deposit|credit|\bcr\b|paid in'), except: withdrawal);
   final amount = find(RegExp(r'amount'));
-  if (date == null && description == null && withdrawal == null &&
+  if (date == null &&
+      description == null &&
+      withdrawal == null &&
       amount == null) {
     return null;
   }
@@ -317,9 +319,9 @@ const _monthNumbers = {
 
 /// A time of day after the date ("01/08/2025 10:30:00", "01-Aug-2025 10:30
 /// AM"), which some exports add and which isn't part of the date.
-final _trailingTime =
-    RegExp(r'[\sT]+\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?\s*(?:[ap]\.?m\.?)?$',
-        caseSensitive: false);
+final _trailingTime = RegExp(
+    r'[\sT]+\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?\s*(?:[ap]\.?m\.?)?$',
+    caseSensitive: false);
 
 /// Accepts ISO dates, day-first dd/MM/yyyy or dd-MM-yyyy (common outside the
 /// US), and month names as Indian bank statements write them: "01 Aug 2025",
@@ -346,14 +348,14 @@ DateTime? tryParseCsvDate(String raw) {
   if (dayFirst != null) {
     final month = _monthNumber(dayFirst.group(2)!);
     if (month == null) return null;
-    return _validDate(int.parse(dayFirst.group(3)!), month,
-        int.parse(dayFirst.group(1)!));
+    return _validDate(
+        int.parse(dayFirst.group(3)!), month, int.parse(dayFirst.group(1)!));
   }
 
   // "Aug 01, 2025", "August 1 2025".
-  final monthFirst =
-      RegExp(r'^([A-Za-z]{3,9})\.?[\s\-]+(\d{1,2})(?:st|nd|rd|th)?[\s,\-]+(\d{2,4})$')
-          .firstMatch(date);
+  final monthFirst = RegExp(
+          r'^([A-Za-z]{3,9})\.?[\s\-]+(\d{1,2})(?:st|nd|rd|th)?[\s,\-]+(\d{2,4})$')
+      .firstMatch(date);
   if (monthFirst != null) {
     final month = _monthNumber(monthFirst.group(1)!);
     if (month == null) return null;

@@ -46,34 +46,38 @@ class VoiceExpenseParser {
       caseSensitive: false);
 
   /// Captures a merchant after "at"/"from" ("… at Dominos").
-  static final _afterAt = RegExp(
-      r'\b(?:at|from)\s+(.+)$',
-      caseSensitive: false);
+  static final _afterAt =
+      RegExp(r'\b(?:at|from)\s+(.+)$', caseSensitive: false);
 
-  static final _trailingDate =
-      RegExp(r'\b(yesterday|today|tomorrow|last\s+\w+)\b.*$', caseSensitive: false);
+  static final _trailingDate = RegExp(
+      r'\b(yesterday|today|tomorrow|last\s+\w+)\b.*$',
+      caseSensitive: false);
 
   static ParsedVoiceExpense parse(String transcript,
       {List<String> knownCategories = const []}) {
     final text = transcript.trim();
     final lower = text.toLowerCase();
 
-    final type =
-        _incomeWords.hasMatch(lower) ? DbConstants.txIncome : DbConstants.txExpense;
+    final type = _incomeWords.hasMatch(lower)
+        ? DbConstants.txIncome
+        : DbConstants.txExpense;
 
     final amount = _pickAmount(text);
 
-    var category = _matchKnown(lower, knownCategories) ?? _categoryPhrase(lower);
+    var category =
+        _matchKnown(lower, knownCategories) ?? _categoryPhrase(lower);
     final merchant = _merchant(text);
 
     // Prefer a named merchant, then the category, as the human-readable label.
-    var description = merchant ?? (category == null ? null : _titleCase(category));
+    var description =
+        merchant ?? (category == null ? null : _titleCase(category));
     description ??= _remainder(text);
 
     return ParsedVoiceExpense(
       amountMinor: amount,
       category: category == null ? null : _titleCase(category),
-      description: (description == null || description.isEmpty) ? null : description,
+      description:
+          (description == null || description.isEmpty) ? null : description,
       type: type,
     );
   }
@@ -106,7 +110,8 @@ class VoiceExpenseParser {
     for (final c in sorted) {
       final needle = c.toLowerCase().trim();
       if (needle.isEmpty) continue;
-      if (RegExp('\\b${RegExp.escape(needle)}\\b').hasMatch(lower)) return needle;
+      if (RegExp('\\b${RegExp.escape(needle)}\\b').hasMatch(lower))
+        return needle;
     }
     return null;
   }
@@ -133,8 +138,10 @@ class VoiceExpenseParser {
     var s = text.replaceFirst(_lead, '');
     s = s.replaceAll(_amount, ' ');
     s = s.replaceAll(_currencyWords, ' ');
-    s = s.replaceAll(RegExp(r'\b(on|for|at|from|towards|category|of)\b',
-        caseSensitive: false), ' ');
+    s = s.replaceAll(
+        RegExp(r'\b(on|for|at|from|towards|category|of)\b',
+            caseSensitive: false),
+        ' ');
     s = s.replaceAll(_trailingDate, ' ');
     s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
     return s.isEmpty ? null : _titleCase(s);

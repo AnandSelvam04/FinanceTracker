@@ -32,9 +32,8 @@ class BudgetAlert {
 
   /// Share of the cap spent. A cap that rollover has used up entirely (zero)
   /// with spend against it counts as fully strained, ahead of any other.
-  double get ratio => budget <= 0
-      ? (spent > 0 ? spent.toDouble() : 0)
-      : spent / budget;
+  double get ratio =>
+      budget <= 0 ? (spent > 0 ? spent.toDouble() : 0) : spent / budget;
   bool get isOver => spent > budget;
 }
 

@@ -32,7 +32,8 @@ void main() {
         accountId: accountId,
       );
 
-  test('netWorthSeries tracks month-end value across accounts, flows, '
+  test(
+      'netWorthSeries tracks month-end value across accounts, flows, '
       'and investments', () async {
     final db = DBService();
     final bank = await db.insertAccount(
@@ -53,8 +54,7 @@ void main() {
     expect(series[2].month, DateTime(2026, 3, 1));
   });
 
-  test('rows with no account do not move the trend, as on the card',
-      () async {
+  test('rows with no account do not move the trend, as on the card', () async {
     final db = DBService();
     await db.insertAccount(
         Account(name: 'Bank', type: 'bank', openingBalance: 100000));
@@ -131,7 +131,8 @@ void main() {
     expect(total, 40000);
   });
 
-  test('netWorthSeries converts foreign-currency accounts at their rate '
+  test(
+      'netWorthSeries converts foreign-currency accounts at their rate '
       '(matches the headline figure)', () async {
     final db = DBService();
     // ₹1,000.00 base account and a $100.00 account at 83 ₹/$.
@@ -165,7 +166,11 @@ void main() {
     final inrId = await db.insertAccount(
         Account(name: 'INR', type: 'bank', openingBalance: 1000000));
     final usdId = await db.insertAccount(Account(
-        name: 'USD', type: 'bank', openingBalance: 0, currency: '\$', rate: 83));
+        name: 'USD',
+        type: 'bank',
+        openingBalance: 0,
+        currency: '\$',
+        rate: 83));
     // ₹8,300 out, $100 in: net-worth change = −830000 + 10000×83 = 0.
     await db.insertExpense(Expense(
       description: 'fx move',

@@ -550,8 +550,8 @@ void main() {
   });
 
   group('backup history', () {
-    Future<void> addRow(String description) => DBService().insertExpense(
-        Expense(
+    Future<void> addRow(String description) =>
+        DBService().insertExpense(Expense(
             description: description,
             amount: 100,
             date: DateTime(2026, 1, 1),
@@ -568,8 +568,7 @@ void main() {
       await service.backupToJson(now: DateTime(2026, 3, 10, 21));
 
       final history = await service.backupHistory();
-      expect(history.map((h) => h.day.day),
-          [10, 9, 8, 7, 6, 5, 4]);
+      expect(history.map((h) => h.day.day), [10, 9, 8, 7, 6, 5, 4]);
       expect(history, hasLength(BackupService.historyDays));
     });
 

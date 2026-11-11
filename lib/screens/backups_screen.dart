@@ -246,7 +246,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Replace all data?'),
         content: const Text(
-            'Restoring will delete everything currently in the app and replace it with the backup. This cannot be undone.'),
+            'Restoring will delete everything currently in the app and replace it with the backup. This cannot be undone.\n\n'
+            'Receipt photos are not part of a backup. Transactions keep the photos that are already on this phone; on a new phone they come back without them.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -369,8 +370,16 @@ class _BackupsScreenState extends State<BackupsScreen> {
     final settingsProvider = context.read<SettingsProvider>();
     setState(() => _isWorking = true);
     try {
+      _backupService.missingReceiptPhotos = 0;
       await task();
-      messenger.showSnackBar(SnackBar(content: Text(success)));
+      // Only a restore sets this: its transactions whose receipt photo isn't
+      // on this phone (backups don't carry the images).
+      final lost = _backupService.missingReceiptPhotos;
+      messenger.showSnackBar(SnackBar(
+          content: Text(lost == 0
+              ? success
+              : '$success. ${lost == 1 ? '1 receipt photo was' : '$lost receipt photos were'} '
+                  'not in the backup.')));
       // Refresh data after restore/backup operations
       await expenseProvider.reloadLoadedYears();
       await investmentProvider.fetchInvestments();

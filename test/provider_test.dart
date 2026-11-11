@@ -68,7 +68,7 @@ void main() {
 
       await DBService().insertExpense(expense1);
       await DBService().insertExpense(expense2);
-      
+
       await provider.ensureYearLoaded(now.year);
 
       final total = provider.totalForMonth(now.year, now.month);
@@ -106,8 +106,8 @@ void main() {
 
     setUp(() async {
       await DBService().clearAll();
-      inrAccount = await DBService()
-          .insertAccount(Account(name: 'Cash', type: 'cash'));
+      inrAccount =
+          await DBService().insertAccount(Account(name: 'Cash', type: 'cash'));
       usdAccount = await DBService().insertAccount(
           Account(name: 'US', type: 'bank', currency: '\$', rate: 83));
       provider = ExpenseProvider()
@@ -129,8 +129,7 @@ void main() {
       ));
     }
 
-    test('month and year expense totals convert at the account rate',
-        () async {
+    test('month and year expense totals convert at the account rate', () async {
       await add(DbConstants.txExpense, 50000, inrAccount); // ₹500.00
       await add(DbConstants.txExpense, 10000, usdAccount); // $100 -> ₹8,300
       await provider.ensureYearLoaded(2026);

@@ -68,7 +68,7 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet>
       } else {
         setState(() => _error =
             'Speech recognition is not available. Check the microphone '
-            'permission in system settings.');
+                'permission in system settings.');
       }
     } catch (e) {
       if (mounted) setState(() => _error = 'Could not start the microphone.');
@@ -132,8 +132,7 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Add by voice',
-              style: Theme.of(context).textTheme.titleLarge),
+          Text('Add by voice', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 4),
           Text('Try: “spent 250 on food at Dominos”',
               style: TextStyle(color: mutedTextColor(context), fontSize: 13)),

@@ -124,11 +124,7 @@ void main() {
 
     // Renamed to "food " by hand: same category as the existing Food cap.
     await provider.updateBudget(Budget(
-        id: travel.id,
-        category: 'food ',
-        amount: 30000,
-        year: 2026,
-        month: 8));
+        id: travel.id, category: 'food ', amount: 30000, year: 2026, month: 8));
 
     expect(provider.budgets.length, 1);
     expect(provider.budgets.single.amount, 30000);
@@ -144,8 +140,8 @@ void main() {
     expect(provider.getBudgetForCategory(2026, 9, 'Food'), 10000);
 
     // Deleted by the user: not brought back later the same month.
-    final carried = provider.budgets
-        .singleWhere((b) => b.year == 2026 && b.month == 9);
+    final carried =
+        provider.budgets.singleWhere((b) => b.year == 2026 && b.month == 9);
     await provider.deleteBudget(carried.id!);
     expect(await provider.carryForwardIfEmpty(DateTime(2026, 9, 20)), 0);
     expect(provider.getBudgetForCategory(2026, 9, 'Food'), 0);

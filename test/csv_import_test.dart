@@ -75,8 +75,7 @@ void main() {
     );
 
     test('maps columns, skips bad rows, honors header', () {
-      final result =
-          parseCsvExpenses(rows, hasHeader: true, mapping: mapping);
+      final result = parseCsvExpenses(rows, hasHeader: true, mapping: mapping);
       expect(result.expenses.length, 3);
       expect(result.skipped, 1); // the bad-date row
 
@@ -103,8 +102,8 @@ void main() {
           ['2026-06-02', 'Groceries', '-1.234,56'],
         ],
         hasHeader: false,
-        mapping: const CsvColumnMapping(
-            dateCol: 0, descriptionCol: 1, amountCol: 2),
+        mapping:
+            const CsvColumnMapping(dateCol: 0, descriptionCol: 1, amountCol: 2),
       );
 
       expect(result.expenses[0].type, DbConstants.txIncome);
@@ -122,8 +121,8 @@ void main() {
           ['2026-06-02', 'B', '20'],
         ],
         hasHeader: false,
-        mapping: const CsvColumnMapping(
-            dateCol: 0, descriptionCol: 1, amountCol: 2),
+        mapping:
+            const CsvColumnMapping(dateCol: 0, descriptionCol: 1, amountCol: 2),
       );
 
       expect(result.expenses.every((e) => e.type == DbConstants.txExpense),

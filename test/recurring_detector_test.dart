@@ -86,8 +86,8 @@ void main() {
       spend('', 19900, DateTime(2025, 6, 15)),
       spend('', 19900, DateTime(2025, 7, 15)),
     ];
-    expect(RecurringDetector.looksMonthly('', 19900, history, asOf: now),
-        isFalse);
+    expect(
+        RecurringDetector.looksMonthly('', 19900, history, asOf: now), isFalse);
     expect(RecurringDetector.looksMonthly('X', 0, history, asOf: now), isFalse);
   });
 }

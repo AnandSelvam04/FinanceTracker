@@ -84,8 +84,8 @@ void main() {
       ['02/08/2025', 'Salary', '5000'],
     ],
         hasHeader: false,
-        mapping: const CsvColumnMapping(
-            dateCol: 0, descriptionCol: 1, amountCol: 2),
+        mapping:
+            const CsvColumnMapping(dateCol: 0, descriptionCol: 1, amountCol: 2),
         accountId: 7);
     expect(r.expenses.map((e) => e.accountId), [7, 7]);
   });

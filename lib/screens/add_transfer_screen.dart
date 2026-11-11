@@ -263,9 +263,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
       accountId: _fromAccountId,
       toAccountId: _toAccountId,
       // Destination-currency amount, only for cross-currency transfers.
-      toAmount: crossCurrency
-          ? parseMinor(_toAmountController.text)!
-          : null,
+      toAmount: crossCurrency ? parseMinor(_toAmountController.text)! : null,
     );
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();

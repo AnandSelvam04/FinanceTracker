@@ -484,8 +484,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 controller: _descriptionController,
                 // Optional: a blank description saves as the category, so a
                 // quick "250, Food" entry needs no extra typing.
-                decoration: const InputDecoration(
-                    labelText: 'Description (optional)'),
+                decoration:
+                    const InputDecoration(labelText: 'Description (optional)'),
                 textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 4),
@@ -639,9 +639,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                   category: _resolvedCategory,
                                   type: _txType,
                                   accountId: _accountId,
-                                  paymentMode: _isIncome
-                                      ? null
-                                      : _selectedPaymentMode,
+                                  paymentMode:
+                                      _isIncome ? null : _selectedPaymentMode,
                                 ));
                               }
                               HapticFeedback.lightImpact();
