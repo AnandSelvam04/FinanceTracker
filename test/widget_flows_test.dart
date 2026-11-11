@@ -234,6 +234,54 @@ void main() {
     await teardownTree(tester);
   }, timeout: testTimeout);
 
+  testWidgets('Transactions: a search with no hit this year can look in all',
+      (tester) async {
+    final (expenses, accounts) = (await tester.runAsync(() async {
+      await DBService().insertExpense(Expense(
+        description: 'Old laptop',
+        amount: 5000000,
+        date: DateTime(now.year - 3, 4, 9),
+        category: 'Shopping',
+        paymentMode: 'UPI',
+      ));
+      await DBService().insertExpense(Expense(
+        description: 'Groceries',
+        amount: 12345,
+        date: now,
+        category: 'Food',
+        paymentMode: 'UPI',
+      ));
+      final e = ExpenseProvider();
+      await e.ensureYearLoaded(now.year);
+      final a = AccountProvider();
+      await a.fetchAccounts();
+      return (e, a);
+    }))!;
+
+    await pumpScreen(tester, const ExpenseListScreen(), [
+      ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
+      ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      ChangeNotifierProvider<InvestmentProvider>(
+          create: (_) => InvestmentProvider()),
+    ]);
+
+    await tester.enterText(find.byType(TextField).first, 'laptop');
+    await tester.pump();
+    expect(find.text('Old laptop'), findsNothing);
+    expect(find.text('No transactions found'), findsOneWidget);
+
+    await tester.tap(find.text('Search all years'));
+    // The older years are read from the database.
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(
+          () async => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    expect(find.text('Old laptop'), findsOneWidget);
+    expect(find.text('All years'), findsOneWidget);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+
   testWidgets('Transactions: filter by amount, apply, then reset',
       (tester) async {
     final (expenses, accounts) = (await tester.runAsync(() async {

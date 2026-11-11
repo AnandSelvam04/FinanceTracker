@@ -43,6 +43,23 @@ void main() {
     expect(r.length, 3);
   });
 
+  test('no year shows every year', () {
+    final rows = [
+      ...sample,
+      e(amount: 70, date: DateTime(2021, 6, 9), description: 'old lunch'),
+    ];
+    expect(const TransactionFilter(year: null).apply(rows).length, 5);
+    expect(const TransactionFilter(year: 2026).apply(rows).length, 4);
+    // A month with no year is that month of every year.
+    expect(const TransactionFilter(year: null, month: 6).apply(rows).length, 4);
+    expect(
+        const TransactionFilter(year: null, searchQuery: 'old')
+            .apply(rows)
+            .single
+            .description,
+        'old lunch');
+  });
+
   test('category filter', () {
     final r = const TransactionFilter(year: 2026, month: null, category: 'Food')
         .apply(sample);

@@ -6,7 +6,9 @@ import '../models/investment.dart';
 /// set, overrides the [year]/[month] selection.
 class TransactionFilter {
   final String searchQuery;
-  final int year;
+
+  /// The year to show, or null for every year.
+  final int? year;
   final int? month;
   final String? type;
   final String? category;
@@ -56,7 +58,8 @@ class TransactionFilter {
       final d = DateTime(date.year, date.month, date.day);
       return !d.isBefore(startDate!) && !d.isAfter(endDate!);
     }
-    return date.year == year && (month == null || date.month == month);
+    return (year == null || date.year == year) &&
+        (month == null || date.month == month);
   }
 
   bool matches(Expense e) {

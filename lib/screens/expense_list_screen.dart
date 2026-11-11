@@ -38,7 +38,8 @@ class ExpenseListScreen extends StatefulWidget {
 class _ExpenseListScreenState extends State<ExpenseListScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  int _selectedYear = DateTime.now().year;
+  /// The year shown, or null for every year (to search the whole history).
+  int? _selectedYear = DateTime.now().year;
   int? _selectedMonth = DateTime.now().month;
   String? _typeFilter;
 
@@ -84,10 +85,16 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     super.dispose();
   }
 
-  /// Human label for the current period chip, e.g. "2026 · August" or
-  /// "2026 · All months".
-  String get _periodLabel =>
-      '$_selectedYear · ${_selectedMonth == null ? 'All months' : monthName(_selectedMonth!)}';
+  /// Human label for the current period chip, e.g. "2026 · August",
+  /// "2026 · All months" or "All years".
+  String get _periodLabel {
+    final month =
+        _selectedMonth == null ? 'All months' : monthName(_selectedMonth!);
+    if (_selectedYear == null) {
+      return _selectedMonth == null ? 'All years' : 'All years · $month';
+    }
+    return '$_selectedYear · $month';
+  }
 
   /// Compact period picker (year + month) opened from the toolbar chip, so the
   /// two bare dropdowns no longer sit permanently across the top of the list.
@@ -109,15 +116,18 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<int>(
+                    child: DropdownButtonFormField<int?>(
                       initialValue: _selectedYear,
                       decoration: const InputDecoration(labelText: 'Year'),
-                      items: years
-                          .map((y) => DropdownMenuItem(
-                              value: y, child: Text(y.toString())))
-                          .toList(),
+                      items: [
+                        // Every year at once, so a search reaches the whole
+                        // history instead of one year of it.
+                        const DropdownMenuItem<int?>(
+                            value: null, child: Text('All years')),
+                        ...years.map((y) => DropdownMenuItem<int?>(
+                            value: y, child: Text(y.toString()))),
+                      ],
                       onChanged: (y) {
-                        if (y == null) return;
                         setSheet(() => _selectedYear = y);
                         _selectYear(y);
                       },
@@ -151,11 +161,27 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     );
   }
 
-  /// Loads the data needed to show [year] (the provider only holds the years
-  /// it has been asked for).
-  Future<void> _selectYear(int year) async {
+  /// Loads the data needed to show [year], or every year when it is null
+  /// (the provider only holds the years it has been asked for).
+  Future<void> _selectYear(int? year) async {
     setState(() => _selectedYear = year);
-    await context.read<ExpenseProvider>().ensureYearLoaded(year);
+    final provider = context.read<ExpenseProvider>();
+    if (year != null) {
+      await provider.ensureYearLoaded(year);
+      return;
+    }
+    final currentYear = DateTime.now().year;
+    // Asked afresh rather than read from _earliestYear, which is only as
+    // old as the data was when this tab was first built.
+    final bounds = await DBService().transactionYearBounds();
+    final first = bounds?.$1 ?? _earliestYear;
+    final last = bounds == null || bounds.$2 < currentYear
+        ? currentYear
+        : bounds.$2;
+    if (mounted && first < _earliestYear) {
+      setState(() => _earliestYear = first);
+    }
+    await provider.ensureYearsLoaded([for (var y = last; y >= first; y--) y]);
   }
 
   // Advanced filters (set via the filter sheet).
@@ -424,10 +450,10 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 
   String get _filterLabel {
-    final period = _selectedMonth == null
-        ? '$_selectedYear'
-        : '$_selectedYear-${_selectedMonth.toString().padLeft(2, '0')}';
-    return period;
+    final year = _selectedYear == null ? 'all-years' : '$_selectedYear';
+    return _selectedMonth == null
+        ? year
+        : '$year-${_selectedMonth.toString().padLeft(2, '0')}';
   }
 
   /// Downloads exactly what the current filters show, via the share sheet.
@@ -599,14 +625,31 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                           context.read<ExpenseProvider>().reloadLoadedYears(),
                       child: ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        children: const [
-                          SizedBox(height: 80),
-                          EmptyState(
-                            icon: Icons.receipt_long_outlined,
-                            title: 'No transactions found',
-                            message:
-                                'Try a different period or clear your filters.',
-                          ),
+                        children: [
+                          const SizedBox(height: 80),
+                          // A search that finds nothing in the year on show
+                          // is one tap from looking through all of them.
+                          if (_selectedYear != null &&
+                              _dateRange == null &&
+                              _searchQuery.trim().isNotEmpty)
+                            EmptyState(
+                              icon: Icons.receipt_long_outlined,
+                              title: 'No transactions found',
+                              message: 'Nothing matches in '
+                                  '${_periodLabel.replaceAll(' · ', ', ')}.',
+                              actionLabel: 'Search all years',
+                              onAction: () {
+                                setState(() => _selectedMonth = null);
+                                _selectYear(null);
+                              },
+                            )
+                          else
+                            const EmptyState(
+                              icon: Icons.receipt_long_outlined,
+                              title: 'No transactions found',
+                              message: 'Try a different period or clear your '
+                                  'filters.',
+                            ),
                         ],
                       ),
                     );

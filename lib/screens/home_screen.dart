@@ -41,6 +41,7 @@ import '../widgets/transaction_edit_sheet.dart';
 import 'add_expense_screen.dart';
 import 'add_investment_screen.dart';
 import 'add_transfer_screen.dart';
+import 'budgets_screen.dart';
 import 'expense_list_screen.dart';
 import 'credit_cards_screen.dart';
 import 'investments_screen.dart';
@@ -397,6 +398,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           },
         ),
         const ExpenseListScreen(),
+        // A tab of its own: budgets are checked far more often than the
+        // rest of the More menu, where they used to be two taps away.
+        const BudgetsScreen(embedded: true),
         const MoreScreen(),
       ];
 
@@ -524,6 +528,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             // The screen behind this tab lists income and transfers too, and is
             // titled "Transactions" — keep the label the same so they match.
             label: 'Transactions',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet),
+            label: 'Budgets',
           ),
           NavigationDestination(
             icon: Icon(Icons.more_horiz),

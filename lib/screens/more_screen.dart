@@ -9,7 +9,6 @@ import '../utils/insets.dart';
 import '../widgets/section_header.dart';
 import 'accounts_screen.dart';
 import 'backups_screen.dart';
-import 'budgets_screen.dart';
 import 'cashflow_screen.dart';
 import 'categories_screen.dart';
 import 'category_trends_screen.dart';
@@ -113,12 +112,6 @@ class _MoreScreenState extends State<MoreScreen> {
               color: _MenuColors.indigo,
               title: 'Accounts',
               onTap: () => _open(const AccountsScreen()),
-            ),
-            _MenuTile(
-              icon: Icons.account_balance_wallet,
-              color: _MenuColors.orange,
-              title: 'Budgets',
-              onTap: () => _open(const BudgetsScreen()),
             ),
             _MenuTile(
               icon: Icons.category_outlined,

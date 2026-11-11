@@ -18,7 +18,12 @@ import '../widgets/empty_state.dart';
 import '../widgets/dispose_with_route.dart';
 
 class BudgetsScreen extends StatefulWidget {
-  const BudgetsScreen({super.key});
+  /// True when shown as a tab of the home screen rather than pushed as a
+  /// route. The home screen's own + button (add a transaction) sits where
+  /// this screen's would, so Add budget moves into the app bar.
+  final bool embedded;
+
+  const BudgetsScreen({super.key, this.embedded = false});
 
   @override
   State<BudgetsScreen> createState() => _BudgetsScreenState();
@@ -388,6 +393,12 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       appBar: AppBar(
         title: const Text('Budgets'),
         actions: [
+          if (widget.embedded)
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'Add Budget',
+              onPressed: () => _showBudgetDialog(),
+            ),
           IconButton(
             icon: const Icon(Icons.copy_all),
             tooltip: 'Copy previous month\'s budgets',
@@ -542,11 +553,13 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Add Budget',
-        onPressed: () => _showBudgetDialog(),
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: widget.embedded
+          ? null
+          : FloatingActionButton(
+              tooltip: 'Add Budget',
+              onPressed: () => _showBudgetDialog(),
+              child: const Icon(Icons.add),
+            ),
     );
   }
 }
