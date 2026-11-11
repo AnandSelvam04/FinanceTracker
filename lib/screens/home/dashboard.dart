@@ -89,6 +89,19 @@ class _DashboardView extends StatelessWidget {
         // memoizes each aggregate until the data changes, so repeated calls in
         // one build (and across the other screens) are free.
 
+        // The shortcuts and the latest transactions sit straight after the
+        // period's figures and ahead of the charts: they are what the screen
+        // is opened for most often, and used to be a long scroll away at the
+        // very bottom. Still below the figures, so the month's spend stays
+        // near the top.
+        final shortcutsAndRecent = <Widget>[
+          const _ShortcutsRow(),
+          _RecentTransactions(
+            provider: provider,
+            onSeeAll: onSeeAllTransactions,
+          ),
+        ];
+
         return RefreshIndicator(
           onRefresh: onRefresh,
           child: SingleChildScrollView(
@@ -125,10 +138,12 @@ class _DashboardView extends StatelessWidget {
                   if (yearView) ...[
                     // Tell "still loading" apart from "nothing recorded"; the
                     // empty text otherwise flashes on every cold start.
-                    if (yearlyExpenses.isEmpty && provider.isLoading)
-                      const DashboardSkeleton()
+                    if (yearlyExpenses.isEmpty && provider.isLoading) ...[
+                      const DashboardSkeleton(),
+                      ...shortcutsAndRecent,
+                    ]
                     // Income alone is still something to show.
-                    else if (yearlyExpenses.isEmpty && yearlyIncome == 0)
+                    else if (yearlyExpenses.isEmpty && yearlyIncome == 0) ...[
                       EmptyState(
                         icon: Icons.savings_outlined,
                         title: 'Nothing recorded in $selectedYear yet',
@@ -136,8 +151,9 @@ class _DashboardView extends StatelessWidget {
                             'Add a transaction to see your yearly breakdown.',
                         actionLabel: 'Add expense',
                         onAction: onAddExpense,
-                      )
-                    else ...[
+                      ),
+                      ...shortcutsAndRecent,
+                    ] else ...[
                       _TotalHeadline(
                         label: 'Spent in $selectedYear',
                         amount: provider.totalForYear(selectedYear),
@@ -147,6 +163,7 @@ class _DashboardView extends StatelessWidget {
                         income: yearlyIncome,
                         expense: provider.totalForYear(selectedYear),
                       ),
+                      ...shortcutsAndRecent,
                       const SizedBox(height: 16),
                       const SectionHeader('Spending by category (year)'),
                       const SizedBox(height: 4),
@@ -163,11 +180,13 @@ class _DashboardView extends StatelessWidget {
                       ),
                     ],
                   ] else ...[
-                    if (monthlyExpenses.isEmpty && provider.isLoading)
-                      const DashboardSkeleton()
+                    if (monthlyExpenses.isEmpty && provider.isLoading) ...[
+                      const DashboardSkeleton(),
+                      ...shortcutsAndRecent,
+                    ]
                     // A month with only income used to show "No expenses"
                     // and hide the salary that had come in.
-                    else if (monthlyExpenses.isEmpty && monthlyIncome == 0)
+                    else if (monthlyExpenses.isEmpty && monthlyIncome == 0) ...[
                       EmptyState(
                         icon: Icons.account_balance_wallet_outlined,
                         title: 'Nothing recorded this month',
@@ -175,8 +194,9 @@ class _DashboardView extends StatelessWidget {
                             'Track your first expense to see charts and trends.',
                         actionLabel: 'Add expense',
                         onAction: onAddExpense,
-                      )
-                    else ...[
+                      ),
+                      ...shortcutsAndRecent,
+                    ] else ...[
                       _TotalHeadline(
                         label: _isCurrentMonth
                             ? 'Spent this month'
@@ -196,6 +216,7 @@ class _DashboardView extends StatelessWidget {
                         spent:
                             provider.totalForMonth(selectedYear, selectedMonth),
                       ),
+                      ...shortcutsAndRecent,
                       const SizedBox(height: 16),
                       const SectionHeader('Spending by category'),
                       const SizedBox(height: 4),
@@ -217,13 +238,6 @@ class _DashboardView extends StatelessWidget {
                       ExpenseTrendsChart(provider: provider),
                     ],
                   ],
-                  // Below the period figures rather than above them, so the
-                  // month's spend sits near the top of the screen.
-                  const _ShortcutsRow(),
-                  _RecentTransactions(
-                    provider: provider,
-                    onSeeAll: onSeeAllTransactions,
-                  ),
                 ],
               ),
             ),

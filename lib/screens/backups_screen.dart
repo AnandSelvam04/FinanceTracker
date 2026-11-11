@@ -602,7 +602,10 @@ class _BackupsScreenState extends State<BackupsScreen> {
           children: [
             _LastBackupBanner(time: _lastBackup),
             const SizedBox(height: 12),
-            const SectionHeader('Backup & Restore'),
+            // Three questions, three groups: where is my backup, how do I get
+            // it back, and how do I take data out. The screen used to list
+            // fifteen actions under headings that mixed all three.
+            const SectionHeader('Back up'),
             const SizedBox(height: 4),
             Card(
               clipBehavior: Clip.antiAlias,
@@ -676,17 +679,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
                       }
                     },
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.cloud_download),
-                    title: const Text('Restore from Google Drive'),
-                    enabled: !_isWorking,
-                    onTap: () async {
-                      await _restoreProtected(_backupService.restoreFromDrive,
-                          'Restored from Drive');
-                      await _loadDriveAccount();
-                      await _loadAutoDrive();
-                    },
-                  ),
                   SwitchListTile(
                     secondary: const Icon(Icons.cloud_sync),
                     title: const Text('Back up to Drive automatically'),
@@ -731,7 +723,129 @@ class _BackupsScreenState extends State<BackupsScreen> {
                             fontSize: 12, color: mutedTextColor(context)),
                       ),
                     ),
+                ],
+              ),
+            ),
+            const SectionHeader('Restore',
+                padding: EdgeInsets.fromLTRB(0, 20, 0, 4)),
+            Text(
+              'Restoring replaces everything in the app with the backup.',
+              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.cloud_download),
+                    title: const Text('Restore from Google Drive'),
+                    enabled: !_isWorking,
+                    onTap: () async {
+                      await _restoreProtected(_backupService.restoreFromDrive,
+                          'Restored from Drive');
+                      await _loadDriveAccount();
+                      await _loadAutoDrive();
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.folder_open),
+                    title: const Text('Restore from a file'),
+                    subtitle: const Text(
+                        'A downloaded, emailed, or other phone\'s backup'),
+                    enabled: !_isWorking,
+                    onTap: _restoreFromPickedFile,
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.history),
+                    title: const Text('Restore an earlier backup'),
+                    subtitle: Text('One copy kept per day for the last '
+                        '${BackupService.historyDays} days'),
+                    enabled: !_isWorking,
+                    onTap: _restoreFromHistory,
+                  ),
+                ],
+              ),
+            ),
+            const SectionHeader('Export & import',
+                padding: EdgeInsets.fromLTRB(0, 20, 0, 4)),
+            Text(
+              'Save your data to Files/Downloads, email it, or send it to another app.',
+              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.download),
+                    title: const Text('Download expenses (CSV)'),
+                    enabled: !_isWorking,
+                    onTap: () => _exportAndShare(
+                        exportExpensesToCsv, 'Finance Tracker — Expenses'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.download),
+                    title: const Text('Download investments (CSV)'),
+                    enabled: !_isWorking,
+                    onTap: () => _exportAndShare(exportInvestmentsToCsv,
+                        'Finance Tracker — Investments'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.download),
+                    title: const Text('Download full data (JSON)'),
+                    enabled: !_isWorking,
+                    // With database encryption on this file is sealed with
+                    // the device key, so it only opens on this phone.
+                    onTap: () => _exportAndShare(
+                        _backupService.writeJsonBackupFile,
+                        'Finance Tracker — Full Backup',
+                        offDevice: !_dbEncrypted),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.ios_share),
+                    title: const Text('Download encrypted backup'),
+                    enabled: !_isWorking,
+                    onTap: () async {
+                      final pass = await _promptPassphrase(
+                          title: 'Encrypt backup',
+                          action: 'Encrypt',
+                          confirm: true);
+                      if (pass == null) return;
+                      await _exportAndShare(
+                          () => _backupService.writeEncryptedBackup(pass),
+                          'Finance Tracker — Encrypted Backup',
+                          offDevice: true);
+                    },
+                  ),
                   const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.upload_file),
+                    title: const Text('Import from CSV'),
+                    enabled: !_isWorking,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ImportScreen()),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Rarely needed, so folded away: the on-device JSON copy the
+            // app also keeps by itself each day, and passphrase-sealed
+            // files made by hand.
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: ExpansionTile(
+                leading: const Icon(Icons.tune),
+                title: const Text('More options'),
+                subtitle: const Text(
+                    'A copy on this phone, verifying it, sealed backups'),
+                shape: const Border(),
+                collapsedShape: const Border(),
+                children: [
                   ListTile(
                     leading: const Icon(Icons.save_alt),
                     title: const Text('Back up locally (JSON)'),
@@ -752,22 +866,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         'Restored from local JSON'),
                   ),
                   ListTile(
-                    leading: const Icon(Icons.history),
-                    title: const Text('Restore an earlier backup'),
-                    subtitle: Text('One copy kept per day for the last '
-                        '${BackupService.historyDays} days'),
-                    enabled: !_isWorking,
-                    onTap: _restoreFromHistory,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.folder_open),
-                    title: const Text('Restore from a file'),
-                    subtitle: const Text(
-                        'A downloaded, emailed, or other phone\'s backup'),
-                    enabled: !_isWorking,
-                    onTap: _restoreFromPickedFile,
-                  ),
-                  ListTile(
                     leading: const Icon(Icons.fact_check_outlined),
                     title: const Text('Verify last backup'),
                     subtitle: const Text(
@@ -775,20 +873,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     enabled: !_isWorking,
                     onTap: _verifyBackup,
                   ),
-                ],
-              ),
-            ),
-            const SectionHeader('Encrypted backup',
-                padding: EdgeInsets.fromLTRB(0, 20, 0, 4)),
-            Text(
-              'Protect an exported backup with a passphrase (AES-256). Keep the passphrase safe — it is required to restore and cannot be reset.',
-              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
                   ListTile(
                     leading: const Icon(Icons.lock),
                     title: const Text('Create encrypted backup (JSON)'),
@@ -826,71 +910,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         }
                       }, 'Restored from encrypted backup');
                     },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.ios_share),
-                    title: const Text('Download encrypted backup'),
-                    enabled: !_isWorking,
-                    onTap: () async {
-                      final pass = await _promptPassphrase(
-                          title: 'Encrypt backup',
-                          action: 'Encrypt',
-                          confirm: true);
-                      if (pass == null) return;
-                      await _exportAndShare(
-                          () => _backupService.writeEncryptedBackup(pass),
-                          'Finance Tracker — Encrypted Backup',
-                          offDevice: true);
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SectionHeader('Download & Share',
-                padding: EdgeInsets.fromLTRB(0, 20, 0, 4)),
-            Text(
-              'Save your data to Files/Downloads, email it, or send it to another app.',
-              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.download),
-                    title: const Text('Download expenses (CSV)'),
-                    enabled: !_isWorking,
-                    onTap: () => _exportAndShare(
-                        exportExpensesToCsv, 'Finance Tracker — Expenses'),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.download),
-                    title: const Text('Download investments (CSV)'),
-                    enabled: !_isWorking,
-                    onTap: () => _exportAndShare(exportInvestmentsToCsv,
-                        'Finance Tracker — Investments'),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.download),
-                    title: const Text('Download full data (JSON)'),
-                    enabled: !_isWorking,
-                    // With database encryption on this file is sealed with
-                    // the device key, so it only opens on this phone.
-                    onTap: () => _exportAndShare(
-                        _backupService.writeJsonBackupFile,
-                        'Finance Tracker — Full Backup',
-                        offDevice: !_dbEncrypted),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.upload_file),
-                    title: const Text('Import from CSV'),
-                    enabled: !_isWorking,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ImportScreen()),
-                    ),
                   ),
                 ],
               ),
