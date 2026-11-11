@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/sms_auto_capture.dart';
 import '../services/sms_service.dart';
 import '../utils/app_theme.dart';
 import '../utils/category_store.dart';
@@ -20,6 +21,7 @@ class SettingsProvider extends ChangeNotifier {
   static const _kDailyReminder = 'dailyReminderMinutes';
   static const _kHideAmounts = 'hideAmounts';
   static const _kBudgetRollover = 'budgetRollover';
+  static const _kSmsAutoCapture = SmsAutoCapture.prefsKey;
 
   /// Accent colours the user can choose from; the first is the app default.
   static const List<Color> seedOptions = [
@@ -47,6 +49,7 @@ class SettingsProvider extends ChangeNotifier {
   /// Off by default: reading the SMS inbox is the app's most intrusive
   /// permission, so it stays inert until the user turns it on.
   bool _smsImportEnabled = false;
+  bool _smsAutoCapture = false;
 
   String get currencySymbol => _currencySymbol;
   ThemeMode get themeMode => _themeMode;
@@ -67,6 +70,10 @@ class SettingsProvider extends ChangeNotifier {
   bool get notificationsEnabled => _notificationsEnabled;
 
   bool get smsImportEnabled => _smsImportEnabled;
+
+  /// Notify about a bank transaction as its SMS arrives. Only has an effect
+  /// while [smsImportEnabled] is on.
+  bool get smsAutoCapture => _smsImportEnabled && _smsAutoCapture;
 
   /// Time of the daily "log today's spending" reminder, as minutes after
   /// midnight; null when it is off (the default).
@@ -91,6 +98,7 @@ class SettingsProvider extends ChangeNotifier {
     _alertsEnabled = prefs.getBool(_kAlertsEnabled) ?? true;
     _notificationsEnabled = prefs.getBool(_kNotificationsEnabled) ?? true;
     _smsImportEnabled = prefs.getBool(_kSmsImportEnabled) ?? false;
+    _smsAutoCapture = prefs.getBool(_kSmsAutoCapture) ?? false;
     _dailyReminderMinutes = prefs.getInt(_kDailyReminder);
     _hideAmounts = prefs.getBool(_kHideAmounts) ?? false;
     _budgetRollover = prefs.getBool(_kBudgetRollover) ?? false;
@@ -164,6 +172,16 @@ class SettingsProvider extends ChangeNotifier {
     SmsService.enabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kSmsImportEnabled, value);
+    // Reading SMS off also stops listening for new ones.
+    SmsAutoCapture.listen(on: smsAutoCapture);
+    notifyListeners();
+  }
+
+  Future<void> setSmsAutoCapture(bool value) async {
+    _smsAutoCapture = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kSmsAutoCapture, value);
+    SmsAutoCapture.listen(on: smsAutoCapture);
     notifyListeners();
   }
 

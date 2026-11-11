@@ -13,6 +13,7 @@ import '../services/db_service.dart';
 import '../services/investment_merchants.dart';
 import '../services/recurring_detector.dart';
 import '../services/recurring_service.dart';
+import '../services/notification_service.dart';
 import '../services/sms_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
@@ -91,6 +92,8 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _scan());
+    // The alerts caught as they arrived are all in the queue below.
+    NotificationService.instance.cancelSmsCaptures();
   }
 
   @override

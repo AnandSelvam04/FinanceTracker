@@ -19,6 +19,12 @@
     -->
     <uses-permission android:name="android.permission.READ_SMS"/>
     <!--
+      Hears a bank alert as it arrives, for Settings > Notify me as
+      transactions arrive: the app raises a notification offering to review
+      it. Off by default, and nothing is recorded without confirmation.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS"/>
+    <!--
       another_telephony's own manifest declares ACCESS_COARSE_LOCATION for the
       cell/network-info features this app does not use. Without this override
       the manifest merger folds it into the installed app, so the permission
@@ -82,6 +88,18 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+        <!-- another_telephony's receiver for incoming SMS. Only the system
+             can send SMS_RECEIVED to it (BROADCAST_SMS is a system
+             permission), so being exported lets nothing else in. It hands
+             the message to lib/services/sms_auto_capture.dart. -->
+        <receiver
+            android:name="com.shounakmulay.telephony.sms.IncomingSmsReceiver"
+            android:permission="android.permission.BROADCAST_SMS"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
             </intent-filter>
         </receiver>
         <!-- Ask Google Play services to fetch the ML Kit OCR model on install,

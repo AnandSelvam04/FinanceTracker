@@ -15,6 +15,7 @@ import 'package:finance_tracker/screens/home_screen.dart';
 import 'package:finance_tracker/screens/onboarding_screen.dart';
 import 'package:finance_tracker/services/auth_service.dart';
 import 'package:finance_tracker/services/notification_service.dart';
+import 'package:finance_tracker/services/sms_auto_capture.dart';
 import 'package:finance_tracker/utils/app_logger.dart';
 import 'package:finance_tracker/utils/app_theme.dart';
 import 'package:finance_tracker/utils/build_info.dart';
@@ -29,6 +30,9 @@ void main() async {
   // Before the first frame, so the About tile never shows a placeholder.
   await BuildInfo.load();
   await NotificationService.instance.init();
+  // Listening has to be re-registered on each launch; the background side
+  // then keeps working after the app is closed.
+  SmsAutoCapture.listen(on: settings.smsAutoCapture);
   runApp(FinanceTrackerApp(
     settings: settings,
     seenOnboarding: seenOnboarding,

@@ -27,8 +27,9 @@ class TutorialScreen extends StatelessWidget {
         title: 'Import from bank SMS',
         body: 'Turn on Read SMS for transactions in More → Settings, then '
             'open Import SMS on Home. Give each account its last 4 digits '
-            'so alerts land on the right one. Nothing is recorded until you '
-            'confirm it.',
+            'so alerts land on the right one. Switch on Notify me as '
+            'transactions arrive to get a notification for each new alert. '
+            'Nothing is recorded until you confirm it.',
         icon: Icons.sms_outlined,
       ),
       _TutorialStep(
@@ -60,9 +61,10 @@ class TutorialScreen extends StatelessWidget {
       ),
       _TutorialStep(
         title: 'See where the money went',
-        body: 'Home switches between Month and Year. More → Insights has '
-            'the monthly summary (with a PDF statement), cash flow, '
-            'category trends and a spending calendar.',
+        body: 'Home switches between Month and Year. More → Reports covers '
+            'a week, month, year or any dates, with a year in review, and '
+            'shares as PDF or Excel. Insights also has cash flow, category '
+            'trends and a spending calendar.',
         icon: Icons.bar_chart,
       ),
       _TutorialStep(

@@ -78,6 +78,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         MaterialPageRoute(builder: (context) => const AddExpenseScreen()));
   }
 
+  /// Opens what a tapped notification asked for: the SMS review queue, for
+  /// a bank alert caught as it arrived.
+  void _openFromNotification() {
+    final requests = NotificationService.instance.openRequest;
+    if (!mounted || requests.value != NotificationService.openSmsReview) {
+      return;
+    }
+    requests.value = null;
+    // Switched off since the notification was raised: nothing to show.
+    if (!context.read<SettingsProvider>().smsImportEnabled) return;
+    Navigator.push(context,
+        MaterialPageRoute(builder: (context) => const SmsReviewScreen()));
+  }
+
   /// Hands this month's and today's spending to the home-screen widget.
   void _syncHomeWidget() {
     if (!mounted) return;
@@ -104,6 +118,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _widgetClicks = HomeWidgetService.clicks
         .listen(_openFromWidget, onError: (Object _) {});
     HomeWidgetService.launchedFrom().then(_openFromWidget);
+    NotificationService.instance.openRequest
+        .addListener(_openFromNotification);
+    // A tap that launched the app is already waiting.
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _openFromNotification());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _widgetSources = [
@@ -219,6 +238,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     _widgetClicks?.cancel();
+    NotificationService.instance.openRequest
+        .removeListener(_openFromNotification);
     for (final s in _widgetSources) {
       s.removeListener(_syncHomeWidget);
     }

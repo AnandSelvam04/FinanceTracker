@@ -6,12 +6,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'package:flutter/foundation.dart';
+
 import '../models/recurring_rule.dart';
 import '../utils/alerts.dart';
 import '../utils/app_logger.dart';
 import '../utils/billing_cycle.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import 'sms_auto_capture.dart';
 
 /// Wraps flutter_local_notifications for budget/bill reminders. Every call is
 /// guarded so a device without notification support (or a unit-test host)
@@ -35,14 +38,34 @@ class NotificationService {
   static const _creditIdBase = 200000;
   static const _dailyReminderId = 300000;
 
+  static const _smsChannelId = 'sms_capture';
+
+  /// Payload of a captured-SMS notification; tapping one asks the app to
+  /// open the SMS review queue.
+  static const openSmsReview = 'sms_review';
+
+  /// Set to a notification's payload when the user taps it (or launched the
+  /// app by tapping it). The home screen listens, acts and clears it.
+  final ValueNotifier<String?> openRequest = ValueNotifier(null);
+
   Future<void> init() async {
     if (_initialized) return;
     try {
       const android = AndroidInitializationSettings('@mipmap/ic_launcher');
       const settings = InitializationSettings(android: android);
-      await _plugin.initialize(settings: settings);
+      await _plugin.initialize(
+        settings: settings,
+        onDidReceiveNotificationResponse: (response) =>
+            openRequest.value = response.payload,
+      );
       await _initTimezone();
       _initialized = true;
+      // A tap that started the app arrives here rather than through the
+      // callback above.
+      final launch = await _plugin.getNotificationAppLaunchDetails();
+      if (launch?.didNotificationLaunchApp ?? false) {
+        openRequest.value = launch?.notificationResponse?.payload;
+      }
     } catch (e, st) {
       AppLogger.error('Notification init failed', e, st);
     }
@@ -99,6 +122,56 @@ class NotificationService {
           id: id, title: title, body: body, notificationDetails: _details());
     } catch (e) {
       AppLogger.error('Notification show failed', e);
+    }
+  }
+
+  /// Shows the notification for a bank alert that just arrived. Tapping it
+  /// opens the SMS review queue (see [openRequest]).
+  Future<void> showSmsCapture(SmsCaptureNotice notice) async {
+    if (!_initialized) return;
+    try {
+      await _plugin.show(
+        id: notice.id,
+        title: notice.title,
+        body: notice.body,
+        payload: openSmsReview,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _smsChannelId,
+            'New transactions from SMS',
+            channelDescription:
+                'A bank alert arrived and is waiting to be reviewed',
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
+            // The title carries the amount and the merchant; keep both off
+            // a locked screen, as the other alerts do.
+            visibility: NotificationVisibility.private,
+          ),
+        ),
+      );
+    } catch (e) {
+      AppLogger.error('SMS capture notification failed', e);
+    }
+  }
+
+  /// Clears the captured-SMS notifications still showing: once the review
+  /// queue is open they have done their job.
+  Future<void> cancelSmsCaptures() async {
+    if (!_initialized) return;
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      for (final n in await android?.getActiveNotifications() ??
+          const <ActiveNotification>[]) {
+        final id = n.id;
+        if (id != null &&
+            id >= SmsAutoCapture.idBase &&
+            id < SmsAutoCapture.idBase + 100000) {
+          await _plugin.cancel(id: id);
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Clearing SMS capture notifications failed', e);
     }
   }
 

@@ -297,6 +297,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     if (v) await SmsService.requestPermission();
                   },
                 ),
+              if (SmsService.isSupported && settings.smsImportEnabled)
+                SwitchListTile(
+                  secondary: const Icon(Icons.mark_chat_unread_outlined),
+                  title: const Text('Notify me as transactions arrive'),
+                  subtitle: const Text(
+                      'When a bank alert comes in, a notification offers to '
+                      'review and add it — even while the app is closed. '
+                      'Nothing is recorded until you confirm.'),
+                  isThreeLine: true,
+                  value: settings.smsAutoCapture,
+                  onChanged: (v) async {
+                    if (v) {
+                      // Receiving needs its own permission (asked together
+                      // with reading), and the notification needs one too.
+                      await SmsService.requestPermission();
+                      await NotificationService.instance.requestPermission();
+                    }
+                    await settings.setSmsAutoCapture(v);
+                  },
+                ),
               SwitchListTile(
                 secondary: const Icon(Icons.notifications),
                 title: const Text('Push notifications'),
