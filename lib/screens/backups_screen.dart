@@ -20,6 +20,7 @@ import 'import_screen.dart';
 import '../utils/app_colors.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
+import '../widgets/month_selector.dart';
 import '../widgets/section_header.dart';
 import '../widgets/dispose_with_route.dart';
 
@@ -56,20 +57,20 @@ class _BackupsScreenState extends State<BackupsScreen> {
   /// end is the day after the last one included.
   ({DateTime from, DateTime to, String label})? _exportPeriod;
 
-  /// Lets the user narrow the CSV and Excel downloads to a period.
+  /// Lets the user narrow the CSV and Excel downloads: everything, a range
+  /// of dates, one month or one year.
   Future<void> _pickExportPeriod() async {
     final now = DateTime.now();
     final choice = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Download which dates?'),
+        title: const Text('Download what?'),
         children: [
           for (final (key, label) in const [
-            ('all', 'All time'),
-            ('month', 'This month'),
-            ('lastMonth', 'Last month'),
-            ('year', 'This year'),
-            ('custom', 'Pick dates…'),
+            ('all', 'All'),
+            ('dates', 'A date range…'),
+            ('month', 'A month…'),
+            ('year', 'A year…'),
           ])
             SimpleDialogOption(
               onPressed: () => Navigator.pop(ctx, key),
@@ -82,35 +83,11 @@ class _BackupsScreenState extends State<BackupsScreen> {
     switch (choice) {
       case 'all':
         setState(() => _exportPeriod = null);
-      case 'month':
-        setState(() => _exportPeriod = (
-              from: DateTime(now.year, now.month),
-              to: DateTime(now.year, now.month + 1),
-              label: 'This month',
-            ));
-      case 'lastMonth':
-        setState(() => _exportPeriod = (
-              from: DateTime(now.year, now.month - 1),
-              to: DateTime(now.year, now.month),
-              label: 'Last month',
-            ));
-      case 'year':
-        setState(() => _exportPeriod = (
-              from: DateTime(now.year),
-              to: DateTime(now.year + 1),
-              label: 'This year',
-            ));
-      case 'custom':
+      case 'dates':
         final picked = await showDateRangePicker(
           context: context,
           firstDate: DateTime(2000),
           lastDate: now,
-          initialDateRange: _exportPeriod == null
-              ? null
-              : DateTimeRange(
-                  start: _exportPeriod!.from,
-                  end: _exportPeriod!.to.subtract(const Duration(days: 1)),
-                ),
         );
         if (picked == null || !mounted) return;
         setState(() => _exportPeriod = (
@@ -122,7 +99,57 @@ class _BackupsScreenState extends State<BackupsScreen> {
               label: '${formatShortDate(picked.start)} – '
                   '${formatShortDate(picked.end)}',
             ));
+      case 'month':
+        final picked = await _pickMonthOrYear(now, yearOnly: false);
+        if (picked == null || !mounted) return;
+        setState(() => _exportPeriod = (
+              from: DateTime(picked.$1, picked.$2),
+              to: DateTime(picked.$1, picked.$2 + 1),
+              label: formatMonthYear(picked.$1, picked.$2),
+            ));
+      case 'year':
+        final picked = await _pickMonthOrYear(now, yearOnly: true);
+        if (picked == null || !mounted) return;
+        setState(() => _exportPeriod = (
+              from: DateTime(picked.$1),
+              to: DateTime(picked.$1 + 1),
+              label: '${picked.$1}',
+            ));
     }
+  }
+
+  /// Steps to a month (or, with [yearOnly], a year) and confirms it. Starts
+  /// on the one being downloaded now, else the current one.
+  Future<(int, int)?> _pickMonthOrYear(DateTime now,
+      {required bool yearOnly}) {
+    final start = _exportPeriod?.from ?? now;
+    var year = start.year;
+    var month = start.month;
+    return showDialog<(int, int)>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(yearOnly ? 'Which year?' : 'Which month?'),
+        content: MonthSelector(
+          initialYear: year,
+          initialMonth: month,
+          yearOnly: yearOnly,
+          onChanged: (y, m) {
+            year = y;
+            month = m;
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, (year, month)),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// When a backup last left the phone (Drive, or shared out). The on-device
@@ -857,7 +884,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.date_range),
-                    title: Text('Dates: ${_exportPeriod?.label ?? 'All time'}'),
+                    title: Text('Dates: ${_exportPeriod?.label ?? 'All'}'),
                     subtitle: const Text(
                         'Applies to the CSV and Excel downloads below'),
                     trailing: const Icon(Icons.arrow_drop_down),
