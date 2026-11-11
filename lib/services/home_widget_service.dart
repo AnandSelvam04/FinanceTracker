@@ -58,7 +58,7 @@ class HomeWidgetService {
 
   /// The widget's provider class in android/app/src/main/kotlin.
   static const androidProvider =
-      'io.github.anandselvam04.financetracker.SpendWidgetProvider';
+      'com.example.finance_tracker.SpendWidgetProvider';
 
   /// The widget's Add button opens the app on this, and tapping the widget
   /// anywhere else on [openUri].

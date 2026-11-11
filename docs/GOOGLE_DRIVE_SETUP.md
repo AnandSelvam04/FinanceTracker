@@ -12,15 +12,20 @@ so both halves have to describe the APK you actually install.
 
 | Field | Value |
 |-------|-------|
-| **Package name** | `io.github.anandselvam04.financetracker` |
+| **Package name** | `com.example.finance_tracker` |
 | **SHA-1 fingerprint** | of whichever key signs your build — see section 1 |
 
-> **An earlier registration no longer matches.** Up to 1.49 this app was
-> registered as `com.example.finance_tracker` with the SHA-1
-> `7D:54:82:58:A6:0C:8D:AA:14:2C:B4:09:EF:CC:E6:2B:09:50:12:5E`, the key that
-> used to be committed to the repository. **Both** halves have since changed:
-> the package name was renamed at 1.50.0, and that key was removed as
-> compromised. That OAuth client can be deleted; create a new one.
+> **The registered client still matches.** The app id has stayed
+> `com.example.finance_tracker`, and the SHA-1
+> `7D:54:82:58:A6:0C:8D:AA:14:2C:B4:09:EF:CC:E6:2B:09:50:12:5E` belongs to the
+> key that was committed to the repository until 1.49. That key is no longer
+> in the tree, but it is supplied to CI through the repository secrets
+> instead, so builds keep that fingerprint and the existing OAuth client keeps
+> working with nothing to change.
+>
+> That key is public: it remains in the git history of a public repository.
+> Rotating it means a new keystore, new secrets and updating the SHA-1 on this
+> client — see `docs/SIGNING.md`.
 >
 > Registering is only about Drive sign-in. Nothing needs registering for an
 > APK to install on your phone.
@@ -65,11 +70,11 @@ people install:
   so its SHA-1 differs every time and Drive sign-in cannot work. Likewise a
   build from your own laptop uses your own debug keystore, with its own SHA-1.
 
-The app id is `io.github.anandselvam04.financetracker` (see `applicationId` in
-`android/app/build.gradle.kts`). Until 1.50.0 it was the Flutter template's
-`com.example.finance_tracker`. A build with the new id installs as a separate
-app beside the old one rather than updating it — back up in the old app,
-restore in the new, then uninstall the old.
+The app id is `com.example.finance_tracker` (see `applicationId` in
+`android/app/build.gradle.kts`). It is the Flutter template's default, which
+Google Play will not accept — change it only if this app is ever published,
+and note that doing so makes it a separate install and invalidates the OAuth
+client above.
 
 ## 1. Get the signing certificate SHA-1
 
@@ -112,7 +117,7 @@ Copy the `SHA1:` value.
 
 1. **APIs & Services → Credentials → Create credentials → OAuth client ID.**
 2. Application type: **Android**.
-3. Package name: `io.github.anandselvam04.financetracker` (or your own app id).
+3. Package name: `com.example.finance_tracker` (or your own app id).
 4. SHA-1: paste the value from step 1.
 5. Create.
 

@@ -1,4 +1,4 @@
-package io.github.anandselvam04.financetracker
+package com.example.finance_tracker
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
