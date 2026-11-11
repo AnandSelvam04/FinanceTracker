@@ -333,6 +333,9 @@ class _CategoryDialogState extends State<_CategoryDialog> {
       content: SizedBox(
         width: double.maxFinite,
         child: SingleChildScrollView(
+          // Room for the name field's floating label, which the scroll view
+          // would otherwise clip at its top edge.
+          padding: const EdgeInsets.only(top: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
