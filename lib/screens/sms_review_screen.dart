@@ -47,7 +47,18 @@ class SmsReviewScreen extends StatefulWidget {
 /// (the default), the presets, or a custom date range.
 enum _ScanSpan { sinceReview, twoDays, week, month, custom }
 
-class _SmsReviewScreenState extends State<SmsReviewScreen> {
+class _SmsReviewScreenState extends State<SmsReviewScreen>
+    with WidgetsBindingObserver {
+  /// Back from Android's settings: if the permission was allowed there, scan
+  /// straight away instead of leaving the refusal on screen.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !_permissionDenied) return;
+    SmsService.hasPermission().then((granted) {
+      if (granted && mounted && _permissionDenied && !_loading) _scan();
+    });
+  }
+
   List<SmsDraft> _drafts = [];
   bool _loading = true;
   bool _importing = false;
@@ -81,6 +92,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scan());
     // The alerts caught as they arrived are all in the queue below.
     NotificationService.instance.cancelSmsCaptures();
@@ -88,6 +100,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // Leaving with the queue empty means every message the scan found was
     // imported or dismissed, so the next default scan can start from here.
     // Done on the way out rather than per action, so an Undo that puts a

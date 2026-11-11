@@ -71,6 +71,9 @@ class _EmptyState extends StatelessWidget {
                         ? 'Grant permission'
                         : 'Rescan'),
               ),
+              // Back from Android's settings with the permission allowed.
+              if (permissionBlocked)
+                TextButton(onPressed: onRetry, child: const Text('Try again')),
             ],
           ],
         ),

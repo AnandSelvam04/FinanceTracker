@@ -231,12 +231,24 @@ class SmsService {
     // A test's stand-in inbox needs no permission (see [isSupported]).
     if (inboxOverride != null) return true;
     try {
-      return (await Permission.sms.request()).isGranted;
+      final asked = Stopwatch()..start();
+      final granted = (await Permission.sms.request()).isGranted;
+      // Nobody answers a permission dialog this fast: a refusal that comes
+      // straight back means Android never showed one.
+      _refusedWithoutDialog =
+          !granted && asked.elapsed < const Duration(milliseconds: 700);
+      return granted;
     } catch (e, s) {
       AppLogger.error('SMS permission request failed', e, s);
       return false;
     }
   }
+
+  /// The last request was refused without Android showing its dialog. The
+  /// permission's reported status does not say so for a sideloaded build:
+  /// permission_handler only calls a permission "permanently denied" once a
+  /// dialog has been refused, and here there never was one.
+  static bool _refusedWithoutDialog = false;
 
   /// Whether the SMS permission is already granted. Every inbox read checks
   /// this first, so the telephony plugin is never the one to ask for it (see
@@ -263,7 +275,10 @@ class SmsService {
     if (inboxOverride != null || !isSupported) return false;
     try {
       final status = await Permission.sms.status;
-      return status.isPermanentlyDenied || status.isRestricted;
+      if (status.isGranted) return false;
+      return _refusedWithoutDialog ||
+          status.isPermanentlyDenied ||
+          status.isRestricted;
     } catch (e, s) {
       AppLogger.error('Reading the SMS permission state failed', e, s);
       return false;
