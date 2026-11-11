@@ -30,3 +30,10 @@
 # General
 -dontwarn io.flutter.embedding.**
 -ignorewarnings
+
+# SQLCipher (the optional database encryption). Its Java classes are called
+# from native code by name, which the shrinker cannot see; without these the
+# encrypted database fails to open in a release build only. Both the current
+# package (net.zetetic) and the older one the plugin README still names.
+-keep class net.zetetic.** { *; }
+-keep class net.sqlcipher.** { *; }

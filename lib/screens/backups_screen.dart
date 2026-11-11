@@ -20,6 +20,7 @@ import 'import_screen.dart';
 import '../utils/app_colors.dart';
 import '../utils/date_format.dart';
 import '../utils/insets.dart';
+import '../widgets/month_selector.dart';
 import '../widgets/section_header.dart';
 import '../widgets/dispose_with_route.dart';
 
@@ -51,6 +52,105 @@ const _minPassphraseLength = 12;
 class _BackupsScreenState extends State<BackupsScreen> {
   final _backupService = BackupService();
   bool _isWorking = false;
+
+  /// The dates the CSV and Excel downloads cover; null is everything. The
+  /// end is the day after the last one included.
+  ({DateTime from, DateTime to, String label})? _exportPeriod;
+
+  /// Lets the user narrow the CSV and Excel downloads: everything, a range
+  /// of dates, one month or one year.
+  Future<void> _pickExportPeriod() async {
+    final now = DateTime.now();
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Download what?'),
+        children: [
+          for (final (key, label) in const [
+            ('all', 'All'),
+            ('dates', 'A date range…'),
+            ('month', 'A month…'),
+            ('year', 'A year…'),
+          ])
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, key),
+              child: Text(label),
+            ),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return;
+    switch (choice) {
+      case 'all':
+        setState(() => _exportPeriod = null);
+      case 'dates':
+        final picked = await showDateRangePicker(
+          context: context,
+          firstDate: DateTime(2000),
+          lastDate: now,
+        );
+        if (picked == null || !mounted) return;
+        setState(() => _exportPeriod = (
+              from: DateTime(
+                  picked.start.year, picked.start.month, picked.start.day),
+              // The whole of the last day picked.
+              to: DateTime(
+                  picked.end.year, picked.end.month, picked.end.day + 1),
+              label: '${formatShortDate(picked.start)} – '
+                  '${formatShortDate(picked.end)}',
+            ));
+      case 'month':
+        final picked = await _pickMonthOrYear(now, yearOnly: false);
+        if (picked == null || !mounted) return;
+        setState(() => _exportPeriod = (
+              from: DateTime(picked.$1, picked.$2),
+              to: DateTime(picked.$1, picked.$2 + 1),
+              label: formatMonthYear(picked.$1, picked.$2),
+            ));
+      case 'year':
+        final picked = await _pickMonthOrYear(now, yearOnly: true);
+        if (picked == null || !mounted) return;
+        setState(() => _exportPeriod = (
+              from: DateTime(picked.$1),
+              to: DateTime(picked.$1 + 1),
+              label: '${picked.$1}',
+            ));
+    }
+  }
+
+  /// Steps to a month (or, with [yearOnly], a year) and confirms it. Starts
+  /// on the one being downloaded now, else the current one.
+  Future<(int, int)?> _pickMonthOrYear(DateTime now,
+      {required bool yearOnly}) {
+    final start = _exportPeriod?.from ?? now;
+    var year = start.year;
+    var month = start.month;
+    return showDialog<(int, int)>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(yearOnly ? 'Which year?' : 'Which month?'),
+        content: MonthSelector(
+          initialYear: year,
+          initialMonth: month,
+          yearOnly: yearOnly,
+          onChanged: (y, m) {
+            year = y;
+            month = m;
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, (year, month)),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
   /// When a backup last left the phone (Drive, or shared out). The on-device
   /// auto-backup doesn't count: it is lost along with the phone.
@@ -783,17 +883,30 @@ class _BackupsScreenState extends State<BackupsScreen> {
               child: Column(
                 children: [
                   ListTile(
+                    leading: const Icon(Icons.date_range),
+                    title: Text('Dates: ${_exportPeriod?.label ?? 'All'}'),
+                    subtitle: const Text(
+                        'Applies to the CSV and Excel downloads below'),
+                    trailing: const Icon(Icons.arrow_drop_down),
+                    enabled: !_isWorking,
+                    onTap: _pickExportPeriod,
+                  ),
+                  ListTile(
                     leading: const Icon(Icons.download),
                     title: const Text('Download expenses (CSV)'),
                     enabled: !_isWorking,
                     onTap: () => _exportAndShare(
-                        exportExpensesToCsv, 'Finance Tracker — Expenses'),
+                        () => exportExpensesToCsv(
+                            from: _exportPeriod?.from, to: _exportPeriod?.to),
+                        'Finance Tracker — Expenses'),
                   ),
                   ListTile(
                     leading: const Icon(Icons.download),
                     title: const Text('Download investments (CSV)'),
                     enabled: !_isWorking,
-                    onTap: () => _exportAndShare(exportInvestmentsToCsv,
+                    onTap: () => _exportAndShare(
+                        () => exportInvestmentsToCsv(
+                            from: _exportPeriod?.from, to: _exportPeriod?.to),
                         'Finance Tracker — Investments'),
                   ),
                   ListTile(
@@ -803,7 +916,11 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         'Transactions, categories, months and investments '
                         'as sheets'),
                     enabled: !_isWorking,
-                    onTap: () => _exportAndShare(ExcelExport.writeEverything,
+                    onTap: () => _exportAndShare(
+                        () => ExcelExport.writeEverything(
+                            from: _exportPeriod?.from,
+                            to: _exportPeriod?.to,
+                            periodLabel: _exportPeriod?.label),
                         'Finance Tracker — Excel export'),
                   ),
                   ListTile(

@@ -77,8 +77,10 @@ the APK:
   *Scan apps with Play Protect*, then turn it back on afterwards.
 - **SMS permission cannot be granted.** SMS is a *restricted* permission:
   only the installer can release it, and a file manager does not. The app's
-  permission screen then shows "Allow" greyed out. App info → ⋮ → *Allow
-  restricted settings* sometimes frees it; otherwise install over USB with
+  permission screen then shows "Allow" greyed out. Tap the greyed-out
+  "Allow" once so Android shows its "Restricted setting" notice, then go to
+  App info → ⋮ → *Allow restricted settings* (the entry only appears after
+  that notice) and set the permission; otherwise install over USB with
   `adb install -g app-arm64-v8a-release.apk`, which grants restricted
   permissions at install time. Everything except SMS import works without it.
 - **The signature must match.** An APK signed with a different key than the

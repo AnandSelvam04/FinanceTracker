@@ -18,6 +18,7 @@ import '../services/emi_service.dart';
 import '../services/home_widget_service.dart';
 import '../services/receipt_store.dart';
 import '../services/recurring_service.dart';
+import '../services/sms_auto_capture.dart';
 import '../services/sms_service.dart';
 import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
@@ -258,6 +259,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // Back after a while, possibly on a new day: post what fell due and
       // bring the reminders up to date.
       _postRecurring().then((_) => _scheduleResync());
+      // The SMS permission may have been granted in Android's settings while
+      // the app was away; listening could not start without it.
+      if (_settings?.smsAutoCapture ?? false) SmsAutoCapture.listen(on: true);
     }
   }
 

@@ -1,6 +1,9 @@
 name: finance_tracker
 description: Android personal finance tracker — spending, accounts, credit cards, budgets, investments and bank-SMS import, stored on the device.
-version: 1.50.2+77
+version: 1.51.2+82
+# An app, never published to pub.dev; also what lets it depend on the
+# vendored plugin by path.
+publish_to: none
 environment:
   sdk: ">=3.0.0 <4.0.0"
 dependencies:
@@ -44,7 +47,10 @@ dependencies:
   # original `telephony` package is unmaintained; this is the maintained fork.
   # Requires READ_SMS, which Play Store policy restricts — fine here because
   # the app is sideloaded, but it is why this cannot ship to the store.
-  another_telephony: ^0.4.1
+  # Vendored with one fix, because the published 0.4.1 crashes the app on any
+  # permission dialog; see third_party/another_telephony/PATCHES.md.
+  another_telephony:
+    path: third_party/another_telephony
   home_widget: ^0.10.0
   permission_handler: ^13.0.2
 dev_dependencies:

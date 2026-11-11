@@ -10,6 +10,7 @@ import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
 import '../services/backup_service.dart';
 import '../services/db_service.dart';
+import '../services/excel_export.dart';
 import '../utils/app_colors.dart';
 import '../utils/category_icons.dart';
 import '../utils/currency_format.dart';
@@ -456,10 +457,13 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         : '$year-${_selectedMonth.toString().padLeft(2, '0')}';
   }
 
-  /// Downloads exactly what the current filters show, via the share sheet.
-  Future<void> _downloadFiltered() async {
+  /// Downloads exactly what the current filters show, via the share sheet:
+  /// as a CSV file, or with [excel] as a workbook with a summary, the
+  /// transactions and spending by category.
+  Future<void> _downloadFiltered({required bool excel}) async {
     final messenger = ScaffoldMessenger.of(context);
     final provider = context.read<ExpenseProvider>();
+    final accounts = context.read<AccountProvider>().accounts;
     final filtered = _applyFilters(provider.expenses);
     if (filtered.isEmpty) {
       messenger.showSnackBar(
@@ -468,12 +472,25 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       return;
     }
     try {
-      final file = await writeExpensesCsvFile(
-        filtered,
-        filename: 'expenses_$_filterLabel.csv',
-      );
+      final file = excel
+          ? await ExcelExport.write(
+              ExcelExport.reportSheets(
+                periodLabel: 'Transactions ($_filterLabel)',
+                transactions: filtered,
+                baseAmountOf: provider.baseAmountOf,
+                accountNames: {
+                  for (final a in accounts)
+                    if (a.id != null) a.id!: a.name,
+                },
+              ),
+              name: 'expenses_$_filterLabel',
+            )
+          : await writeExpensesCsvFile(
+              filtered,
+              filename: 'expenses_$_filterLabel.csv',
+            );
       await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'text/csv')],
+        [XFile(file.path, mimeType: excel ? ExcelExport.mimeType : 'text/csv')],
         subject: 'Finance Tracker — Transactions ($_filterLabel)',
       );
     } catch (e) {
@@ -513,10 +530,14 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                     tooltip: 'Filters',
                     onPressed: _openFilterSheet,
                   ),
-                  IconButton(
+                  PopupMenuButton<bool>(
                     icon: const Icon(Icons.download),
-                    tooltip: 'Download filtered (CSV)',
-                    onPressed: _downloadFiltered,
+                    tooltip: 'Download what is shown',
+                    onSelected: (excel) => _downloadFiltered(excel: excel),
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: false, child: Text('As CSV')),
+                      PopupMenuItem(value: true, child: Text('As Excel')),
+                    ],
                   ),
                 ],
               ),

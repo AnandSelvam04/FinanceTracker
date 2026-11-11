@@ -77,8 +77,13 @@ class ExcelExport {
 
   /// Writes every transaction and investment in the database to one
   /// workbook, for the Backup & Export screen.
-  static Future<File> writeEverything() async {
+  /// With [from] and [to], only what is dated from [from] up to but not
+  /// including [to]; [periodLabel] names that period on the summary sheet.
+  static Future<File> writeEverything(
+      {DateTime? from, DateTime? to, String? periodLabel}) async {
     final db = DBService();
+    bool inPeriod(DateTime d) =>
+        from == null || to == null || (!d.isBefore(from) && d.isBefore(to));
     final accounts = await db.getAccounts();
     final rates = {
       for (final a in accounts)
@@ -86,8 +91,10 @@ class ExcelExport {
     };
     return write(
       reportSheets(
-        periodLabel: 'All transactions',
-        transactions: await db.getExpenses(),
+        periodLabel: periodLabel ?? 'All transactions',
+        transactions: from != null && to != null
+            ? await db.getExpensesByDateRange(from, to)
+            : await db.getExpenses(),
         baseAmountOf: (e) {
           final rate = rates[e.accountId] ?? 1.0;
           return rate == 1.0 ? e.amount : toBaseMinor(e.amount, rate);
@@ -96,9 +103,14 @@ class ExcelExport {
           for (final a in accounts)
             if (a.id != null) a.id!: a.name,
         },
-        investments: await db.getInvestments(),
+        investments: [
+          for (final i in await db.getInvestments())
+            if (inPeriod(i.date)) i,
+        ],
       ),
-      name: 'finance_tracker_all',
+      name: from != null && to != null
+          ? 'finance_tracker_period'
+          : 'finance_tracker_all',
     );
   }
 

@@ -11,6 +11,8 @@ analyzer:
   exclude:
     - build/**
     - android/**
+    # Vendored plugin, kept as published apart from PATCHES.md.
+    - third_party/**
 include: package:flutter_lints/flutter.yaml
 
 linter:

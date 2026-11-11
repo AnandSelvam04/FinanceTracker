@@ -431,6 +431,35 @@ void main() {
       expect(contents, contains("'=cmd"));
     });
 
+    test('the CSV download can be limited to a period', () async {
+      final db = DBService();
+      for (final (name, date) in [
+        ('March lunch', DateTime(2026, 3, 31, 23)),
+        ('April lunch', DateTime(2026, 4, 1)),
+        ('April dinner', DateTime(2026, 4, 30, 23)),
+        ('May lunch', DateTime(2026, 5, 1)),
+      ]) {
+        await db.insertExpense(Expense(
+          description: name,
+          amount: 100,
+          date: date,
+          category: 'Food',
+          paymentMode: 'Cash',
+        ));
+      }
+      final april = await (await exportExpensesToCsv(
+              from: DateTime(2026, 4), to: DateTime(2026, 5)))
+          .readAsString();
+      expect(april, contains('April lunch'));
+      expect(april, contains('April dinner'));
+      expect(april, isNot(contains('March lunch')));
+      expect(april, isNot(contains('May lunch')));
+
+      final all = await (await exportExpensesToCsv()).readAsString();
+      expect(all, contains('March lunch'));
+      expect(all, contains('May lunch'));
+    });
+
     test('device-key-encrypted backup round-trips through restoreFromJson',
         () async {
       final db = DBService();
