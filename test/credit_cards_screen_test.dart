@@ -1022,9 +1022,14 @@ void main() {
               ]);
       expect(find.textContaining('Is "CRED" ₹8,015.00'), findsOneWidget);
       await tester.tap(find.text('Yes, it\'s the payment'));
-      await settle(tester);
+      // No dialog here for settle to wait on, only its short fixed pause,
+      // which a slow machine's database write and refresh can outlast.
+      final paid = find.textContaining('Bill paid');
+      for (var i = 0; i < 20 && paid.evaluate().isEmpty; i++) {
+        await settle(tester);
+      }
 
-      expect(find.textContaining('Bill paid'), findsOneWidget);
+      expect(paid, findsOneWidget);
       final rows = await tester.runAsync(() => DBService().getExpenses());
       final cred = rows!.singleWhere((e) => e.description == 'CRED');
       expect(cred.isTransfer, isTrue);
