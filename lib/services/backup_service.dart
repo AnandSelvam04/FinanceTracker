@@ -99,8 +99,12 @@ Future<File> writeExpensesCsvFile(List<Expense> expenses,
   return file;
 }
 
-Future<File> exportExpensesToCsv() async {
-  final expenses = await DBService().getExpenses();
+/// Every transaction, or with [from] and [to] only those dated from [from]
+/// up to but not including [to].
+Future<File> exportExpensesToCsv({DateTime? from, DateTime? to}) async {
+  final expenses = from != null && to != null
+      ? await DBService().getExpensesByDateRange(from, to)
+      : await DBService().getExpenses();
   return writeExpensesCsvFile(expenses);
 }
 
@@ -111,8 +115,16 @@ Future<Map<int, String>> _accountNames() async => {
 
 // Export investments to CSV
 
-Future<File> exportInvestmentsToCsv() async {
-  final investments = await DBService().getInvestments();
+/// Every investment entry, or with [from] and [to] only those dated from
+/// [from] up to but not including [to].
+Future<File> exportInvestmentsToCsv({DateTime? from, DateTime? to}) async {
+  final investments = [
+    for (final i in await DBService().getInvestments())
+      if (from == null ||
+          to == null ||
+          (!i.date.isBefore(from) && i.date.isBefore(to)))
+        i,
+  ];
   final accountNames = await _accountNames();
   final List<List<dynamic>> rows = [
     ['ID', 'Name', 'Amount', 'Date', 'Type', 'PaidFrom'],

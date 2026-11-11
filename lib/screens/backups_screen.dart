@@ -52,6 +52,79 @@ class _BackupsScreenState extends State<BackupsScreen> {
   final _backupService = BackupService();
   bool _isWorking = false;
 
+  /// The dates the CSV and Excel downloads cover; null is everything. The
+  /// end is the day after the last one included.
+  ({DateTime from, DateTime to, String label})? _exportPeriod;
+
+  /// Lets the user narrow the CSV and Excel downloads to a period.
+  Future<void> _pickExportPeriod() async {
+    final now = DateTime.now();
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Download which dates?'),
+        children: [
+          for (final (key, label) in const [
+            ('all', 'All time'),
+            ('month', 'This month'),
+            ('lastMonth', 'Last month'),
+            ('year', 'This year'),
+            ('custom', 'Pick dates…'),
+          ])
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, key),
+              child: Text(label),
+            ),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return;
+    switch (choice) {
+      case 'all':
+        setState(() => _exportPeriod = null);
+      case 'month':
+        setState(() => _exportPeriod = (
+              from: DateTime(now.year, now.month),
+              to: DateTime(now.year, now.month + 1),
+              label: 'This month',
+            ));
+      case 'lastMonth':
+        setState(() => _exportPeriod = (
+              from: DateTime(now.year, now.month - 1),
+              to: DateTime(now.year, now.month),
+              label: 'Last month',
+            ));
+      case 'year':
+        setState(() => _exportPeriod = (
+              from: DateTime(now.year),
+              to: DateTime(now.year + 1),
+              label: 'This year',
+            ));
+      case 'custom':
+        final picked = await showDateRangePicker(
+          context: context,
+          firstDate: DateTime(2000),
+          lastDate: now,
+          initialDateRange: _exportPeriod == null
+              ? null
+              : DateTimeRange(
+                  start: _exportPeriod!.from,
+                  end: _exportPeriod!.to.subtract(const Duration(days: 1)),
+                ),
+        );
+        if (picked == null || !mounted) return;
+        setState(() => _exportPeriod = (
+              from: DateTime(
+                  picked.start.year, picked.start.month, picked.start.day),
+              // The whole of the last day picked.
+              to: DateTime(
+                  picked.end.year, picked.end.month, picked.end.day + 1),
+              label: '${formatShortDate(picked.start)} – '
+                  '${formatShortDate(picked.end)}',
+            ));
+    }
+  }
+
   /// When a backup last left the phone (Drive, or shared out). The on-device
   /// auto-backup doesn't count: it is lost along with the phone.
   DateTime? _lastBackup;
@@ -783,17 +856,30 @@ class _BackupsScreenState extends State<BackupsScreen> {
               child: Column(
                 children: [
                   ListTile(
+                    leading: const Icon(Icons.date_range),
+                    title: Text('Dates: ${_exportPeriod?.label ?? 'All time'}'),
+                    subtitle: const Text(
+                        'Applies to the CSV and Excel downloads below'),
+                    trailing: const Icon(Icons.arrow_drop_down),
+                    enabled: !_isWorking,
+                    onTap: _pickExportPeriod,
+                  ),
+                  ListTile(
                     leading: const Icon(Icons.download),
                     title: const Text('Download expenses (CSV)'),
                     enabled: !_isWorking,
                     onTap: () => _exportAndShare(
-                        exportExpensesToCsv, 'Finance Tracker — Expenses'),
+                        () => exportExpensesToCsv(
+                            from: _exportPeriod?.from, to: _exportPeriod?.to),
+                        'Finance Tracker — Expenses'),
                   ),
                   ListTile(
                     leading: const Icon(Icons.download),
                     title: const Text('Download investments (CSV)'),
                     enabled: !_isWorking,
-                    onTap: () => _exportAndShare(exportInvestmentsToCsv,
+                    onTap: () => _exportAndShare(
+                        () => exportInvestmentsToCsv(
+                            from: _exportPeriod?.from, to: _exportPeriod?.to),
                         'Finance Tracker — Investments'),
                   ),
                   ListTile(
@@ -803,7 +889,11 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         'Transactions, categories, months and investments '
                         'as sheets'),
                     enabled: !_isWorking,
-                    onTap: () => _exportAndShare(ExcelExport.writeEverything,
+                    onTap: () => _exportAndShare(
+                        () => ExcelExport.writeEverything(
+                            from: _exportPeriod?.from,
+                            to: _exportPeriod?.to,
+                            periodLabel: _exportPeriod?.label),
                         'Finance Tracker — Excel export'),
                   ),
                   ListTile(
