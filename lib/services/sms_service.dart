@@ -222,6 +222,10 @@ class SmsService {
   /// activity dies with "Reply already submitted" — easy to hit here, because
   /// the dashboard's unread-SMS badge reads the inbox on its own while the
   /// dialog is up.
+  ///
+  /// That alone was not enough: the published plugin also claimed every other
+  /// plugin's permission result, this one included, and crashed the same way.
+  /// The copy in third_party/another_telephony is patched not to.
   static Future<bool> requestPermission() async {
     if (!isSupported || !enabled) return false;
     // A test's stand-in inbox needs no permission (see [isSupported]).
