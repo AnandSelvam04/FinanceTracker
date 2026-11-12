@@ -37,6 +37,10 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Pinned: Flutter 3.50 deprecates package:flutter/material.dart
+          # itself, so every file fails `flutter analyze` until the app
+          # moves to material_ui. Raise this together with that migration.
+          flutter-version: 3.47.9
           cache: true
       - run: flutter pub get
       # Stamp the build so Settings > About shows which commit an installed
