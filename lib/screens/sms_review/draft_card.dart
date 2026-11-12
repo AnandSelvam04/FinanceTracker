@@ -11,6 +11,9 @@ class _DraftCard extends StatefulWidget {
   /// Null hides "Always ignore" (a transfer names no merchant to ignore).
   final VoidCallback? onIgnoreMerchant;
 
+  /// The message was dismissed before and is shown again on request.
+  final bool dismissedEarlier;
+
   const _DraftCard({
     super.key,
     required this.draft,
@@ -20,6 +23,7 @@ class _DraftCard extends StatefulWidget {
     required this.onDismiss,
     required this.onShowRaw,
     this.onIgnoreMerchant,
+    this.dismissedEarlier = false,
   });
 
   @override
@@ -37,6 +41,13 @@ class _DraftCardState extends State<_DraftCard> {
   /// The amount in the account's currency, for a foreign charge.
   final _convertedAmount = TextEditingController();
 
+  static final _actionStyle = TextButton.styleFrom(
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    minimumSize: const Size(0, 36),
+    visualDensity: VisualDensity.compact,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+
   static const _paymentModes = [
     'Cash', 'Credit Card', 'Debit Card', 'UPI', 'Other', //
   ];
@@ -53,14 +64,18 @@ class _DraftCardState extends State<_DraftCard> {
   Widget _accountDropdown({
     required String label,
     required int? value,
-    required String? errorText,
+    required bool flagged,
     required ValueChanged<int?> onChanged,
   }) =>
       DropdownButtonFormField<int?>(
         initialValue: value,
         isExpanded: true,
+        // Marked in the error colour only: what is wrong is spelled out in a
+        // notice across the card, where it isn't cut off at half its width.
         decoration: InputDecoration(
-            labelText: label, errorText: errorText, isDense: true),
+            labelText: label,
+            error: flagged ? const SizedBox.shrink() : null,
+            isDense: true),
         items: [
           const DropdownMenuItem<int?>(value: null, child: Text('None')),
           ...widget.accounts.map((a) => DropdownMenuItem<int?>(
@@ -149,7 +164,8 @@ class _DraftCardState extends State<_DraftCard> {
     final unmatchedLast4 = parsed.last4 != null && draft.accountId == null;
     final unmatchedText = draft.sameLast4Count > 1
         ? '${draft.sameLast4Count} accounts end in ••${parsed.last4} — pick one'
-        : 'No account with ••${parsed.last4}';
+        : 'None of your accounts ends in ••${parsed.last4} — pick one, or '
+            'add its last 4 digits in Accounts';
     final account = _accountById(draft.accountId);
     // A charge quoted in another currency than the account's own needs the
     // converted figure, which only the bank's statement will show.
@@ -297,6 +313,35 @@ class _DraftCardState extends State<_DraftCard> {
                   ),
                 ),
               ),
+            if (widget.dismissedEarlier)
+              _Notice(
+                icon: Icons.visibility_off_outlined,
+                color: mutedTextColor(context),
+                text: 'You dismissed this one before.',
+              ),
+            if (unmatchedLast4)
+              _Notice(
+                icon: Icons.error_outline,
+                color: Theme.of(context).colorScheme.error,
+                text: unmatchedText,
+              )
+            else if (draft.needsSource)
+              _Notice(
+                icon: Icons.error_outline,
+                color: Theme.of(context).colorScheme.error,
+                text: 'Pick the account you paid from',
+              ),
+            if (draft.needsDestination)
+              _Notice(
+                icon: Icons.error_outline,
+                color: Theme.of(context).colorScheme.error,
+                text: parsed.toLast4 != null
+                    ? 'None of your accounts ends in ••${parsed.toLast4} — '
+                        'pick where it went'
+                    : (draft.isCardPayment
+                        ? 'Pick the card you paid'
+                        : 'Pick the receiving account'),
+              ),
             if (draft.duplicateOf != null)
               _Notice(
                 icon: Icons.content_copy,
@@ -410,7 +455,7 @@ class _DraftCardState extends State<_DraftCard> {
                   ],
                 ),
               ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 10),
             Padding(
               padding: const EdgeInsets.only(left: 8),
               child: draft.asInvestment
@@ -427,7 +472,7 @@ class _DraftCardState extends State<_DraftCard> {
                           child: _accountDropdown(
                             label: 'Paid from',
                             value: draft.accountId,
-                            errorText: unmatchedLast4 ? unmatchedText : null,
+                            flagged: unmatchedLast4,
                             onChanged: (v) {
                               draft.accountId = v;
                               widget.onChanged();
@@ -458,11 +503,7 @@ class _DraftCardState extends State<_DraftCard> {
                           child: _accountDropdown(
                             label: draft.recordsTransfer ? 'From' : 'Account',
                             value: draft.accountId,
-                            errorText: unmatchedLast4
-                                ? unmatchedText
-                                : (draft.needsSource
-                                    ? 'Pick the account you paid from'
-                                    : null),
+                            flagged: unmatchedLast4 || draft.needsSource,
                             onChanged: (v) {
                               draft.accountId = v;
                               widget.onChanged();
@@ -477,13 +518,7 @@ class _DraftCardState extends State<_DraftCard> {
                               ? _accountDropdown(
                                   label: 'To',
                                   value: draft.toAccountId,
-                                  errorText: draft.needsDestination
-                                      ? (parsed.toLast4 != null
-                                          ? 'No account with ••${parsed.toLast4}'
-                                          : (draft.isCardPayment
-                                              ? 'Pick the card you paid'
-                                              : 'Pick the receiving account'))
-                                      : null,
+                                  flagged: draft.needsDestination,
                                   onChanged: (v) {
                                     draft.toAccountId = v;
                                     widget.onChanged();
@@ -568,26 +603,43 @@ class _DraftCardState extends State<_DraftCard> {
                   ],
                 ),
               ),
-            Wrap(
-              alignment: WrapAlignment.end,
-              children: [
-                TextButton.icon(
-                  icon: const Icon(Icons.article_outlined, size: 16),
-                  label: const Text('Message'),
-                  onPressed: widget.onShowRaw,
-                ),
-                if (widget.onIgnoreMerchant != null)
+            // The message on the left, the two ways of getting rid of it on
+            // the right, on one line: with an icon each, the last one used
+            // to drop onto a line of its own.
+            SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                children: [
                   TextButton.icon(
-                    icon: const Icon(Icons.block, size: 16),
-                    label: const Text('Always ignore'),
-                    onPressed: widget.onIgnoreMerchant,
+                    style: _actionStyle,
+                    icon: const Icon(Icons.article_outlined, size: 16),
+                    label: const Text('Message'),
+                    onPressed: widget.onShowRaw,
                   ),
-                TextButton.icon(
-                  icon: const Icon(Icons.close, size: 16),
-                  label: const Text('Dismiss'),
-                  onPressed: widget.onDismiss,
-                ),
-              ],
+                  // Scaled down rather than overflowing at a very large
+                  // text size.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.onIgnoreMerchant != null)
+                          TextButton(
+                            style: _actionStyle,
+                            onPressed: widget.onIgnoreMerchant,
+                            child: const Text('Always ignore'),
+                          ),
+                        TextButton(
+                          style: _actionStyle,
+                          onPressed: widget.onDismiss,
+                          child: const Text('Dismiss'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
