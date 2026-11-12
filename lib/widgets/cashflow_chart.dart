@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../providers/expense_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/font_sizes.dart';
 
 /// Grouped bars of income vs expense per month for the trailing 12 months.
 class CashflowChart extends StatelessWidget {
@@ -103,7 +104,7 @@ class CashflowChart extends StatelessWidget {
                       return Text(
                         _monthLabels[months[index].month - 1],
                         style: TextStyle(
-                            fontSize: 10,
+                            fontSize: FontSizes.tick,
                             color:
                                 Theme.of(context).colorScheme.onSurfaceVariant),
                       );
@@ -118,7 +119,8 @@ class CashflowChart extends StatelessWidget {
                     final label = rodIndex == 0 ? 'Income' : 'Expense';
                     return BarTooltipItem(
                       '${date.year}-${date.month.toString().padLeft(2, '0')}\n$label: ${formatMoneyRounded((rod.toY * 100).round())}',
-                      const TextStyle(color: Colors.white, fontSize: 12),
+                      const TextStyle(
+                          color: Colors.white, fontSize: FontSizes.caption),
                     );
                   },
                 ),

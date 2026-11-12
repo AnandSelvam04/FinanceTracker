@@ -86,7 +86,8 @@ class _CardTile extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 15),
+                        fontWeight: FontWeight.w600,
+                        fontSize: FontSizes.bodyLarge),
                   ),
                 ),
                 IconButton(
@@ -128,7 +129,8 @@ class _CardTile extends StatelessWidget {
                           'Paid in ${formatMoneyIn(symbol, figures.paidIn)} '
                           'in this period',
                           style: TextStyle(
-                              fontSize: 12, color: incomeColor(context))),
+                              fontSize: FontSizes.caption,
+                              color: incomeColor(context))),
                     ),
                   // Up top, where it is seen before buying: when a purchase
                   // on this card today has to be paid.
@@ -144,7 +146,7 @@ class _CardTile extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(bill.$1,
                           style: TextStyle(
-                              fontSize: 13,
+                              fontSize: FontSizes.body,
                               color: bill.$2 ?? muted,
                               fontWeight: bill.$2 == null
                                   ? FontWeight.normal
@@ -159,7 +161,8 @@ class _CardTile extends StatelessWidget {
                           'Minimum due about '
                           '${formatMoneyIn(symbol, s.minimumDueEstimate)} — '
                           'paying only that leaves the rest charged interest',
-                          style: TextStyle(fontSize: 12, color: muted)),
+                          style: TextStyle(
+                              fontSize: FontSizes.caption, color: muted)),
                     ),
                   if (s.dueRemaining > 0) ...[
                     for (final e in figures.paymentGuesses)
@@ -292,7 +295,8 @@ class _OwedExplainerState extends State<_OwedExplainer> {
                       'Why ${money(s.owed)} owed when '
                       '${money(s.cycleSpend)} was spent this '
                       '${s.hasCycle ? 'cycle' : 'month'}?',
-                      style: TextStyle(fontSize: 12, color: scheme.primary),
+                      style: TextStyle(
+                          fontSize: FontSizes.caption, color: scheme.primary),
                     ),
                   ),
                   Icon(_open ? Icons.expand_less : Icons.expand_more,
@@ -320,11 +324,12 @@ class _OwedExplainerState extends State<_OwedExplainer> {
                         children: [
                           Expanded(
                               child: Text(l.$1,
-                                  style:
-                                      TextStyle(fontSize: 13, color: muted))),
+                                  style: TextStyle(
+                                      fontSize: FontSizes.body, color: muted))),
                           const SizedBox(width: 8),
                           Text(l.$2,
-                              style: TextStyle(fontSize: 13, color: l.$3)),
+                              style: TextStyle(
+                                  fontSize: FontSizes.body, color: l.$3)),
                         ],
                       ),
                     ),
@@ -334,10 +339,12 @@ class _OwedExplainerState extends State<_OwedExplainer> {
                       const Expanded(
                           child: Text('Owed now',
                               style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w600))),
+                                  fontSize: FontSizes.body,
+                                  fontWeight: FontWeight.w600))),
                       Text(money(s.owed),
                           style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
+                              fontSize: FontSizes.body,
+                              fontWeight: FontWeight.w600)),
                     ],
                   ),
                   for (final h in hints)
@@ -350,8 +357,9 @@ class _OwedExplainerState extends State<_OwedExplainer> {
                           const SizedBox(width: 6),
                           Expanded(
                               child: Text(h,
-                                  style:
-                                      TextStyle(fontSize: 12, color: muted))),
+                                  style: TextStyle(
+                                      fontSize: FontSizes.caption,
+                                      color: muted))),
                         ],
                       ),
                     ),
@@ -450,7 +458,8 @@ class _PaymentGuess extends StatelessWidget {
             '${formatCompactDate(expense.date)}'
             '${from == null ? '' : ' from ${from.name}'} this bill\'s '
             'payment? It is saved as spending, so the bill still shows due.',
-            style: TextStyle(fontSize: 13, color: scheme.onTertiaryContainer),
+            style: TextStyle(
+                fontSize: FontSizes.body, color: scheme.onTertiaryContainer),
           ),
           Align(
             alignment: Alignment.centerRight,
@@ -494,7 +503,7 @@ class _BuyTodayPill extends StatelessWidget {
             Expanded(
               child: Text.rich(
                 TextSpan(
-                  style: TextStyle(fontSize: 14, color: fg),
+                  style: TextStyle(fontSize: FontSizes.body, color: fg),
                   children: [
                     const TextSpan(text: 'Buy today, pay by '),
                     TextSpan(
@@ -545,7 +554,7 @@ class _RewardsLine extends StatelessWidget {
           const SizedBox(width: 4),
           Expanded(
             child: Text(parts.join(' · '),
-                style: TextStyle(fontSize: 12, color: muted)),
+                style: TextStyle(fontSize: FontSizes.caption, color: muted)),
           ),
         ],
       ),
@@ -574,7 +583,9 @@ class _BankCheckLine extends StatelessWidget {
             const SizedBox(width: 4),
             Expanded(
               child: Text('Matches the bank\'s SMS of $when',
-                  style: TextStyle(fontSize: 12, color: incomeColor(context))),
+                  style: TextStyle(
+                      fontSize: FontSizes.caption,
+                      color: incomeColor(context))),
             ),
           ],
         ),
@@ -603,7 +614,7 @@ class _BankCheckLine extends StatelessWidget {
                   '${formatMoneyIn(symbol, check.appAvailable)}. '
                   '${check.difference > 0 ? 'A purchase may be missing' : 'A payment or refund may be missing'}'
                   ', or the starting amount is off.',
-                  style: TextStyle(fontSize: 12, color: warn),
+                  style: TextStyle(fontSize: FontSizes.caption, color: warn),
                 ),
               ),
             ],
@@ -774,7 +785,7 @@ class _UsageBar extends StatelessWidget {
             ExcludeSemantics(
               child: Text(caption,
                   style: TextStyle(
-                      fontSize: 12,
+                      fontSize: FontSizes.caption,
                       color: low ? mutedTextColor(context) : color,
                       fontWeight: low ? FontWeight.normal : FontWeight.w600)),
             ),
@@ -785,7 +796,8 @@ class _UsageBar extends StatelessWidget {
                     'Includes ${formatMoneyIn(symbol, s.emiBlocked)} held '
                     'for EMIs',
                     style: TextStyle(
-                        fontSize: 12, color: mutedTextColor(context))),
+                        fontSize: FontSizes.caption,
+                        color: mutedTextColor(context))),
               ),
           ],
         ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/account.dart';
 import '../utils/app_colors.dart';
 import 'paid_from_field.dart';
+import '../utils/font_sizes.dart';
 
 /// Where a spend was paid from: the account, and — when it went on a credit
 /// card — which card, as one-tap chips. Shared by the Add Expense form and
@@ -114,13 +115,15 @@ class SpendAccountPicker extends StatelessWidget {
           ),
         if (onCard) ...[
           const SizedBox(height: 12),
-          Text('Which card?', style: TextStyle(fontSize: 12, color: muted)),
+          Text('Which card?',
+              style: TextStyle(fontSize: FontSizes.caption, color: muted)),
           const SizedBox(height: 6),
           if (cards.isEmpty)
             Text(
               'No credit card added yet. Add one under Credit cards so this '
               'counts toward its bill and limit.',
-              style: TextStyle(fontSize: 12, color: warningColor(context)),
+              style: TextStyle(
+                  fontSize: FontSizes.caption, color: warningColor(context)),
             )
           else
             Wrap(
@@ -143,7 +146,8 @@ class SpendAccountPicker extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 'Pick the card, or it won\'t count toward any card\'s bill',
-                style: TextStyle(fontSize: 12, color: warningColor(context)),
+                style: TextStyle(
+                    fontSize: FontSizes.caption, color: warningColor(context)),
               ),
             ),
         ],
@@ -151,7 +155,7 @@ class SpendAccountPicker extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Text(PaidFromField.effectOf(selected),
-                style: TextStyle(fontSize: 12, color: muted)),
+                style: TextStyle(fontSize: FontSizes.caption, color: muted)),
           ),
       ],
     );

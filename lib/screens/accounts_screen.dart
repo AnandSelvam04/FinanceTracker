@@ -13,6 +13,7 @@ import '../widgets/hero_total_card.dart';
 import 'account_detail_screen.dart';
 import 'add_transfer_screen.dart';
 import '../widgets/dispose_with_route.dart';
+import '../utils/font_sizes.dart';
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -241,7 +242,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                                 '${sharedWith.name}. Change it under Credit '
                                 'cards → set up.',
                                 style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: FontSizes.caption,
                                     color: mutedTextColor(context)),
                               ),
                             )
@@ -466,12 +467,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
                             return Hero(
                               tag: 'account-${account.id}',
                               child: CircleAvatar(
-                              backgroundColor: own == null
-                                  ? scheme.secondaryContainer
-                                  : own.withValues(alpha: dark ? 0.28 : 0.15),
-                              child: Icon(accountTypeIcon(account.type),
-                                  color: own ?? scheme.onSecondaryContainer),
-                            ),
+                                backgroundColor: own == null
+                                    ? scheme.secondaryContainer
+                                    : own.withValues(alpha: dark ? 0.28 : 0.15),
+                                child: Icon(accountTypeIcon(account.type),
+                                    color: own ?? scheme.onSecondaryContainer),
+                              ),
                             );
                           }),
                           title: Text(account.name,

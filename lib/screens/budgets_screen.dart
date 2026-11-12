@@ -18,6 +18,7 @@ import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/swipe_actions.dart';
 import '../widgets/dispose_with_route.dart';
+import '../utils/font_sizes.dart';
 
 class BudgetsScreen extends StatefulWidget {
   /// True when shown as a tab of the home screen rather than pushed as a
@@ -717,7 +718,8 @@ class _BudgetMonthStepper extends StatelessWidget {
               if (isCurrent)
                 Text('This month',
                     style: TextStyle(
-                        fontSize: 12, color: mutedTextColor(context))),
+                        fontSize: FontSizes.caption,
+                        color: mutedTextColor(context))),
             ],
           ),
         ),
@@ -776,7 +778,9 @@ class _PaceLine extends StatelessWidget {
           Flexible(
             child: Text(text,
                 style: TextStyle(
-                    fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+                    fontSize: FontSizes.caption,
+                    color: color,
+                    fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -809,7 +813,7 @@ class _CarryLine extends StatelessWidget {
               carry > 0
                   ? '${formatMoneyRounded(carry)} rolled over'
                   : '${formatMoneyRounded(-carry)} overspent earlier',
-              style: TextStyle(fontSize: 12, color: color),
+              style: TextStyle(fontSize: FontSizes.caption, color: color),
             ),
           ),
         ],

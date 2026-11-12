@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
+import 'font_sizes.dart';
 
 /// Centralized Material 3 theming for the whole app.
 ///
@@ -118,7 +119,7 @@ class AppTheme {
         iconTheme: const IconThemeData(color: Colors.white),
         actionsIconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: const TextStyle(
-          fontSize: 20,
+          fontSize: FontSizes.heading,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
@@ -154,7 +155,7 @@ class AppTheme {
         ),
         labelTextStyle: WidgetStateProperty.all(
           TextStyle(
-            fontSize: 12,
+            fontSize: FontSizes.caption,
             fontWeight: FontWeight.w600,
             color: scheme.onSurface,
           ),
@@ -266,7 +267,7 @@ class AppTheme {
         // transaction amounts rendered as the smallest text on screen. Money
         // is the point of the row; give it a readable, firm weight.
         leadingAndTrailingTextStyle: textTheme.titleSmall?.copyWith(
-          fontSize: 15,
+          fontSize: FontSizes.bodyLarge,
           color: scheme.onSurface,
         ),
       ),
@@ -309,7 +310,8 @@ class AppTheme {
           color: scheme.inverseSurface,
           borderRadius: BorderRadius.circular(8),
         ),
-        textStyle: TextStyle(color: scheme.onInverseSurface, fontSize: 12),
+        textStyle: TextStyle(
+            color: scheme.onInverseSurface, fontSize: FontSizes.caption),
       ),
     );
   }

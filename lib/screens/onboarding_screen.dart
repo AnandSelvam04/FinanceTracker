@@ -8,6 +8,7 @@ import '../utils/app_colors.dart';
 import '../utils/app_lock.dart';
 import '../utils/app_logger.dart';
 import '../utils/currency_format.dart';
+import '../utils/font_sizes.dart';
 
 /// First-run set-up: a welcome, then the three things the app needs to be
 /// useful from the first transaction — the currency, an account to spend
@@ -138,8 +139,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   _StepPage(
                     icon: Icons.currency_exchange,
                     title: 'Your currency',
-                    description:
-                        'Amounts are shown in it. Accounts in another '
+                    description: 'Amounts are shown in it. Accounts in another '
                         'currency can be added later.',
                     child: _CurrencyChoice(),
                   ),
@@ -247,7 +247,7 @@ class _StepPage extends StatelessWidget {
                 description,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: FontSizes.bodyLarge,
                   height: 1.4,
                   color: scheme.onSurfaceVariant,
                 ),
@@ -277,7 +277,7 @@ class _CurrencyChoice extends StatelessWidget {
       children: [
         for (final c in SettingsProvider.currencyOptions)
           ChoiceChip(
-            label: Text(c, style: const TextStyle(fontSize: 18)),
+            label: Text(c, style: const TextStyle(fontSize: FontSizes.title)),
             selected: settings.currencySymbol == c,
             showCheckmark: false,
             onSelected: (_) => settings.setCurrencySymbol(c),
@@ -329,9 +329,7 @@ class _AccountForm extends StatelessWidget {
           textInputAction: TextInputAction.next,
           decoration: InputDecoration(
             labelText: 'Account name',
-            hintText: type == 'cash'
-                ? 'e.g. Wallet'
-                : 'e.g. HDFC Savings',
+            hintText: type == 'cash' ? 'e.g. Wallet' : 'e.g. HDFC Savings',
           ),
         ),
         const SizedBox(height: 12),

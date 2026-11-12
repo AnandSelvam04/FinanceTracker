@@ -17,7 +17,7 @@ class _TotalHeadline extends StatelessWidget {
         Text(
           label.toUpperCase(),
           style: TextStyle(
-            fontSize: 12,
+            fontSize: FontSizes.caption,
             letterSpacing: 0.8,
             fontWeight: FontWeight.w600,
             color: mutedTextColor(context),
@@ -34,7 +34,7 @@ class _TotalHeadline extends StatelessWidget {
             value: amount,
             format: formatMoney,
             style: const TextStyle(
-              fontSize: 30,
+              fontSize: FontSizes.display,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
@@ -120,7 +120,7 @@ class _SummaryPill extends StatelessWidget {
                   Text(
                     label.toUpperCase(),
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: FontSizes.caption,
                       letterSpacing: 0.6,
                       fontWeight: FontWeight.w600,
                       color: mutedTextColor(context),
@@ -133,7 +133,7 @@ class _SummaryPill extends StatelessWidget {
                     child: Text(
                       formatMoney(amount),
                       style: TextStyle(
-                        fontSize: 17,
+                        fontSize: FontSizes.bodyLarge,
                         fontWeight: FontWeight.bold,
                         color: color,
                       ),
@@ -219,7 +219,8 @@ class _BudgetRing extends StatelessWidget {
                             // Sized to the ring, not to the text setting.
                             textScaler: TextScaler.noScaling,
                             style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w700),
+                                fontSize: FontSizes.caption,
+                                fontWeight: FontWeight.w700),
                           ),
                         ),
                       ],
@@ -236,7 +237,7 @@ class _BudgetRing extends StatelessWidget {
                             ? 'Over budget by ${formatMoney(-left)}'
                             : '${formatMoney(left)} left to spend',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: FontSizes.body,
                           fontWeight: FontWeight.w700,
                           color: color,
                         ),
@@ -246,7 +247,8 @@ class _BudgetRing extends StatelessWidget {
                         '${formatMoneyRounded(spent)} of '
                         '${formatMoneyRounded(cap)} budget',
                         style: TextStyle(
-                            fontSize: 12, color: mutedTextColor(context)),
+                            fontSize: FontSizes.caption,
+                            color: mutedTextColor(context)),
                       ),
                     ],
                   ),
@@ -290,8 +292,8 @@ class _StreakChip extends StatelessWidget {
                 '$days no-spend days in a row',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style:
-                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                    fontSize: FontSizes.body, fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -354,7 +356,8 @@ class _InsightsCard extends StatelessWidget {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(insight.text,
-                                style: const TextStyle(fontSize: 14)),
+                                style:
+                                    const TextStyle(fontSize: FontSizes.body)),
                           ),
                         ],
                       ),

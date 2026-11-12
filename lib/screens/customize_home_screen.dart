@@ -7,6 +7,7 @@ import '../utils/dashboard_layout.dart';
 import '../utils/haptics.dart';
 import '../utils/insets.dart';
 import '../widgets/section_header.dart';
+import '../utils/font_sizes.dart';
 
 /// Lets the user arrange the home screen: drag its sections into order,
 /// switch off the ones they never look at, and pick the shortcut buttons.
@@ -59,7 +60,8 @@ class CustomizeHomeScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
             child: Text(
               'Drag to reorder. Switch off what you don\'t use.',
-              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
+              style: TextStyle(
+                  fontSize: FontSizes.body, color: mutedTextColor(context)),
             ),
           ),
           Card(
@@ -105,7 +107,8 @@ class CustomizeHomeScreen extends StatelessWidget {
             child: Text(
               'Up to ${DashboardLayout.maxShortcuts} buttons, shown in the '
               'order you pick them. ${shortcuts.length} chosen.',
-              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
+              style: TextStyle(
+                  fontSize: FontSizes.body, color: mutedTextColor(context)),
             ),
           ),
           Wrap(

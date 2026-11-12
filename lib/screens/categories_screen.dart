@@ -15,6 +15,7 @@ import '../utils/insets.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/category_choice_chip.dart' show isSameCategory;
 import '../widgets/empty_state.dart';
+import '../utils/font_sizes.dart';
 
 /// Lists the categories — the ones transactions use, the user's own and the
 /// built-in ones — with a way to add one, give it an icon and colour, rename
@@ -152,14 +153,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     ];
     final target = await showDialog<String>(
       context: context,
-      builder: (_) =>
-          _MoveDialog(from: name, count: row.count, others: others),
+      builder: (_) => _MoveDialog(from: name, count: row.count, others: others),
     );
     if (target == null || !mounted) return;
     final moved = await _move(name, target, merging: true);
     await _load();
-    messenger.showSnackBar(SnackBar(
-        content: Text('Removed "$name" ($moved moved to "$target")')));
+    messenger.showSnackBar(
+        SnackBar(content: Text('Removed "$name" ($moved moved to "$target")')));
   }
 
   @override
@@ -202,7 +202,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             child: Text(
               'Tap a category to rename it or change its icon and colour. '
               'Give it the name of another one to merge the two.',
-              style: TextStyle(color: mutedTextColor(context), fontSize: 13),
+              style: TextStyle(
+                  color: mutedTextColor(context), fontSize: FontSizes.body),
             ),
           ),
           Expanded(
@@ -318,7 +319,8 @@ class _CategoryDialogState extends State<_CategoryDialog> {
   Widget build(BuildContext context) {
     final target = _mergeTarget;
     final scheme = Theme.of(context).colorScheme;
-    final muted = TextStyle(fontSize: 12, color: mutedTextColor(context));
+    final muted =
+        TextStyle(fontSize: FontSizes.caption, color: mutedTextColor(context));
     // What the avatar will look like with the choices made so far.
     final name = _controller.text.trim().isEmpty
         ? (widget.from ?? '')
@@ -363,7 +365,8 @@ class _CategoryDialogState extends State<_CategoryDialog> {
               const SizedBox(height: 8),
               if (_adding && target != null)
                 Text('"$target" already exists.',
-                    style: TextStyle(fontSize: 12, color: scheme.error))
+                    style: TextStyle(
+                        fontSize: FontSizes.caption, color: scheme.error))
               else if (!_adding)
                 Text(
                   target != null
@@ -420,9 +423,8 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                       IconButton(
                         isSelected: _icon == e.key,
                         style: IconButton.styleFrom(
-                          backgroundColor: _icon == e.key
-                              ? scheme.primaryContainer
-                              : null,
+                          backgroundColor:
+                              _icon == e.key ? scheme.primaryContainer : null,
                           foregroundColor: _icon == e.key
                               ? scheme.onPrimaryContainer
                               : scheme.onSurfaceVariant,

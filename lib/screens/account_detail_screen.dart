@@ -21,6 +21,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/hero_total_card.dart';
 import '../widgets/reconcile_dialog.dart';
 import '../widgets/transaction_edit_sheet.dart';
+import '../utils/font_sizes.dart';
 
 /// What the user asked for from the statement's app bar; the Accounts screen
 /// owns the edit dialog and the delete confirmation, so it acts on these.
@@ -265,7 +266,8 @@ class _LedgerRow extends StatelessWidget {
             ),
             Text(
               formatMoneySignedIn(account.symbol, entry.balanceAfter),
-              style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
+              style: TextStyle(
+                  fontSize: FontSizes.caption, color: mutedTextColor(context)),
             ),
           ],
         ),
@@ -326,10 +328,12 @@ class _CycleHeader extends StatelessWidget {
               children: [
                 Text(title,
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 15)),
+                        fontWeight: FontWeight.bold,
+                        fontSize: FontSizes.bodyLarge)),
                 Text(range,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: muted)),
+                    style:
+                        TextStyle(fontSize: FontSizes.caption, color: muted)),
               ],
             ),
           ),
@@ -343,8 +347,9 @@ class _CycleHeader extends StatelessWidget {
                       color: expenseColor(context))),
               if (c.paidIn > 0)
                 Text('Paid in ${formatMoneyIn(symbol, c.paidIn)}',
-                    style:
-                        TextStyle(fontSize: 12, color: incomeColor(context))),
+                    style: TextStyle(
+                        fontSize: FontSizes.caption,
+                        color: incomeColor(context))),
             ],
           ),
         ],

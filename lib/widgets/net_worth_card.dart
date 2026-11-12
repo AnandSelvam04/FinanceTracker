@@ -11,6 +11,7 @@ import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import 'animated_money.dart';
+import '../utils/font_sizes.dart';
 
 /// Dashboard card showing current net worth (liquid account balances plus
 /// recorded investments) and a 12-month month-end trend line.
@@ -64,7 +65,7 @@ class NetWorthCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text('Net Worth',
                         style: TextStyle(
-                            fontSize: 14,
+                            fontSize: FontSizes.body,
                             fontWeight: FontWeight.bold,
                             color: onGradient)),
                     const SizedBox(width: 8),
@@ -78,7 +79,7 @@ class NetWorthCard extends StatelessWidget {
                           value: netWorth,
                           format: formatMoneySigned,
                           style: TextStyle(
-                            fontSize: 22,
+                            fontSize: FontSizes.heading,
                             fontWeight: FontWeight.bold,
                             color: onGradient,
                           ),
@@ -91,7 +92,7 @@ class NetWorthCard extends StatelessWidget {
                 Text(
                   'Accounts ${formatMoneySigned(liquid)} · '
                   'Investments ${formatMoneySigned(invested)} (at cost)',
-                  style: TextStyle(fontSize: 12, color: subtle),
+                  style: TextStyle(fontSize: FontSizes.caption, color: subtle),
                 ),
                 const SizedBox(height: 8),
                 // Short: the trend is a glance, and a taller chart pushed the
@@ -141,7 +142,8 @@ class _NetWorthTrend extends StatelessWidget {
         if (series.every((p) => p.value == 0)) {
           return Center(
             child: Text('No history yet',
-                style: TextStyle(fontSize: 12, color: mutedColor)),
+                style:
+                    TextStyle(fontSize: FontSizes.caption, color: mutedColor)),
           );
         }
         final spots = <FlSpot>[
@@ -174,7 +176,7 @@ class _NetWorthTrend extends StatelessWidget {
                         const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
-                          fontSize: 12,
+                          fontSize: FontSizes.caption,
                         ),
                       ),
                   ],

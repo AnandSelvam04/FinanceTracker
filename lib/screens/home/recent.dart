@@ -165,7 +165,8 @@ class _CategoryDetailSheet extends StatelessWidget {
           Text(
             '$period · ${rows.length} transaction'
             '${rows.length == 1 ? '' : 's'}',
-            style: TextStyle(color: mutedTextColor(context), fontSize: 13),
+            style: TextStyle(
+                color: mutedTextColor(context), fontSize: FontSizes.body),
           ),
           const Divider(height: 20),
           // Flexible + shrinkWrap keeps a short list compact but lets a long one

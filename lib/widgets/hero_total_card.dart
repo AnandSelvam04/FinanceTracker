@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/app_colors.dart';
+import '../utils/font_sizes.dart';
 
 /// A brand-gradient card that leads a screen with its headline total: a small
 /// uppercase label, the amount in large type, an optional caption, and an
@@ -69,7 +70,7 @@ class HeroTotalCard extends StatelessWidget {
                 child: Text(
                   label.toUpperCase(),
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: FontSizes.caption,
                     letterSpacing: 0.8,
                     fontWeight: FontWeight.w600,
                     color: subtle,
@@ -86,7 +87,7 @@ class HeroTotalCard extends StatelessWidget {
             child: Text(
               amount,
               style: TextStyle(
-                fontSize: 28,
+                fontSize: FontSizes.display,
                 fontWeight: FontWeight.bold,
                 color: fg,
               ),
@@ -94,7 +95,8 @@ class HeroTotalCard extends StatelessWidget {
           ),
           if (caption != null) ...[
             const SizedBox(height: 2),
-            Text(caption!, style: TextStyle(fontSize: 13, color: subtle)),
+            Text(caption!,
+                style: TextStyle(fontSize: FontSizes.body, color: subtle)),
           ],
           if (footer != null) ...[
             const SizedBox(height: 14),

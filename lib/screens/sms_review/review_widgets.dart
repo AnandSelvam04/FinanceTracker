@@ -143,7 +143,8 @@ class _BulkActionBar extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                              fontSize: 12, color: mutedTextColor(context))),
+                              fontSize: FontSizes.caption,
+                              color: mutedTextColor(context))),
                     ],
                   ),
                 ),
@@ -195,7 +196,8 @@ class _Notice extends StatelessWidget {
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(text, style: TextStyle(fontSize: 12, color: color)),
+            child: Text(text,
+                style: TextStyle(fontSize: FontSizes.caption, color: color)),
           ),
         ],
       ),

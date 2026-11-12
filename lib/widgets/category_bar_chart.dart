@@ -3,6 +3,7 @@ import '../utils/app_colors.dart';
 import '../utils/category_colors.dart';
 import '../utils/category_icons.dart';
 import '../utils/currency_format.dart';
+import '../utils/font_sizes.dart';
 
 /// Spending by category as a sorted horizontal bar list.
 ///
@@ -114,7 +115,8 @@ class _CategoryBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text('$percent%',
                     style: TextStyle(
-                        color: mutedTextColor(context), fontSize: 12)),
+                        color: mutedTextColor(context),
+                        fontSize: FontSizes.caption)),
                 const SizedBox(width: 10),
                 Text(formatMoney(amount),
                     style: const TextStyle(fontWeight: FontWeight.bold)),

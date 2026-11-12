@@ -16,6 +16,7 @@ import '../utils/app_logger.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
+import '../utils/font_sizes.dart';
 
 class ImportScreen extends StatefulWidget {
   const ImportScreen({super.key});
@@ -392,7 +393,8 @@ class _ImportScreenState extends State<ImportScreen> {
           padding: const EdgeInsets.only(top: 4),
           child: Text(
             'Will import ${result.expenses.length}, skip ${result.skipped}.',
-            style: TextStyle(color: mutedTextColor(context), fontSize: 12),
+            style: TextStyle(
+                color: mutedTextColor(context), fontSize: FontSizes.caption),
           ),
         ),
       ],

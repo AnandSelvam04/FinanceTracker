@@ -4,6 +4,7 @@ import '../utils/date_format.dart';
 import '../providers/expense_provider.dart';
 import '../utils/category_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/font_sizes.dart';
 
 /// One line per selected category over the trailing 12 months.
 class CategoryTrendChart extends StatelessWidget {
@@ -102,7 +103,7 @@ class CategoryTrendChart extends StatelessWidget {
                       return Text(
                           monthName(months[index].month).substring(0, 3),
                           style: TextStyle(
-                              fontSize: 10,
+                              fontSize: FontSizes.tick,
                               color: Theme.of(context)
                                   .colorScheme
                                   .onSurfaceVariant));

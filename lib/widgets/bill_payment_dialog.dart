@@ -11,6 +11,7 @@ import '../utils/credit_card_summary.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
+import '../utils/font_sizes.dart';
 
 /// Records paying [summary]'s card bill, so it stops showing as due: the
 /// amount (the full due, the minimum, or any other), the day, and the account
@@ -125,7 +126,7 @@ class _BillPaymentDialogState extends State<_BillPaymentDialog> {
                   '${formatMoneyIn(symbol, _s.dueRemaining)} is due on the '
                   '${formatCompactDate(_s.cycle?.statementDate ?? _date)} '
                   'statement.',
-                  style: TextStyle(fontSize: 13, color: muted)),
+                  style: TextStyle(fontSize: FontSizes.body, color: muted)),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,

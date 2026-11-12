@@ -99,13 +99,16 @@ class _Figure extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: TextStyle(fontSize: 12, color: mutedTextColor(context))),
+            style: TextStyle(
+                fontSize: FontSizes.caption, color: mutedTextColor(context))),
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
           child: Text(value,
               style: TextStyle(
-                  fontSize: 17, fontWeight: FontWeight.bold, color: color)),
+                  fontSize: FontSizes.bodyLarge,
+                  fontWeight: FontWeight.bold,
+                  color: color)),
         ),
       ],
     );
@@ -151,7 +154,8 @@ class _BestCardBanner extends StatelessWidget {
                       '${formatCompactDate(w.due)} — ${w.interestFreeDays} '
                       'days interest-free, the longest of your cards.',
                       style: TextStyle(
-                          fontSize: 13, color: scheme.onSecondaryContainer)),
+                          fontSize: FontSizes.body,
+                          color: scheme.onSecondaryContainer)),
                 ],
               ),
             ),
@@ -211,7 +215,8 @@ class _SharedLimitGroup extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 6),
                     child: Text('No limit set yet — set it on either card',
                         style: TextStyle(
-                            fontSize: 12, color: mutedTextColor(context))),
+                            fontSize: FontSizes.caption,
+                            color: mutedTextColor(context))),
                   ),
                 if (rows.first.bankCheck != null)
                   _BankCheckLine(check: rows.first.bankCheck!),
@@ -320,8 +325,9 @@ class _TwinSuggestion extends StatelessWidget {
                 'Banks often issue a Visa and a RuPay card on one limit. '
                 'Linked, both show what is left of '
                 '${limit == null ? 'it' : formatMoneyIn(a.symbol, limit)}.',
-                style:
-                    TextStyle(fontSize: 13, color: scheme.onTertiaryContainer),
+                style: TextStyle(
+                    fontSize: FontSizes.body,
+                    color: scheme.onTertiaryContainer),
               ),
             ),
             Align(
@@ -369,7 +375,7 @@ class _HowItWorks extends StatelessWidget {
               'RuPay card, say) can be linked from a card\'s menu or its '
               'set-up, and then show as one shared limit. Tap a card for its '
               'statement by cycle.',
-              style: TextStyle(fontSize: 12, color: muted),
+              style: TextStyle(fontSize: FontSizes.caption, color: muted),
             ),
           ),
         ],

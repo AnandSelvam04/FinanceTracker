@@ -65,6 +65,7 @@ import 'recurring_screen.dart';
 import 'sms_review_screen.dart';
 import 'spending_calendar_screen.dart';
 import 'tutorial_screen.dart';
+import '../utils/font_sizes.dart';
 
 part 'home/dashboard.dart';
 part 'home/figures.dart';

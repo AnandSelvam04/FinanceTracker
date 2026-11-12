@@ -10,6 +10,7 @@ import '../utils/app_colors.dart';
 import '../utils/billing_cycle.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
+import '../utils/font_sizes.dart';
 
 /// Converts a purchase on [card] to EMI. Returns true when converted.
 Future<bool> showEmiDialog(BuildContext context, Account card,
@@ -154,8 +155,9 @@ class _EmiDialogState extends State<_EmiDialog> {
               ),
               const SizedBox(height: 14),
               Text('Months',
-                  style:
-                      TextStyle(fontSize: 13, color: mutedTextColor(context))),
+                  style: TextStyle(
+                      fontSize: FontSizes.body,
+                      color: mutedTextColor(context))),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 6,
@@ -216,7 +218,7 @@ class _EmiDialogState extends State<_EmiDialog> {
                       ? 'It comes off the card now, as the bank reverses it'
                       : 'An EMI from before you started tracking: enter what '
                           'is left and the months to go',
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: FontSizes.caption),
                 ),
               ),
               if (p != null && m != null && interest != null)
@@ -237,7 +239,7 @@ class _EmiDialogState extends State<_EmiDialog> {
                     '${interest > 0 ? 'Interest ${formatMoneyIn(_symbol, interest)} in all. ' : 'No-cost EMI. '}'
                     '${formatMoneyIn(_symbol, p)} stays held on the limit and '
                     'frees up as instalments are billed.',
-                    style: const TextStyle(fontSize: 13),
+                    style: const TextStyle(fontSize: FontSizes.body),
                   ),
                 ),
             ],

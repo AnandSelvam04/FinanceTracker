@@ -26,6 +26,7 @@ import '../widgets/skeleton.dart';
 import '../widgets/swipe_delete_background.dart';
 import '../widgets/transaction_edit_sheet.dart';
 import 'investment_type_screen.dart';
+import '../utils/font_sizes.dart';
 
 part 'expense_list/filter_sheet.dart';
 part 'expense_list/list_widgets.dart';
@@ -40,6 +41,7 @@ class ExpenseListScreen extends StatefulWidget {
 class _ExpenseListScreenState extends State<ExpenseListScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
   /// The year shown, or null for every year (to search the whole history).
   int? _selectedYear = DateTime.now().year;
   int? _selectedMonth = DateTime.now().month;
@@ -177,9 +179,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     // old as the data was when this tab was first built.
     final bounds = await DBService().transactionYearBounds();
     final first = bounds?.$1 ?? _earliestYear;
-    final last = bounds == null || bounds.$2 < currentYear
-        ? currentYear
-        : bounds.$2;
+    final last =
+        bounds == null || bounds.$2 < currentYear ? currentYear : bounds.$2;
     if (mounted && first < _earliestYear) {
       setState(() => _earliestYear = first);
     }
@@ -724,8 +725,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       // +1 for the period summary leading the list.
                       itemCount: items.length + 1,
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding:
-                          scrollPadding(context, all: 12, top: 4),
+                      padding: scrollPadding(context, all: 12, top: 4),
                       itemBuilder: (context, index) {
                         if (index == 0) {
                           return _PeriodSummary(

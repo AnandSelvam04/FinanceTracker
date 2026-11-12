@@ -8,6 +8,7 @@ import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import 'category_avatar.dart';
 import 'category_choice_chip.dart';
+import '../utils/font_sizes.dart';
 
 /// Chips for choosing a transaction's category, ending in a **More** chip
 /// that opens the full, searchable list.
@@ -46,7 +47,8 @@ class CategoryPickerField extends StatelessWidget {
     // A category picked from the full list (or carried in by a copy, a scan
     // or voice) that is not among the chips still has to show as selected.
     final chips = [
-      if (chosen.isNotEmpty && !suggestions.any((c) => isSameCategory(c, chosen)))
+      if (chosen.isNotEmpty &&
+          !suggestions.any((c) => isSameCategory(c, chosen)))
         chosen,
       ...suggestions,
     ];
@@ -54,7 +56,8 @@ class CategoryPickerField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(income ? 'Source' : 'Category',
-            style: TextStyle(fontSize: 12, color: mutedTextColor(context))),
+            style: TextStyle(
+                fontSize: FontSizes.caption, color: mutedTextColor(context))),
         const SizedBox(height: 6),
         Wrap(
           spacing: 8,
@@ -85,7 +88,8 @@ class CategoryPickerField extends StatelessWidget {
             padding: const EdgeInsets.only(top: 6),
             child: Text(errorText!,
                 style: TextStyle(
-                    fontSize: 12, color: Theme.of(context).colorScheme.error)),
+                    fontSize: FontSizes.caption,
+                    color: Theme.of(context).colorScheme.error)),
           ),
       ],
     );

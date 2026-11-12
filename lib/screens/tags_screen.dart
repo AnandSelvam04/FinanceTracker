@@ -12,6 +12,7 @@ import '../utils/insets.dart';
 import '../utils/tags.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/transaction_edit_sheet.dart';
+import '../utils/font_sizes.dart';
 
 /// Spending grouped by the #tags written in transaction notes — a trip, a
 /// house move, reimbursable office spends — across categories and months.
@@ -154,7 +155,8 @@ class _TagDetailState extends State<_TagDetail> {
                           ),
                           Text('Spent ${formatMoney(summary.spent)}',
                               style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16)),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: FontSizes.bodyLarge)),
                         ],
                       ),
                     ),

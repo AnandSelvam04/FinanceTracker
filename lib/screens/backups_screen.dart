@@ -23,6 +23,7 @@ import '../utils/insets.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/section_header.dart';
 import '../widgets/dispose_with_route.dart';
+import '../utils/font_sizes.dart';
 
 part 'backups/dialogs.dart';
 
@@ -594,7 +595,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
                           color: mutedTextColor(context)),
                       title: Text('Backs up to $_driveEmail',
                           style: TextStyle(
-                              fontSize: 13, color: mutedTextColor(context))),
+                              fontSize: FontSizes.body,
+                              color: mutedTextColor(context))),
                       trailing: TextButton(
                         onPressed: _isWorking ? null : _switchDriveAccount,
                         child: const Text('Switch'),
@@ -607,7 +609,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         'Not signed in to Google Drive yet — the first backup '
                         'will ask which account to use.',
                         style: TextStyle(
-                            fontSize: 12, color: mutedTextColor(context)),
+                            fontSize: FontSizes.caption,
+                            color: mutedTextColor(context)),
                       ),
                     ),
                 ],
@@ -617,7 +620,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
                 padding: EdgeInsets.fromLTRB(0, 20, 0, 4)),
             Text(
               'Restoring replaces everything in the app with the backup.',
-              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
+              style: TextStyle(
+                  fontSize: FontSizes.body, color: mutedTextColor(context)),
             ),
             const SizedBox(height: 8),
             Card(
@@ -658,7 +662,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
                 padding: EdgeInsets.fromLTRB(0, 20, 0, 4)),
             Text(
               'Save your data to Files/Downloads, email it, or send it to another app.',
-              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
+              style: TextStyle(
+                  fontSize: FontSizes.body, color: mutedTextColor(context)),
             ),
             const SizedBox(height: 8),
             Card(

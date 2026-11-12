@@ -176,7 +176,7 @@ class _ShortcutButton extends StatelessWidget {
                     label,
                     maxLines: 1,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: FontSizes.caption,
                       fontWeight: FontWeight.w600,
                       color: foreground,
                     ),
@@ -255,7 +255,7 @@ class _QuickAddRow extends StatelessWidget {
               Text(
                 'QUICK ADD',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: FontSizes.caption,
                   letterSpacing: 0.6,
                   fontWeight: FontWeight.w600,
                   color: mutedTextColor(context),

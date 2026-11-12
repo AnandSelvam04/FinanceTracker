@@ -19,6 +19,7 @@ import '../utils/merchant_summary.dart';
 import '../utils/year_review.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/top_merchants_card.dart';
+import '../utils/font_sizes.dart';
 
 part 'monthly_summary/category_widgets.dart';
 part 'monthly_summary/how_you_paid.dart';
@@ -495,7 +496,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
               _inProgress && _mode != _PeriodMode.custom
                   ? 'Expense vs same days $_prevName: '
                   : 'Expense vs $_prevName: ',
-              style: const TextStyle(fontSize: 14)),
+              style: const TextStyle(fontSize: FontSizes.body)),
           _DeltaLabel(current: expense, previous: prevExpense),
         ],
       ),
@@ -543,7 +544,9 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                 fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
         Text(value,
             style: TextStyle(
-                fontWeight: FontWeight.bold, color: color, fontSize: 15)),
+                fontWeight: FontWeight.bold,
+                color: color,
+                fontSize: FontSizes.bodyLarge)),
       ],
     );
   }

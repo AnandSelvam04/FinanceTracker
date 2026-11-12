@@ -7,6 +7,7 @@ import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import '../widgets/cashflow_chart.dart';
 import '../widgets/section_header.dart';
+import '../utils/font_sizes.dart';
 
 class CashflowScreen extends StatefulWidget {
   const CashflowScreen({super.key});
@@ -140,7 +141,7 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12)),
+        Text(label, style: const TextStyle(fontSize: FontSizes.caption)),
       ],
     );
   }

@@ -21,7 +21,7 @@ class _WeekSelector extends StatelessWidget {
           tooltip: 'Previous week',
           onPressed: onPrev,
         ),
-        Text(heading, style: const TextStyle(fontSize: 14)),
+        Text(heading, style: const TextStyle(fontSize: FontSizes.body)),
         IconButton(
           icon: const Icon(Icons.chevron_right),
           tooltip: 'Next week',
@@ -127,7 +127,8 @@ class _CategoryProgressRow extends StatelessWidget {
                         child: Text('$pct% of spend',
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                fontSize: 12, color: mutedTextColor(context))),
+                                fontSize: FontSizes.caption,
+                                color: mutedTextColor(context))),
                       ),
                       _DeltaLabel(current: amount, previous: previous),
                     ],
@@ -183,7 +184,8 @@ class _CategoryFocus extends StatelessWidget {
                         '${rows.length} transaction'
                         '${rows.length == 1 ? '' : 's'}',
                         style: TextStyle(
-                            color: mutedTextColor(context), fontSize: 13),
+                            color: mutedTextColor(context),
+                            fontSize: FontSizes.body),
                       ),
                     ],
                   ),
@@ -237,7 +239,7 @@ class _DeltaLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final delta = current - previous;
     if (previous == 0 && current == 0) {
-      return const Text('—', style: TextStyle(fontSize: 12));
+      return const Text('—', style: TextStyle(fontSize: FontSizes.caption));
     }
     final up = delta > 0;
     final flat = delta == 0;
@@ -259,7 +261,7 @@ class _DeltaLabel extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: color),
         Text('${formatMoney(delta.abs())}$pct',
-            style: TextStyle(fontSize: 12, color: color)),
+            style: TextStyle(fontSize: FontSizes.caption, color: color)),
       ],
     );
   }

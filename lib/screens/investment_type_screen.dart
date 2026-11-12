@@ -15,6 +15,7 @@ import '../utils/date_format.dart';
 import '../widgets/dispose_with_route.dart';
 import '../widgets/paid_from_field.dart';
 import '../widgets/row_actions_sheet.dart';
+import '../utils/font_sizes.dart';
 
 /// How the contributions on the type screen are grouped: into time buckets
 /// (how much went in each period) or by name (how much each individual fund
@@ -345,7 +346,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                   Text(
                     _periodLabel(ym),
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: FontSizes.body,
                       fontWeight: FontWeight.w600,
                       color: Theme.of(context).colorScheme.primary,
                     ),
@@ -353,7 +354,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                   Text(
                     formatMoneySigned(periodTotal),
                     style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600),
+                        fontSize: FontSizes.body, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -522,7 +523,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
               Text(
                   'What these holdings are worth today, from your broker or '
                   'statement. You put in ${formatMoneySigned(invested)}.',
-                  style: const TextStyle(fontSize: 13)),
+                  style: const TextStyle(fontSize: FontSizes.body)),
               TextField(
                 controller: controller,
                 autofocus: true,
@@ -655,7 +656,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                           child: Text('Edit Investment',
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold)),
+                                  fontSize: FontSizes.title,
+                                  fontWeight: FontWeight.bold)),
                         ),
                         // Opens Add pre-filled with this entry, dated today.
                         TextButton.icon(
@@ -844,7 +846,8 @@ class _CurrentValueRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-            child: Text(text, style: TextStyle(fontSize: 13, color: subtle))),
+            child: Text(text,
+                style: TextStyle(fontSize: FontSizes.body, color: subtle))),
         TextButton(
           onPressed: onUpdate,
           style: TextButton.styleFrom(foregroundColor: fg),

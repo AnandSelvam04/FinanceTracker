@@ -5,6 +5,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 import '../utils/app_colors.dart';
 import '../utils/insets.dart';
+import '../utils/font_sizes.dart';
 
 /// Opens the voice capture sheet and resolves to the recognized sentence, or
 /// null if the user dismissed it without a usable result.
@@ -135,7 +136,8 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet>
           Text('Add by voice', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 4),
           Text('Try: “spent 250 on food at Dominos”',
-              style: TextStyle(color: mutedTextColor(context), fontSize: 13)),
+              style: TextStyle(
+                  color: mutedTextColor(context), fontSize: FontSizes.body)),
           const SizedBox(height: 20),
           // Tap to restart listening; the icon fills and pulses while live.
           Semantics(
@@ -193,7 +195,7 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet>
               child: Text(
                 _words.isEmpty ? 'Your words will appear here' : _words,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: FontSizes.bodyLarge,
                   color: _words.isEmpty
                       ? mutedTextColor(context)
                       : scheme.onSurface,

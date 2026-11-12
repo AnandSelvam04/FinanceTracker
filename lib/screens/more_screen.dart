@@ -27,6 +27,7 @@ import 'recurring_screen.dart';
 import 'settings_screen.dart';
 import 'sms_review_screen.dart';
 import 'spending_calendar_screen.dart';
+import '../utils/font_sizes.dart';
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -266,7 +267,9 @@ class _MoreScreenState extends State<MoreScreen> {
               child: Text(
                 'Finance Tracker ${BuildInfo.label}',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
+                style: TextStyle(
+                    fontSize: FontSizes.caption,
+                    color: mutedTextColor(context)),
               ),
             ),
           ],

@@ -21,6 +21,7 @@ import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/category_picker.dart';
+import '../utils/font_sizes.dart';
 
 part 'sms_review/draft_card.dart';
 part 'sms_review/review_widgets.dart';

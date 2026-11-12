@@ -18,6 +18,7 @@ import 'dispose_with_route.dart';
 import 'receipt_photo.dart';
 import 'spend_account_picker.dart';
 import 'row_actions_sheet.dart';
+import '../utils/font_sizes.dart';
 
 /// Opens the right edit sheet for [expense] — a transfer editor for transfers,
 /// the expense/income editor otherwise. Shared so every list of transactions
@@ -147,7 +148,8 @@ Future<void> showEditExpenseSheet(
                                 : (refund ? 'Edit Refund' : 'Edit Expense'),
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
+                                fontSize: FontSizes.title,
+                                fontWeight: FontWeight.bold)),
                       ),
                       // Opens Add pre-filled with this row, dated today, so a
                       // repeat purchase is one date change away.
@@ -371,7 +373,8 @@ Future<void> showEditTransferSheet(
               children: [
                 Text('Edit Transfer',
                     style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
+                        fontSize: FontSizes.title,
+                        fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int?>(
                   isExpanded: true,
@@ -616,7 +619,7 @@ class _SplitSheetState extends State<_SplitSheet> {
             Center(
               child: Text('Split transaction',
                   style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
+                      fontSize: FontSizes.title, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 4),
             Center(

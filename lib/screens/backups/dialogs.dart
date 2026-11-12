@@ -151,7 +151,8 @@ Future<String?> _promptPassphrase(BuildContext context,
               if (message != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(message, style: const TextStyle(fontSize: 13)),
+                  child: Text(message,
+                      style: const TextStyle(fontSize: FontSizes.body)),
                 ),
               TextFormField(
                 controller: controller,
@@ -188,8 +189,9 @@ Future<String?> _promptPassphrase(BuildContext context,
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     'If you forget this passphrase, the backup cannot be recovered.',
-                    style:
-                        TextStyle(fontSize: 12, color: mutedTextColor(context)),
+                    style: TextStyle(
+                        fontSize: FontSizes.caption,
+                        color: mutedTextColor(context)),
                   ),
                 ),
             ],

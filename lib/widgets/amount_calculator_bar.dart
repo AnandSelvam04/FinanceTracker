@@ -4,6 +4,7 @@ import '../utils/amount_expression.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/haptics.dart';
+import '../utils/font_sizes.dart';
 
 /// Operator keys for an amount field, with the running result.
 ///
@@ -76,7 +77,7 @@ class AmountCalculatorBar extends StatelessWidget {
                             // must fit beside the result at any text scale.
                             textScaler: TextScaler.noScaling,
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: FontSizes.heading,
                               fontWeight: FontWeight.w600,
                               color: scheme.onSurfaceVariant,
                             ),
@@ -95,7 +96,8 @@ class AmountCalculatorBar extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: 12, color: mutedTextColor(context)),
+                          fontSize: FontSizes.caption,
+                          color: mutedTextColor(context)),
                     )
                   : usable
                       ? Align(
@@ -119,7 +121,8 @@ class AmountCalculatorBar extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                              fontSize: 12, color: mutedTextColor(context)),
+                              fontSize: FontSizes.caption,
+                              color: mutedTextColor(context)),
                         ),
             ),
           ],

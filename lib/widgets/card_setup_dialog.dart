@@ -6,6 +6,7 @@ import '../providers/account_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/credit_card_summary.dart';
 import '../utils/currency_format.dart';
+import '../utils/font_sizes.dart';
 
 /// Adds a credit card, or fills in what an existing one needs for tracking:
 /// its limit, statement and due days, the last four digits SMS alerts quote,
@@ -356,8 +357,9 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                     'Pick the other card on this limit — like the Visa and '
                     'RuPay cards a bank issues together. Spending on either '
                     'uses up the one limit; each card keeps its own bill.',
-                    style:
-                        TextStyle(fontSize: 13, color: mutedTextColor(context)),
+                    style: TextStyle(
+                        fontSize: FontSizes.body,
+                        color: mutedTextColor(context)),
                   ),
                   const SizedBox(height: 8),
                   for (final p in _partners)
@@ -397,7 +399,8 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                       'your Visa)? Add it too, then choose "Shared" here to '
                       'link them.',
                       style: TextStyle(
-                          fontSize: 13, color: mutedTextColor(context)),
+                          fontSize: FontSizes.body,
+                          color: mutedTextColor(context)),
                     ),
                   ),
                 const _SectionTitle('Billing cycle'),
@@ -443,7 +446,8 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                         'Copied from $_daysCopiedFrom — change them if '
                         'this card bills on other days.',
                         style: TextStyle(
-                            fontSize: 13, color: mutedTextColor(context))),
+                            fontSize: FontSizes.body,
+                            color: mutedTextColor(context))),
                   ),
                 const _SectionTitle('Reward points (optional)'),
                 TextFormField(

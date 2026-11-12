@@ -11,6 +11,7 @@ import '../widgets/celebration.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/swipe_actions.dart';
 import '../widgets/dispose_with_route.dart';
+import '../utils/font_sizes.dart';
 
 /// Ring colors offered when creating a goal. Mid-tone shades that read on
 /// both light and dark surfaces.
@@ -396,7 +397,9 @@ class _GoalsSummary extends StatelessWidget {
           const SizedBox(height: 4),
           Text(formatMoney(saved),
               style: TextStyle(
-                  color: fg, fontSize: 28, fontWeight: FontWeight.bold)),
+                  color: fg,
+                  fontSize: FontSizes.display,
+                  fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text(
             'of ${formatMoneyRounded(target)} · $reached of $count reached',
@@ -483,7 +486,8 @@ class _GoalCard extends StatelessWidget {
                           ? Icon(Icons.check, color: color)
                           : Text('${(goal.progress * 100).floor()}%',
                               style: const TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w600)),
+                                  fontSize: FontSizes.body,
+                                  fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -505,7 +509,7 @@ class _GoalCard extends StatelessWidget {
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(status.$1,
                               style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: FontSizes.caption,
                                   color: status.$2,
                                   fontWeight: FontWeight.w600)),
                         ),

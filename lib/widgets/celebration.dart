@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../utils/haptics.dart';
+import '../utils/font_sizes.dart';
 
 /// Marks a win — a goal reached, a loan cleared, a month under budget — with
 /// a burst of confetti over the screen and a line saying what was achieved.
@@ -13,7 +14,7 @@ void celebrate(BuildContext context, String message) {
   ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
     content: Row(
       children: [
-        const Text('🎉', style: TextStyle(fontSize: 18)),
+        const Text('🎉', style: TextStyle(fontSize: FontSizes.title)),
         const SizedBox(width: 10),
         Expanded(child: Text(message)),
       ],

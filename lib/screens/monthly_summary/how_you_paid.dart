@@ -91,7 +91,8 @@ class _HowYouPaid extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(right: 12),
                           child: Text(share(m.total),
-                              style: TextStyle(fontSize: 12, color: muted)),
+                              style: TextStyle(
+                                  fontSize: FontSizes.caption, color: muted)),
                         ),
                         Text(formatMoney(m.total),
                             style:
@@ -114,7 +115,7 @@ class _HowYouPaid extends StatelessWidget {
                                     'No account',
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: FontSizes.body,
                                   color: muted,
                                   fontStyle: p.accountId == null
                                       ? FontStyle.italic
@@ -123,7 +124,8 @@ class _HowYouPaid extends StatelessWidget {
                               ),
                             ),
                             Text(formatMoney(p.total),
-                                style: TextStyle(fontSize: 13, color: muted)),
+                                style: TextStyle(
+                                    fontSize: FontSizes.body, color: muted)),
                           ],
                         ),
                       ),

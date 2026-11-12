@@ -10,6 +10,7 @@ import '../widgets/hero_total_card.dart';
 import 'add_investment_screen.dart';
 import 'investment_type_screen.dart';
 import '../utils/date_format.dart';
+import '../utils/font_sizes.dart';
 
 class InvestmentsScreen extends StatefulWidget {
   const InvestmentsScreen({super.key});
@@ -138,7 +139,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                               '${v.amount >= entry.value ? '+' : '−'}'
                               '${formatMoney((v.amount - entry.value).abs())}',
                               style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: FontSizes.caption,
                                   fontWeight: FontWeight.w500,
                                   color: v.amount >= entry.value
                                       ? incomeColor(context)
@@ -146,7 +147,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                         else if (share != null)
                           Text('$share%',
                               style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: FontSizes.caption,
                                   fontWeight: FontWeight.w500,
                                   color: mutedTextColor(context))),
                       ],

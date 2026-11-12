@@ -12,6 +12,7 @@ import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
 import '../utils/billing_cycle.dart';
 import '../utils/currency_format.dart';
+import '../utils/font_sizes.dart';
 
 /// Dashboard banner that proactively surfaces budgets nearing/over their cap
 /// and recurring bills coming due, so the user is warned without needing to
@@ -112,7 +113,7 @@ class AlertsBanner extends StatelessWidget {
               over
                   ? '${a.category}: over budget by ${formatMoney(a.spent - a.budget)}'
                   : '${a.category}: $pct% of budget used',
-              style: const TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: FontSizes.body),
             ),
           ),
         ],
@@ -149,7 +150,7 @@ class AlertsBanner extends StatelessWidget {
             child: Text(
               '${r.accountName}: pay ${formatMoneyIn(r.symbol, r.amountDue)} '
               '$whenLabel$spentNote',
-              style: const TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: FontSizes.body),
             ),
           ),
           // Records the payment as a transfer into the card, which is what
@@ -195,7 +196,7 @@ class AlertsBanner extends StatelessWidget {
           Expanded(
             child: Text(
               '${b.description} ${formatMoney(b.amount)} — $whenLabel',
-              style: const TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: FontSizes.body),
             ),
           ),
         ],

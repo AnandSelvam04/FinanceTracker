@@ -6,6 +6,7 @@ import '../providers/account_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/credit_card_summary.dart';
 import '../utils/currency_format.dart';
+import '../utils/font_sizes.dart';
 
 /// What the bank's figure for a credit card is: what is owed on it, or how
 /// much of its limit is left.
@@ -175,7 +176,7 @@ class _ReconcileDialogState extends State<_ReconcileDialog> {
                         '${formatMoneySignedIn(symbol, delta)} so the app '
                         'shows ${describe(target!)}. Transactions, spending '
                         'and budgets stay as they are.',
-                style: TextStyle(fontSize: 13, color: muted),
+                style: TextStyle(fontSize: FontSizes.body, color: muted),
               ),
           ],
         ),

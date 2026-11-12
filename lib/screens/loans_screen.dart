@@ -17,6 +17,7 @@ import '../widgets/celebration.dart';
 import '../widgets/empty_state.dart';
 import 'account_detail_screen.dart';
 import 'add_transfer_screen.dart';
+import '../utils/font_sizes.dart';
 
 /// Money you owe (a personal loan, or borrowed from a friend) and money
 /// owed to you (lent to someone), each with what is left and how much has
@@ -247,14 +248,15 @@ class _Totals extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label,
-                  style:
-                      TextStyle(fontSize: 12, color: mutedTextColor(context))),
+                  style: TextStyle(
+                      fontSize: FontSizes.caption,
+                      color: mutedTextColor(context))),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text(formatMoney(v),
                     style: TextStyle(
-                        fontSize: 18,
+                        fontSize: FontSizes.title,
                         fontWeight: FontWeight.bold,
                         color: color)),
               ),
@@ -318,7 +320,8 @@ class _DebtTile extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 15)),
+                            fontWeight: FontWeight.w600,
+                            fontSize: FontSizes.bodyLarge)),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -327,7 +330,7 @@ class _DebtTile extends StatelessWidget {
                         : formatMoneyIn(symbol, s.outstanding),
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: FontSizes.bodyLarge,
                         color: s.settled ? incomeColor(context) : color),
                   ),
                 ],
@@ -351,7 +354,7 @@ class _DebtTile extends StatelessWidget {
                   '${formatMoneyIn(symbol, s.total)} '
                   '${isLoan ? 'borrowed' : 'lent'}'
                   '${s.overpaid > 0 ? ' · ${formatMoneyIn(symbol, s.overpaid)} over' : ''}',
-                  style: TextStyle(fontSize: 12, color: muted),
+                  style: TextStyle(fontSize: FontSizes.caption, color: muted),
                 ),
               ],
               if (emi != null)
@@ -362,7 +365,7 @@ class _DebtTile extends StatelessWidget {
                     '${emiCard?.name ?? 'the card'}\'s bill · '
                     '${emi!.billedBy(DateTime.now())} of ${emi!.months} '
                     'billed',
-                    style: TextStyle(fontSize: 12, color: muted),
+                    style: TextStyle(fontSize: FontSizes.caption, color: muted),
                   ),
                 )
               else

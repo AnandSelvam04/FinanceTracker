@@ -22,7 +22,7 @@ class _PeriodSummary extends StatelessWidget {
             children: [
               Text(label.toUpperCase(),
                   style: TextStyle(
-                      fontSize: 11,
+                      fontSize: FontSizes.caption,
                       letterSpacing: 0.6,
                       fontWeight: FontWeight.w600,
                       color: muted)),
@@ -32,7 +32,7 @@ class _PeriodSummary extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Text(formatMoney(amount),
                     style: TextStyle(
-                        fontSize: 17,
+                        fontSize: FontSizes.bodyLarge,
                         fontWeight: FontWeight.bold,
                         color: color)),
               ),
@@ -48,7 +48,7 @@ class _PeriodSummary extends StatelessWidget {
             figure('Spent', spent, expenseColor(context)),
             figure('Income', income, incomeColor(context)),
             Text('$count ${count == 1 ? 'entry' : 'entries'}',
-                style: TextStyle(fontSize: 12, color: muted)),
+                style: TextStyle(fontSize: FontSizes.caption, color: muted)),
           ],
         ),
       ),
@@ -77,7 +77,7 @@ class _DayHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = TextStyle(
-      fontSize: 13,
+      fontSize: FontSizes.body,
       fontWeight: FontWeight.w600,
       color: mutedTextColor(context),
     );

@@ -224,7 +224,8 @@ class _DraftCardState extends State<_DraftCard> {
                             controller: controller,
                             focusNode: focusNode,
                             style: const TextStyle(
-                                fontWeight: FontWeight.w600, fontSize: 15),
+                                fontWeight: FontWeight.w600,
+                                fontSize: FontSizes.bodyLarge),
                             decoration: const InputDecoration(
                               isDense: true,
                               contentPadding: EdgeInsets.only(bottom: 2),
@@ -239,7 +240,8 @@ class _DraftCardState extends State<_DraftCard> {
                         '${formatShortDate(parsed.date)} · ${parsed.sender}'
                         '${parsed.last4 != null ? ' · ••${parsed.last4}' : ''}',
                         style: TextStyle(
-                            fontSize: 12, color: mutedTextColor(context)),
+                            fontSize: FontSizes.caption,
+                            color: mutedTextColor(context)),
                       ),
                     ],
                   ),
@@ -249,7 +251,7 @@ class _DraftCardState extends State<_DraftCard> {
                   '$sign${parsed.currency == CurrencyFormat.symbol ? formatMoney(parsed.amount) : formatMoneyIn(parsed.currency, parsed.amount)}',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                      fontSize: FontSizes.bodyLarge,
                       color: amountColor),
                 ),
               ],
@@ -449,7 +451,8 @@ class _DraftCardState extends State<_DraftCard> {
                         'Looks like a monthly subscription — also create a '
                         'recurring rule.',
                         style: TextStyle(
-                            fontSize: 12, color: mutedTextColor(context)),
+                            fontSize: FontSizes.caption,
+                            color: mutedTextColor(context)),
                       ),
                     ),
                   ],

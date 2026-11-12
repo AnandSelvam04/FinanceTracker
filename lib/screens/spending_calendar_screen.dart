@@ -10,6 +10,7 @@ import '../utils/insets.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/section_header.dart';
+import '../utils/font_sizes.dart';
 
 /// A month of spending laid out as a calendar, each day shaded by how much
 /// went out. Totals hide which days were heavy and which were quiet; this
@@ -170,7 +171,8 @@ class _StatChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(label,
-              style: TextStyle(fontSize: 11, color: mutedTextColor(context))),
+              style: TextStyle(
+                  fontSize: FontSizes.caption, color: mutedTextColor(context))),
           Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
@@ -221,7 +223,7 @@ class _MonthGrid extends StatelessWidget {
                 child: Center(
                   child: Text(w,
                       style: TextStyle(
-                          fontSize: 12,
+                          fontSize: FontSizes.caption,
                           fontWeight: FontWeight.w600,
                           color: mutedTextColor(context))),
                 ),
@@ -273,7 +275,7 @@ class _MonthGrid extends StatelessWidget {
                 children: [
                   Text('$day',
                       style: TextStyle(
-                          fontSize: 12,
+                          fontSize: FontSizes.caption,
                           fontWeight:
                               isToday ? FontWeight.bold : FontWeight.normal,
                           color: isFuture ? mutedTextColor(context) : null)),
@@ -282,8 +284,11 @@ class _MonthGrid extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       child: Text(formatMoneyCompact(amount),
                           maxLines: 1,
+                          // A day cell is as tight as a chart axis: the
+                          // caption size overflows it at large system text.
                           style: const TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.w600)),
+                              fontSize: FontSizes.tick,
+                              fontWeight: FontWeight.w600)),
                     ),
                 ],
               ),
@@ -300,7 +305,8 @@ class _Legend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = TextStyle(fontSize: 11, color: mutedTextColor(context));
+    final muted =
+        TextStyle(fontSize: FontSizes.caption, color: mutedTextColor(context));
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [

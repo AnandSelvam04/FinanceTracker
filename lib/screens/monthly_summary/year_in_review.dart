@@ -36,7 +36,8 @@ class _YearInReview extends StatelessWidget {
                       Text(detail,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: muted)),
+                          style: TextStyle(
+                              fontSize: FontSizes.caption, color: muted)),
                   ],
                 ),
               ),
@@ -96,7 +97,9 @@ class _YearInReview extends StatelessWidget {
                               ),
                               const SizedBox(height: 6),
                               Text(monthName(m).substring(0, 1),
-                                  style: TextStyle(fontSize: 11, color: muted)),
+                                  style: TextStyle(
+                                      fontSize: FontSizes.caption,
+                                      color: muted)),
                             ],
                           ),
                         ),

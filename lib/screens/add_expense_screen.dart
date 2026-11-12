@@ -27,6 +27,7 @@ import '../widgets/category_picker.dart';
 import '../widgets/date_field_row.dart';
 import '../widgets/spend_account_picker.dart';
 import '../widgets/voice_capture_sheet.dart';
+import '../utils/font_sizes.dart';
 
 /// An optional capture flow to launch as soon as the screen opens, so the
 /// dashboard can offer "Scan receipt" / "Add by voice" as direct shortcuts.
@@ -459,13 +460,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         labelText: 'Amount',
                         prefixText: '$amountSymbol ',
                         prefixStyle: TextStyle(
-                          fontSize: 28,
+                          fontSize: FontSizes.display,
                           fontWeight: FontWeight.bold,
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       style: const TextStyle(
-                          fontSize: 28, fontWeight: FontWeight.bold),
+                          fontSize: FontSizes.display,
+                          fontWeight: FontWeight.bold),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       textInputAction: TextInputAction.next,
@@ -515,7 +517,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       const SizedBox(height: 16),
                       Text('Payment mode',
                           style: TextStyle(
-                              fontSize: 12, color: mutedTextColor(context))),
+                              fontSize: FontSizes.caption,
+                              color: mutedTextColor(context))),
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 8,
