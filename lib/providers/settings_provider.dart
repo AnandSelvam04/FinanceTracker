@@ -325,6 +325,17 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Gives a new install its shorter home screen (see
+  /// [DashboardLayout.hiddenOnNewInstall]). Does nothing once a layout has
+  /// been saved, so it never overrides a choice or a restored backup.
+  Future<void> applyNewInstallLayout() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.containsKey(_kDashboardHidden)) return;
+    _dashboardHidden = DashboardLayout.hiddenOnNewInstall;
+    await prefs.setString(_kDashboardHidden, _dashboardHidden.join(','));
+    notifyListeners();
+  }
+
   /// Saves which shortcut buttons the dashboard shows, in order.
   Future<void> setHomeShortcuts(List<String> ids) async {
     _homeShortcuts = DashboardLayout.normaliseShortcuts(ids.join(','));

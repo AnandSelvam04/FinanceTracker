@@ -294,8 +294,10 @@ class _OnboardingWrapperState extends State<OnboardingWrapper> {
   Widget build(BuildContext context) {
     return OnboardingScreen(
       onFinish: () async {
+        final settings = context.read<SettingsProvider>();
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('seenOnboarding', true);
+        await settings.applyNewInstallLayout();
         // Someone who has only just arrived has no "what's new" to be told.
         await WhatsNew.markSeen();
         if (!mounted) return;

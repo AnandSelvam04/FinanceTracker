@@ -82,6 +82,31 @@ void main() {
       expect(reloaded.homeShortcuts, ['goals', 'reports']);
     });
 
+    test('a new install starts with the shorter home screen', () async {
+      SharedPreferences.setMockInitialValues({});
+      final settings = SettingsProvider();
+      await settings.load();
+      await settings.applyNewInstallLayout();
+      expect(settings.dashboardHidden, DashboardLayout.hiddenOnNewInstall);
+
+      final reloaded = SettingsProvider();
+      await reloaded.load();
+      expect(reloaded.dashboardSections, [
+        for (final id in DashboardLayout.defaultOrder)
+          if (!DashboardLayout.hiddenOnNewInstall.contains(id)) id,
+      ]);
+    });
+
+    test('the new-install layout never replaces a saved one', () async {
+      SharedPreferences.setMockInitialValues({});
+      final settings = SettingsProvider();
+      await settings.load();
+      await settings.setDashboardLayout(
+          order: DashboardLayout.defaultOrder, hidden: const {});
+      await settings.applyNewInstallLayout();
+      expect(settings.dashboardHidden, isEmpty);
+    });
+
     test('the layout and the theme choices travel in a backup', () async {
       SharedPreferences.setMockInitialValues({});
       final settings = SettingsProvider();

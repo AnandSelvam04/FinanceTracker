@@ -28,6 +28,7 @@ import '../utils/currency_format.dart';
 import '../utils/dashboard_insights.dart';
 import '../utils/dashboard_layout.dart';
 import '../utils/date_format.dart';
+import '../utils/destinations.dart';
 import '../utils/haptics.dart';
 import '../utils/insets.dart';
 import '../utils/merchant_summary.dart';
@@ -39,6 +40,7 @@ import '../widgets/category_avatar.dart';
 import '../widgets/category_bar_chart.dart';
 import '../widgets/celebration.dart';
 import '../widgets/expense_trends_chart.dart';
+import '../widgets/icon_badge.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/net_worth_card.dart';
 import '../widgets/section_header.dart';
@@ -65,6 +67,8 @@ import 'spending_calendar_screen.dart';
 import 'tutorial_screen.dart';
 
 part 'home/dashboard.dart';
+part 'home/figures.dart';
+part 'home/recent.dart';
 part 'home/shortcuts.dart';
 
 class HomeScreen extends StatefulWidget {

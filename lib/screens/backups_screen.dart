@@ -24,19 +24,7 @@ import '../widgets/month_selector.dart';
 import '../widgets/section_header.dart';
 import '../widgets/dispose_with_route.dart';
 
-/// A restore, parameterised by whether the user has already agreed to apply a
-/// backup that contains no rows.
-typedef _RestoreTask = Future<void> Function({bool allowEmpty});
-
-/// A restore from a backup that may be passphrase-protected.
-typedef _ProtectedRestoreTask = Future<void> Function(
-    {bool allowEmpty, String? passphrase});
-
-/// Unwinds a task the user backed out of part-way through, so [_runTask]
-/// reports neither success nor an error.
-class _Cancelled implements Exception {
-  const _Cancelled();
-}
+part 'backups/dialogs.dart';
 
 class BackupsScreen extends StatefulWidget {
   const BackupsScreen({super.key});
@@ -44,10 +32,6 @@ class BackupsScreen extends StatefulWidget {
   @override
   State<BackupsScreen> createState() => _BackupsScreenState();
 }
-
-/// Minimum length when *setting* a backup passphrase. Encrypted backups are
-/// shared off-device, so the passphrase is their only protection.
-const _minPassphraseLength = 12;
 
 class _BackupsScreenState extends State<BackupsScreen> {
   final _backupService = BackupService();
@@ -100,7 +84,9 @@ class _BackupsScreenState extends State<BackupsScreen> {
                   '${formatShortDate(picked.end)}',
             ));
       case 'month':
-        final picked = await _pickMonthOrYear(now, yearOnly: false);
+        final picked = await _pickMonthOrYear(
+            context, _exportPeriod?.from ?? now,
+            yearOnly: false);
         if (picked == null || !mounted) return;
         setState(() => _exportPeriod = (
               from: DateTime(picked.$1, picked.$2),
@@ -108,7 +94,9 @@ class _BackupsScreenState extends State<BackupsScreen> {
               label: formatMonthYear(picked.$1, picked.$2),
             ));
       case 'year':
-        final picked = await _pickMonthOrYear(now, yearOnly: true);
+        final picked = await _pickMonthOrYear(
+            context, _exportPeriod?.from ?? now,
+            yearOnly: true);
         if (picked == null || !mounted) return;
         setState(() => _exportPeriod = (
               from: DateTime(picked.$1),
@@ -116,40 +104,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
               label: '${picked.$1}',
             ));
     }
-  }
-
-  /// Steps to a month (or, with [yearOnly], a year) and confirms it. Starts
-  /// on the one being downloaded now, else the current one.
-  Future<(int, int)?> _pickMonthOrYear(DateTime now,
-      {required bool yearOnly}) {
-    final start = _exportPeriod?.from ?? now;
-    var year = start.year;
-    var month = start.month;
-    return showDialog<(int, int)>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(yearOnly ? 'Which year?' : 'Which month?'),
-        content: MonthSelector(
-          initialYear: year,
-          initialMonth: month,
-          yearOnly: yearOnly,
-          onChanged: (y, m) {
-            year = y;
-            month = m;
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, (year, month)),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 
   /// When a backup last left the phone (Drive, or shared out). The on-device
@@ -191,6 +145,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
   }
 
   Future<String?> _promptAutoDrivePassphrase() => _promptPassphrase(
+        context,
         title: 'Protect automatic backups',
         action: 'Save',
         message: 'Your database is encrypted, so the Drive copy is sealed '
@@ -316,65 +271,17 @@ class _BackupsScreenState extends State<BackupsScreen> {
   /// declined to apply. Unwinds the task without reporting success or an error.
   static const _cancelled = _Cancelled();
 
-  /// Second confirmation, shown only when the backup parsed cleanly but has no
-  /// rows at all. The generic "Replace all data?" prompt isn't enough here —
-  /// the user thinks they are restoring something.
-  Future<bool> _confirmEmptyRestore(String detail) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('This backup is empty'),
-        content: Text('$detail\n\nContinue anyway?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Erase everything',
-                style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
-          ),
-        ],
-      ),
-    );
-    return ok == true;
-  }
-
-  /// Restore replaces all current data, so make the user confirm.
-  Future<bool> _confirmRestore() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Replace all data?'),
-        content: const Text(
-            'Restoring will delete everything currently in the app and replace it with the backup. This cannot be undone.\n\n'
-            'Receipt photos are not part of a backup. Transactions keep the photos that are already on this phone; on a new phone they come back without them.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Replace',
-                style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
-          ),
-        ],
-      ),
-    );
-    return ok == true;
-  }
-
   /// Runs a restore behind the "Replace all data?" confirmation. If the backup
   /// turns out to be empty the service refuses it, and we ask a second time
   /// before retrying with [allowEmpty] — otherwise a `{}` file would silently
   /// erase everything.
   Future<void> _restore(_RestoreTask task, String success) async {
-    if (!await _confirmRestore()) return;
+    if (!await _confirmRestore(context)) return;
     await _runTask(() async {
       try {
         await task();
       } on EmptyBackupException catch (e) {
-        if (!mounted || !await _confirmEmptyRestore(e.message)) {
+        if (!mounted || !await _confirmEmptyRestore(context, e.message)) {
           throw _cancelled;
         }
         await task(allowEmpty: true);
@@ -387,7 +294,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
   /// for it when the backup needs one (again, if it was wrong) and retries.
   Future<void> _restoreProtected(
       _ProtectedRestoreTask task, String success) async {
-    if (!await _confirmRestore()) return;
+    if (!await _confirmRestore(context)) return;
     String? passphrase;
     var allowEmpty = false;
     await _runTask(() async {
@@ -396,13 +303,13 @@ class _BackupsScreenState extends State<BackupsScreen> {
           await task(allowEmpty: allowEmpty, passphrase: passphrase);
           return;
         } on EmptyBackupException catch (e) {
-          if (!mounted || !await _confirmEmptyRestore(e.message)) {
+          if (!mounted || !await _confirmEmptyRestore(context, e.message)) {
             throw _cancelled;
           }
           allowEmpty = true;
         } on PassphraseRequiredException catch (e) {
           if (!mounted) throw _cancelled;
-          passphrase = await _promptPassphrase(
+          passphrase = await _promptPassphrase(context,
               title: e.wrongPassphrase
                   ? 'Wrong passphrase — try again'
                   : 'Backup passphrase',
@@ -501,25 +408,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
     }
   }
 
-  /// Drive/backup failures carry a user-facing message (e.g. Drive not set up,
-  /// or a file that isn't a backup); show it plainly and give the reader time
-  /// to act. Everything else falls back to a generic "Error: …".
-  SnackBar _errorSnackBar(Object e) {
-    if (e is DriveBackupException) {
-      return SnackBar(
-        content: Text(e.message),
-        duration: const Duration(seconds: 8),
-      );
-    }
-    if (e is BackupFormatException || e is EmptyBackupException) {
-      return SnackBar(
-        content: Text('$e'),
-        duration: const Duration(seconds: 8),
-      );
-    }
-    return SnackBar(content: Text('Error: $e'));
-  }
-
   /// Generates a file and opens the system share sheet so the user can
   /// save it to Files/Downloads, email it, or send it elsewhere.
   ///
@@ -550,102 +438,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
     } finally {
       if (mounted) setState(() => _isWorking = false);
     }
-  }
-
-  String _mimeFor(String path) => path.endsWith('.json')
-      ? 'application/json'
-      : path.endsWith('.xlsx')
-          ? ExcelExport.mimeType
-          : 'text/csv';
-
-  /// Prompts for a passphrase. When [confirm] is set, requires it to be typed
-  /// twice and warns that a lost passphrase is unrecoverable. Returns null if
-  /// the user cancels.
-  Future<String?> _promptPassphrase(
-      {required String title,
-      required String action,
-      String? message,
-      bool confirm = false}) async {
-    final controller = TextEditingController();
-    final confirmController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    // DisposeWithRoute disposes the controllers once the dialog has closed.
-    // They hold a backup passphrase, so they must not outlive it.
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => DisposeWithRoute(
-        notifiers: [controller, confirmController],
-        child: AlertDialog(
-          title: Text(title),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (message != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(message, style: const TextStyle(fontSize: 13)),
-                  ),
-                TextFormField(
-                  controller: controller,
-                  obscureText: true,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Passphrase',
-                    helperText: 'At least 12 characters',
-                  ),
-                  // These files are meant to leave the device via the share
-                  // sheet, so the passphrase is the only thing protecting them.
-                  // Four characters fall to a brute-force in seconds; only
-                  // enforced when setting a passphrase, so existing backups
-                  // stay restorable.
-                  validator: confirm
-                      ? (v) => (v == null || v.length < _minPassphraseLength)
-                          ? 'Use at least $_minPassphraseLength characters'
-                          : null
-                      : (v) => (v == null || v.isEmpty)
-                          ? 'Enter the passphrase'
-                          : null,
-                ),
-                if (confirm)
-                  TextFormField(
-                    controller: confirmController,
-                    obscureText: true,
-                    decoration:
-                        const InputDecoration(labelText: 'Confirm passphrase'),
-                    validator: (v) => v != controller.text
-                        ? 'Passphrases do not match'
-                        : null,
-                  ),
-                if (confirm)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'If you forget this passphrase, the backup cannot be recovered.',
-                      style: TextStyle(
-                          fontSize: 12, color: mutedTextColor(context)),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(ctx, controller.text);
-                }
-              },
-              child: Text(action),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   /// Verifies the local backup is restorable and shows the row counts (or the
@@ -682,17 +474,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
         ],
       ),
     );
-  }
-
-  static String _prettyTable(String table) {
-    switch (table) {
-      case 'expenses':
-        return 'Transactions';
-      case 'recurring_rules':
-        return 'Recurring rules';
-      default:
-        return '${table[0].toUpperCase()}${table.substring(1)}';
-    }
   }
 
   @override
@@ -760,7 +541,9 @@ class _BackupsScreenState extends State<BackupsScreen> {
                         }
                         String? passphrase;
                         if (_dbEncrypted) {
+                          if (!context.mounted) return;
                           passphrase = await _promptPassphrase(
+                            context,
                             title: 'Protect the Drive backup',
                             action: 'Back up',
                             message: 'Your database is encrypted, so the Drive '
@@ -939,7 +722,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     title: const Text('Download encrypted backup'),
                     enabled: !_isWorking,
                     onTap: () async {
-                      final pass = await _promptPassphrase(
+                      final pass = await _promptPassphrase(context,
                           title: 'Encrypt backup',
                           action: 'Encrypt',
                           confirm: true);
@@ -1009,7 +792,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     title: const Text('Create encrypted backup (JSON)'),
                     enabled: !_isWorking,
                     onTap: () async {
-                      final pass = await _promptPassphrase(
+                      final pass = await _promptPassphrase(context,
                           title: 'Encrypt backup',
                           action: 'Encrypt',
                           confirm: true);
@@ -1024,16 +807,17 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     title: const Text('Restore encrypted backup'),
                     enabled: !_isWorking,
                     onTap: () async {
-                      if (!await _confirmRestore()) return;
-                      final pass = await _promptPassphrase(
+                      if (!await _confirmRestore(context)) return;
+                      if (!context.mounted) return;
+                      final pass = await _promptPassphrase(context,
                           title: 'Restore encrypted backup', action: 'Restore');
                       if (pass == null) return;
                       await _runTask(() async {
                         try {
                           await _backupService.restoreFromEncryptedFile(pass);
                         } on EmptyBackupException catch (e) {
-                          if (!mounted ||
-                              !await _confirmEmptyRestore(e.message)) {
+                          if (!context.mounted ||
+                              !await _confirmEmptyRestore(context, e.message)) {
                             throw _cancelled;
                           }
                           await _backupService.restoreFromEncryptedFile(pass,
@@ -1049,53 +833,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
             if (_isWorking) const Center(child: CircularProgressIndicator()),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Shows when a backup last left the phone, warning if it's stale (>7 days)
-/// or has never happened. The daily on-device backup doesn't count: it is
-/// lost together with the phone.
-class _LastBackupBanner extends StatelessWidget {
-  final DateTime? time;
-  const _LastBackupBanner({required this.time});
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final stale =
-        time == null || now.difference(time!) > const Duration(days: 7);
-    final color = stale ? warningColor(context) : incomeColor(context);
-
-    String label;
-    if (time == null) {
-      label = 'Nothing is backed up off this phone yet — back up to Drive or '
-          'download a backup so a lost phone doesn\'t take your data with it.';
-    } else {
-      final d = now.difference(time!);
-      final ago = d.inDays >= 1
-          ? (d.inDays == 1 ? '1 day ago' : '${d.inDays} days ago')
-          : d.inHours >= 1
-              ? (d.inHours == 1 ? '1 hour ago' : '${d.inHours} hours ago')
-              : 'just now';
-      label = 'Last backup off this phone: $ago';
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Icon(stale ? Icons.warning_amber : Icons.check_circle,
-              color: color, size: 20),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label)),
-        ],
       ),
     );
   }
