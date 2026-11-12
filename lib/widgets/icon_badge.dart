@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/destinations.dart';
+import '../utils/dimens.dart';
 
 /// A rounded-square icon on a tint of its own colour: the leading badge of
 /// the More menu's rows and of the add sheet's options.
@@ -16,7 +17,7 @@ class IconBadge extends StatelessWidget {
       height: 40,
       decoration: BoxDecoration(
         color: destinationFill(context, color),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(Radii.md),
       ),
       child: Icon(icon, size: 22, color: destinationForeground(context, color)),
     );

@@ -24,6 +24,7 @@ import 'account_detail_screen.dart';
 import 'add_expense_screen.dart';
 import 'add_transfer_screen.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 part 'credit_cards/card_tile.dart';
 part 'credit_cards/overview_widgets.dart';
@@ -228,7 +229,7 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
               onAction: () => showCardSetupDialog(context),
             )
           : ListView(
-              padding: scrollPadding(context, all: 12),
+              padding: scrollPadding(context, all: Space.md),
               children: [
                 _PeriodFilter(
                   kind: _kind,
@@ -240,7 +241,7 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
                   },
                   onCustom: _pickRange,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 _Totals(rows: rows),
                 if (bestCardToday(summaries, now) case final best?)
                   _BestCardBanner(summary: best, now: now),

@@ -39,7 +39,8 @@ class _HowYouPaid extends StatelessWidget {
         Card(
           margin: EdgeInsets.zero,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            padding: const EdgeInsets.fromLTRB(
+                Space.lg, Space.md, Space.lg, Space.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -50,7 +51,7 @@ class _HowYouPaid extends StatelessWidget {
                     for (final m in split) '${m.method.label} ${share(m.total)}'
                   ].join(', '),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(Radii.xs),
                     child: SizedBox(
                       height: 10,
                       child: Row(
@@ -67,10 +68,10 @@ class _HowYouPaid extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 for (final m in split) ...[
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    padding: const EdgeInsets.symmetric(vertical: Space.sm),
                     child: Row(
                       children: [
                         Container(
@@ -81,7 +82,7 @@ class _HowYouPaid extends StatelessWidget {
                             shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: Space.sm),
                         Expanded(
                           child: Text(m.method.label,
                               overflow: TextOverflow.ellipsis,
@@ -89,7 +90,7 @@ class _HowYouPaid extends StatelessWidget {
                                   const TextStyle(fontWeight: FontWeight.w600)),
                         ),
                         Padding(
-                          padding: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.only(right: Space.md),
                           child: Text(share(m.total),
                               style: TextStyle(
                                   fontSize: FontSizes.caption, color: muted)),
@@ -105,8 +106,8 @@ class _HowYouPaid extends StatelessWidget {
                   if (m.parts.length > 1 || m.parts.single.accountId != null)
                     for (final p in m.parts)
                       Padding(
-                        padding:
-                            const EdgeInsets.only(left: 20, top: 2, bottom: 4),
+                        padding: const EdgeInsets.only(
+                            left: Space.lg, top: Space.xxs, bottom: Space.xs),
                         child: Row(
                           children: [
                             Expanded(

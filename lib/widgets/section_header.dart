@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/app_colors.dart';
+import '../utils/dimens.dart';
 
 /// A left-aligned heading that labels a group of content on a screen.
 ///
@@ -13,7 +14,7 @@ class SectionHeader extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   const SectionHeader(this.text,
-      {super.key, this.padding = const EdgeInsets.only(bottom: 8)});
+      {super.key, this.padding = const EdgeInsets.only(bottom: Space.sm)});
 
   @override
   Widget build(BuildContext context) {
@@ -29,10 +30,10 @@ class SectionHeader extends StatelessWidget {
             Container(
               width: 4,
               height: 18,
-              margin: const EdgeInsets.only(right: 10),
+              margin: const EdgeInsets.only(right: Space.sm),
               decoration: BoxDecoration(
                 gradient: brandGradient(context),
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(Radii.xs),
               ),
             ),
             Flexible(

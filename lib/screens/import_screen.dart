@@ -17,6 +17,7 @@ import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 class ImportScreen extends StatefulWidget {
   const ImportScreen({super.key});
@@ -229,15 +230,15 @@ class _ImportScreenState extends State<ImportScreen> {
                 children: [
                   Icon(Icons.upload_file,
                       size: 48, color: mutedTextColor(context)),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: Space.md),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    padding: const EdgeInsets.symmetric(horizontal: Space.xxl),
                     child: Text(
                       'Pick a CSV file (e.g. a bank statement or an export from another app), then map its columns.',
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: Space.lg),
                   FilledButton.icon(
                     icon: const Icon(Icons.folder_open),
                     label: const Text('Choose CSV file'),
@@ -299,7 +300,7 @@ class _ImportScreenState extends State<ImportScreen> {
                 ),
                 if (_typeCol == null && !_splitAmounts)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: Space.sm),
                     child: DropdownButtonFormField<String>(
                       initialValue: _defaultType,
                       decoration:
@@ -316,10 +317,10 @@ class _ImportScreenState extends State<ImportScreen> {
                           setState(() => _defaultType = v ?? _defaultType),
                     ),
                   ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Space.lg),
                 const SectionHeader('Preview'),
                 _preview(rows),
-                const SizedBox(height: 16),
+                const SizedBox(height: Space.lg),
                 FilledButton.icon(
                   icon: _importing
                       ? const SizedBox(
@@ -348,7 +349,7 @@ class _ImportScreenState extends State<ImportScreen> {
     final selected =
         accounts.any((a) => a.id == _accountId) ? _accountId : null;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: Space.xs),
       child: DropdownButtonFormField<int?>(
         isExpanded: true,
         initialValue: selected,
@@ -390,7 +391,7 @@ class _ImportScreenState extends State<ImportScreen> {
                 : formatMoney(e.amount)),
           ),
         Padding(
-          padding: const EdgeInsets.only(top: 4),
+          padding: const EdgeInsets.only(top: Space.xs),
           child: Text(
             'Will import ${result.expenses.length}, skip ${result.skipped}.',
             style: TextStyle(
@@ -404,7 +405,7 @@ class _ImportScreenState extends State<ImportScreen> {
   Widget _mapDropdown(String label, int value, List<String> columns,
       ValueChanged<int?> onChanged) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: Space.xs),
       child: DropdownButtonFormField<int>(
         // Keyed by label: the split-column switch adds and removes fields,
         // and an unkeyed one could inherit a neighbour's selection.
@@ -426,7 +427,7 @@ class _ImportScreenState extends State<ImportScreen> {
   Widget _mapDropdownOptional(String label, int? value, List<String> columns,
       ValueChanged<int?> onChanged) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: Space.xs),
       child: DropdownButtonFormField<int?>(
         key: ValueKey(label),
         isExpanded: true,

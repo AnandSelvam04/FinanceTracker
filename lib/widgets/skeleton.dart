@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/dimens.dart';
 
 /// A shimmering placeholder block used while data loads.
 ///
@@ -14,7 +15,7 @@ class SkeletonBox extends StatefulWidget {
     super.key,
     this.width,
     required this.height,
-    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+    this.borderRadius = const BorderRadius.all(Radius.circular(Radii.sm)),
   });
 
   @override
@@ -74,13 +75,13 @@ class DashboardSkeleton extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SkeletonBox(width: 160, height: 20),
-        const SizedBox(height: 20),
+        const SizedBox(height: Space.lg),
         SkeletonBox(
           height: 150,
           width: double.infinity,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(Radii.lg),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: Space.lg),
         Center(
           child: SkeletonBox(
             width: 220,
@@ -88,13 +89,13 @@ class DashboardSkeleton extends StatelessWidget {
             borderRadius: BorderRadius.circular(110),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: Space.lg),
         const SkeletonBox(width: 120, height: 18),
-        const SizedBox(height: 16),
+        const SizedBox(height: Space.lg),
         SkeletonBox(
           height: 120,
           width: double.infinity,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(Radii.lg),
         ),
       ],
     );
@@ -109,28 +110,28 @@ class ListSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(Space.md),
       itemCount: rows,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, __) => const SizedBox(height: Space.md),
       itemBuilder: (context, _) => Row(
         children: [
           const SkeletonBox(
             width: 44,
             height: 44,
-            borderRadius: BorderRadius.all(Radius.circular(22)),
+            borderRadius: BorderRadius.all(Radius.circular(Radii.lg)),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: Space.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SkeletonBox(width: 160, height: 14),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 SkeletonBox(width: 100, height: 12),
               ],
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: Space.md),
           const SkeletonBox(width: 60, height: 14),
         ],
       ),

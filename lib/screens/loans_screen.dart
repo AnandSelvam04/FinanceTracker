@@ -18,6 +18,7 @@ import '../widgets/empty_state.dart';
 import 'account_detail_screen.dart';
 import 'add_transfer_screen.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Money you owe (a personal loan, or borrowed from a friend) and money
 /// owed to you (lent to someone), each with what is left and how much has
@@ -143,7 +144,7 @@ class _LoansScreenState extends State<LoansScreen> {
               : RefreshIndicator(
                   onRefresh: _reload,
                   child: ListView(
-                    padding: scrollPadding(context, all: 12),
+                    padding: scrollPadding(context, all: Space.md),
                     children: [
                       _Totals(owe: owe, owed: owed),
                       if (owe.isNotEmpty) ...[
@@ -224,7 +225,8 @@ class _Heading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+        padding:
+            const EdgeInsets.fromLTRB(Space.xs, Space.lg, Space.xs, Space.sm),
         child: Text(text,
             style: Theme.of(context)
                 .textTheme
@@ -265,7 +267,7 @@ class _Totals extends StatelessWidget {
         );
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(Space.lg),
         child: Row(
           children: [
             figure('I owe', sum(owe), expenseColor(context)),
@@ -303,12 +305,13 @@ class _DebtTile extends StatelessWidget {
     final muted = mutedTextColor(context);
     final color = isLoan ? expenseColor(context) : incomeColor(context);
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: Space.sm),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onOpen,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+          padding:
+              const EdgeInsets.fromLTRB(Space.md, Space.md, Space.md, Space.xs),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -323,7 +326,7 @@ class _DebtTile extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             fontSize: FontSizes.bodyLarge)),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: Space.sm),
                   Text(
                     s.settled
                         ? 'Settled ✓'
@@ -336,9 +339,9 @@ class _DebtTile extends StatelessWidget {
                 ],
               ),
               if (s.progress != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(Radii.xs),
                   child: LinearProgressIndicator(
                     value: s.progress,
                     minHeight: 6,
@@ -347,7 +350,7 @@ class _DebtTile extends StatelessWidget {
                         incomeColor(context).withValues(alpha: 0.18),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: Space.xs),
                 Text(
                   '${formatMoneyIn(symbol, s.repaid)} '
                   '${isLoan ? 'repaid' : 'paid back'} of '
@@ -359,7 +362,8 @@ class _DebtTile extends StatelessWidget {
               ],
               if (emi != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 6, bottom: 10),
+                  padding:
+                      const EdgeInsets.only(top: Space.sm, bottom: Space.sm),
                   child: Text(
                     '${formatMoneyIn(symbol, emi!.monthlyAmount)}/month on '
                     '${emiCard?.name ?? 'the card'}\'s bill · '
@@ -485,7 +489,7 @@ class _NewDebtDialogState extends State<_NewDebtDialog> {
                 validator: (v) =>
                     (v ?? '').trim().isEmpty ? 'Give it a name' : null,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: Space.md),
               TextFormField(
                 controller: _amount,
                 keyboardType:
@@ -499,7 +503,7 @@ class _NewDebtDialogState extends State<_NewDebtDialog> {
                   return n == null || n <= 0 ? 'Enter an amount' : null;
                 },
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: Space.md),
               DropdownButtonFormField<int?>(
                 initialValue: _accountId,
                 isExpanded: true,
@@ -521,7 +525,7 @@ class _NewDebtDialogState extends State<_NewDebtDialog> {
                 onChanged: (v) => setState(() => _accountId = v),
               ),
               if (_accountId != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.event),

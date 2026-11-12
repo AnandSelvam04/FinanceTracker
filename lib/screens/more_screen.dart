@@ -28,6 +28,7 @@ import 'settings_screen.dart';
 import 'sms_review_screen.dart';
 import 'spending_calendar_screen.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -210,7 +211,7 @@ class _MoreScreenState extends State<MoreScreen> {
 
     return Scaffold(
       body: ListView(
-        padding: scrollPadding(context, all: 12),
+        padding: scrollPadding(context, all: Space.md),
         // Dragging the list puts the keyboard away, so results are not
         // hidden behind it.
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -237,7 +238,7 @@ class _MoreScreenState extends State<MoreScreen> {
             onChanged: (v) => setState(() => _query = v),
           ),
           if (query.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             if (matches.isEmpty)
               EmptyState(
                 icon: Icons.search_off,
@@ -254,7 +255,8 @@ class _MoreScreenState extends State<MoreScreen> {
             // colour as well as by name.
             for (final section in sections) ...[
               SectionHeader(section,
-                  padding: const EdgeInsets.fromLTRB(4, 16, 4, 8)),
+                  padding: const EdgeInsets.fromLTRB(
+                      Space.xs, Space.lg, Space.xs, Space.sm)),
               _MenuCard(children: [
                 for (final e in entries)
                   if (e.section == section) e.tile(),
@@ -263,7 +265,8 @@ class _MoreScreenState extends State<MoreScreen> {
             // Visible without digging into Settings > About, so "which build
             // am I running" is answerable at a glance.
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.fromLTRB(
+                  Space.lg, Space.lg, Space.lg, Space.sm),
               child: Text(
                 'Finance Tracker ${BuildInfo.label}',
                 textAlign: TextAlign.center,

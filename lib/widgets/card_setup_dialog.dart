@@ -7,6 +7,7 @@ import '../utils/app_colors.dart';
 import '../utils/credit_card_summary.dart';
 import '../utils/currency_format.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Adds a credit card, or fills in what an existing one needs for tracking:
 /// its limit, statement and due days, the last four digits SMS alerts quote,
@@ -286,7 +287,7 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
           title: Text(title, overflow: TextOverflow.ellipsis),
           actions: [
             Padding(
-              padding: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.only(right: Space.md),
               child: FilledButton(
                 onPressed: _saving ? null : _save,
                 child: const Text('Save'),
@@ -299,7 +300,8 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
           // Not a lazy ListView: every field must be built for the form to
           // validate it.
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            padding: const EdgeInsets.fromLTRB(
+                Space.lg, Space.sm, Space.lg, Space.xxl),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -311,7 +313,7 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                   validator: (v) =>
                       (v ?? '').trim().isEmpty ? 'Give the card a name' : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Space.lg),
                 TextFormField(
                   controller: _last4,
                   decoration: _field('Last 4 digits',
@@ -350,7 +352,7 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                       }
                     }),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: Space.md),
                 ],
                 if (_shared) ...[
                   Text(
@@ -361,7 +363,7 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                         fontSize: FontSizes.body,
                         color: mutedTextColor(context)),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: Space.sm),
                   for (final p in _partners)
                     _PartnerTile(
                       card: p,
@@ -374,7 +376,7 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                       selected: _sharesWith == p.id,
                       onTap: () => _pickPartner(p.id),
                     ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: Space.md),
                 ],
                 TextFormField(
                   controller: _limit,
@@ -393,7 +395,7 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                 ),
                 if (_partners.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: Space.sm),
                     child: Text(
                       'Have a second card on the same limit (a RuPay card with '
                       'your Visa)? Add it too, then choose "Shared" here to '
@@ -417,7 +419,7 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                         validator: _dayError,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: Space.md),
                     Expanded(
                       child: TextFormField(
                         controller: _dueDay,
@@ -441,7 +443,7 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                 ),
                 if (_daysCopiedFrom != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: Space.sm),
                     child: Text(
                         'Copied from $_daysCopiedFrom — change them if '
                         'this card bills on other days.',
@@ -465,7 +467,7 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                         : null;
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Space.lg),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -479,7 +481,7 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
                         validator: _positiveNumber,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: Space.md),
                     Expanded(
                       child: TextFormField(
                         controller: _pointValue,
@@ -520,7 +522,7 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 24, bottom: 12),
+      padding: const EdgeInsets.only(top: Space.xl, bottom: Space.md),
       child: Text(text,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
               color: Theme.of(context).colorScheme.primary,
@@ -555,11 +557,11 @@ class _PartnerTile extends StatelessWidget {
       if (others.isNotEmpty) 'with ${others.map((o) => o.name).join(', ')}',
     ].join(' · ');
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: Space.sm),
       elevation: 0,
       color: selected ? scheme.secondaryContainer : null,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(Radii.md),
         side: BorderSide(
             color: selected ? scheme.primary : scheme.outlineVariant,
             width: selected ? 2 : 1),

@@ -6,6 +6,7 @@ import '../providers/expense_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Grouped bars of income vs expense per month for the trailing 12 months.
 class CashflowChart extends StatelessWidget {
@@ -47,13 +48,13 @@ class CashflowChart extends StatelessWidget {
             toY: income,
             color: incomeColor(context),
             width: 6,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(Radii.xs),
           ),
           BarChartRodData(
             toY: expense,
             color: expenseColor(context),
             width: 6,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(Radii.xs),
           ),
         ],
       ));

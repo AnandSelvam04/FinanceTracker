@@ -19,6 +19,7 @@ import 'receipt_photo.dart';
 import 'spend_account_picker.dart';
 import 'row_actions_sheet.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Opens the right edit sheet for [expense] — a transfer editor for transfers,
 /// the expense/income editor otherwise. Shared so every list of transactions
@@ -178,7 +179,7 @@ Future<void> showEditExpenseSheet(
                         ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: Space.md),
                   TextField(
                     controller: descController,
                     decoration: const InputDecoration(labelText: 'Description'),
@@ -189,7 +190,7 @@ Future<void> showEditExpenseSheet(
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(labelText: 'Amount'),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: Space.sm),
                   AmountCalculatorBar(controller: amountController),
                   // Picked from the list (which can also add a new one)
                   // rather than typed, so an edit can't misspell a category
@@ -220,7 +221,7 @@ Future<void> showEditExpenseSheet(
                     }),
                   ),
                   if (accounts.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: Space.sm),
                     SpendAccountPicker(
                       accounts: accounts,
                       accountId: accountId,
@@ -273,7 +274,7 @@ Future<void> showEditExpenseSheet(
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: Space.md),
                   SizedBox(
                     width: double.infinity,
                     height: kSheetActionHeight,
@@ -375,7 +376,7 @@ Future<void> showEditTransferSheet(
                     style: const TextStyle(
                         fontSize: FontSizes.title,
                         fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
+                const SizedBox(height: Space.md),
                 DropdownButtonFormField<int?>(
                   isExpanded: true,
                   initialValue:
@@ -437,7 +438,7 @@ Future<void> showEditTransferSheet(
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: Space.md),
                 SizedBox(
                   width: double.infinity,
                   height: kSheetActionHeight,
@@ -621,7 +622,7 @@ class _SplitSheetState extends State<_SplitSheet> {
                   style: const TextStyle(
                       fontSize: FontSizes.title, fontWeight: FontWeight.bold)),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: Space.xs),
             Center(
               child: Text(
                 '${widget.original.description} · '
@@ -629,10 +630,10 @@ class _SplitSheetState extends State<_SplitSheet> {
                 style: TextStyle(color: mutedTextColor(context)),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             for (var i = 0; i < _parts.length; i++)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: Space.sm),
                 child: Row(
                   children: [
                     Expanded(
@@ -649,7 +650,7 @@ class _SplitSheetState extends State<_SplitSheet> {
                             setState(() => _parts[i].category.text = c),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: Space.sm),
                     Expanded(
                       flex: 2,
                       child: TextField(
@@ -693,7 +694,7 @@ class _SplitSheetState extends State<_SplitSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             SizedBox(
               width: double.infinity,
               height: kSheetActionHeight,

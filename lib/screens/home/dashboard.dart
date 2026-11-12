@@ -110,7 +110,7 @@ class _DashboardView extends StatelessWidget {
         yearOnly: yearView,
         onChanged: onMonthChanged,
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: Space.md),
       SegmentedButton<bool>(
         showSelectedIcon: false,
         segments: const [
@@ -123,7 +123,7 @@ class _DashboardView extends StatelessWidget {
           onViewToggle(s.first);
         },
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: Space.lg),
       if (loading)
         const DashboardSkeleton()
       else if (empty)
@@ -149,7 +149,7 @@ class _DashboardView extends StatelessWidget {
                   : 'Spent in ${formatMonthYear(selectedYear, selectedMonth)}',
           amount: yearView ? yearTotal : monthTotal,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: Space.md),
         _SummaryPills(
           income: income,
           expense: yearView ? yearTotal : monthTotal,
@@ -193,11 +193,11 @@ class _DashboardView extends StatelessWidget {
       ],
       if (hasData)
         DashboardLayout.categories: [
-          const SizedBox(height: 16),
+          const SizedBox(height: Space.lg),
           SectionHeader(yearView
               ? 'Spending by category (year)'
               : 'Spending by category'),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.xs),
           CategoryBarChart(
             totals: yearView
                 ? provider.categoryTotalsForYear(selectedYear)
@@ -216,7 +216,7 @@ class _DashboardView extends StatelessWidget {
         ],
       if (hasData && !yearView)
         DashboardLayout.trends: [
-          const SizedBox(height: 16),
+          const SizedBox(height: Space.lg),
           const SectionHeader('Trends (last 12 months)'),
           ExpenseTrendsChart(provider: provider),
         ],
@@ -264,7 +264,7 @@ class _DashboardView extends StatelessWidget {
                           (id) => !DashboardLayout.chartSections.contains(id))),
                     ),
                   ),
-                  const SizedBox(width: 24),
+                  const SizedBox(width: Space.xl),
                   Expanded(child: Column(children: widgetsFor(charts))),
                 ],
               );
@@ -281,7 +281,7 @@ class _DashboardView extends StatelessWidget {
               // content is short enough not to overflow.
               physics: const AlwaysScrollableScrollPhysics(),
               child: Padding(
-                padding: scrollPadding(context, all: 16),
+                padding: scrollPadding(context),
                 child: Column(
                   children: [const AlertsBanner(), body],
                 ),

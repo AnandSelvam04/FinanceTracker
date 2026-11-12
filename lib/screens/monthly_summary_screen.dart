@@ -20,6 +20,7 @@ import '../utils/year_review.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/top_merchants_card.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 part 'monthly_summary/category_widgets.dart';
 part 'monthly_summary/how_you_paid.dart';
@@ -322,7 +323,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     style: const ButtonStyle(
                       visualDensity: VisualDensity.compact,
                       padding: WidgetStatePropertyAll(
-                          EdgeInsets.symmetric(horizontal: 4)),
+                          EdgeInsets.symmetric(horizontal: Space.xs)),
                     ),
                     segments: const [
                       ButtonSegment(
@@ -344,7 +345,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     },
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 if (_mode == _PeriodMode.month || _mode == _PeriodMode.year)
                   MonthSelector(
                     // Rebuilt when the mode changes or a month is opened
@@ -377,7 +378,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                       onPressed: _pickCustomRange,
                     ),
                   ),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 _CategoryFilter(
                   // Reset the dropdown's internal state whenever the period
                   // changes, so it can't keep showing a category that isn't in
@@ -388,7 +389,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                   selected: selectedCategory,
                   onChanged: (c) => setState(() => _category = c),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: Space.md),
                 if (selectedCategory == null && _mode == _PeriodMode.year) ...[
                   _YearInReview(
                     review: YearReview.from(rows,
@@ -402,7 +403,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                       _ensureLoaded();
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: Space.lg),
                 ],
                 if (selectedCategory == null)
                   ..._buildOverview(
@@ -457,11 +458,11 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
       Card(
         margin: EdgeInsets.zero,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(Space.lg),
           child: Column(
             children: [
               _row('Income', formatMoney(income), color: incomeColor(context)),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               _row('Expense', formatMoney(expense),
                   color: expenseColor(context)),
               const Divider(),
@@ -469,7 +470,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                   color:
                       net >= 0 ? incomeColor(context) : expenseColor(context),
                   bold: true),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               _row(
                 'Savings rate',
                 savingsRate == null
@@ -479,13 +480,13 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     ? incomeColor(context)
                     : expenseColor(context),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               _row('Transactions', '$txCount'),
             ],
           ),
         ),
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: Space.lg),
       // Wraps rather than overflows on a narrow phone, where the label and
       // the delta don't fit on one line.
       Wrap(
@@ -500,20 +501,21 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
           _DeltaLabel(current: expense, previous: prevExpense),
         ],
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: Space.lg),
       _HowYouPaid(rows: expenseRows, baseAmountOf: baseAmountOf),
-      const SizedBox(height: 16),
+      const SizedBox(height: Space.lg),
       const SectionHeader('Top categories'),
       if (topCategories.isEmpty)
         const Padding(
-          padding: EdgeInsets.all(8),
+          padding: EdgeInsets.all(Space.sm),
           child: Text('No expenses this period.'),
         )
       else
         Card(
           margin: EdgeInsets.zero,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(
+                horizontal: Space.md, vertical: Space.xs),
             child: Column(
               children: [
                 for (final entry in topCategories)
@@ -529,7 +531,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
           ),
         ),
       if (merchants.isNotEmpty) ...[
-        const SizedBox(height: 16),
+        const SizedBox(height: Space.lg),
         TopMerchantsCard(merchants: merchants, periodTotal: expense),
       ],
     ];

@@ -21,7 +21,7 @@ class _RecentTransactions extends StatelessWidget {
     if (rows.isEmpty) return const SizedBox.shrink();
     final accounts = context.watch<AccountProvider>();
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: Space.lg),
       child: Column(
         children: [
           Row(
@@ -151,7 +151,7 @@ class _CategoryDetailSheet extends StatelessWidget {
           Row(
             children: [
               CategoryAvatar(category: category, radius: 16),
-              const SizedBox(width: 10),
+              const SizedBox(width: Space.sm),
               Expanded(
                 child: Text(category,
                     style: Theme.of(context).textTheme.titleLarge,
@@ -161,7 +161,7 @@ class _CategoryDetailSheet extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleLarge),
             ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: Space.xxs),
           Text(
             '$period · ${rows.length} transaction'
             '${rows.length == 1 ? '' : 's'}',
@@ -195,7 +195,7 @@ class _CategoryDetailSheet extends StatelessWidget {
                             Text(formatMoney(baseAmountOf(e)),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w600)),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: Space.xs),
                             Icon(Icons.chevron_right,
                                 size: 18, color: mutedTextColor(context)),
                           ],
@@ -231,7 +231,7 @@ class _DashboardMerchants extends StatelessWidget {
     final merchants = topMerchants(rows, baseAmountOf, limit: 3);
     if (merchants.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: Space.lg),
       child: TopMerchantsCard(merchants: merchants, periodTotal: total),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../utils/insets.dart';
 import '../widgets/fade_slide_in.dart';
+import '../utils/dimens.dart';
 
 class TutorialScreen extends StatelessWidget {
   const TutorialScreen({super.key});
@@ -121,7 +122,7 @@ class TutorialScreen extends StatelessWidget {
             ),
           );
         },
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (_, __) => const SizedBox(height: Space.sm),
         itemCount: steps.length,
       ),
     );

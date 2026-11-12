@@ -16,6 +16,7 @@ import '../widgets/category_avatar.dart';
 import '../widgets/category_choice_chip.dart' show isSameCategory;
 import '../widgets/empty_state.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Lists the categories — the ones transactions use, the user's own and the
 /// built-in ones — with a way to add one, give it an icon and colour, rename
@@ -175,7 +176,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            padding: const EdgeInsets.fromLTRB(
+                Space.lg, Space.md, Space.lg, Space.xs),
             child: SizedBox(
               width: double.infinity,
               child: SegmentedButton<String>(
@@ -198,7 +200,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            padding: const EdgeInsets.fromLTRB(
+                Space.lg, Space.sm, Space.lg, Space.xs),
             child: Text(
               'Tap a category to rename it or change its icon and colour. '
               'Give it the name of another one to merge the two.',
@@ -221,9 +224,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         onAction: _add,
                       )
                     : ListView.separated(
-                        padding: scrollPadding(context, all: 12, fab: true),
+                        padding: scrollPadding(context, all: Space.md, fab: true),
                         itemCount: rows.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 4),
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: Space.xs),
                         itemBuilder: (context, i) {
                           final r = rows[i];
                           return Card(
@@ -337,7 +341,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
         child: SingleChildScrollView(
           // Room for the name field's floating label, which the scroll view
           // would otherwise clip at its top edge.
-          padding: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.only(top: Space.sm),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,7 +354,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                         color: CategoryColors.foreground(
                             color, Theme.of(context).brightness)),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: Space.md),
                   Expanded(
                     child: TextField(
                       controller: _controller,
@@ -362,7 +366,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               if (_adding && target != null)
                 Text('"$target" already exists.',
                     style: TextStyle(
@@ -378,9 +382,9 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                   style: muted,
                 ),
               if (!_adding && widget.others.isNotEmpty) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: Space.md),
                 Text('Or merge into', style: muted),
-                const SizedBox(height: 6),
+                const SizedBox(height: Space.sm),
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
@@ -396,9 +400,9 @@ class _CategoryDialogState extends State<_CategoryDialog> {
               ],
               // A merge takes on the other category's look.
               if (_adding || target == null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: Space.lg),
                 Text('Colour', style: muted),
-                const SizedBox(height: 6),
+                const SizedBox(height: Space.sm),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -412,9 +416,9 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Space.lg),
                 Text('Icon', style: muted),
-                const SizedBox(height: 6),
+                const SizedBox(height: Space.sm),
                 Wrap(
                   spacing: 4,
                   runSpacing: 4,
@@ -530,7 +534,7 @@ class _MoveDialogState extends State<_MoveDialog> {
                 : 'Its $n transaction${n == 1 ? '' : 's'}, with any budgets, '
                     'recurring rules and quick adds, move to the category '
                     'you pick. This cannot be undone.'),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             Wrap(
               spacing: 6,
               runSpacing: 4,

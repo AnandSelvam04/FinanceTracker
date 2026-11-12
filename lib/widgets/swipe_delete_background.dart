@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/dimens.dart';
 
 /// The red strip revealed behind a row while it is swiped away to delete.
 ///
@@ -14,10 +15,10 @@ class SwipeDeleteBackground extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       alignment: Alignment.centerRight,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: Space.lg),
       decoration: BoxDecoration(
         color: scheme.error,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Radii.lg),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -25,7 +26,7 @@ class SwipeDeleteBackground extends StatelessWidget {
           Text('Delete',
               style: TextStyle(
                   color: scheme.onError, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.sm),
           Icon(Icons.delete_outline, color: scheme.onError),
         ],
       ),

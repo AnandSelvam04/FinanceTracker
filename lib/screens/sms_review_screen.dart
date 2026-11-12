@@ -22,6 +22,7 @@ import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/category_picker.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 part 'sms_review/draft_card.dart';
 part 'sms_review/review_widgets.dart';
@@ -704,8 +705,9 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
                     Expanded(
                       child: ListView.separated(
                         itemCount: _drafts.length,
-                        padding: scrollPadding(context, all: 12),
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        padding: scrollPadding(context, all: Space.md),
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: Space.sm),
                         itemBuilder: (context, i) => _DraftCard(
                           key: ValueKey(_drafts[i].parsed.sourceRef),
                           draft: _drafts[i],
@@ -724,7 +726,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
                     ),
                     SafeArea(
                       child: Padding(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(Space.md),
                         child: FilledButton(
                           onPressed: selectedCount == 0 || _importing
                               ? null
@@ -752,7 +754,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
       child: Row(
         children: [
           Icon(selected ? Icons.check : null, size: 18),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.sm),
           Text(label),
         ],
       ),

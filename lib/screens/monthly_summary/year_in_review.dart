@@ -22,11 +22,11 @@ class _YearInReview extends StatelessWidget {
 
     Widget fact(IconData icon, String label, String value, {String? detail}) =>
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(vertical: Space.sm),
           child: Row(
             children: [
               Icon(icon, size: 20, color: scheme.primary),
-              const SizedBox(width: 12),
+              const SizedBox(width: Space.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,7 +41,7 @@ class _YearInReview extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.sm),
               Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
@@ -54,7 +54,8 @@ class _YearInReview extends StatelessWidget {
         Card(
           margin: EdgeInsets.zero,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+            padding: const EdgeInsets.fromLTRB(
+                Space.sm, Space.lg, Space.sm, Space.sm),
             child: SizedBox(
               height: 150,
               child: Row(
@@ -69,7 +70,7 @@ class _YearInReview extends StatelessWidget {
                             'spent',
                         excludeSemantics: true,
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(Radii.sm),
                           onTap: () => onMonthTap(m),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.end,
@@ -84,18 +85,18 @@ class _YearInReview extends StatelessWidget {
                                   alignment: Alignment.bottomCenter,
                                   child: Container(
                                     margin: const EdgeInsets.symmetric(
-                                        horizontal: 3),
+                                        horizontal: Space.xs),
                                     decoration: BoxDecoration(
                                       color: m == highest
                                           ? expenseColor(context)
                                           : scheme.primary,
                                       borderRadius: const BorderRadius.vertical(
-                                          top: Radius.circular(4)),
+                                          top: Radius.circular(Radii.xs)),
                                     ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: Space.sm),
                               Text(monthName(m).substring(0, 1),
                                   style: TextStyle(
                                       fontSize: FontSizes.caption,
@@ -110,12 +111,13 @@ class _YearInReview extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: Space.lg),
         const SectionHeader('Year in review'),
         Card(
           margin: EdgeInsets.zero,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+                horizontal: Space.lg, vertical: Space.sm),
             child: Column(
               children: [
                 fact(Icons.functions, 'Average month',

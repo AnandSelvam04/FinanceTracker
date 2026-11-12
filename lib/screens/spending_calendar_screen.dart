@@ -11,6 +11,7 @@ import '../widgets/category_avatar.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/section_header.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// A month of spending laid out as a calendar, each day shaded by how much
 /// went out. Totals hide which days were heavy and which were quiet; this
@@ -79,7 +80,7 @@ class _SpendingCalendarScreenState extends State<SpendingCalendarScreen> {
                   provider.ensureYearLoaded(y);
                 },
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -95,7 +96,7 @@ class _SpendingCalendarScreenState extends State<SpendingCalendarScreen> {
                         label: 'Biggest day', value: formatMoneyRounded(max)),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: Space.md),
               _MonthGrid(
                 year: _year,
                 month: _month,
@@ -105,14 +106,14 @@ class _SpendingCalendarScreenState extends State<SpendingCalendarScreen> {
                 selected: day,
                 onSelect: (d) => setState(() => _day = d == _day ? null : d),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               const _Legend(),
               if (day != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 SectionHeader(formatDateWithDay(DateTime(_year, _month, day))),
                 if (dayRows.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(Space.sm),
                     child: Text('Nothing recorded on this day.',
                         style: TextStyle(color: mutedTextColor(context))),
                   )
@@ -161,10 +162,11 @@ class _StatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding:
+          const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(Radii.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,7 +232,7 @@ class _MonthGrid extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: Space.xs),
         for (var r = 0; r < rows; r++)
           Row(
             children: [
@@ -252,13 +254,13 @@ class _MonthGrid extends StatelessWidget {
     final isFuture = date.isAfter(today);
     final isSelected = day == selected;
     return Padding(
-      padding: const EdgeInsets.all(2),
+      padding: const EdgeInsets.all(Space.xxs),
       child: AspectRatio(
         aspectRatio: 0.85,
         child: Material(
           color: level == 0 ? Colors.transparent : _heat(context, level),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(Radii.sm),
             side: isSelected
                 ? BorderSide(color: scheme.primary, width: 2)
                 : isToday
@@ -266,10 +268,11 @@ class _MonthGrid extends StatelessWidget {
                     : BorderSide.none,
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(Radii.sm),
             onTap: () => onSelect(day),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: Space.xxs, vertical: Space.xs),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -311,7 +314,7 @@ class _Legend extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Text('Less', style: muted),
-        const SizedBox(width: 4),
+        const SizedBox(width: Space.xs),
         for (var l = 1; l <= 4; l++)
           Container(
             width: 12,
@@ -319,10 +322,10 @@ class _Legend extends StatelessWidget {
             margin: const EdgeInsets.symmetric(horizontal: 1.5),
             decoration: BoxDecoration(
               color: _heat(context, l),
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(Radii.xs),
             ),
           ),
-        const SizedBox(width: 4),
+        const SizedBox(width: Space.xs),
         Text('More', style: muted),
       ],
     );

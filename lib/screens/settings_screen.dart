@@ -13,6 +13,7 @@ import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import '../widgets/whats_new_sheet.dart';
 import '../widgets/section_header.dart';
+import '../utils/dimens.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -187,7 +188,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             padding: scrollPadding(context, all: 0),
             children: [
               const SectionHeader('General',
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 4)),
+                  padding: EdgeInsets.fromLTRB(
+                      Space.lg, Space.lg, Space.lg, Space.xs)),
               ListTile(
                 leading: const Icon(Icons.currency_exchange),
                 title: const Text('Currency symbol'),
@@ -380,7 +382,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const Divider(),
               const SectionHeader('Security',
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 4)),
+                  padding: EdgeInsets.fromLTRB(
+                      Space.lg, Space.lg, Space.lg, Space.xs)),
               // Next to its timer: the switch used to sit on the More tab
               // while the timer it governs was here.
               SwitchListTile(
@@ -432,7 +435,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const Divider(),
               const SectionHeader('About',
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 4)),
+                  padding: EdgeInsets.fromLTRB(
+                      Space.lg, Space.lg, Space.lg, Space.xs)),
               ListTile(
                 leading: const Icon(Icons.info_outline),
                 title: const Text('Version'),

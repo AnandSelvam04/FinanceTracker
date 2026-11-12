@@ -9,6 +9,7 @@ import '../utils/insets.dart';
 import 'category_avatar.dart';
 import 'category_choice_chip.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Chips for choosing a transaction's category, ending in a **More** chip
 /// that opens the full, searchable list.
@@ -58,7 +59,7 @@ class CategoryPickerField extends StatelessWidget {
         Text(income ? 'Source' : 'Category',
             style: TextStyle(
                 fontSize: FontSizes.caption, color: mutedTextColor(context))),
-        const SizedBox(height: 6),
+        const SizedBox(height: Space.sm),
         Wrap(
           spacing: 8,
           runSpacing: 4,
@@ -85,7 +86,7 @@ class CategoryPickerField extends StatelessWidget {
         ),
         if (errorText != null)
           Padding(
-            padding: const EdgeInsets.only(top: 6),
+            padding: const EdgeInsets.only(top: Space.sm),
             child: Text(errorText!,
                 style: TextStyle(
                     fontSize: FontSizes.caption,
@@ -144,7 +145,7 @@ class CategoryPickerTile extends StatelessWidget {
           children: [
             if (value.trim().isNotEmpty) ...[
               CategoryAvatar(category: value, radius: dense ? 10 : 12),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.sm),
             ],
             Expanded(
               child: Text(value.trim().isEmpty ? 'Choose' : value,
@@ -259,7 +260,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
           children: [
             Text(_income ? 'Income source' : 'Category',
                 style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             TextField(
               controller: _search,
               textCapitalization: TextCapitalization.words,
@@ -271,7 +272,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
               ),
               onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.sm),
             Expanded(
               child: ListView(
                 children: [

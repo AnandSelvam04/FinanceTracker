@@ -23,7 +23,7 @@ class _TotalHeadline extends StatelessWidget {
             color: mutedTextColor(context),
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: Space.xxs),
         // ShaderMask paints the count-up total with the brand gradient. The
         // white base color is what the srcIn blend replaces with the gradient.
         ShaderMask(
@@ -68,7 +68,7 @@ class _SummaryPills extends StatelessWidget {
             color: incomeColor(context),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: Space.md),
         Expanded(
           child: _SummaryPill(
             label: net < 0 ? 'Overspent' : 'Saved',
@@ -101,18 +101,19 @@ class _SummaryPill extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+            horizontal: Space.md, vertical: Space.md),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(Space.sm),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: dark ? 0.24 : 0.14),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(Radii.md),
               ),
               child: Icon(icon, size: 20, color: color),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: Space.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,7 +127,7 @@ class _SummaryPill extends StatelessWidget {
                       color: mutedTextColor(context),
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: Space.xxs),
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
@@ -176,7 +177,7 @@ class _BudgetRing extends StatelessWidget {
     // The ring gives the share away even with the figures masked.
     final hidden = CurrencyFormat.hideAmounts;
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: Space.md),
       child: Card(
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
@@ -186,7 +187,8 @@ class _BudgetRing extends StatelessWidget {
             onTap();
           },
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+            padding: const EdgeInsets.fromLTRB(
+                Space.md, Space.md, Space.sm, Space.md),
             child: Row(
               children: [
                 Semantics(
@@ -227,7 +229,7 @@ class _BudgetRing extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: Space.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,7 +244,7 @@ class _BudgetRing extends StatelessWidget {
                           color: color,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: Space.xxs),
                       Text(
                         '${formatMoneyRounded(spent)} of '
                         '${formatMoneyRounded(cap)} budget',
@@ -275,18 +277,19 @@ class _StreakChip extends StatelessWidget {
     final warn = warningColor(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.only(top: Space.sm),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+            horizontal: Space.md, vertical: Space.sm),
         decoration: BoxDecoration(
           color: warn.withValues(alpha: dark ? 0.2 : 0.14),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(Radii.lg),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.local_fire_department, size: 18, color: warn),
-            const SizedBox(width: 6),
+            const SizedBox(width: Space.sm),
             Flexible(
               child: Text(
                 '$days no-spend days in a row',
@@ -321,19 +324,20 @@ class _InsightsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: Space.lg),
       child: Column(
         children: [
           const SectionHeader('Insights'),
           Card(
             margin: EdgeInsets.zero,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: Space.md, vertical: Space.sm),
               child: Column(
                 children: [
                   for (final insight in insights)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: Space.sm),
                       child: Row(
                         children: [
                           Builder(builder: (context) {
@@ -343,17 +347,17 @@ class _InsightsCard extends StatelessWidget {
                               InsightTone.neutral => infoColor(context),
                             };
                             return Container(
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.all(Space.sm),
                               decoration: BoxDecoration(
                                 color:
                                     color.withValues(alpha: dark ? 0.24 : 0.14),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(Radii.md),
                               ),
                               child: Icon(_icon(insight.kind),
                                   size: 18, color: color),
                             );
                           }),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: Space.md),
                           Expanded(
                             child: Text(insight.text,
                                 style:

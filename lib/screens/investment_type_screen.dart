@@ -16,6 +16,7 @@ import '../widgets/dispose_with_route.dart';
 import '../widgets/paid_from_field.dart';
 import '../widgets/row_actions_sheet.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// How the contributions on the type screen are grouped: into time buckets
 /// (how much went in each period) or by name (how much each individual fund
@@ -95,7 +96,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(description),
-                const SizedBox(height: 12),
+                const SizedBox(height: Space.md),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
                   initialValue: selected,
@@ -236,7 +237,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
           return Column(
             children: [
               Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(Space.md),
                 child: HeroTotalCard(
                   label: 'Total in $type',
                   amount: formatMoneySigned(total),
@@ -254,7 +255,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: Space.md),
                 child: SizedBox(
                   width: double.infinity,
                   child: SegmentedButton<_GroupBy>(
@@ -272,9 +273,9 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                 ),
               ),
               if (_groupBy == _GroupBy.period) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: Space.md),
                   child: SizedBox(
                     width: double.infinity,
                     child: SegmentedButton<InvestmentPeriod>(
@@ -297,7 +298,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: 4),
+              const SizedBox(height: Space.xs),
               Expanded(
                 child: _groupBy == _GroupBy.period
                     ? _periodList(context, provider)
@@ -328,7 +329,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     final breakdown = provider.breakdownByPeriod(type, _period);
     final periods = breakdown.keys.toList();
     return ListView.builder(
-      padding: scrollPadding(context, all: 12, top: 0, fab: true),
+      padding: scrollPadding(context, all: Space.md, top: 0, fab: true),
       itemCount: periods.length,
       itemBuilder: (context, index) {
         final ym = periods[index];
@@ -339,7 +340,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+              padding: const EdgeInsets.fromLTRB(
+                  Space.xs, Space.md, Space.xs, Space.sm),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -374,7 +376,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     final breakdown = provider.breakdownByName(type);
     final names = breakdown.keys.toList();
     return ListView.builder(
-      padding: scrollPadding(context, all: 12, top: 0, fab: true),
+      padding: scrollPadding(context, all: Space.md, top: 0, fab: true),
       itemCount: names.length,
       itemBuilder: (context, index) {
         final name = names[index];
@@ -384,7 +386,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
         // Fetch order is newest-first, so the first item is the latest.
         final latest = items.first.date;
         return Card(
-          margin: const EdgeInsets.symmetric(vertical: 4),
+          margin: const EdgeInsets.symmetric(vertical: Space.xs),
           clipBehavior: Clip.antiAlias,
           child: ExpansionTile(
             title:
@@ -397,7 +399,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
               formatMoneySigned(nameTotal),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            childrenPadding:
+                const EdgeInsets.fromLTRB(Space.sm, 0, Space.sm, Space.sm),
             children: items.map((i) => _contributionTile(context, i)).toList(),
           ),
         );
@@ -421,7 +424,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
           background: const SwipeDeleteBackground(),
           confirmDismiss: (_) => _confirmDelete(context, investment),
           child: Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
+            margin: const EdgeInsets.symmetric(vertical: Space.xs),
             child: ListTile(
               leading: CircleAvatar(
                 backgroundColor: investment.isWithdrawal
@@ -457,7 +460,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                         account.name,
                     ].join(' · ')),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: Space.sm),
                   Text(formatMoneySigned(investment.amount),
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
@@ -676,7 +679,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: Space.md),
                     SizedBox(
                       width: double.infinity,
                       child: SegmentedButton<bool>(
@@ -696,7 +699,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                             setModalState(() => isWithdrawal = s.first),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: Space.sm),
                     TextField(
                       controller: nameController,
                       decoration: const InputDecoration(labelText: 'Name'),
@@ -753,7 +756,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: Space.md),
                     SizedBox(
                       width: double.infinity,
                       height: kSheetActionHeight,

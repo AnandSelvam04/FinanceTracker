@@ -7,6 +7,7 @@ import '../utils/insets.dart';
 import '../widgets/section_header.dart';
 import '../widgets/category_trend_chart.dart';
 import '../widgets/empty_state.dart';
+import '../utils/dimens.dart';
 
 class CategoryTrendsScreen extends StatefulWidget {
   const CategoryTrendsScreen({super.key});
@@ -71,12 +72,12 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SectionHeader('Spending by category (last 12 months)'),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 CategoryTrendChart(
                   provider: provider,
                   categories: _selected.toList(),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Space.lg),
                 Wrap(
                   spacing: 8,
                   runSpacing: 4,

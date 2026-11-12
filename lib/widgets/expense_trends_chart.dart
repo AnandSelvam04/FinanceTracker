@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../providers/expense_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Twelve-month spending trend.
 ///
@@ -99,7 +100,7 @@ class ExpenseTrendsChart extends StatelessWidget {
                         return const SizedBox.shrink();
                       }
                       return Padding(
-                        padding: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.only(top: Space.xs),
                         child: Text(_monthInitials[months[i].month - 1],
                             style: axisStyle),
                       );

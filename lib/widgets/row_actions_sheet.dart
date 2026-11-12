@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/dimens.dart';
 
 /// What the user picked from a row's action sheet.
 enum RowAction { edit, duplicate, delete }
@@ -54,7 +55,7 @@ Future<RowAction?> showRowActions(
                       color: Theme.of(sheetContext).colorScheme.error)),
               onTap: () => Navigator.pop(sheetContext, RowAction.delete),
             ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.sm),
         ],
       ),
     ),

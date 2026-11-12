@@ -62,7 +62,8 @@ class _CardTile extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
+        padding:
+            const EdgeInsets.fromLTRB(Space.md, Space.md, Space.xs, Space.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -76,7 +77,7 @@ class _CardTile extends StatelessWidget {
                   child: Icon(Icons.credit_card,
                       size: 20, color: own ?? scheme.onSecondaryContainer),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: Space.md),
                 Expanded(
                   child: Text(
                     [
@@ -99,7 +100,7 @@ class _CardTile extends StatelessWidget {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(right: 10, top: 4),
+              padding: const EdgeInsets.only(right: Space.sm, top: Space.xs),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -124,7 +125,7 @@ class _CardTile extends StatelessWidget {
                   ),
                   if (figures.paidIn > 0)
                     Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.only(top: Space.xxs),
                       child: Text(
                           'Paid in ${formatMoneyIn(symbol, figures.paidIn)} '
                           'in this period',
@@ -143,7 +144,7 @@ class _CardTile extends StatelessWidget {
                     _BankCheckLine(check: figures.bankCheck!),
                   if (bill != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.only(top: Space.sm),
                       child: Text(bill.$1,
                           style: TextStyle(
                               fontSize: FontSizes.body,
@@ -156,7 +157,7 @@ class _CardTile extends StatelessWidget {
                       s.minimumDueEstimate > 0 &&
                       s.minimumDueEstimate < s.dueRemaining)
                     Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.only(top: Space.xxs),
                       child: Text(
                           'Minimum due about '
                           '${formatMoneyIn(symbol, s.minimumDueEstimate)} — '
@@ -168,7 +169,7 @@ class _CardTile extends StatelessWidget {
                     for (final e in figures.paymentGuesses)
                       _PaymentGuess(expense: e, card: account),
                     Padding(
-                      padding: const EdgeInsets.only(top: 6),
+                      padding: const EdgeInsets.only(top: Space.sm),
                       child: FilledButton.tonalIcon(
                         icon: const Icon(Icons.task_alt, size: 18),
                         label: const Text('Mark as paid'),
@@ -181,7 +182,7 @@ class _CardTile extends StatelessWidget {
                     _RewardsLine(estimate: figures.rewards!, symbol: symbol),
                   if (missing.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(top: 6),
+                      padding: const EdgeInsets.only(top: Space.sm),
                       child: ActionChip(
                         avatar: const Icon(Icons.add, size: 18),
                         label: Text('Add ${missing.join(', ')}',
@@ -199,7 +200,7 @@ class _CardTile extends StatelessWidget {
     );
     if (pooled) return body;
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: Space.sm),
       clipBehavior: Clip.antiAlias,
       child: body,
     );
@@ -277,19 +278,19 @@ class _OwedExplainerState extends State<_OwedExplainer> {
     ];
 
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: Space.xs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           InkWell(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(Radii.sm),
             onTap: () => setState(() => _open = !_open),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: Space.xs),
               child: Row(
                 children: [
                   Icon(Icons.help_outline, size: 16, color: scheme.primary),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: Space.xs),
                   Flexible(
                     child: Text(
                       'Why ${money(s.owed)} owed when '
@@ -307,18 +308,18 @@ class _OwedExplainerState extends State<_OwedExplainer> {
           ),
           if (_open)
             Container(
-              margin: const EdgeInsets.only(top: 4),
-              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(top: Space.xs),
+              padding: const EdgeInsets.all(Space.md),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(Radii.sm),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (final l in lines)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      padding: const EdgeInsets.symmetric(vertical: Space.xxs),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -326,7 +327,7 @@ class _OwedExplainerState extends State<_OwedExplainer> {
                               child: Text(l.$1,
                                   style: TextStyle(
                                       fontSize: FontSizes.body, color: muted))),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: Space.sm),
                           Text(l.$2,
                               style: TextStyle(
                                   fontSize: FontSizes.body, color: l.$3)),
@@ -349,12 +350,12 @@ class _OwedExplainerState extends State<_OwedExplainer> {
                   ),
                   for (final h in hints)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.only(top: Space.sm),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(Icons.lightbulb_outline, size: 16, color: muted),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: Space.sm),
                           Expanded(
                               child: Text(h,
                                   style: TextStyle(
@@ -363,7 +364,7 @@ class _OwedExplainerState extends State<_OwedExplainer> {
                         ],
                       ),
                     ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: Space.xs),
                   Wrap(
                     spacing: 8,
                     children: [
@@ -443,11 +444,12 @@ class _PaymentGuess extends StatelessWidget {
     final from = context.read<AccountProvider>().accountById(expense.accountId);
     final symbol = from?.symbol ?? card.symbol;
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.fromLTRB(10, 8, 4, 2),
+      margin: const EdgeInsets.only(top: Space.sm),
+      padding:
+          const EdgeInsets.fromLTRB(Space.sm, Space.sm, Space.xs, Space.xxs),
       decoration: BoxDecoration(
         color: scheme.tertiaryContainer.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(Radii.sm),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -490,16 +492,17 @@ class _BuyTodayPill extends StatelessWidget {
           '$days days interest-free',
       excludeSemantics: true,
       child: Container(
-        margin: const EdgeInsets.only(top: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        margin: const EdgeInsets.only(top: Space.sm),
+        padding: const EdgeInsets.symmetric(
+            horizontal: Space.sm, vertical: Space.sm),
         decoration: BoxDecoration(
           color: scheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(Radii.md),
         ),
         child: Row(
           children: [
             Icon(Icons.shopping_bag_outlined, size: 18, color: fg),
-            const SizedBox(width: 8),
+            const SizedBox(width: Space.sm),
             Expanded(
               child: Text.rich(
                 TextSpan(
@@ -546,12 +549,12 @@ class _RewardsLine extends StatelessWidget {
       if (e.fromSms) 'balance from bank SMS',
     ];
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: Space.sm),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.stars_outlined, size: 15, color: muted),
-          const SizedBox(width: 4),
+          const SizedBox(width: Space.xs),
           Expanded(
             child: Text(parts.join(' · '),
                 style: TextStyle(fontSize: FontSizes.caption, color: muted)),
@@ -575,12 +578,12 @@ class _BankCheckLine extends StatelessWidget {
     final when = formatCompactDate(check.readingAt);
     if (check.matches) {
       return Padding(
-        padding: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.only(top: Space.xs),
         child: Row(
           children: [
             Icon(Icons.verified_outlined,
                 size: 14, color: incomeColor(context)),
-            const SizedBox(width: 4),
+            const SizedBox(width: Space.xs),
             Expanded(
               child: Text('Matches the bank\'s SMS of $when',
                   style: TextStyle(
@@ -593,11 +596,12 @@ class _BankCheckLine extends StatelessWidget {
     }
     final warn = warningColor(context);
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.fromLTRB(10, 8, 4, 2),
+      margin: const EdgeInsets.only(top: Space.sm),
+      padding:
+          const EdgeInsets.fromLTRB(Space.sm, Space.sm, Space.xs, Space.xxs),
       decoration: BoxDecoration(
         border: Border.all(color: warn.withValues(alpha: 0.6)),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(Radii.sm),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,7 +610,7 @@ class _BankCheckLine extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.sms_outlined, size: 16, color: warn),
-              const SizedBox(width: 6),
+              const SizedBox(width: Space.sm),
               Expanded(
                 child: Text(
                   'Bank says ${formatMoneyIn(symbol, check.bankAvailable)} '
@@ -768,12 +772,12 @@ class _UsageBar extends StatelessWidget {
       label: 'Credit limit usage',
       value: caption,
       child: Padding(
-        padding: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.only(top: Space.sm),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(Radii.xs),
               child: LinearProgressIndicator(
                 value: usage.clamp(0.0, 1.0),
                 minHeight: 6,
@@ -781,7 +785,7 @@ class _UsageBar extends StatelessWidget {
                 backgroundColor: color.withValues(alpha: 0.18),
               ),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: Space.xs),
             ExcludeSemantics(
               child: Text(caption,
                   style: TextStyle(
@@ -791,7 +795,7 @@ class _UsageBar extends StatelessWidget {
             ),
             if (s.emiBlocked > 0)
               Padding(
-                padding: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.only(top: Space.xxs),
                 child: Text(
                     'Includes ${formatMoneyIn(symbol, s.emiBlocked)} held '
                     'for EMIs',

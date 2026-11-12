@@ -42,7 +42,7 @@ class _DraftCardState extends State<_DraftCard> {
   final _convertedAmount = TextEditingController();
 
   static final _actionStyle = TextButton.styleFrom(
-    padding: const EdgeInsets.symmetric(horizontal: 8),
+    padding: const EdgeInsets.symmetric(horizontal: Space.sm),
     minimumSize: const Size(0, 36),
     visualDensity: VisualDensity.compact,
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -125,7 +125,7 @@ class _DraftCardState extends State<_DraftCard> {
         ),
         if (isOther)
           Padding(
-            padding: const EdgeInsets.only(top: 4),
+            padding: const EdgeInsets.only(top: Space.xs),
             child: TextField(
               controller: controller,
               textCapitalization: TextCapitalization.words,
@@ -175,7 +175,8 @@ class _DraftCardState extends State<_DraftCard> {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 8, 12, 12),
+        padding:
+            const EdgeInsets.fromLTRB(Space.xs, Space.sm, Space.md, Space.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -228,7 +229,8 @@ class _DraftCardState extends State<_DraftCard> {
                                 fontSize: FontSizes.bodyLarge),
                             decoration: const InputDecoration(
                               isDense: true,
-                              contentPadding: EdgeInsets.only(bottom: 2),
+                              contentPadding:
+                                  EdgeInsets.only(bottom: Space.xxs),
                               hintText: 'Description',
                             ),
                             onChanged: (v) => draft.description = v,
@@ -246,7 +248,7 @@ class _DraftCardState extends State<_DraftCard> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.sm),
                 Text(
                   '$sign${parsed.currency == CurrencyFormat.symbol ? formatMoney(parsed.amount) : formatMoneyIn(parsed.currency, parsed.amount)}',
                   style: TextStyle(
@@ -261,7 +263,8 @@ class _DraftCardState extends State<_DraftCard> {
             // files it in the investments ledger instead.
             if (draft.canBeInvestment)
               Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 0, 4),
+                padding:
+                    const EdgeInsets.fromLTRB(Space.sm, Space.sm, 0, Space.xs),
                 child: SizedBox(
                   width: double.infinity,
                   // A transfer can also be money sent to someone else — family,
@@ -430,7 +433,7 @@ class _DraftCardState extends State<_DraftCard> {
                 parsed.isExpense &&
                 !draft.asInvestment)
               Padding(
-                padding: const EdgeInsets.only(left: 4, top: 4),
+                padding: const EdgeInsets.only(left: Space.xs, top: Space.xs),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -445,7 +448,7 @@ class _DraftCardState extends State<_DraftCard> {
                         },
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: Space.sm),
                     Expanded(
                       child: Text(
                         'Looks like a monthly subscription — also create a '
@@ -458,9 +461,9 @@ class _DraftCardState extends State<_DraftCard> {
                   ],
                 ),
               ),
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.sm),
             Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: Space.sm),
               child: draft.asInvestment
                   // An investment has no category: the account it was paid
                   // from (whose balance it leaves) and the instrument instead.
@@ -482,7 +485,7 @@ class _DraftCardState extends State<_DraftCard> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: Space.md),
                         Expanded(
                           child: _pickerWithOther(
                             label: 'Investment type',
@@ -513,7 +516,7 @@ class _DraftCardState extends State<_DraftCard> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: Space.md),
                         Expanded(
                           // A transfer needs the receiving account instead of a
                           // category; its category is fixed at "Transfer".
@@ -547,7 +550,7 @@ class _DraftCardState extends State<_DraftCard> {
             ),
             if (foreign || (draft.usesExpenseCategories && !draft.asInvestment))
               Padding(
-                padding: const EdgeInsets.only(left: 8, top: 8),
+                padding: const EdgeInsets.only(left: Space.sm, top: Space.sm),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -581,7 +584,7 @@ class _DraftCardState extends State<_DraftCard> {
                     if (foreign &&
                         draft.usesExpenseCategories &&
                         !draft.asInvestment)
-                      const SizedBox(width: 12),
+                      const SizedBox(width: Space.md),
                     if (draft.usesExpenseCategories && !draft.asInvestment)
                       Expanded(
                         child: DropdownButtonFormField<String>(

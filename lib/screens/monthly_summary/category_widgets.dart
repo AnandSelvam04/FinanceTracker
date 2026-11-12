@@ -91,14 +91,15 @@ class _CategoryProgressRow extends StatelessWidget {
     final fraction = total > 0 ? (amount / total).clamp(0.0, 1.0) : 0.0;
     final pct = total > 0 ? (amount / total * 100).round() : 0;
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(Radii.md),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        padding: const EdgeInsets.symmetric(
+            vertical: Space.sm, horizontal: Space.xs),
         child: Row(
           children: [
             CategoryAvatar(category: category, radius: 18),
-            const SizedBox(width: 12),
+            const SizedBox(width: Space.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,13 +115,13 @@ class _CategoryProgressRow extends StatelessWidget {
                           style: const TextStyle(fontWeight: FontWeight.bold)),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: Space.sm),
                   LinearProgressIndicator(
                     value: fraction,
                     backgroundColor: color.withValues(alpha: 0.15),
                     valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: Space.xs),
                   Row(
                     children: [
                       Expanded(
@@ -167,11 +168,11 @@ class _CategoryFocus extends StatelessWidget {
         Card(
           margin: EdgeInsets.zero,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(Space.lg),
             child: Row(
               children: [
                 CategoryAvatar(category: category, radius: 22),
-                const SizedBox(width: 12),
+                const SizedBox(width: Space.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +180,7 @@ class _CategoryFocus extends StatelessWidget {
                       Text(category,
                           style: Theme.of(context).textTheme.titleLarge,
                           overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: Space.xxs),
                       Text(
                         '${rows.length} transaction'
                         '${rows.length == 1 ? '' : 's'}',
@@ -195,7 +196,7 @@ class _CategoryFocus extends StatelessWidget {
                   children: [
                     Text(formatMoney(total),
                         style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: Space.xxs),
                     _DeltaLabel(current: total, previous: previous),
                   ],
                 ),
@@ -203,10 +204,10 @@ class _CategoryFocus extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: Space.sm),
         if (rows.isEmpty)
           Padding(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(Space.sm),
             child: Text('No transactions in this category for the period.',
                 style: TextStyle(color: mutedTextColor(context))),
           )

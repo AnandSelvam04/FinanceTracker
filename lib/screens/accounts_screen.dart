@@ -14,6 +14,7 @@ import 'account_detail_screen.dart';
 import 'add_transfer_screen.dart';
 import '../widgets/dispose_with_route.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -103,7 +104,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 child: Form(
                   key: _formKey,
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: Space.sm),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -236,7 +237,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           ),
                           if (sharedWith != null)
                             Padding(
-                              padding: const EdgeInsets.only(top: 12),
+                              padding: const EdgeInsets.only(top: Space.md),
                               child: Text(
                                 'Shares its credit limit with '
                                 '${sharedWith.name}. Change it under Credit '
@@ -341,7 +342,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
   /// [fields] with a gap between each, so labels and help text don't touch.
   static List<Widget> _spaced(List<Widget> fields) => [
         for (var i = 0; i < fields.length; i++) ...[
-          if (i > 0) const SizedBox(height: 14),
+          if (i > 0) const SizedBox(height: Space.md),
           fields[i],
         ],
       ];
@@ -428,7 +429,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           return Column(
             children: [
               Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(Space.md),
                 child: HeroTotalCard(
                   label: 'Total balance',
                   // Signed: credit-card balances are negative, and enough of
@@ -441,8 +442,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
               Expanded(
                 child: ListView.separated(
                   itemCount: accounts.length,
-                  padding: scrollPadding(context, all: 12, fab: true),
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  padding: scrollPadding(context, all: Space.md, fab: true),
+                  separatorBuilder: (_, __) => const SizedBox(height: Space.sm),
                   itemBuilder: (context, index) {
                     final account = accounts[index];
                     final balance = provider.balanceOf(account);
@@ -502,7 +503,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                                         ? expenseColor(context)
                                         : null),
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: Space.xs),
                               Icon(Icons.chevron_right,
                                   color: mutedTextColor(context)),
                             ],

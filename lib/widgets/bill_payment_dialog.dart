@@ -12,6 +12,7 @@ import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Records paying [summary]'s card bill, so it stops showing as due: the
 /// amount (the full due, the minimum, or any other), the day, and the account
@@ -127,7 +128,7 @@ class _BillPaymentDialogState extends State<_BillPaymentDialog> {
                   '${formatCompactDate(_s.cycle?.statementDate ?? _date)} '
                   'statement.',
                   style: TextStyle(fontSize: FontSizes.body, color: muted)),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             Wrap(
               spacing: 8,
               children: [
@@ -147,7 +148,7 @@ class _BillPaymentDialogState extends State<_BillPaymentDialog> {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             TextField(
               controller: _amount,
               keyboardType:
@@ -160,7 +161,7 @@ class _BillPaymentDialogState extends State<_BillPaymentDialog> {
                     : null,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: Space.md),
             DropdownButtonFormField<int?>(
               initialValue: _fromId,
               isExpanded: true,
@@ -180,7 +181,7 @@ class _BillPaymentDialogState extends State<_BillPaymentDialog> {
               ],
               onChanged: (v) => setState(() => _fromId = v),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.sm),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.event),

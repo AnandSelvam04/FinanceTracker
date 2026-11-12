@@ -22,6 +22,7 @@ import '../widgets/hero_total_card.dart';
 import '../widgets/reconcile_dialog.dart';
 import '../widgets/transaction_edit_sheet.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// What the user asked for from the statement's app bar; the Accounts screen
 /// owns the edit dialog and the delete confirmation, so it acts on these.
@@ -119,10 +120,10 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
       body: ledger == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: scrollPadding(context, all: 12),
+              padding: scrollPadding(context, all: Space.md),
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: Space.md),
                   child: HeroTotalCard(
                     label: account.type == 'credit_card'
                         ? 'Balance (negative = owed)'
@@ -142,7 +143,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: Space.sm),
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.balance, size: 18),
                       label: const Text('Match bank balance'),
@@ -170,7 +171,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                           setState(() => _byCycle = v.first),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: Space.md),
                 ],
                 if (account.hasBillingCycle && _byCycle)
                   for (final cycle in ledgerByCycle(ledger,
@@ -242,7 +243,7 @@ class _LedgerRow extends StatelessWidget {
     final into = entry.delta > 0;
     final amount = formatMoneyIn(account.symbol, entry.delta.abs());
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: Space.sm),
       child: ListTile(
         leading: avatar,
         title: Text(title,
@@ -318,7 +319,8 @@ class _CycleHeader extends StatelessWidget {
         '${formatCompactDate(c.statementDate)}'
         '${c.isOpen ? '' : ' · due ${formatCompactDate(c.dueDate)}'}';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+      padding:
+          const EdgeInsets.fromLTRB(Space.xs, Space.md, Space.xs, Space.sm),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -337,7 +339,7 @@ class _CycleHeader extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.sm),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -394,11 +396,11 @@ class _OpeningRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
       child: Row(
         children: [
           Icon(Icons.flag_outlined, size: 18, color: mutedTextColor(context)),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.sm),
           Expanded(
             child: Text('Opening balance',
                 style: TextStyle(color: mutedTextColor(context))),

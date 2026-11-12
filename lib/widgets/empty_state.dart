@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/app_colors.dart';
+import '../utils/dimens.dart';
 
 /// A friendly, centered empty state: a soft icon badge, a title, an optional
 /// hint line, and an optional call-to-action button.
@@ -22,7 +23,7 @@ class EmptyState extends StatelessWidget {
     this.message,
     this.actionLabel,
     this.onAction,
-    this.padding = const EdgeInsets.all(32),
+    this.padding = const EdgeInsets.all(Space.xxl),
   });
 
   @override
@@ -43,7 +44,7 @@ class EmptyState extends StatelessWidget {
               ),
               child: Icon(icon, size: 42, color: scheme.onSecondaryContainer),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: Space.lg),
             Text(
               title,
               textAlign: TextAlign.center,
@@ -52,7 +53,7 @@ class EmptyState extends StatelessWidget {
                   ),
             ),
             if (message != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               Text(
                 message!,
                 textAlign: TextAlign.center,
@@ -60,7 +61,7 @@ class EmptyState extends StatelessWidget {
               ),
             ],
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: Space.lg),
               FilledButton.tonalIcon(
                 onPressed: onAction,
                 icon: const Icon(Icons.add),

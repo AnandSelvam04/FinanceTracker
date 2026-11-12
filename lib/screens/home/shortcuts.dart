@@ -37,11 +37,11 @@ class _ShortcutsRow extends StatelessWidget {
     // stack them instead.
     final compact = ids.length > 3;
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: Space.lg),
       child: Row(
         children: [
           for (final (i, id) in ids.indexed) ...[
-            if (i > 0) const SizedBox(width: 8),
+            if (i > 0) const SizedBox(width: Space.sm),
             Expanded(
               child: id == DashboardLayout.sms
                   ? _SmsShortcut(compact: compact)
@@ -148,14 +148,15 @@ class _ShortcutButton extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       color: fill,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Radii.lg),
         side: BorderSide(color: accent.withValues(alpha: 0.35)),
       ),
       child: InkWell(
         onTap: onTap,
         child: Padding(
           padding: EdgeInsets.symmetric(
-              vertical: compact ? 10 : 12, horizontal: compact ? 6 : 12),
+              vertical: compact ? Space.sm : Space.md,
+              horizontal: compact ? Space.sm : Space.md),
           child: Flex(
             direction: compact ? Axis.vertical : Axis.horizontal,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -248,7 +249,7 @@ class _QuickAddRow extends StatelessWidget {
         final templates = provider.templates;
         if (templates.isEmpty) return const SizedBox.shrink();
         return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.only(bottom: Space.sm),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -261,13 +262,13 @@ class _QuickAddRow extends StatelessWidget {
                   color: mutedTextColor(context),
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: Space.sm),
               SizedBox(
                 height: 40,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: templates.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  separatorBuilder: (_, __) => const SizedBox(width: Space.sm),
                   itemBuilder: (context, index) {
                     final template = templates[index];
                     // Tap the chip to add; the delete "x" removes the shortcut

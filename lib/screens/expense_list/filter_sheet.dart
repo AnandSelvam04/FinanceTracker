@@ -67,7 +67,7 @@ class _FilterSheetState extends State<_FilterSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Filters', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.lg),
             DropdownButtonFormField<String?>(
               isExpanded: true,
               initialValue: categories.contains(_category) ? _category : null,
@@ -80,7 +80,7 @@ class _FilterSheetState extends State<_FilterSheet> {
               ],
               onChanged: (v) => setState(() => _category = v),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             if (accounts.isNotEmpty) ...[
               DropdownButtonFormField<int?>(
                 isExpanded: true,
@@ -95,7 +95,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                 ],
                 onChanged: (v) => setState(() => _accountId = v),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: Space.md),
             ],
             Row(
               children: [
@@ -107,7 +107,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                     decoration: const InputDecoration(labelText: 'Min amount'),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: Space.md),
                 Expanded(
                   child: TextField(
                     controller: _max,
@@ -118,7 +118,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             Row(
               children: [
                 Expanded(
@@ -145,7 +145,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.sm),
             Row(
               children: [
                 TextButton(

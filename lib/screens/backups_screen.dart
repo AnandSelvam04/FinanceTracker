@@ -24,6 +24,7 @@ import '../widgets/month_selector.dart';
 import '../widgets/section_header.dart';
 import '../widgets/dispose_with_route.dart';
 import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 part 'backups/dialogs.dart';
 
@@ -460,7 +461,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                   Text('Your local backup opened and every row is intact — '
                       '${result.total} row${result.total == 1 ? '' : 's'} '
                       'total:'),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: Space.sm),
                   for (final e in result.counts.entries)
                     if (e.value > 0)
                       Text('• ${_prettyTable(e.key)}: ${e.value}'),
@@ -487,12 +488,12 @@ class _BackupsScreenState extends State<BackupsScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _LastBackupBanner(time: _lastBackup),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             // Three questions, three groups: where is my backup, how do I get
             // it back, and how do I take data out. The screen used to list
             // fifteen actions under headings that mixed all three.
             const SectionHeader('Back up'),
-            const SizedBox(height: 4),
+            const SizedBox(height: Space.xs),
             Card(
               clipBehavior: Clip.antiAlias,
               child: Column(
@@ -579,7 +580,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     Align(
                       alignment: AlignmentDirectional.centerEnd,
                       child: Padding(
-                        padding: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.only(right: Space.sm),
                         child: TextButton(
                           onPressed:
                               _isWorking ? null : _setAutoDrivePassphrase,
@@ -604,7 +605,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     )
                   else
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      padding: const EdgeInsets.fromLTRB(
+                          Space.lg, 0, Space.lg, Space.md),
                       child: Text(
                         'Not signed in to Google Drive yet — the first backup '
                         'will ask which account to use.',
@@ -617,13 +619,13 @@ class _BackupsScreenState extends State<BackupsScreen> {
               ),
             ),
             const SectionHeader('Restore',
-                padding: EdgeInsets.fromLTRB(0, 20, 0, 4)),
+                padding: EdgeInsets.fromLTRB(0, Space.lg, 0, Space.xs)),
             Text(
               'Restoring replaces everything in the app with the backup.',
               style: TextStyle(
                   fontSize: FontSizes.body, color: mutedTextColor(context)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.sm),
             Card(
               clipBehavior: Clip.antiAlias,
               child: Column(
@@ -659,13 +661,13 @@ class _BackupsScreenState extends State<BackupsScreen> {
               ),
             ),
             const SectionHeader('Export & import',
-                padding: EdgeInsets.fromLTRB(0, 20, 0, 4)),
+                padding: EdgeInsets.fromLTRB(0, Space.lg, 0, Space.xs)),
             Text(
               'Save your data to Files/Downloads, email it, or send it to another app.',
               style: TextStyle(
                   fontSize: FontSizes.body, color: mutedTextColor(context)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.sm),
             Card(
               clipBehavior: Clip.antiAlias,
               child: Column(
@@ -751,7 +753,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: Space.lg),
             // Rarely needed, so folded away: the on-device JSON copy the
             // app also keeps by itself each day, and passphrase-sealed
             // files made by hand.
@@ -834,7 +836,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             if (_isWorking) const Center(child: CircularProgressIndicator()),
           ],
         ),

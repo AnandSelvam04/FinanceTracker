@@ -150,7 +150,7 @@ Future<String?> _promptPassphrase(BuildContext context,
             children: [
               if (message != null)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: Space.sm),
                   child: Text(message,
                       style: const TextStyle(fontSize: FontSizes.body)),
                 ),
@@ -186,7 +186,7 @@ Future<String?> _promptPassphrase(BuildContext context,
                 ),
               if (confirm)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: Space.sm),
                   child: Text(
                     'If you forget this passphrase, the backup cannot be recovered.',
                     style: TextStyle(
@@ -254,17 +254,17 @@ class _LastBackupBanner extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(Space.md),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(Radii.sm),
         border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
           Icon(stale ? Icons.warning_amber : Icons.check_circle,
               color: color, size: 20),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.sm),
           Expanded(child: Text(label)),
         ],
       ),
