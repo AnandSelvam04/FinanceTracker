@@ -82,15 +82,18 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/// The row above the queue that acts on every draft at once: select/clear all
-/// and apply one account to the whole batch.
+/// The bar above the queue: what the scan found, and the actions that work
+/// on every ticked draft at once.
 class _BulkActionBar extends StatelessWidget {
   final int total;
   final int selected;
+
+  /// "since 10 Nov", "in the last 7 days" — the span that was scanned.
+  final String rangeLabel;
   final VoidCallback onSelectAll;
   final VoidCallback onSelectNone;
 
-  /// Null disables the button (no accounts to choose from).
+  /// Null disables the button (nothing selected, or no accounts).
   final VoidCallback? onSetAccount;
 
   /// Null disables the button (nothing selected, or an import is running).
@@ -99,6 +102,7 @@ class _BulkActionBar extends StatelessWidget {
   const _BulkActionBar({
     required this.total,
     required this.selected,
+    required this.rangeLabel,
     required this.onSelectAll,
     required this.onSelectNone,
     required this.onSetAccount,
@@ -108,43 +112,60 @@ class _BulkActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final allSelected = selected == total && total > 0;
-    // Compact density and a scrollable action row keep the bar from
-    // overflowing on a narrow screen once a third action is added.
     const compact = ButtonStyle(
       visualDensity: VisualDensity.compact,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
+    // The checkbox lines up with the ones on the cards below it.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 4, 0),
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
       child: Row(
         children: [
-          TextButton.icon(
-            style: compact,
-            icon: Icon(
-                allSelected ? Icons.check_box_outline_blank : Icons.select_all),
-            label: Text(allSelected ? 'Clear all' : 'Select all'),
-            onPressed: allSelected ? onSelectNone : onSelectAll,
+          Checkbox(
+            tristate: true,
+            value: allSelected ? true : (selected == 0 ? false : null),
+            onChanged: (_) => allSelected ? onSelectNone() : onSelectAll(),
           ),
-          Text('$selected of $total',
-              style: TextStyle(fontSize: 12, color: mutedTextColor(context))),
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              reverse: true,
-              child: Row(
-                children: [
-                  TextButton.icon(
-                    style: compact,
-                    icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-                    label: const Text('Dismiss'),
-                    onPressed: onDismissSelected,
+            flex: 2,
+            child: Tooltip(
+              message: allSelected ? 'Clear all' : 'Select all',
+              child: InkWell(
+                onTap: allSelected ? onSelectNone : onSelectAll,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('$selected of $total selected',
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text('Found $rangeLabel',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 12, color: mutedTextColor(context))),
+                    ],
                   ),
-                  TextButton.icon(
+                ),
+              ),
+            ),
+          ),
+          // Scaled down rather than overflowing at a very large text size.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
                     style: compact,
-                    icon: const Icon(Icons.account_balance_wallet_outlined,
-                        size: 18),
-                    label: const Text('Set account'),
+                    onPressed: onDismissSelected,
+                    child: const Text('Dismiss'),
+                  ),
+                  TextButton(
+                    style: compact,
                     onPressed: onSetAccount,
+                    child: const Text('Set account'),
                   ),
                 ],
               ),

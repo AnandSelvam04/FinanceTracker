@@ -20,25 +20,15 @@ class WhatsNew {
   WhatsNew._();
 
   /// The release [items] describe, without the build number.
-  static const version = '1.52.0';
+  static const version = '1.53.0';
 
   static const items = [
-    WhatsNewItem(Icons.calculate_outlined, 'Sums in the amount field',
-        'Type 250+80 or 1200/3 — the + − × ÷ keys sit under the amount.'),
-    WhatsNewItem(Icons.dashboard_customize_outlined, 'Your own home screen',
-        'Reorder or hide its sections and choose the shortcuts: More → Customise home.'),
-    WhatsNewItem(Icons.lightbulb_outline, 'Insights on Home',
-        'What changed this month in plain words, a budget ring and your no-spend streak.'),
-    WhatsNewItem(Icons.search, 'Find anything',
-        'Search every screen and setting from the top of More. Cards are listed there now too.'),
-    WhatsNewItem(Icons.swipe_outlined, 'Swipe to edit or delete',
-        'On budgets, recurring rules, goals and accounts, as on transactions.'),
-    WhatsNewItem(Icons.dark_mode_outlined, 'True black and wallpaper colours',
-        'A pure-black dark theme and an accent taken from your wallpaper, in Settings.'),
-    WhatsNewItem(Icons.app_shortcut_outlined, 'Shortcuts on the app icon',
-        'Long-press the icon to add an expense, scan a receipt or speak one.'),
-    WhatsNewItem(Icons.tablet_android_outlined, 'Tablets and landscape',
-        'A side rail and a two-column home screen on wide displays.'),
+    WhatsNewItem(Icons.sms_outlined, 'SMS import reads more banks',
+        'SBI, Axis, ICICI, Bank of Baroda, Union and Amex alerts that were skipped, misread or left unnamed are picked up properly.'),
+    WhatsNewItem(Icons.swap_vert, 'Fewer wrong guesses',
+        'A purchase worded "credited to the shop" is no longer income, and a credit limit increase is no longer money received.'),
+    WhatsNewItem(Icons.checklist, 'A tidier review screen',
+        'One row to select, dismiss or set the account for the ticked messages, and the reason a row needs attention is shown in full.'),
   ];
 
   static const _kSeen = 'whatsNewSeenVersion';

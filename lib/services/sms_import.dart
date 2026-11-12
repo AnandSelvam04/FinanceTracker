@@ -71,7 +71,32 @@ class SmsImport {
   /// [_promo]. "reversed" moved off it as well: money reversed to the account
   /// is a refund to record, not noise.
   static final _notATransaction = RegExp(
-      r'\b(otp|one[ -]?time password|password|verification code|will be (?:debited|credited|reversed|refunded)|has been requested|requesting|request for|failed|declined|due on|minimum amount due|statement is ready|e-?statement|apply now|click here|pre-?approved|dear customer,? your bal)\b');
+      r'\b(otp|one[ -]?time password|password|verification code|will be (?:auto[- ]?)?(?:debited|deducted|charged|credited|reversed|refunded)|has been requested|requesting|request for|due on|minimum amount due|statement is ready|e-?statement|apply now|click here|pre-?approved|dear customer,? your bal)\b'
+      // A credit limit being raised quotes a figure and the word "credit",
+      // and was read as that much income.
+      r'|\blimit\b[^.]{0,40}\b(?:increased|enhanced|revised|upgraded|raised)\b');
+
+  /// A payment that did not go through. No money moved — unless the same
+  /// message says it came back ("reversed for failed UPI txn"), which is a
+  /// refund of a debit the bank had already texted about.
+  static final _failed =
+      RegExp(r'\b(failed|declined|unsuccessful|could not be processed)\b');
+  static final _cameBack =
+      RegExp(r'\b(reversed|reversal|refunded|credited back)\b');
+
+  /// "Dr." and "Cr." standing in for the verbs, as Bank of Baroda writes
+  /// them: "Rs.500 Dr. from A/C XX1234 and Cr. to shop@ybl". Only before a
+  /// preposition, so the "Cr" of "Avl Cr Lmt" is left alone.
+  static final _abbreviatedVerb =
+      RegExp(r'\b(dr|cr)\b\.?(?=\s*(?:from|to|with|for|by|in)\b)');
+
+  /// A debit that names who received the money as "credited to" and the payee:
+  /// "Rs.500 debited from A/c XX1234 and credited to SWIGGY". "credited to"
+  /// is otherwise proof of money arriving (see [_strongCredit]), and this
+  /// purchase was booked as income. Not when what follows is an account of
+  /// the user's own — that is a credit, or a transfer between two accounts.
+  static final _debitedThenPayee = RegExp(
+      r'\bdebited\b.*\bcredited\s+to\s+(?!(?:your|a/?c|acct|account|card)\b)');
 
   /// Marketing wording. Enough to drop a message only when [_moneyMoved]
   /// finds nothing: "Get Rs.500 off — sale ends today" is an advert, but
@@ -93,7 +118,16 @@ class SmsImport {
   /// boundary. Group 1 is the currency marker, group 2 the figure.
   static final _amount = RegExp(
       r'(\brs\.?|\binr|₹|\b(?:usd|eur|gbp|aed|sgd|jpy|aud|cad)|[\$€£¥])'
-      r'\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)',
+      r'\s*:?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)',
+      caseSensitive: false);
+
+  /// An amount with no currency in front of it, straight after the verb —
+  /// SBI's UPI alert: "A/C X1234 debited by 500.00 on date 12Nov25". Only
+  /// consulted when [_amount] finds nothing, and only a figure with decimals,
+  /// so "debited by 12Nov25" or a reference number is never taken for one.
+  static final _bareAmount = RegExp(
+      r'\b(?:debited|credited|dr|cr)\b\.?\s+(?:by|for|with|of)\s+'
+      r'([0-9][0-9,]*\.[0-9]{1,2})(?![0-9.])',
       caseSensitive: false);
 
   /// The rupee, which every "Rs"/"INR"/"₹" alert is in.
@@ -140,22 +174,24 @@ class SmsImport {
   /// Words that mark the amount right after them as a balance or a limit
   /// rather than the transaction amount.
   static final _balanceContext = RegExp(
-      r'\b(bal|balance|limit|available|avl|avbl|outstanding|o/s|unbilled|due)\b[^a-z]{0,12}$',
+      r'(?:\b|avl|avbl|avail)(bal|balance|limit|lmt|available|avl|avbl|avlbl|outstanding|o/s|unbilled|due)\b'
+      r'(?:\s*(?:amt|amount|is))?[^a-z]{0,12}$',
       caseSensitive: false);
 
   /// Every account/card number mentioned: "A/c XX4821", "ac no. XXXX1234",
   /// "Card ending 5678", or bare masking like "XXXXXX1234".
   ///
   /// Three digits are accepted as well as four: ICICI masks its accounts as
-  /// "Acct XX123". Four are preferred when both would fit, and
+  /// "Acct XX123". Bank of Baroda masks with dots ("A/c ...1234") and Amex
+  /// quotes five digits ("card ** 31002"), of which the last four count. Four are preferred when both would fit, and
   /// [SmsImport.sameAccountRef] lets a three-digit reference match an account
   /// whose last four end in it.
   ///
   /// The trailing `\b` deliberately will not match inside a longer digit run,
   /// so reference numbers ("UPI/123456/...") are not mistaken for accounts.
   static final _accountRef = RegExp(
-      r'\b(?:a/?c(?:count)?\.?|acct|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?)?\s*[x*\d]{0,16}?(\d{3,4})\b'
-      r'|[x*]{2,}\s*(\d{3,4})\b',
+      r'\b(?:a/?c(?:count)?\.?|acct|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?)?\s*\.{0,4}[x*\d]{0,16}?(\d{3,4})\b'
+      r'|[x*]{2,}\s*\d{0,2}?(\d{3,4})\b',
       caseSensitive: false);
 
   /// Whether two masked account references name the same account: equal, or
@@ -208,7 +244,66 @@ class SmsImport {
       r'[A-Z0-9][A-Za-z0-9&@_*\-]*(?:\.[A-Za-z0-9&@_*\-]+)*';
   static final _merchant =
       RegExp(r'\b(?:[Tt]o|[Aa]t|[Tt]owards|[Ff]or|[Ii]n [Ff]avour [Oo]f)\s+'
+          // The channel a card charge came through, in front of the merchant:
+          // "at ECOM/AMAZON", "at POS/DMART".
+          r'(?:(?:ECOM|ECM|POS|PUR)/)?'
           '($_merchantWord(?:\\s+$_merchantWord){0,3})');
+
+  /// Words the greedy name run picks up after the payee — "RAMESH KUMAR
+  /// Refno 5316…", "SWIGGY UPI Ref 5316…" — and everything after them.
+  static final _afterPayee = RegExp(
+      r'\s+(?:Ref|Refno|RefNo|REF|REFNO|UPI|Avl|AVL|Bal|BAL|Not|If|Call|Txn|TXN|RRN|IMPS|NEFT)\b.*$');
+
+  /// A name that is the rail the money went by, not who it went to:
+  /// "towards NACH/ACH mandate for GROWW MF" must give "GROWW MF".
+  static final _railName = RegExp(
+      r'^(?:nach|ach|ecs|upi|imps|neft|rtgs|ecom|pos|loan|emi|mandate|autopay)$',
+      caseSensitive: false);
+
+  /// The payee in the slash-separated narration Axis, IndusInd and others
+  /// put in a UPI alert: "UPI/P2M/531612345678/BLINKIT",
+  /// "UPI/531612345678/DR/DMART/YESB". Read from the message as sent, since
+  /// the name ends at the line break.
+  static final _upiNarration = RegExp(
+      r'\bUPI/(?:P2[AMP]/)?\d{6,}/(?:(?:DR|CR)/)?([^/\r\n]{2,40})',
+      caseSensitive: false);
+
+  /// The other party in an NEFT/IMPS/RTGS narration:
+  /// "NEFT Cr-SBIN0001234-ACME CORP-JOHN-…" names ACME CORP.
+  static final _wireNarration = RegExp(
+      r'\b(?:NEFT|IMPS|RTGS)\s*(?:Cr|Dr)?\s*-\s*[A-Z]{4}0[A-Z0-9]{6}\s*-\s*'
+      r'([^-]{2,40}?)\s*-');
+
+  /// The merchant after the date: ICICI's "spent using ICICI Bank Card
+  /// XX1234 on 12-Nov-25 on AMAZON PAY IN."
+  static final _merchantAfterDate = RegExp(
+      r'\bon\s+\d{1,2}[-/ ]?(?:\d{1,2}|[A-Za-z]{3})[-/ ]?\d{2,4}\s+(?:on|at)\s+'
+      '($_merchantWord(?:\\s+$_merchantWord){0,3})');
+
+  /// A line holding only a date and time, as in Axis's card alert, where the
+  /// merchant is the whole of the next line:
+  /// "Spent / Card no. XX1234 / INR 500.00 / 12-11-25 10:15:30 / ZOMATO".
+  static final _timestampLine = RegExp(
+      r'^\d{1,2}[-/]\d{1,2}[-/]\d{2,4},?\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*IST)?$');
+  static final _nameLine = RegExp(r"^[A-Za-z0-9][A-Za-z0-9 &.*'\-]{1,39}$");
+
+  /// "Info: ACH D- ZERODHA BROKING." — HDFC's narration field, used when
+  /// nothing else names the other party.
+  static final _info = RegExp(r'\bInfo:\s*([^.]{2,60})');
+  static final _infoPrefix = RegExp(
+      r'^(?:ACH\s*[DC]\s*-|NEFT\s*(?:Cr|Dr)?\s*-|IMPS\s*-|UPI\s*-|BIL\*|POS\s+)\s*',
+      caseSensitive: false);
+
+  /// Who paid, in a credit: "credited with Rs 2000 on 12-Nov-25 from RAHUL
+  /// SHARMA", "by NEFT from ACME PAYROLL".
+  static final _payer =
+      RegExp('\\bfrom\\s+($_merchantWord(?:\\s+$_merchantWord){0,3})');
+
+  /// A name that is really the user's bank or account ("from HDFC Bank
+  /// A/c"), which says nothing about who paid.
+  static final _accountWord = RegExp(
+      r'\b(?:bank|a/?c|acct|account|card|wallet)\b',
+      caseSensitive: false);
 
   /// A payment gateway's tag in front of the merchant: Paytm "PTM*", PayU,
   /// Razorpay, CCAvenue, BillDesk. Stripped so "PTM*FLIPKART M" files as
@@ -252,10 +347,10 @@ class SmsImport {
   /// A bare UPI handle with no "UPI:"/"VPA:" label in front of it, e.g. the
   /// "At q233098266@ybl" in an HDFC card+UPI alert. Distinguished from an email
   /// address by requiring the part after '@' to be letters only and not be
-  /// followed by a dot, so "shop@okhdfcbank" matches but "user@gmail.com" does
-  /// not (an email's domain has a dot).
+  /// followed by a dot and more name, so "shop@okhdfcbank" matches — at the
+  /// end of a sentence too — but "user@gmail.com" does not.
   static final _bareVpa =
-      RegExp(r'\b([\w.\-]{2,}@[a-z]{2,})(?![\w.])', caseSensitive: false);
+      RegExp(r'\b([\w.\-]{2,}@[a-z]{2,})(?!\w|\.\w)', caseSensitive: false);
 
   /// "01-Aug-25", "01/08/2025", "01-08-25".
   static final _date = RegExp(
@@ -312,10 +407,13 @@ class SmsImport {
     // Blanking them out first stops "spent on your Credit Card" reading as
     // income, which is the single most common way this goes wrong.
     final raw = text.toLowerCase();
-    final lower =
-        raw.replaceAll(RegExp(r'\b(credit|debit)\s*card\b'), ' card ');
+    final lower = raw
+        .replaceAll(RegExp(r'\b(credit|debit)\s*card\b'), ' card ')
+        .replaceAllMapped(_abbreviatedVerb,
+            (m) => m.group(1) == 'dr' ? 'debited' : 'credited');
 
     if (_notATransaction.hasMatch(lower)) return null;
+    if (_failed.hasMatch(lower) && !_cameBack.hasMatch(lower)) return null;
     if (_promo.hasMatch(lower) && !_moneyMoved.hasMatch(lower)) return null;
 
     var type = _directionOf(lower);
@@ -354,8 +452,10 @@ class SmsImport {
       type: type,
       description: isTransfer
           ? 'Transfer'
-          : (_merchantOf(text, debit: type == DbConstants.txExpense) ??
+          : (_merchantOf(text, body, debit: type == DbConstants.txExpense) ??
               (refund ? _refundMerchantOf(text) : null) ??
+              (type == DbConstants.txIncome ? _payerOf(text) : null) ??
+              _infoOf(text) ??
               _prettySender(sender)),
       last4: last4,
       toLast4: toLast4,
@@ -442,6 +542,7 @@ class SmsImport {
   /// credited to A/c Y") is a transfer, and taking the earlier verb keeps the
   /// source attached to the account the money left.
   static String? _directionOf(String lower) {
+    if (_debitedThenPayee.hasMatch(lower)) return DbConstants.txExpense;
     if (_strongCredit.hasMatch(lower)) return DbConstants.txIncome;
     final debit = _debitWords.firstMatch(lower)?.start;
     final credit = _creditWords.firstMatch(lower)?.start;
@@ -480,7 +581,15 @@ class SmsImport {
 
       switch (nearest) {
         case 'from':
-          source ??= digits;
+          // "EMI for Loan A/c XX9876 debited from A/c XX1234": the account
+          // after "from" is the one the money left, whatever was named
+          // before it — which is then where the money went.
+          if (source != null && !sourceExplicit) {
+            destination ??= source;
+            source = digits;
+          } else {
+            source ??= digits;
+          }
           sourceExplicit = true;
         case 'to' || 'towards' || 'into':
           destination ??= digits;
@@ -523,10 +632,19 @@ class SmsImport {
         currency: _currencySymbols[marker] ?? marker.toUpperCase(),
       );
     }
+    final bare = _bareAmount.firstMatch(text);
+    if (bare != null) {
+      final major = double.tryParse(bare.group(1)!.replaceAll(',', ''));
+      if (major != null && major > 0 && isAmountInRange(major)) {
+        return (amount: rupeesToMinor(major), currency: rupee);
+      }
+    }
     return null;
   }
 
-  static String? _merchantOf(String text, {required bool debit}) {
+  /// [text] is the message with its whitespace collapsed; [body] is it as
+  /// sent, for the two shapes where a line break ends the name.
+  static String? _merchantOf(String text, String body, {required bool debit}) {
     final vpa = _vpa.firstMatch(text);
     if (vpa != null) return vpa.group(1);
 
@@ -535,6 +653,18 @@ class SmsImport {
     // latch onto a trailing shortcode ("... to 7308080808").
     final bare = _bareVpa.firstMatch(text);
     if (bare != null) return bare.group(1);
+
+    final narrated = _upiNarration.firstMatch(body)?.group(1) ??
+        _wireNarration.firstMatch(text)?.group(1);
+    if (narrated != null) {
+      final name = narrated
+          .replaceFirst(
+              RegExp(r'(?:\s+-\s|\.\s|\s+(?:Not|If|Avl|Bal|Call|SMS)\b).*$'),
+              '')
+          .replaceFirst(RegExp(r'[.\s]+$'), '')
+          .trim();
+      if (_isPayeeName(name) && !_railName.hasMatch(name)) return name;
+    }
 
     if (debit) {
       for (final match in _creditedPayee.allMatches(text)) {
@@ -545,15 +675,77 @@ class SmsImport {
 
     for (final match in _merchant.allMatches(text)) {
       var name = match.group(1)!.trim();
+      // "for Loan A/c XX9876": the run stopped inside "A/c".
+      if (text.startsWith('/c', match.end)) {
+        name = name.replaceFirst(RegExp(r'\s*\S+$'), '');
+      }
       // Strip a trailing "on"/"On 2026-11-06" the greedy word run may have
       // taken.
       name = name.replaceFirst(
           RegExp(r'\s+(?:on|dated)(?:\s+\d\S*)?$', caseSensitive: false), '');
+      name = name.replaceFirst(_afterPayee, '');
       name = name.replaceFirst(_gatewayPrefix, '').replaceAll('*', ' ').trim();
-      if (_footerWord.hasMatch(name)) continue;
+      if (_footerWord.hasMatch(name) || _railName.hasMatch(name)) continue;
+      // "SMS BLOCKUPI to 919951860002 Axis Bank": a phone number, then the
+      // bank signing off.
+      if (RegExp(r'^\d{5,}\b').hasMatch(name)) continue;
+      if (_isPayeeName(name)) return name;
+    }
+
+    if (debit) {
+      final after = _merchantAfterDate.firstMatch(text)?.group(1);
+      if (after != null) {
+        final name = after.replaceFirst(_afterPayee, '').trim();
+        if (_isPayeeName(name) && !_footerWord.hasMatch(name)) return name;
+      }
+      final lines = [
+        for (final l in body.split(RegExp(r'[\r\n]+')))
+          if (l.trim().isNotEmpty) l.trim()
+      ];
+      for (var i = 0; i + 1 < lines.length; i++) {
+        if (!_timestampLine.hasMatch(lines[i])) continue;
+        final name = lines[i + 1];
+        if (_nameLine.hasMatch(name) &&
+            _isPayeeName(name) &&
+            !_footerWord.hasMatch(name) &&
+            !_balanceContext.hasMatch('$name ') &&
+            !RegExp(r'^(?:avl|bal|not|sms|if)\b', caseSensitive: false)
+                .hasMatch(name)) {
+          return name;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Who a credit came from, when the message names them after "from" — and
+  /// they are not just the user's own bank or account.
+  static String? _payerOf(String text) {
+    for (final match in _payer.allMatches(text)) {
+      var name = match.group(1)!.trim();
+      if (text.startsWith('/c', match.end)) continue;
+      name = name
+          .replaceFirst(
+              RegExp(r'\s+(?:on|dated)(?:\s+\d\S*)?$', caseSensitive: false),
+              '')
+          .replaceFirst(_afterPayee, '')
+          .trim();
+      if (_accountWord.hasMatch(name) || _railName.hasMatch(name)) continue;
+      if (RegExp(r'^\d{5,}\b').hasMatch(name)) continue;
       if (_isPayeeName(name)) return name;
     }
     return null;
+  }
+
+  /// The narration after "Info:", without the rail it starts with.
+  static String? _infoOf(String text) {
+    final raw = _info.firstMatch(text)?.group(1);
+    if (raw == null) return null;
+    final name = raw
+        .replaceFirst(_infoPrefix, '')
+        .replaceFirst(RegExp(r'\s+(?:Avl|Bal)\b.*$', caseSensitive: false), '')
+        .trim();
+    return _isPayeeName(name) && !_railName.hasMatch(name) ? name : null;
   }
 
   /// The merchant a refund came back from: "Refund of Rs.500 … from AMAZON".

@@ -89,6 +89,10 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
   /// wrongly dismissed one can be pulled back in and imported.
   bool _includeDismissed = false;
 
+  /// The messages in the queue that were dismissed before and are back only
+  /// because [_includeDismissed] is on, so their cards can say so.
+  Set<String> _dismissedRefs = const {};
+
   @override
   void initState() {
     super.initState();
@@ -223,6 +227,9 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
     // Merchants imported as investments before (a SIP, a broker), so their
     // alerts arrive already set to Investment with the same type and name.
     final investmentMemory = await SmsService.investmentMerchants();
+    final dismissedRefs = _includeDismissed
+        ? (await DBService().ignoredSourceRefs()).toSet()
+        : const <String>{};
     // Just over a year of history, so a monthly charge can be recognised across
     // enough prior months to suggest turning it into a recurring rule.
     final history = await DBService().getExpensesByDateRange(
@@ -237,6 +244,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
       _permissionDenied = false;
       _permissionBlocked = false;
       _scannedAt = now;
+      _dismissedRefs = dismissedRefs;
       _scanCoversBacklog = range.to == null && !lower.isAfter(backlogStart);
       _drafts = [
         for (final p in found)
@@ -403,7 +411,8 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
                 '${chosen.length == 1 ? '' : 's'}.$ruleNote')),
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(
+          SnackBar(content: Text('Could not import these messages: $e')));
     } finally {
       if (mounted) setState(() => _importing = false);
     }
@@ -570,17 +579,19 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
     });
   }
 
-  /// Applies one account to every draft that has an account field (its source
-  /// account), so a queue of alerts from the same card doesn't need the
-  /// account picked row by row. An investment's account is the one it was paid
-  /// from, so it is set too.
-  Future<void> _applyAccountToAll() async {
+  /// Applies one account to every ticked draft (as its source account), so a
+  /// queue of alerts from the same card doesn't need the account picked row
+  /// by row. Only the ticked ones: applied to the whole queue it overwrote
+  /// the accounts other rows had already been matched to by their last four
+  /// digits.
+  Future<void> _applyAccountToSelected() async {
     final accounts = context.read<AccountProvider>().accounts;
-    if (accounts.isEmpty) return;
+    final count = _selected.length;
+    if (accounts.isEmpty || count == 0) return;
     final chosen = await showDialog<int?>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Set account for all'),
+        title: Text('Set account for $count selected'),
         children: [
           for (final a in accounts)
             SimpleDialogOption(
@@ -593,7 +604,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
     if (chosen == null || !mounted) return;
     setState(() {
       for (final d in _drafts) {
-        d.accountId = chosen;
+        if (d.selected) d.accountId = chosen;
       }
     });
   }
@@ -636,30 +647,29 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
             ],
           ),
           IconButton(
-            icon: Icon(_includeDismissed
-                ? Icons.visibility
-                : Icons.visibility_off_outlined),
-            tooltip: _includeDismissed
-                ? 'Hiding nothing — dismissed messages shown'
-                : 'Show dismissed messages',
-            onPressed: busy
-                ? null
-                : () {
-                    setState(() => _includeDismissed = !_includeDismissed);
-                    _scan();
-                  },
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Rescan inbox',
             onPressed: busy ? null : _scan,
           ),
+          // Show dismissed lives in the menu: with four icons in the bar the
+          // title was cut to "Import from …" on a phone.
           PopupMenuButton<String>(
             tooltip: 'More',
             enabled: !busy,
-            onSelected: (_) => _manageIgnoredMerchants(),
-            itemBuilder: (context) => const [
-              PopupMenuItem(
+            onSelected: (v) {
+              if (v == 'ignored') {
+                _manageIgnoredMerchants();
+              } else {
+                setState(() => _includeDismissed = !_includeDismissed);
+                _scan();
+              }
+            },
+            itemBuilder: (context) => [
+              CheckedPopupMenuItem(
+                  value: 'dismissed',
+                  checked: _includeDismissed,
+                  child: const Text('Show dismissed messages')),
+              const PopupMenuItem(
                   value: 'ignored', child: Text('Ignored merchants…')),
             ],
           ),
@@ -679,12 +689,13 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
                     _BulkActionBar(
                       total: _drafts.length,
                       selected: selectedCount,
+                      rangeLabel: _range.label,
                       onSelectAll: () => _setAllSelected(true),
                       onSelectNone: () => _setAllSelected(false),
-                      onSetAccount:
-                          context.watch<AccountProvider>().accounts.isEmpty
-                              ? null
-                              : _applyAccountToAll,
+                      onSetAccount: selectedCount == 0 ||
+                              context.watch<AccountProvider>().accounts.isEmpty
+                          ? null
+                          : _applyAccountToSelected,
                       onDismissSelected: selectedCount == 0 || _importing
                           ? null
                           : _dismissSelected,
@@ -705,6 +716,8 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
                               ? null
                               : () => _ignoreMerchant(_drafts[i]),
                           onShowRaw: () => _showRawMessage(_drafts[i]),
+                          dismissedEarlier: _dismissedRefs
+                              .contains(_drafts[i].parsed.sourceRef),
                         ),
                       ),
                     ),

@@ -49,7 +49,7 @@ void main() {
 
     final found = await SmsService.scan(now: now);
     expect(found.length, 2);
-    expect(found.map((f) => f.description), containsAll(['SWIGGY', 'HDFCBK']));
+    expect(found.map((f) => f.description), containsAll(['SWIGGY', 'SALARY']));
   });
 
   test('ignores messages older than the window', () async {
