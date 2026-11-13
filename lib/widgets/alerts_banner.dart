@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../screens/recurring_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/account_provider.dart';
@@ -189,7 +190,7 @@ class AlertsBanner extends StatelessWidget {
     } else {
       whenLabel = 'due in ${b.daysUntil} days';
     }
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: Space.xxs),
       child: Row(
         children: [
@@ -197,12 +198,21 @@ class AlertsBanner extends StatelessWidget {
           const SizedBox(width: Space.sm),
           Expanded(
             child: Text(
-              '${b.description} ${formatMoney(b.amount)} — $whenLabel',
+              b.needsConfirm
+                  ? '${b.description} — $whenLabel · tap to confirm the amount'
+                  : '${b.description} ${formatMoney(b.amount)} — $whenLabel',
               style: const TextStyle(fontSize: FontSizes.body),
             ),
           ),
         ],
       ),
+    );
+    if (!b.needsConfirm) return row;
+    // Nothing is recorded until it is confirmed, which is done on Recurring.
+    return InkWell(
+      onTap: () => Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const RecurringScreen())),
+      child: row,
     );
   }
 }

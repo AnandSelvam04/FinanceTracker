@@ -40,6 +40,21 @@ class RecurringProvider extends ChangeNotifier {
     await fetchRules();
   }
 
+  /// Posts the occurrence [rule] is waiting on, at [amount] when given.
+  /// Returns false when it could not be posted (a transfer missing an
+  /// account).
+  Future<bool> postOnce(RecurringRule rule, {int? amount}) async {
+    final ok = await RecurringService.instance.postOnce(rule, amount: amount);
+    await fetchRules();
+    return ok;
+  }
+
+  /// Passes over [rule]'s next occurrence without posting it.
+  Future<void> skipOnce(RecurringRule rule) async {
+    await RecurringService.instance.skipOnce(rule);
+    await fetchRules();
+  }
+
   /// The first occurrence of [rule] on or after [now]'s day, stepping from
   /// its current nextDue along its own schedule (so a monthly rule anchored
   /// on the 31st keeps its day). A nextDue already in the future is kept.
@@ -47,7 +62,7 @@ class RecurringProvider extends ChangeNotifier {
     final today = DateTime(now.year, now.month, now.day);
     var due = rule.nextDue;
     while (due.isBefore(today)) {
-      due = RecurringService.nextDate(due, rule.frequency, rule.anchorDay);
+      due = RecurringService.nextFor(rule, due);
     }
     return due;
   }

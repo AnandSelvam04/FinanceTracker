@@ -93,14 +93,18 @@ class AutoDriveBackup {
 
   /// Backs up if automatic Drive backup is on and a backup is due. [force]
   /// skips the timing checks (used right after switching it on).
-  Future<AutoDriveStatus> run({bool force = false}) async {
+  ///
+  /// [every] replaces [interval] for this run: the app passes a shorter one
+  /// when it is put away with changes made since the last backup, so they
+  /// don't wait for tomorrow's launch to leave the phone.
+  Future<AutoDriveStatus> run({bool force = false, Duration? every}) async {
     final prefs = await SharedPreferences.getInstance();
     if (!(prefs.getBool(kEnabled) ?? false)) return AutoDriveStatus.off;
     final now = _now();
     if (!force) {
       try {
         final last = await lastDriveBackup();
-        if (last != null && now.difference(last) < interval) {
+        if (last != null && now.difference(last) < (every ?? interval)) {
           return AutoDriveStatus.notDue;
         }
       } catch (e) {

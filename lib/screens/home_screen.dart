@@ -14,6 +14,7 @@ import '../providers/recurring_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/backup_service.dart';
+import '../utils/app_logger.dart';
 import '../services/notification_service.dart';
 import '../services/emi_service.dart';
 import '../services/home_widget_service.dart';
@@ -275,9 +276,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<ChangeNotifier> _dataSources = const [];
   Timer? _resync;
 
+  /// Whether anything was added or edited since the backups last ran.
+  bool _changedSinceBackup = false;
+
+  /// Backs up what this session changed as the app is put away. The launch
+  /// backups run before anything is entered, so a day's entries used to sit
+  /// only on the phone until the app was next opened.
+  void _backupChanges() {
+    if (!_changedSinceBackup) return;
+    _changedSinceBackup = false;
+    final backups = BackupService();
+    unawaited(backups
+        .autoBackupIfDue(minInterval: Duration.zero)
+        .then((_) =>
+            backups.autoDriveBackupIfDue(every: const Duration(hours: 1)))
+        .catchError((Object e) {
+      AppLogger.error('Backing up on leaving the app failed', e);
+      return AutoDriveStatus.failed;
+    }));
+  }
+
   /// Re-derives the reminders shortly after the data settles. Debounced: a
   /// load or restore notifies many times in a row.
   void _scheduleResync() {
+    _changedSinceBackup = true;
     _resync?.cancel();
     _resync = Timer(const Duration(seconds: 2), () {
       if (mounted && (_settings?.notificationsEnabled ?? false)) {
@@ -290,6 +312,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final settings = _settings;
     final recurring = _recurring;
     if (settings == null || recurring == null) return;
+    _changedSinceBackup = true;
     // A rule saved already due (today, or backdated) posts now rather than
     // on the next trip to the background and back.
     _postRecurring();
@@ -331,6 +354,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) _backupChanges();
     if (state == AppLifecycleState.resumed) {
       // Back after a while, possibly on a new day: post what fell due and
       // bring the reminders up to date.

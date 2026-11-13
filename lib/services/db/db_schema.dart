@@ -281,6 +281,27 @@ class DbSchema {
       await db.execute('ALTER TABLE ${DbConstants.tableExpenses} '
           'ADD COLUMN ${DbConstants.colAttachment} TEXT');
     }
+    if (oldVersion < 23) {
+      // Recurring transfers, every-N-periods rules and rules that wait to be
+      // confirmed. Guarded like v11 and v12, and on the columns too: a
+      // database created at v10 or later already got them from onCreate's
+      // table when v10 made it.
+      final cols = await db
+          .rawQuery('PRAGMA table_info(${DbConstants.tableRecurringRules})');
+      final have = {for (final c in cols) c['name']};
+      if (cols.isNotEmpty) {
+        for (final (name, def) in [
+          (DbConstants.colToAccountId, 'INTEGER'),
+          (DbConstants.colEveryN, 'INTEGER NOT NULL DEFAULT 1'),
+          (DbConstants.colAskFirst, 'INTEGER NOT NULL DEFAULT 0'),
+        ]) {
+          if (!have.contains(name)) {
+            await db.execute('ALTER TABLE ${DbConstants.tableRecurringRules} '
+                'ADD COLUMN $name $def');
+          }
+        }
+      }
+    }
   }
 
   /// v9: give every money column INTEGER affinity.
@@ -562,7 +583,10 @@ class DbSchema {
         ${DbConstants.colAnchorDay} INTEGER NOT NULL DEFAULT 1,
         ${DbConstants.colEnabled} INTEGER NOT NULL DEFAULT 1,
         ${DbConstants.colEndDate} TEXT,
-        ${DbConstants.colIsInvestment} INTEGER NOT NULL DEFAULT 0
+        ${DbConstants.colIsInvestment} INTEGER NOT NULL DEFAULT 0,
+        ${DbConstants.colToAccountId} INTEGER,
+        ${DbConstants.colEveryN} INTEGER NOT NULL DEFAULT 1,
+        ${DbConstants.colAskFirst} INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''

@@ -7,8 +7,20 @@ class RecurringRule {
   /// Amount in minor units (paise/cents).
   final int amount;
   final String category;
-  final String type; // expense | income
+  final String type; // expense | income | transfer
   final int? accountId;
+
+  /// Where a transfer rule's money goes (a loan being repaid, a card whose
+  /// bill is paid, a savings account). Null for expense and income rules.
+  final int? toAccountId;
+
+  /// How many periods of [frequency] pass between occurrences: 2 with weekly
+  /// is every two weeks, 3 with monthly is quarterly.
+  final int interval;
+
+  /// When true the rule never posts by itself. It shows as due and waits for
+  /// the amount to be confirmed, for bills that differ each time.
+  final bool askFirst;
   final String frequency; // daily | weekly | monthly | yearly
   final DateTime nextDue;
 
@@ -38,7 +50,36 @@ class RecurringRule {
     this.enabled = true,
     this.endDate,
     this.isInvestment = false,
-  }) : anchorDay = anchorDay ?? nextDue.day;
+    this.toAccountId,
+    int interval = 1,
+    this.askFirst = false,
+  })  : anchorDay = anchorDay ?? nextDue.day,
+        interval = interval < 1 ? 1 : interval;
+
+  bool get isTransfer => type == DbConstants.txTransfer;
+
+  /// How often the rule repeats, in words: "Monthly", "Every 2 weeks".
+  String get frequencyLabel => describeFrequency(frequency, interval);
+
+  static String describeFrequency(String frequency, int interval) {
+    if (interval <= 1) {
+      return switch (frequency) {
+        DbConstants.freqDaily => 'Daily',
+        DbConstants.freqWeekly => 'Weekly',
+        DbConstants.freqMonthly => 'Monthly',
+        DbConstants.freqYearly => 'Yearly',
+        _ => frequency,
+      };
+    }
+    final unit = switch (frequency) {
+      DbConstants.freqDaily => 'days',
+      DbConstants.freqWeekly => 'weeks',
+      DbConstants.freqMonthly => 'months',
+      DbConstants.freqYearly => 'years',
+      _ => frequency,
+    };
+    return 'Every $interval $unit';
+  }
 
   static const frequencies = [
     DbConstants.freqDaily,
@@ -60,6 +101,9 @@ class RecurringRule {
         enabled: enabled ?? this.enabled,
         endDate: endDate,
         isInvestment: isInvestment,
+        toAccountId: toAccountId,
+        interval: interval,
+        askFirst: askFirst,
       );
 
   Map<String, dynamic> toMap() => {
@@ -75,6 +119,9 @@ class RecurringRule {
         DbConstants.colEnabled: enabled ? 1 : 0,
         DbConstants.colEndDate: endDate?.toIso8601String(),
         DbConstants.colIsInvestment: isInvestment ? 1 : 0,
+        DbConstants.colToAccountId: toAccountId,
+        DbConstants.colEveryN: interval,
+        DbConstants.colAskFirst: askFirst ? 1 : 0,
       };
 
   factory RecurringRule.fromMap(Map<String, dynamic> map) => RecurringRule(
@@ -94,5 +141,9 @@ class RecurringRule {
             : DateTime.tryParse(map[DbConstants.colEndDate] as String),
         // Absent before schema v12; treat as a plain transaction rule.
         isInvestment: (map[DbConstants.colIsInvestment] ?? 0) == 1,
+        // The three below are absent before schema v23.
+        toAccountId: (map[DbConstants.colToAccountId] as num?)?.toInt(),
+        interval: (map[DbConstants.colEveryN] as num?)?.toInt() ?? 1,
+        askFirst: (map[DbConstants.colAskFirst] ?? 0) == 1,
       );
 }

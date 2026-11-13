@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/recurring_rule.dart';
 import '../providers/account_provider.dart';
+import '../providers/expense_provider.dart';
+import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../utils/haptics.dart';
 import '../utils/app_colors.dart';
@@ -29,6 +31,9 @@ class _RecurringScreenState extends State<RecurringScreen> {
   String _type = DbConstants.txExpense;
   String _frequency = DbConstants.freqMonthly;
   int? _accountId;
+  int? _toAccountId;
+  int _interval = 1;
+  bool _askFirst = false;
   DateTime _nextDue = DateTime.now();
   DateTime? _endDate;
 
@@ -41,20 +46,16 @@ class _RecurringScreenState extends State<RecurringScreen> {
     });
   }
 
-  static String _freqLabel(String freq) {
-    switch (freq) {
-      case DbConstants.freqDaily:
-        return 'Daily';
-      case DbConstants.freqWeekly:
-        return 'Weekly';
-      case DbConstants.freqMonthly:
-        return 'Monthly';
-      case DbConstants.freqYearly:
-        return 'Yearly';
-      default:
-        return freq;
-    }
-  }
+  /// The schedules offered in the dialog, as (frequency, every N periods).
+  static const _schedules = [
+    (DbConstants.freqDaily, 1),
+    (DbConstants.freqWeekly, 1),
+    (DbConstants.freqWeekly, 2),
+    (DbConstants.freqMonthly, 1),
+    (DbConstants.freqMonthly, 3),
+    (DbConstants.freqMonthly, 6),
+    (DbConstants.freqYearly, 1),
+  ];
 
   Future<void> _showRuleDialog({RecurringRule? rule}) async {
     _description = rule?.description ?? '';
@@ -63,6 +64,9 @@ class _RecurringScreenState extends State<RecurringScreen> {
     _type = rule?.type ?? DbConstants.txExpense;
     _frequency = rule?.frequency ?? DbConstants.freqMonthly;
     _accountId = rule?.accountId;
+    _toAccountId = rule?.toAccountId;
+    _interval = rule?.interval ?? 1;
+    _askFirst = rule?.askFirst ?? false;
     _nextDue = rule?.nextDue ?? DateTime.now();
     _endDate = rule?.endDate;
 
@@ -70,6 +74,14 @@ class _RecurringScreenState extends State<RecurringScreen> {
     // A SIP files contributions into an investment type: it has no
     // expense/income type to pick, and its category is that investment type.
     final isSip = rule?.isInvestment ?? false;
+    // A schedule the list doesn't offer (from a backup) stays selectable.
+    final schedules = [
+      ..._schedules,
+      if (!_schedules.contains((_frequency, _interval)))
+        (_frequency, _interval),
+    ];
+
+    bool transfer() => !isSip && _type == DbConstants.txTransfer;
 
     await showDialog(
       context: context,
@@ -102,14 +114,6 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     validator: validateAmountField,
                     onSaved: (v) => _amount = parseMinor(v ?? '0') ?? 0,
                   ),
-                  TextFormField(
-                    initialValue: _category,
-                    decoration: InputDecoration(
-                        labelText: isSip ? 'Investment type' : 'Category'),
-                    validator: (v) =>
-                        (v == null || v.isEmpty) ? 'Required' : null,
-                    onSaved: (v) => _category = v ?? '',
-                  ),
                   if (!isSip)
                     DropdownButtonFormField<String>(
                       initialValue: _type,
@@ -121,33 +125,95 @@ class _RecurringScreenState extends State<RecurringScreen> {
                         DropdownMenuItem(
                             value: DbConstants.txIncome,
                             child: const Text('Income')),
+                        // Needs an account on each side.
+                        if (accounts.length >= 2 ||
+                            _type == DbConstants.txTransfer)
+                          DropdownMenuItem(
+                              value: DbConstants.txTransfer,
+                              child: const Text('Transfer between accounts')),
                       ],
-                      onChanged: (v) => _type = v ?? _type,
+                      onChanged: (v) =>
+                          setDialogState(() => _type = v ?? _type),
                     ),
-                  DropdownButtonFormField<String>(
-                    initialValue: _frequency,
-                    decoration: const InputDecoration(labelText: 'Frequency'),
-                    items: RecurringRule.frequencies
-                        .map((f) => DropdownMenuItem(
-                            value: f, child: Text(_freqLabel(f))))
-                        .toList(),
-                    onChanged: (v) => _frequency = v ?? _frequency,
+                  // A transfer has no category: it isn't spending.
+                  if (!transfer())
+                    TextFormField(
+                      initialValue: _category,
+                      decoration: InputDecoration(
+                          labelText: isSip ? 'Investment type' : 'Category'),
+                      validator: (v) =>
+                          (v == null || v.isEmpty) ? 'Required' : null,
+                      onSaved: (v) => _category = v ?? '',
+                    ),
+                  DropdownButtonFormField<(String, int)>(
+                    initialValue: (_frequency, _interval),
+                    decoration: const InputDecoration(labelText: 'Repeats'),
+                    items: [
+                      for (final s in schedules)
+                        DropdownMenuItem(
+                            value: s,
+                            child: Text(
+                                RecurringRule.describeFrequency(s.$1, s.$2))),
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      _frequency = v.$1;
+                      _interval = v.$2;
+                    },
                   ),
                   if (accounts.isNotEmpty)
                     DropdownButtonFormField<int?>(
                       isExpanded: true,
                       initialValue: _accountId,
                       decoration: InputDecoration(
-                          labelText: isSip ? 'Paid from' : 'Account'),
+                          labelText: isSip
+                              ? 'Paid from'
+                              : transfer()
+                                  ? 'From'
+                                  : 'Account'),
                       items: [
-                        DropdownMenuItem<int?>(
-                            value: null, child: const Text('None')),
+                        if (!transfer())
+                          DropdownMenuItem<int?>(
+                              value: null, child: const Text('None')),
                         ...accounts.map((a) => DropdownMenuItem<int?>(
                             value: a.id,
                             child:
                                 Text(a.name, overflow: TextOverflow.ellipsis))),
                       ],
+                      validator: (v) =>
+                          transfer() && v == null ? 'Required' : null,
                       onChanged: (v) => _accountId = v,
+                    ),
+                  if (transfer())
+                    DropdownButtonFormField<int?>(
+                      isExpanded: true,
+                      initialValue: _toAccountId,
+                      decoration: const InputDecoration(
+                          labelText: 'To',
+                          helperText:
+                              'A loan being repaid, a card bill, savings'),
+                      items: [
+                        ...accounts.map((a) => DropdownMenuItem<int?>(
+                            value: a.id,
+                            child:
+                                Text(a.name, overflow: TextOverflow.ellipsis))),
+                      ],
+                      validator: (v) => v == null
+                          ? 'Required'
+                          : v == _accountId
+                              ? 'Pick a different account'
+                              : null,
+                      onChanged: (v) => _toAccountId = v,
+                    ),
+                  if (!isSip)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Ask me each time'),
+                      subtitle: const Text(
+                          'For a bill that differs: nothing is recorded '
+                          'until you confirm the amount'),
+                      value: _askFirst,
+                      onChanged: (v) => setDialogState(() => _askFirst = v),
                     ),
                   const SizedBox(height: Space.sm),
                   Row(
@@ -214,6 +280,18 @@ class _RecurringScreenState extends State<RecurringScreen> {
                         ),
                     ],
                   ),
+                  if (rule != null && rule.enabled)
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.skip_next),
+                        label: const Text('Skip the next one'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          _skip(rule);
+                        },
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -241,9 +319,12 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     id: rule?.id,
                     description: _description,
                     amount: _amount,
-                    category: _category,
+                    category: transfer() ? 'Transfer' : _category,
                     type: _type,
                     accountId: _accountId,
+                    toAccountId: transfer() ? _toAccountId : null,
+                    interval: _interval,
+                    askFirst: !isSip && _askFirst,
                     frequency: _frequency,
                     nextDue: _nextDue,
                     // Keep the rule's anchor unless the due date was changed.
@@ -276,6 +357,77 @@ class _RecurringScreenState extends State<RecurringScreen> {
     );
   }
 
+  /// Passes over [rule]'s next occurrence, with an Undo.
+  Future<void> _skip(RecurringRule rule) async {
+    final provider = context.read<RecurringProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    await provider.skipOnce(rule);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(
+            'Skipped ${rule.description} for ${formatCompactDate(rule.nextDue)}'),
+        action: SnackBarAction(
+            label: 'Undo', onPressed: () => provider.updateRule(rule)),
+      ));
+  }
+
+  /// Asks what an "ask me each time" rule came to and records it.
+  Future<void> _confirmAmount(RecurringRule rule) async {
+    final provider = context.read<RecurringProvider>();
+    final expenses = context.read<ExpenseProvider>();
+    final accounts = context.read<AccountProvider>();
+    final investments = context.read<InvestmentProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final key = GlobalKey<FormState>();
+    int? amount;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(rule.description),
+        content: Form(
+          key: key,
+          child: TextFormField(
+            autofocus: true,
+            initialValue:
+                rule.amount == 0 ? '' : minorToEditString(rule.amount),
+            decoration: InputDecoration(
+                labelText: 'Amount this time',
+                helperText: 'Due ${formatDateWithDay(rule.nextDue)}'),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            validator: validateAmountField,
+            onSaved: (v) => amount = parseMinor(v ?? ''),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () {
+                if (!key.currentState!.validate()) return;
+                key.currentState!.save();
+                Navigator.pop(context, true);
+              },
+              child: const Text('Record')),
+        ],
+      ),
+    );
+    if (ok != true || amount == null) return;
+    final posted = await provider.postOnce(rule, amount: amount);
+    if (posted) {
+      await expenses.reloadLoadedYears();
+      await accounts.refreshBalances();
+      if (rule.isInvestment) await investments.fetchInvestments();
+    }
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+          content: Text(posted
+              ? 'Recorded ${rule.description}'
+              : 'Pick both accounts for ${rule.description} first')));
+  }
+
   Future<void> _confirmDeleteRule(RecurringRule rule) async {
     final provider = context.read<RecurringProvider>();
     final ok = await showDialog<bool>(
@@ -301,6 +453,15 @@ class _RecurringScreenState extends State<RecurringScreen> {
     if (ok == true) await provider.deleteRule(rule.id!);
   }
 
+  /// What a rule is for: its category, or the two accounts of a transfer.
+  static String _what(BuildContext context, RecurringRule rule) {
+    if (!rule.isTransfer) return rule.category;
+    final accounts = context.watch<AccountProvider>();
+    final from = accounts.accountById(rule.accountId)?.name ?? '?';
+    final to = accounts.accountById(rule.toAccountId)?.name ?? '?';
+    return '$from → $to';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -313,7 +474,8 @@ class _RecurringScreenState extends State<RecurringScreen> {
               icon: Icons.repeat,
               title: 'No recurring transactions',
               message:
-                  'Add rent, salary, or bills and they post automatically.',
+                  'Add rent, salary, bills or a loan repayment and they post '
+                  'automatically.',
               actionLabel: 'Add recurring',
               onAction: () => _showRuleDialog(),
             );
@@ -334,8 +496,10 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     // Expense rules wear their category's avatar, so "Netflix"
                     // looks the same here as on the dashboard and transaction
                     // list; income and SIP rules keep the green up-arrow.
-                    leading:
-                        !rule.isInvestment && rule.type != DbConstants.txIncome
+                    leading: rule.isTransfer
+                        ? const CircleAvatar(child: Icon(Icons.swap_horiz))
+                        : !rule.isInvestment &&
+                                rule.type != DbConstants.txIncome
                             ? CategoryAvatar(category: rule.category)
                             : CircleAvatar(
                                 backgroundColor: incomeAvatarColor(context),
@@ -373,9 +537,28 @@ class _RecurringScreenState extends State<RecurringScreen> {
                                 const TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
-                    subtitle: Text(
-                        '${rule.isInvestment ? 'SIP · ' : ''}${rule.category} · ${_freqLabel(rule.frequency)} · next ${formatCompactDate(rule.nextDue)}'
-                        '${rule.endDate != null ? ' · ends ${formatCompactDate(rule.endDate!)}' : ''}'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            '${rule.isInvestment ? 'SIP · ' : ''}${_what(context, rule)} · ${rule.frequencyLabel} · next ${formatCompactDate(rule.nextDue)}'
+                            '${rule.endDate != null ? ' · ends ${formatCompactDate(rule.endDate!)}' : ''}'),
+                        // Nothing is recorded for these until confirmed.
+                        if (rule.askFirst && rule.enabled)
+                          Row(
+                            children: [
+                              TextButton(
+                                onPressed: () => _confirmAmount(rule),
+                                child: const Text('Confirm amount'),
+                              ),
+                              TextButton(
+                                onPressed: () => _skip(rule),
+                                child: const Text('Skip'),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
                     trailing: Switch(
                       value: rule.enabled,
                       onChanged: (_) {

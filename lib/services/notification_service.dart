@@ -9,6 +9,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter/foundation.dart';
 
 import '../models/recurring_rule.dart';
+import 'recurring_service.dart';
 import '../utils/alerts.dart';
 import '../utils/app_logger.dart';
 import '../utils/billing_cycle.dart';
@@ -175,9 +176,45 @@ class NotificationService {
     }
   }
 
-  /// (Re)schedules a reminder for every enabled expense bill, [daysBefore] days
-  /// before its next due date at [hour]:00 local time. Rescheduled on each app
-  /// launch, so we don't need a boot receiver to survive restarts.
+  /// How many of a rule's coming occurrences get a reminder at once.
+  ///
+  /// Reminders are only re-armed while the app is open. With just the next
+  /// occurrence scheduled, a phone that went a month without the app being
+  /// opened got one reminder and then none.
+  static const billRemindersAhead = 6;
+
+  /// The due dates of [rule] to remind about, soonest first: none for a rule
+  /// that is no bill (income, a SIP, a paused rule), otherwise its next
+  /// [billRemindersAhead] occurrences up to its end date. A plain daily rule
+  /// gets only its next one, so a week away isn't a week of "due tomorrow".
+  static List<DateTime> billReminderDues(RecurringRule rule) {
+    if (!rule.enabled || rule.id == null) return const [];
+    // A SIP isn't a bill: it is posted to the investments by itself.
+    if (rule.isInvestment || rule.type == DbConstants.txIncome) {
+      return const [];
+    }
+    // Keeps every id inside the bill band.
+    if (rule.id! >= (_creditIdBase - _billIdBase) ~/ billRemindersAhead) {
+      return const [];
+    }
+    final daily = rule.frequency == DbConstants.freqDaily && rule.interval == 1;
+    final end = rule.endDate;
+    final dues = <DateTime>[];
+    var due = rule.nextDue;
+    while (dues.length < (daily ? 1 : billRemindersAhead)) {
+      if (end != null &&
+          due.isAfter(DateTime(end.year, end.month, end.day, 23, 59, 59))) {
+        break;
+      }
+      dues.add(due);
+      due = RecurringService.nextFor(rule, due);
+    }
+    return dues;
+  }
+
+  /// (Re)schedules reminders for every enabled bill, [daysBefore] days before
+  /// each of its coming due dates (see [billReminderDues]) at [hour]:00 local
+  /// time. Rescheduled whenever the app is open and the rules change.
   Future<void> scheduleBillReminders(List<RecurringRule> rules,
       {int daysBefore = 1, int hour = 9}) async {
     if (!_initialized || !_tzReady) return;
@@ -192,24 +229,26 @@ class NotificationService {
       }
       final now = tz.TZDateTime.now(tz.local);
       for (final rule in rules) {
-        if (!rule.enabled || rule.id == null) continue;
-        if (rule.type != DbConstants.txExpense) continue;
-        // A SIP isn't a bill: it is posted to the investments by itself.
-        if (rule.isInvestment) continue;
-        final due = rule.nextDue;
-        // TZDateTime normalizes an out-of-range day (e.g. the 0th → prev month).
-        final when = tz.TZDateTime(
-            tz.local, due.year, due.month, due.day - daysBefore, hour);
-        if (!when.isAfter(now)) continue;
-        await _plugin.zonedSchedule(
-          id: _billIdBase + rule.id!,
-          title: 'Bill due soon',
-          body: '${rule.description} ${formatMoneyExact(rule.amount)} is due '
-              '${_dueLabel(daysBefore)}',
-          scheduledDate: when,
-          notificationDetails: _details(),
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        );
+        final dues = billReminderDues(rule);
+        for (var k = 0; k < dues.length; k++) {
+          final due = dues[k];
+          // TZDateTime normalizes an out-of-range day (the 0th → prev month).
+          final when = tz.TZDateTime(
+              tz.local, due.year, due.month, due.day - daysBefore, hour);
+          if (!when.isAfter(now)) continue;
+          await _plugin.zonedSchedule(
+            id: _billIdBase + rule.id! * billRemindersAhead + k,
+            title: 'Bill due soon',
+            body: rule.askFirst
+                ? '${rule.description} is due ${_dueLabel(daysBefore)}. '
+                    'Open the app to confirm the amount.'
+                : '${rule.description} ${formatMoneyExact(rule.amount)} is '
+                    'due ${_dueLabel(daysBefore)}',
+            scheduledDate: when,
+            notificationDetails: _details(),
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          );
+        }
       }
     } catch (e, st) {
       AppLogger.error('Scheduling bill reminders failed', e, st);

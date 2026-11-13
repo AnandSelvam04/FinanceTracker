@@ -95,10 +95,26 @@ extension AccountQueries on DBService {
         where: '${DbConstants.colToAccountId} = ?',
         whereArgs: [id],
       );
+      // A recurring transfer needs both of its accounts: pause it, so it
+      // reads as switched off rather than as silently never posting.
+      await txn.update(
+        DbConstants.tableRecurringRules,
+        {DbConstants.colEnabled: 0},
+        where: "${DbConstants.colType} = '${DbConstants.txTransfer}' AND "
+            '(${DbConstants.colAccountId} = ? OR '
+            '${DbConstants.colToAccountId} = ?)',
+        whereArgs: [id, id],
+      );
       await txn.update(
         DbConstants.tableRecurringRules,
         {DbConstants.colAccountId: null},
         where: '${DbConstants.colAccountId} = ?',
+        whereArgs: [id],
+      );
+      await txn.update(
+        DbConstants.tableRecurringRules,
+        {DbConstants.colToAccountId: null},
+        where: '${DbConstants.colToAccountId} = ?',
         whereArgs: [id],
       );
       await txn.update(

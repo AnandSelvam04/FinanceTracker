@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 22;
+  static const int dbVersion = 23;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -95,6 +95,15 @@ class DbConstants {
   /// 1 when a recurring rule contributes to the investments ledger (a SIP)
   /// instead of posting an expense/income transaction. Added in schema v12.
   static const String colIsInvestment = 'isInvestment';
+
+  /// How many periods of its frequency pass between a rule's occurrences:
+  /// 2 with weekly is every two weeks, 3 with monthly is quarterly. Added in
+  /// schema v23, as were the two below.
+  static const String colEveryN = 'everyN';
+
+  /// 1 when a recurring rule waits to be confirmed (with the amount it came
+  /// to this time) instead of posting by itself.
+  static const String colAskFirst = 'askFirst';
 
   // Templates Table
   static const String tableTemplates = 'templates';

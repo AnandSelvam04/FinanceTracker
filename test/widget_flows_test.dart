@@ -483,6 +483,93 @@ void main() {
     await teardownTree(tester);
   }, timeout: testTimeout);
 
+  testWidgets('A recurring transfer names its two accounts and schedule',
+      (tester) async {
+    final (recurring, accounts) = (await tester.runAsync(() async {
+      final db = DBService();
+      final bank = await db.insertAccount(Account(name: 'HDFC', type: 'bank'));
+      final loan =
+          await db.insertAccount(Account(name: 'Car loan', type: 'loan'));
+      await db.insertRecurringRule(RecurringRule(
+        description: 'Car EMI',
+        amount: 1200000,
+        category: 'Transfer',
+        type: DbConstants.txTransfer,
+        accountId: bank,
+        toAccountId: loan,
+        frequency: DbConstants.freqMonthly,
+        interval: 3,
+        nextDue: DateTime(now.year + 1, 1, 5),
+      ));
+      final r = RecurringProvider();
+      await r.fetchRules();
+      final a = AccountProvider();
+      await a.fetchAccounts();
+      return (r, a);
+    }))!;
+
+    await pumpScreen(tester, const RecurringScreen(), [
+      ChangeNotifierProvider<RecurringProvider>.value(value: recurring),
+      ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+    ]);
+
+    expect(find.textContaining('HDFC → Car loan · Every 3 months'),
+        findsOneWidget);
+    // Its dialog asks for both accounts and no category.
+    await tester.tap(find.text('Car EMI'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('From'), findsOneWidget);
+    expect(find.text('To'), findsOneWidget);
+    expect(find.text('Category'), findsNothing);
+    expect(find.text('Skip the next one'), findsOneWidget);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+
+  testWidgets('An "ask me each time" bill is recorded at the amount confirmed',
+      (tester) async {
+    final due = DateTime(now.year, now.month, 1);
+    final (recurring, accounts, expenses, investments) =
+        (await tester.runAsync(() async {
+      await DBService().insertRecurringRule(RecurringRule(
+        description: 'Electricity',
+        amount: 150000,
+        category: 'Bills',
+        frequency: DbConstants.freqMonthly,
+        nextDue: due,
+        askFirst: true,
+      ));
+      final r = RecurringProvider();
+      await r.fetchRules();
+      final a = AccountProvider();
+      await a.fetchAccounts();
+      final e = ExpenseProvider();
+      await e.ensureYearLoaded(now.year);
+      return (r, a, e, InvestmentProvider());
+    }))!;
+
+    await pumpScreen(tester, const RecurringScreen(), [
+      ChangeNotifierProvider<RecurringProvider>.value(value: recurring),
+      ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
+      ChangeNotifierProvider<InvestmentProvider>.value(value: investments),
+    ]);
+
+    await tester.tap(find.text('Confirm amount'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.enterText(find.byType(TextFormField), '1834.50');
+    await tester.tap(find.widgetWithText(FilledButton, 'Record'));
+    for (var i = 0; i < 40 && recurring.rules.single.nextDue == due; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final rows = (await tester.runAsync(() => DBService().getExpenses()))!;
+    expect(rows.single.amount, 183450);
+    expect(rows.single.date, due);
+    expect(recurring.rules.single.nextDue.isAfter(due), isTrue);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+
   testWidgets('Editing a recurring rule keeps its day-of-month anchor',
       (tester) async {
     // Rent on the 31st, whose next occurrence is clamped to Feb 28.
@@ -528,7 +615,8 @@ void main() {
     await teardownTree(tester);
   }, timeout: testTimeout);
 
-  testWidgets('Add expense: a category found in the full list lights up its chip',
+  testWidgets(
+      'Add expense: a category found in the full list lights up its chip',
       (tester) async {
     final (accounts, expenses, templates) = (await tester.runAsync(() async {
       final a = AccountProvider();

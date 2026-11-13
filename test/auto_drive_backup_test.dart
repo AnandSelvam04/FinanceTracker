@@ -55,6 +55,17 @@ void main() {
     expect(drive.uploads, isEmpty);
   });
 
+  test('backs up sooner when asked to, as on leaving the app', () async {
+    drive.lastBackup = now.subtract(const Duration(hours: 2));
+    final policy = drive.policy(now);
+    expect(await policy.run(), AutoDriveStatus.notDue);
+    expect(await policy.run(every: const Duration(hours: 1)),
+        AutoDriveStatus.done);
+    drive.lastBackup = now.subtract(const Duration(minutes: 10));
+    expect(await drive.policy(now).run(every: const Duration(hours: 1)),
+        AutoDriveStatus.notDue);
+  });
+
   test('seals with the stored passphrase', () async {
     drive
       ..encrypted = true

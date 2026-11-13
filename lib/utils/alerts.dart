@@ -47,11 +47,16 @@ class BillAlert {
   /// Whole days until due; negative means overdue.
   final int daysUntil;
 
+  /// The rule waits for its amount to be confirmed rather than posting by
+  /// itself, so [amount] is only what it usually comes to.
+  final bool needsConfirm;
+
   const BillAlert({
     required this.description,
     required this.amount,
     required this.dueDate,
     required this.daysUntil,
+    this.needsConfirm = false,
   });
 
   bool get isOverdue => daysUntil < 0;
@@ -119,8 +124,11 @@ List<BillAlert> upcomingBills({
   for (final r in rules) {
     if (!r.enabled) continue;
     // Only money going out is a bill: not a salary, and not a SIP, which is
-    // posted to the investments automatically.
-    if (r.isInvestment || r.type != DbConstants.txExpense) continue;
+    // posted to the investments automatically. A rule that waits to be
+    // confirmed is listed whatever it is, since nothing happens until it is.
+    if (!r.askFirst && (r.isInvestment || r.type == DbConstants.txIncome)) {
+      continue;
+    }
     final days = calendarDaysBetween(now, r.nextDue);
     if (days <= withinDays) {
       alerts.add(BillAlert(
@@ -128,6 +136,7 @@ List<BillAlert> upcomingBills({
         amount: r.amount,
         dueDate: r.nextDue,
         daysUntil: days,
+        needsConfirm: r.askFirst,
       ));
     }
   }

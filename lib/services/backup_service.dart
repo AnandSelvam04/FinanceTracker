@@ -914,7 +914,8 @@ class BackupService {
 
   /// Backs up to Drive if automatic backup is on and one is due. Never
   /// prompts and never throws; safe to call on every launch.
-  Future<AutoDriveStatus> autoDriveBackupIfDue({bool force = false}) {
+  Future<AutoDriveStatus> autoDriveBackupIfDue(
+      {bool force = false, Duration? every}) {
     drive.DriveApi? api;
     return AutoDriveBackup(
       lastDriveBackup: lastDriveBackupTime,
@@ -923,7 +924,7 @@ class BackupService {
       isSignedIn: () async => (api = await _silentDriveApi()) != null,
       remoteIsNewer: () => _remoteNewerThanThisPhone(api!, strict: true),
       upload: (passphrase) => _backupToDriveWith(api!, passphrase),
-    ).run(force: force);
+    ).run(force: force, every: every);
   }
 
   /// The Drive client for the account already signed in on this phone, or

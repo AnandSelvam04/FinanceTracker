@@ -20,15 +20,17 @@ class WhatsNew {
   WhatsNew._();
 
   /// The release [items] describe, without the build number.
-  static const version = '1.54.0';
+  static const version = '1.55.0';
 
   static const items = [
-    WhatsNewItem(Icons.format_size, 'Easier to read',
-        'The smallest labels are larger, and the same kind of line is now the same size on every screen.'),
-    WhatsNewItem(Icons.palette_outlined, 'One colour per screen',
-        'Cards, Reports, Accounts and the Calendar wear the same colour under More as on their Home shortcuts.'),
-    WhatsNewItem(Icons.space_dashboard_outlined, 'Tidier spacing',
-        'Gaps and rounded corners follow one scale, so cards, buttons and lists line up from screen to screen.'),
+    WhatsNewItem(Icons.swap_horiz, 'Recurring transfers',
+        'A loan repayment, a card bill or a monthly move to savings can now repeat: choose Transfer as the type and pick the two accounts.'),
+    WhatsNewItem(Icons.event_repeat, 'More schedules, and skip one',
+        'Rules can repeat every 2 weeks, 3 months or 6 months. Open a rule to skip its next occurrence.'),
+    WhatsNewItem(Icons.edit_note, 'Bills that differ each time',
+        'Switch on "Ask me each time" and the rule waits for you to confirm the amount instead of posting a fixed one.'),
+    WhatsNewItem(Icons.cloud_done_outlined, 'Backups and reminders keep up',
+        'Changes are backed up as you leave the app, and bill reminders are set for the next six due dates, not only the next one.'),
   ];
 
   static const _kSeen = 'whatsNewSeenVersion';
