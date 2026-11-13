@@ -8,6 +8,8 @@ import '../utils/app_colors.dart';
 import '../utils/app_lock.dart';
 import '../utils/app_logger.dart';
 import '../utils/currency_format.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// First-run set-up: a welcome, then the three things the app needs to be
 /// useful from the first transaction — the currency, an account to spend
@@ -138,8 +140,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   _StepPage(
                     icon: Icons.currency_exchange,
                     title: 'Your currency',
-                    description:
-                        'Amounts are shown in it. Accounts in another '
+                    description: 'Amounts are shown in it. Accounts in another '
                         'currency can be added later.',
                     child: _CurrencyChoice(),
                   ),
@@ -167,15 +168,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
             _PageDots(count: _pageCount, active: _page),
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.lg),
             Padding(
-              padding: const EdgeInsets.fromLTRB(32, 0, 32, 24),
+              padding:
+                  const EdgeInsets.fromLTRB(Space.xxl, 0, Space.xxl, Space.xl),
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: _saving ? null : _next,
                   style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: Space.lg),
                   ),
                   child: Text(isLast ? 'Get started' : 'Next'),
                 ),
@@ -210,7 +212,7 @@ class _StepPage extends StatelessWidget {
     final badge = child == null ? 140.0 : 84.0;
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: Space.xxl),
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
           child: Column(
@@ -242,20 +244,20 @@ class _StepPage extends StatelessWidget {
                     .headlineSmall
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: Space.md),
               Text(
                 description,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: FontSizes.bodyLarge,
                   height: 1.4,
                   color: scheme.onSurfaceVariant,
                 ),
               ),
               if (child != null) ...[
-                const SizedBox(height: 24),
+                const SizedBox(height: Space.xl),
                 child!,
-                const SizedBox(height: 16),
+                const SizedBox(height: Space.lg),
               ],
             ],
           ),
@@ -277,7 +279,7 @@ class _CurrencyChoice extends StatelessWidget {
       children: [
         for (final c in SettingsProvider.currencyOptions)
           ChoiceChip(
-            label: Text(c, style: const TextStyle(fontSize: 18)),
+            label: Text(c, style: const TextStyle(fontSize: FontSizes.title)),
             selected: settings.currencySymbol == c,
             showCheckmark: false,
             onSelected: (_) => settings.setCurrencySymbol(c),
@@ -322,19 +324,17 @@ class _AccountForm extends StatelessWidget {
             onSelectionChanged: (s) => onTypeChanged(s.first),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: Space.md),
         TextField(
           controller: name,
           textCapitalization: TextCapitalization.words,
           textInputAction: TextInputAction.next,
           decoration: InputDecoration(
             labelText: 'Account name',
-            hintText: type == 'cash'
-                ? 'e.g. Wallet'
-                : 'e.g. HDFC Savings',
+            hintText: type == 'cash' ? 'e.g. Wallet' : 'e.g. HDFC Savings',
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: Space.md),
         TextField(
           controller: balance,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -398,14 +398,14 @@ class _PageDots extends StatelessWidget {
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
+            margin: const EdgeInsets.symmetric(horizontal: Space.xs),
             width: i == active ? 24 : 8,
             height: 8,
             decoration: BoxDecoration(
               color: i == active
                   ? scheme.primary
                   : scheme.primary.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(Radii.xs),
             ),
           ),
       ],

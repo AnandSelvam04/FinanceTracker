@@ -5,6 +5,8 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 import '../utils/app_colors.dart';
 import '../utils/insets.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Opens the voice capture sheet and resolves to the recognized sentence, or
 /// null if the user dismissed it without a usable result.
@@ -133,10 +135,11 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet>
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('Add by voice', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.xs),
           Text('Try: “spent 250 on food at Dominos”',
-              style: TextStyle(color: mutedTextColor(context), fontSize: 13)),
-          const SizedBox(height: 20),
+              style: TextStyle(
+                  color: mutedTextColor(context), fontSize: FontSizes.body)),
+          const SizedBox(height: Space.lg),
           // Tap to restart listening; the icon fills and pulses while live.
           Semantics(
             button: true,
@@ -168,15 +171,15 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet>
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.md),
           Text(
             _listening ? 'Listening…' : 'Tap the mic to speak',
             style: TextStyle(color: mutedTextColor(context)),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: Space.lg),
           if (_error != null)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: Space.sm),
               child: Text(_error!,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: expenseColor(context))),
@@ -185,22 +188,22 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet>
             Container(
               width: double.infinity,
               constraints: const BoxConstraints(minHeight: 56),
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(Space.lg),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(Radii.md),
               ),
               child: Text(
                 _words.isEmpty ? 'Your words will appear here' : _words,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: FontSizes.bodyLarge,
                   color: _words.isEmpty
                       ? mutedTextColor(context)
                       : scheme.onSurface,
                 ),
               ),
             ),
-          const SizedBox(height: 20),
+          const SizedBox(height: Space.lg),
           Row(
             children: [
               Expanded(
@@ -209,7 +212,7 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet>
                   child: const Text('Cancel'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: Space.md),
               Expanded(
                 child: FilledButton.icon(
                   onPressed: _words.trim().isEmpty

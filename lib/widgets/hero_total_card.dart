@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../utils/app_colors.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// A brand-gradient card that leads a screen with its headline total: a small
 /// uppercase label, the amount in large type, an optional caption, and an
@@ -54,10 +56,10 @@ class HeroTotalCard extends StatelessWidget {
     }
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(Space.lg),
       decoration: BoxDecoration(
         gradient: brandGradient(context),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Radii.lg),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,35 +71,36 @@ class HeroTotalCard extends StatelessWidget {
                 child: Text(
                   label.toUpperCase(),
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: FontSizes.caption,
                     letterSpacing: 0.8,
                     fontWeight: FontWeight.w600,
                     color: subtle,
                   ),
                 ),
               ),
-              if (disc != null) ...[const SizedBox(width: 12), disc],
+              if (disc != null) ...[const SizedBox(width: Space.md), disc],
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.xs),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
               amount,
               style: TextStyle(
-                fontSize: 28,
+                fontSize: FontSizes.display,
                 fontWeight: FontWeight.bold,
                 color: fg,
               ),
             ),
           ),
           if (caption != null) ...[
-            const SizedBox(height: 2),
-            Text(caption!, style: TextStyle(fontSize: 13, color: subtle)),
+            const SizedBox(height: Space.xxs),
+            Text(caption!,
+                style: TextStyle(fontSize: FontSizes.body, color: subtle)),
           ],
           if (footer != null) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: Space.md),
             footer!,
           ],
         ],

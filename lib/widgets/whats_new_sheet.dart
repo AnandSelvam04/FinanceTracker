@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 import '../utils/insets.dart';
 import '../utils/whats_new.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Shows what changed in this release. Opened once after an update, and from
 /// Settings → What's new.
@@ -30,10 +32,11 @@ class _WhatsNewSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("What's new", style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 2),
+            const SizedBox(height: Space.xxs),
             Text('Version ${WhatsNew.version}',
-                style: TextStyle(fontSize: 13, color: mutedTextColor(context))),
-            const SizedBox(height: 8),
+                style: TextStyle(
+                    fontSize: FontSizes.body, color: mutedTextColor(context))),
+            const SizedBox(height: Space.sm),
             Flexible(
               child: ListView(
                 shrinkWrap: true,
@@ -52,7 +55,7 @@ class _WhatsNewSheet extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.sm),
             SizedBox(
               width: double.infinity,
               child: FilledButton(

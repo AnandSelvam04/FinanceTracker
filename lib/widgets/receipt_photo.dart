@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../services/receipt_scanner.dart';
 import '../services/receipt_store.dart';
+import '../utils/dimens.dart';
 
 /// A transaction's receipt photo in an edit form: a thumbnail to open full
 /// screen and a button to remove it, or a button to attach one.
@@ -65,7 +66,7 @@ class ReceiptPhotoRow extends StatelessWidget {
       );
     }
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: Space.sm),
       child: Row(
         children: [
           FutureBuilder<File>(
@@ -78,7 +79,7 @@ class ReceiptPhotoRow extends StatelessWidget {
                 onTap:
                     file == null ? null : () => showReceiptPhoto(context, file),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(Radii.sm),
                   child: file == null
                       ? const SizedBox(width: 48, height: 48)
                       : Image.file(file,
@@ -93,7 +94,7 @@ class ReceiptPhotoRow extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: Space.md),
           const Expanded(child: Text('Receipt photo')),
           TextButton(
             onPressed: () => _pick(context),

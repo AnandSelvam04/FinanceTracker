@@ -51,16 +51,16 @@ class _EmptyState extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(Space.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(permissionDenied ? Icons.lock_outline : Icons.sms_outlined,
                 size: 48, color: mutedTextColor(context)),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             Text(message, textAlign: TextAlign.center),
             if (supported) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: Space.lg),
               FilledButton(
                 onPressed: permissionBlocked
                     ? SmsService.openPermissionSettings
@@ -118,7 +118,7 @@ class _BulkActionBar extends StatelessWidget {
     );
     // The checkbox lines up with the ones on the cards below it.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+      padding: const EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.sm, 0),
       child: Row(
         children: [
           Checkbox(
@@ -133,7 +133,7 @@ class _BulkActionBar extends StatelessWidget {
               child: InkWell(
                 onTap: allSelected ? onSelectNone : onSelectAll,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  padding: const EdgeInsets.symmetric(vertical: Space.xs),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -143,7 +143,8 @@ class _BulkActionBar extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                              fontSize: 12, color: mutedTextColor(context))),
+                              fontSize: FontSizes.caption,
+                              color: mutedTextColor(context))),
                     ],
                   ),
                 ),
@@ -188,14 +189,15 @@ class _Notice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 2, 0, 2),
+      padding: const EdgeInsets.fromLTRB(Space.md, Space.xxs, 0, Space.xxs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
+          const SizedBox(width: Space.sm),
           Expanded(
-            child: Text(text, style: TextStyle(fontSize: 12, color: color)),
+            child: Text(text,
+                style: TextStyle(fontSize: FontSizes.caption, color: color)),
           ),
         ],
       ),

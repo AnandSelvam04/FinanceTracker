@@ -12,6 +12,8 @@ import '../utils/alerts.dart';
 import '../utils/app_colors.dart';
 import '../utils/billing_cycle.dart';
 import '../utils/currency_format.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Dashboard banner that proactively surfaces budgets nearing/over their cap
 /// and recurring bills coming due, so the user is warned without needing to
@@ -69,24 +71,25 @@ class AlertsBanner extends StatelessWidget {
           elevation: 0,
           color: warn.withValues(alpha: dark ? 0.16 : 0.12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(Radii.md),
             side: BorderSide(color: warn.withValues(alpha: 0.45)),
           ),
-          margin: const EdgeInsets.only(bottom: 8),
+          margin: const EdgeInsets.only(bottom: Space.sm),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(
+                horizontal: Space.md, vertical: Space.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Icon(Icons.notifications_active, size: 18, color: warn),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: Space.sm),
                     Text('Alerts',
                         style: const TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: Space.xs),
                 ...tiles,
               ],
             ),
@@ -100,19 +103,19 @@ class AlertsBanner extends StatelessWidget {
     final over = a.isOver;
     final pct = (a.ratio * 100).round();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: Space.xxs),
       child: Row(
         children: [
           Icon(over ? Icons.error : Icons.warning_amber,
               size: 16,
               color: over ? dangerColor(context) : warningColor(context)),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.sm),
           Expanded(
             child: Text(
               over
                   ? '${a.category}: over budget by ${formatMoney(a.spent - a.budget)}'
                   : '${a.category}: $pct% of budget used',
-              style: const TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: FontSizes.body),
             ),
           ),
         ],
@@ -138,18 +141,18 @@ class AlertsBanner extends StatelessWidget {
             'the statement'
         : '';
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: Space.xxs),
       child: Row(
         children: [
           Icon(Icons.credit_card,
               size: 16,
               color: r.isOverdue ? dangerColor(context) : infoColor(context)),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.sm),
           Expanded(
             child: Text(
               '${r.accountName}: pay ${formatMoneyIn(r.symbol, r.amountDue)} '
               '$whenLabel$spentNote',
-              style: const TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: FontSizes.body),
             ),
           ),
           // Records the payment as a transfer into the card, which is what
@@ -157,7 +160,7 @@ class AlertsBanner extends StatelessWidget {
           TextButton(
             style: TextButton.styleFrom(
               visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: Space.sm),
             ),
             onPressed: () => Navigator.push(
               context,
@@ -187,15 +190,15 @@ class AlertsBanner extends StatelessWidget {
       whenLabel = 'due in ${b.daysUntil} days';
     }
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: Space.xxs),
       child: Row(
         children: [
           Icon(Icons.event, size: 16, color: infoColor(context)),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.sm),
           Expanded(
             child: Text(
               '${b.description} ${formatMoney(b.amount)} — $whenLabel',
-              style: const TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: FontSizes.body),
             ),
           ),
         ],

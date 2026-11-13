@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../utils/app_colors.dart';
 import '../utils/date_format.dart';
+import '../utils/dimens.dart';
 
 /// The date line on the add forms: a calendar icon, the date written out
 /// ("Fri, 25 Sep 2026") and a Change button that opens the picker.
@@ -26,11 +27,11 @@ class DateFieldRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: Space.xs),
       child: Row(
         children: [
           Icon(Icons.event, size: 20, color: mutedTextColor(context)),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.sm),
           Expanded(child: Text(formatDateWithDay(date))),
           TextButton(
             onPressed: () async {

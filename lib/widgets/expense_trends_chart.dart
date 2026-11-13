@@ -2,6 +2,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../providers/expense_provider.dart';
 import '../utils/currency_format.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Twelve-month spending trend.
 ///
@@ -29,7 +31,7 @@ class ExpenseTrendsChart extends StatelessWidget {
 
     final scheme = Theme.of(context).colorScheme;
     final axisStyle = TextStyle(
-      fontSize: 10,
+      fontSize: FontSizes.tick,
       color: scheme.onSurfaceVariant,
     );
 
@@ -77,7 +79,7 @@ class ExpenseTrendsChart extends StatelessWidget {
                         TextStyle(
                           color: scheme.onInverseSurface,
                           fontWeight: FontWeight.w600,
-                          fontSize: 12,
+                          fontSize: FontSizes.caption,
                         ),
                       ),
                   ],
@@ -98,7 +100,7 @@ class ExpenseTrendsChart extends StatelessWidget {
                         return const SizedBox.shrink();
                       }
                       return Padding(
-                        padding: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.only(top: Space.xs),
                         child: Text(_monthInitials[months[i].month - 1],
                             style: axisStyle),
                       );

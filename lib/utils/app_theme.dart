@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
+import 'font_sizes.dart';
+import 'dimens.dart';
 
 /// Centralized Material 3 theming for the whole app.
 ///
@@ -118,7 +120,7 @@ class AppTheme {
         iconTheme: const IconThemeData(color: Colors.white),
         actionsIconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: const TextStyle(
-          fontSize: 20,
+          fontSize: FontSizes.heading,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
@@ -129,9 +131,9 @@ class AppTheme {
         // heavy drop shadows the old elevation:2 cards had.
         color: scheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
-        margin: const EdgeInsets.symmetric(vertical: 6),
+        margin: const EdgeInsets.symmetric(vertical: Space.sm),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(Radii.lg),
           side: BorderSide(
             color: scheme.outlineVariant.withValues(alpha: isDark ? 0.4 : 0.6),
           ),
@@ -154,7 +156,7 @@ class AppTheme {
         ),
         labelTextStyle: WidgetStateProperty.all(
           TextStyle(
-            fontSize: 12,
+            fontSize: FontSizes.caption,
             fontWeight: FontWeight.w600,
             color: scheme.onSurface,
           ),
@@ -168,24 +170,26 @@ class AppTheme {
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(Radii.lg),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.symmetric(
+              horizontal: Space.lg, vertical: Space.md),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(Radii.md),
           ),
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.symmetric(
+              horizontal: Space.lg, vertical: Space.md),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(Radii.md),
           ),
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
@@ -195,9 +199,10 @@ class AppTheme {
       // rounded rectangles. Match the shape, padding and weight.
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.symmetric(
+              horizontal: Space.lg, vertical: Space.md),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(Radii.md),
           ),
           side: BorderSide(color: scheme.outlineVariant),
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
@@ -209,7 +214,7 @@ class AppTheme {
           selectedForegroundColor: scheme.onSecondaryContainer,
           side: BorderSide(color: scheme.outlineVariant),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Radii.md),
           ),
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
@@ -217,7 +222,7 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Radii.md),
           ),
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
@@ -225,24 +230,24 @@ class AppTheme {
       inputDecorationTheme: InputDecorationThemeData(
         filled: true,
         fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+            horizontal: Space.lg, vertical: Space.md),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(Radii.md),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(Radii.md),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(Radii.md),
           borderSide: BorderSide(color: scheme.primary, width: 1.5),
         ),
       ),
       chipTheme: ChipThemeData(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(Radii.md),
         ),
         side: BorderSide(color: scheme.outlineVariant),
       ),
@@ -254,19 +259,19 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(Radii.md),
         ),
       ),
       listTileTheme: ListTileThemeData(
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderRadius: BorderRadius.all(Radius.circular(Radii.md)),
         ),
         // Material 3 sets trailing text in labelSmall (11px), and nearly every
         // list here puts its amount in the trailing slot — so balances and
         // transaction amounts rendered as the smallest text on screen. Money
         // is the point of the row; give it a readable, firm weight.
         leadingAndTrailingTextStyle: textTheme.titleSmall?.copyWith(
-          fontSize: 15,
+          fontSize: FontSizes.bodyLarge,
           color: scheme.onSurface,
         ),
       ),
@@ -275,7 +280,7 @@ class AppTheme {
         backgroundColor: scheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl)),
         ),
       ),
       // Dialogs used the 28px framework default while sheets use 24px; share
@@ -284,7 +289,7 @@ class AppTheme {
         backgroundColor: scheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(Radii.xl),
         ),
         titleTextStyle: textTheme.titleLarge?.copyWith(color: scheme.onSurface),
       ),
@@ -294,22 +299,23 @@ class AppTheme {
       progressIndicatorTheme: ProgressIndicatorThemeData(
         linearMinHeight: 8,
         linearTrackColor: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(Radii.sm),
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: scheme.surfaceContainer,
         surfaceTintColor: Colors.transparent,
         elevation: 3,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(Radii.md),
         ),
       ),
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
           color: scheme.inverseSurface,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(Radii.sm),
         ),
-        textStyle: TextStyle(color: scheme.onInverseSurface, fontSize: 12),
+        textStyle: TextStyle(
+            color: scheme.onInverseSurface, fontSize: FontSizes.caption),
       ),
     );
   }

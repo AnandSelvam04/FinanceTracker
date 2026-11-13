@@ -59,21 +59,21 @@ class _Totals extends StatelessWidget {
     final available = byPool.values.fold<int>(0, (s, v) => s + v);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: Space.sm),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(Space.lg),
         child: Row(
           children: [
             Expanded(
                 child: _Figure(
                     label: 'Spent', value: formatMoneyIn(symbol, spent))),
-            const SizedBox(width: 10),
+            const SizedBox(width: Space.sm),
             Expanded(
                 child: _Figure(
                     label: 'Owed now',
                     value: formatMoneyIn(symbol, owed),
                     color: expenseColor(context))),
-            if (limited.isNotEmpty) const SizedBox(width: 10),
+            if (limited.isNotEmpty) const SizedBox(width: Space.sm),
             if (limited.isNotEmpty)
               Expanded(
                   child: _Figure(
@@ -99,13 +99,16 @@ class _Figure extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: TextStyle(fontSize: 12, color: mutedTextColor(context))),
+            style: TextStyle(
+                fontSize: FontSizes.caption, color: mutedTextColor(context))),
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
           child: Text(value,
               style: TextStyle(
-                  fontSize: 17, fontWeight: FontWeight.bold, color: color)),
+                  fontSize: FontSizes.bodyLarge,
+                  fontWeight: FontWeight.bold,
+                  color: color)),
         ),
       ],
     );
@@ -125,15 +128,15 @@ class _BestCardBanner extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final a = summary.account;
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: Space.sm),
       color: scheme.secondaryContainer,
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(Space.lg),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(Icons.star_outline, color: scheme.onSecondaryContainer),
-            const SizedBox(width: 10),
+            const SizedBox(width: Space.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,14 +147,15 @@ class _BestCardBanner extends StatelessWidget {
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: scheme.onSecondaryContainer)),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: Space.xxs),
                   Text(
                       'A purchase today is billed on '
                       '${formatCompactDate(w.statement)} and due '
                       '${formatCompactDate(w.due)} — ${w.interestFreeDays} '
                       'days interest-free, the longest of your cards.',
                       style: TextStyle(
-                          fontSize: 13, color: scheme.onSecondaryContainer)),
+                          fontSize: FontSizes.body,
+                          color: scheme.onSecondaryContainer)),
                 ],
               ),
             ),
@@ -174,10 +178,10 @@ class _SharedLimitGroup extends StatelessWidget {
     final s = rows.first.summary;
     final scheme = Theme.of(context).colorScheme;
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: Space.sm),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(Radii.md),
         side: BorderSide(color: scheme.primary.withValues(alpha: 0.5)),
       ),
       child: Column(
@@ -185,14 +189,15 @@ class _SharedLimitGroup extends StatelessWidget {
         children: [
           Container(
             color: scheme.primaryContainer.withValues(alpha: 0.35),
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            padding: const EdgeInsets.fromLTRB(
+                Space.md, Space.md, Space.md, Space.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Icon(Icons.link, size: 18, color: scheme.primary),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: Space.sm),
                     Expanded(
                       child: Text(
                         'Shared limit · ${rows.length} cards',
@@ -202,16 +207,17 @@ class _SharedLimitGroup extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 _PoolTotals(rows: rows),
                 if (s.limit != null)
                   _UsageBar(summary: s)
                 else
                   Padding(
-                    padding: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.only(top: Space.sm),
                     child: Text('No limit set yet — set it on either card',
                         style: TextStyle(
-                            fontSize: 12, color: mutedTextColor(context))),
+                            fontSize: FontSizes.caption,
+                            color: mutedTextColor(context))),
                   ),
                 if (rows.first.bankCheck != null)
                   _BankCheckLine(check: rows.first.bankCheck!),
@@ -251,7 +257,7 @@ class _PoolTotals extends StatelessWidget {
               label: 'Total spent · $period',
               value: formatMoneyIn(symbol, spent)),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: Space.sm),
         Expanded(
           child: _Figure(
             label: 'Total owed now',
@@ -260,7 +266,7 @@ class _PoolTotals extends StatelessWidget {
           ),
         ),
         if (available != null) ...[
-          const SizedBox(width: 10),
+          const SizedBox(width: Space.sm),
           Expanded(
             child: _Figure(
               label: 'Available',
@@ -292,10 +298,11 @@ class _TwinSuggestion extends StatelessWidget {
     final a = suggestion.holder, b = suggestion.other;
     final limit = a.creditLimit ?? b.creditLimit;
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: Space.sm),
       color: scheme.tertiaryContainer,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 8, 4),
+        padding:
+            const EdgeInsets.fromLTRB(Space.md, Space.md, Space.sm, Space.xs),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -303,7 +310,7 @@ class _TwinSuggestion extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.link, color: scheme.onTertiaryContainer),
-                const SizedBox(width: 10),
+                const SizedBox(width: Space.sm),
                 Expanded(
                   child: Text(
                     'Do ${a.name} and ${b.name} share one credit limit?',
@@ -315,13 +322,14 @@ class _TwinSuggestion extends StatelessWidget {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(left: 34, top: 4),
+              padding: const EdgeInsets.only(left: Space.xxl, top: Space.xs),
               child: Text(
                 'Banks often issue a Visa and a RuPay card on one limit. '
                 'Linked, both show what is left of '
                 '${limit == null ? 'it' : formatMoneyIn(a.symbol, limit)}.',
-                style:
-                    TextStyle(fontSize: 13, color: scheme.onTertiaryContainer),
+                style: TextStyle(
+                    fontSize: FontSizes.body,
+                    color: scheme.onTertiaryContainer),
               ),
             ),
             Align(
@@ -354,12 +362,12 @@ class _HowItWorks extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = mutedTextColor(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+      padding: const EdgeInsets.fromLTRB(Space.sm, Space.md, Space.sm, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.info_outline, size: 18, color: muted),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.sm),
           Expanded(
             child: Text(
               'Spending is tracked automatically from the SMS alerts filed '
@@ -369,7 +377,7 @@ class _HowItWorks extends StatelessWidget {
               'RuPay card, say) can be linked from a card\'s menu or its '
               'set-up, and then show as one shared limit. Tap a card for its '
               'statement by cycle.',
-              style: TextStyle(fontSize: 12, color: muted),
+              style: TextStyle(fontSize: FontSizes.caption, color: muted),
             ),
           ),
         ],

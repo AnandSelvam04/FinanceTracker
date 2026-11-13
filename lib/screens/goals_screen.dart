@@ -11,6 +11,8 @@ import '../widgets/celebration.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/swipe_actions.dart';
 import '../widgets/dispose_with_route.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Ring colors offered when creating a goal. Mid-tone shades that read on
 /// both light and dark surfaces.
@@ -91,7 +93,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                           ? null
                           : validateAmountField(v, allowZero: true),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: Space.md),
                     Row(
                       children: [
                         Expanded(
@@ -137,7 +139,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: Space.sm),
                     Wrap(
                       spacing: 10,
                       children: [
@@ -324,7 +326,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
           }
           final now = DateTime.now();
           return ListView(
-            padding: scrollPadding(context, all: 12, fab: true),
+            padding: scrollPadding(context, all: Space.md, fab: true),
             children: [
               _GoalsSummary(
                 saved: provider.totalSaved,
@@ -332,7 +334,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                 count: goals.length,
                 reached: goals.where((g) => g.isComplete).length,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: Space.md),
               for (final goal in goals) ...[
                 SwipeActions(
                   key: ValueKey('goal-${goal.id}'),
@@ -349,7 +351,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     onDelete: () => _confirmDelete(goal),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: Space.sm),
               ],
             ],
           );
@@ -383,26 +385,28 @@ class _GoalsSummary extends StatelessWidget {
     final fg = onBrandGradient(context);
     final ratio = target <= 0 ? 0.0 : (saved / target).clamp(0.0, 1.0);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(Space.lg),
       decoration: BoxDecoration(
         gradient: brandGradient(context),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(Radii.lg),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Saved toward goals',
               style: TextStyle(color: fg.withValues(alpha: 0.85))),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.xs),
           Text(formatMoney(saved),
               style: TextStyle(
-                  color: fg, fontSize: 28, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
+                  color: fg,
+                  fontSize: FontSizes.display,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: Space.xs),
           Text(
             'of ${formatMoneyRounded(target)} · $reached of $count reached',
             style: TextStyle(color: fg.withValues(alpha: 0.85)),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.md),
           LinearProgressIndicator(
             value: ratio.toDouble(),
             color: fg,
@@ -459,7 +463,8 @@ class _GoalCard extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 4, 8),
+        padding:
+            const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.xs, Space.sm),
         child: Column(
           children: [
             Row(
@@ -483,11 +488,12 @@ class _GoalCard extends StatelessWidget {
                           ? Icon(Icons.check, color: color)
                           : Text('${(goal.progress * 100).floor()}%',
                               style: const TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w600)),
+                                  fontSize: FontSizes.body,
+                                  fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: Space.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,15 +503,15 @@ class _GoalCard extends StatelessWidget {
                               .textTheme
                               .titleMedium
                               ?.copyWith(fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: Space.xxs),
                       Text('${formatMoney(goal.saved)} of '
                           '${formatMoneyRounded(goal.target)}'),
                       if (status != null)
                         Padding(
-                          padding: const EdgeInsets.only(top: 2),
+                          padding: const EdgeInsets.only(top: Space.xxs),
                           child: Text(status.$1,
                               style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: FontSizes.caption,
                                   color: status.$2,
                                   fontWeight: FontWeight.w600)),
                         ),
@@ -525,7 +531,7 @@ class _GoalCard extends StatelessWidget {
             // OverflowBar rather than Row: on a narrow phone (or with large
             // text) the two buttons stack instead of overflowing the card.
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: Space.sm),
               child: OverflowBar(
                 alignment: MainAxisAlignment.end,
                 spacing: 4,

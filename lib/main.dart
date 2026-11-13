@@ -20,6 +20,7 @@ import 'package:finance_tracker/utils/app_logger.dart';
 import 'package:finance_tracker/utils/app_theme.dart';
 import 'package:finance_tracker/utils/build_info.dart';
 import 'package:finance_tracker/utils/whats_new.dart';
+import 'utils/dimens.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -264,10 +265,10 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.lock_outline, size: 64, color: scheme.primary),
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.lg),
             Text('Finance Tracker is locked',
                 style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 24),
+            const SizedBox(height: Space.xl),
             if (_checking)
               const CircularProgressIndicator()
             else
@@ -294,8 +295,10 @@ class _OnboardingWrapperState extends State<OnboardingWrapper> {
   Widget build(BuildContext context) {
     return OnboardingScreen(
       onFinish: () async {
+        final settings = context.read<SettingsProvider>();
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('seenOnboarding', true);
+        await settings.applyNewInstallLayout();
         // Someone who has only just arrived has no "what's new" to be told.
         await WhatsNew.markSeen();
         if (!mounted) return;

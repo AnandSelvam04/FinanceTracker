@@ -7,6 +7,8 @@
 
 import 'package:flutter/material.dart';
 
+import 'dimens.dart';
+
 /// Comfortable tap-target height for a sheet's primary action button, so
 /// Save/Apply stays easy to hit (Material's minimum is 48dp).
 const double kSheetActionHeight = 48;
@@ -26,12 +28,12 @@ const double kFabScrollRoom = 88;
 /// These never double-count: when the keyboard is open it covers the nav bar
 /// and Flutter already reports `padding.bottom` as 0.
 EdgeInsets bottomSheetPadding(BuildContext context) => EdgeInsets.only(
-      left: 16,
-      right: 16,
-      top: 16,
+      left: Space.lg,
+      right: Space.lg,
+      top: Space.lg,
       bottom: MediaQuery.viewInsetsOf(context).bottom +
           MediaQuery.paddingOf(context).bottom +
-          16,
+          Space.lg,
     );
 
 /// Padding for a scrollable screen body, with the system nav-bar inset added
@@ -42,7 +44,7 @@ EdgeInsets bottomSheetPadding(BuildContext context) => EdgeInsets.only(
 /// [kFabScrollRoom] beneath the content.
 EdgeInsets scrollPadding(
   BuildContext context, {
-  double all = 16,
+  double all = Space.lg,
   double? top,
   bool fab = false,
 }) =>

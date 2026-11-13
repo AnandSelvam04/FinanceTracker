@@ -13,6 +13,8 @@ import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/date_field_row.dart';
 import '../widgets/paid_from_field.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 class AddInvestmentScreen extends StatefulWidget {
   /// Pre-selects a type so "add another contribution" from a type's detail
@@ -190,7 +192,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                   }),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: Space.md),
               // Suggest names already saved under this type — for Mutual Funds
               // that means the funds you already track (e.g. "Nifty 50",
               // "Nifty Midcap") — so a recurring holding is picked from the
@@ -225,34 +227,34 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: Space.md),
               TextFormField(
                 controller: _amountController,
                 decoration: InputDecoration(
                   labelText: _isWithdrawal ? 'Amount to withdraw' : 'Amount',
                   prefixText: '${CurrencyFormat.symbol} ',
                   prefixStyle: TextStyle(
-                    fontSize: 28,
+                    fontSize: FontSizes.display,
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
-                style:
-                    const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    fontSize: FontSizes.display, fontWeight: FontWeight.bold),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 // Always a positive magnitude here; the Contribution/Withdrawal
                 // toggle decides the sign on save.
                 validator: (value) => validateAmountField(value),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               DateFieldRow(
                 date: _selectedDate,
                 firstDate: DateTime(2000),
                 lastDate: DateTime(2100),
                 onChanged: (d) => setState(() => _selectedDate = d),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               DropdownButtonFormField<String>(
                 isExpanded: true,
                 initialValue: _selectedType,
@@ -282,7 +284,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                 builder: (context, accounts, _) => accounts.accounts.isEmpty
                     ? const SizedBox.shrink()
                     : Padding(
-                        padding: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.only(top: Space.sm),
                         child: PaidFromField(
                           accounts: accounts.accounts,
                           value: _accountId,
@@ -302,7 +304,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                   value: _repeatMonthly,
                   onChanged: (v) => setState(() => _repeatMonthly = v),
                 ),
-              const SizedBox(height: 16),
+              const SizedBox(height: Space.lg),
               SizedBox(
                 width: double.infinity,
                 height: 52,

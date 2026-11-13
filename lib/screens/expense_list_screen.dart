@@ -26,6 +26,8 @@ import '../widgets/skeleton.dart';
 import '../widgets/swipe_delete_background.dart';
 import '../widgets/transaction_edit_sheet.dart';
 import 'investment_type_screen.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 part 'expense_list/filter_sheet.dart';
 part 'expense_list/list_widgets.dart';
@@ -40,6 +42,7 @@ class ExpenseListScreen extends StatefulWidget {
 class _ExpenseListScreenState extends State<ExpenseListScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
   /// The year shown, or null for every year (to search the whole history).
   int? _selectedYear = DateTime.now().year;
   int? _selectedMonth = DateTime.now().month;
@@ -114,7 +117,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Period', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
+              const SizedBox(height: Space.lg),
               Row(
                 children: [
                   Expanded(
@@ -135,7 +138,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: Space.md),
                   Expanded(
                     child: DropdownButtonFormField<int?>(
                       initialValue: _selectedMonth,
@@ -177,9 +180,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     // old as the data was when this tab was first built.
     final bounds = await DBService().transactionYearBounds();
     final first = bounds?.$1 ?? _earliestYear;
-    final last = bounds == null || bounds.$2 < currentYear
-        ? currentYear
-        : bounds.$2;
+    final last =
+        bounds == null || bounds.$2 < currentYear ? currentYear : bounds.$2;
     if (mounted && first < _earliestYear) {
       setState(() => _earliestYear = first);
     }
@@ -548,7 +550,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         body: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              padding: const EdgeInsets.fromLTRB(
+                  Space.md, Space.sm, Space.md, Space.xs),
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
@@ -581,16 +584,16 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               height: 44,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: Space.md),
                 children: [
                   ActionChip(
                     avatar: const Icon(Icons.calendar_month, size: 18),
                     label: Text(_periodLabel),
                     onPressed: _showPeriodPicker,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: Space.sm),
                   const _ToolbarDivider(),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: Space.sm),
                   for (final entry in [
                     (null, 'All'),
                     (DbConstants.txExpense, 'Expenses'),
@@ -598,7 +601,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                     (DbConstants.txTransfer, 'Transfers'),
                   ])
                     Padding(
-                      padding: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.only(right: Space.sm),
                       child: ChoiceChip(
                         label: Text(entry.$2),
                         selected: _typeFilter == entry.$1,
@@ -627,7 +630,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: Space.xs),
             Expanded(
               child: Consumer2<ExpenseProvider, InvestmentProvider>(
                 builder: (context, provider, investmentProvider, _) {
@@ -724,8 +727,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       // +1 for the period summary leading the list.
                       itemCount: items.length + 1,
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding:
-                          scrollPadding(context, all: 12, top: 4),
+                      padding: scrollPadding(context, all: Space.md, top: Space.xs),
                       itemBuilder: (context, index) {
                         if (index == 0) {
                           return _PeriodSummary(
@@ -740,7 +742,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                               day: item, spent: daySpent[item] ?? 0);
                         }
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.only(bottom: Space.sm),
                           child: item is Investment
                               ? _InvestmentRow(investment: item)
                               : _buildRow(context, item as Expense, index),
@@ -839,7 +841,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                   // A receipt photo is kept with this row.
                   if (expense.attachment != null)
                     Padding(
-                      padding: const EdgeInsets.only(left: 4),
+                      padding: const EdgeInsets.only(left: Space.xs),
                       child: Icon(Icons.attach_file,
                           size: 15,
                           semanticLabel: 'Has a receipt photo',

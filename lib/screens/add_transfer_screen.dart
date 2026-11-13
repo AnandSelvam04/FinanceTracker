@@ -9,6 +9,7 @@ import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/date_field_row.dart';
+import '../utils/dimens.dart';
 
 class AddTransferScreen extends StatefulWidget {
   /// A transfer to copy: accounts, amounts and note are filled in and the
@@ -124,7 +125,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
       body: accounts.length < 2
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(Space.xl),
                 child: const Text(
                     'You need at least two accounts to record a transfer.'),
               ),

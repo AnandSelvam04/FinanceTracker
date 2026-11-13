@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 
 import '../utils/haptics.dart';
 import 'swipe_delete_background.dart';
+import '../utils/dimens.dart';
 
 /// Gives a list row the same swipes everywhere: left to delete, right to
 /// edit. The row never leaves on its own — the swipe only starts [onDelete]
@@ -70,16 +71,16 @@ class _SwipeEditBackground extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: Space.lg),
       decoration: BoxDecoration(
         color: scheme.primary,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Radii.lg),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.edit_outlined, color: scheme.onPrimary),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.sm),
           Text('Edit',
               style: TextStyle(
                   color: scheme.onPrimary, fontWeight: FontWeight.w600)),

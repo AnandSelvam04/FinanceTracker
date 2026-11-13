@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/account.dart';
 import '../utils/app_colors.dart';
 import 'paid_from_field.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Where a spend was paid from: the account, and — when it went on a credit
 /// card — which card, as one-tap chips. Shared by the Add Expense form and
@@ -113,14 +115,16 @@ class SpendAccountPicker extends StatelessWidget {
             },
           ),
         if (onCard) ...[
-          const SizedBox(height: 12),
-          Text('Which card?', style: TextStyle(fontSize: 12, color: muted)),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.md),
+          Text('Which card?',
+              style: TextStyle(fontSize: FontSizes.caption, color: muted)),
+          const SizedBox(height: Space.sm),
           if (cards.isEmpty)
             Text(
               'No credit card added yet. Add one under Credit cards so this '
               'counts toward its bill and limit.',
-              style: TextStyle(fontSize: 12, color: warningColor(context)),
+              style: TextStyle(
+                  fontSize: FontSizes.caption, color: warningColor(context)),
             )
           else
             Wrap(
@@ -140,18 +144,19 @@ class SpendAccountPicker extends StatelessWidget {
             ),
           if (cards.isNotEmpty && selected?.type != 'credit_card')
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: Space.xs),
               child: Text(
                 'Pick the card, or it won\'t count toward any card\'s bill',
-                style: TextStyle(fontSize: 12, color: warningColor(context)),
+                style: TextStyle(
+                    fontSize: FontSizes.caption, color: warningColor(context)),
               ),
             ),
         ],
         if (selected != null)
           Padding(
-            padding: const EdgeInsets.only(top: 6),
+            padding: const EdgeInsets.only(top: Space.sm),
             child: Text(PaidFromField.effectOf(selected),
-                style: TextStyle(fontSize: 12, color: muted)),
+                style: TextStyle(fontSize: FontSizes.caption, color: muted)),
           ),
       ],
     );

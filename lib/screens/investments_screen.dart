@@ -10,6 +10,8 @@ import '../widgets/hero_total_card.dart';
 import 'add_investment_screen.dart';
 import 'investment_type_screen.dart';
 import '../utils/date_format.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 class InvestmentsScreen extends StatefulWidget {
   const InvestmentsScreen({super.key});
@@ -71,7 +73,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
               itemCount: totalsByType.length + 1,
               separatorBuilder: (_, index) =>
                   SizedBox(height: index == 0 ? 16 : 8),
-              padding: scrollPadding(context, all: 12, fab: true),
+              padding: scrollPadding(context, all: Space.md, fab: true),
               itemBuilder: (context, index) {
                 if (index == 0) {
                   return HeroTotalCard(
@@ -138,7 +140,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                               '${v.amount >= entry.value ? '+' : '−'}'
                               '${formatMoney((v.amount - entry.value).abs())}',
                               style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: FontSizes.caption,
                                   fontWeight: FontWeight.w500,
                                   color: v.amount >= entry.value
                                       ? incomeColor(context)
@@ -146,7 +148,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                         else if (share != null)
                           Text('$share%',
                               style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: FontSizes.caption,
                                   fontWeight: FontWeight.w500,
                                   color: mutedTextColor(context))),
                       ],
@@ -203,7 +205,7 @@ class _AllocationBar extends StatelessWidget {
       label: 'Allocation: ${slices.map((e) => '${e.key} '
           '${(e.value * 100 / total).round()}%').join(', ')}',
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(Radii.sm),
         child: SizedBox(
           height: 10,
           child: Row(
@@ -214,8 +216,8 @@ class _AllocationBar extends StatelessWidget {
                   // without overflowing on very large totals.
                   flex: (slices[i].value * 1000 / total).round().clamp(1, 1000),
                   child: Container(
-                    margin:
-                        EdgeInsets.only(right: i == slices.length - 1 ? 0 : 2),
+                    margin: EdgeInsets.only(
+                        right: i == slices.length - 1 ? 0 : Space.xxs),
                     color: _typeColor(totals.indexOf(slices[i])),
                   ),
                 ),

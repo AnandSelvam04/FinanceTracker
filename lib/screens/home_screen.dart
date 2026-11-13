@@ -28,6 +28,7 @@ import '../utils/currency_format.dart';
 import '../utils/dashboard_insights.dart';
 import '../utils/dashboard_layout.dart';
 import '../utils/date_format.dart';
+import '../utils/destinations.dart';
 import '../utils/haptics.dart';
 import '../utils/insets.dart';
 import '../utils/merchant_summary.dart';
@@ -39,6 +40,7 @@ import '../widgets/category_avatar.dart';
 import '../widgets/category_bar_chart.dart';
 import '../widgets/celebration.dart';
 import '../widgets/expense_trends_chart.dart';
+import '../widgets/icon_badge.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/net_worth_card.dart';
 import '../widgets/section_header.dart';
@@ -63,8 +65,12 @@ import 'recurring_screen.dart';
 import 'sms_review_screen.dart';
 import 'spending_calendar_screen.dart';
 import 'tutorial_screen.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 part 'home/dashboard.dart';
+part 'home/figures.dart';
+part 'home/recent.dart';
 part 'home/shortcuts.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -517,13 +523,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // edge-to-edge mode; without it the last tile is covered and untappable.
       builder: (context) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+          padding: const EdgeInsets.fromLTRB(Space.sm, 0, Space.sm, Space.sm),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                padding:
+                    const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm),
                 child:
                     Text('Add', style: Theme.of(context).textTheme.titleLarge),
               ),
@@ -642,7 +649,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     selectedIndex: _selectedIndex,
                     onDestinationSelected: _selectTab,
                     leading: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: Space.sm),
                       child: FloatingActionButton(
                         elevation: 0,
                         tooltip: 'Add transaction',
@@ -715,7 +722,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     height: 32,
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.primary,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(Radii.lg),
                     ),
                     child: Icon(Icons.add,
                         color: Theme.of(context).colorScheme.onPrimary),

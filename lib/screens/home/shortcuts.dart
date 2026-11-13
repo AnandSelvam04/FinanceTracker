@@ -9,56 +9,20 @@ part of '../home_screen.dart';
 class _ShortcutsRow extends StatelessWidget {
   const _ShortcutsRow();
 
-  // Distinct accents (not one shared container) so the shortcuts read as
-  // separate destinations at a glance.
-  static const _specs = <String, (IconData, Color, Widget)>{
-    DashboardLayout.investments: (
-      Icons.trending_up,
-      Color(0xFF00897B), // teal
-      InvestmentsScreen()
-    ),
+  // Each shortcut wears its destination's own colour (the one it has under
+  // More), so they read as separate destinations at a glance.
+  static const _screens = <String, Widget>{
+    DashboardLayout.investments: InvestmentsScreen(),
     // Credit cards have their own screen — spend by period, limit and
     // bills — rather than a section here, to keep the dashboard clear.
-    DashboardLayout.cards: (
-      Icons.credit_card,
-      Color(0xFF1E6FD9), // blue
-      CreditCardsScreen()
-    ),
-    DashboardLayout.reports: (
-      Icons.summarize,
-      Color(0xFF3949AB), // indigo
-      MonthlySummaryScreen()
-    ),
-    DashboardLayout.accounts: (
-      Icons.account_balance,
-      Color(0xFF546E7A), // slate
-      AccountsScreen()
-    ),
-    DashboardLayout.goals: (
-      Icons.flag_outlined,
-      Color(0xFF43A047), // green
-      GoalsScreen()
-    ),
-    DashboardLayout.calendar: (
-      Icons.calendar_month,
-      Color(0xFFD84315), // deep orange
-      SpendingCalendarScreen()
-    ),
-    DashboardLayout.loans: (
-      Icons.handshake_outlined,
-      Color(0xFFEF6C00), // orange
-      LoansScreen()
-    ),
-    DashboardLayout.recurring: (
-      Icons.repeat,
-      Color(0xFFD81B60), // pink
-      RecurringScreen()
-    ),
-    DashboardLayout.cashflow: (
-      Icons.stacked_bar_chart,
-      Color(0xFF00838F), // cyan
-      CashflowScreen()
-    ),
+    DashboardLayout.cards: CreditCardsScreen(),
+    DashboardLayout.reports: MonthlySummaryScreen(),
+    DashboardLayout.accounts: AccountsScreen(),
+    DashboardLayout.goals: GoalsScreen(),
+    DashboardLayout.calendar: SpendingCalendarScreen(),
+    DashboardLayout.loans: LoansScreen(),
+    DashboardLayout.recurring: RecurringScreen(),
+    DashboardLayout.cashflow: CashflowScreen(),
   };
 
   @override
@@ -73,22 +37,22 @@ class _ShortcutsRow extends StatelessWidget {
     // stack them instead.
     final compact = ids.length > 3;
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: Space.lg),
       child: Row(
         children: [
           for (final (i, id) in ids.indexed) ...[
-            if (i > 0) const SizedBox(width: 8),
+            if (i > 0) const SizedBox(width: Space.sm),
             Expanded(
               child: id == DashboardLayout.sms
                   ? _SmsShortcut(compact: compact)
                   : _ShortcutButton(
-                      icon: _specs[id]!.$1,
+                      icon: Destinations.shortcuts[id]!.icon,
                       label: DashboardLayout.shortcutLabels[id]!,
-                      accent: _specs[id]!.$2,
+                      accent: Destinations.shortcuts[id]!.color,
                       compact: compact,
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => _specs[id]!.$3),
+                        MaterialPageRoute(builder: (_) => _screens[id]!),
                       ),
                     ),
             ),
@@ -136,9 +100,9 @@ class _SmsShortcutState extends State<_SmsShortcut> {
   @override
   Widget build(BuildContext context) {
     return _ShortcutButton(
-      icon: Icons.sms,
+      icon: Destinations.sms.icon,
       label: 'Import SMS',
-      accent: const Color(0xFF6A3DE8), // violet
+      accent: Destinations.sms.color,
       badge: _pending,
       compact: widget.compact,
       onTap: () async {
@@ -175,24 +139,24 @@ class _ShortcutButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
     // A soft tint of the accent as fill, the accent itself for icon and text,
     // so each shortcut carries its own color without shouting.
-    final fill = accent.withValues(alpha: dark ? 0.24 : 0.14);
-    final foreground = dark ? Color.lerp(accent, Colors.white, 0.4)! : accent;
+    final fill = destinationFill(context, accent);
+    final foreground = destinationForeground(context, accent);
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       color: fill,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Radii.lg),
         side: BorderSide(color: accent.withValues(alpha: 0.35)),
       ),
       child: InkWell(
         onTap: onTap,
         child: Padding(
           padding: EdgeInsets.symmetric(
-              vertical: compact ? 10 : 12, horizontal: compact ? 6 : 12),
+              vertical: compact ? Space.sm : Space.md,
+              horizontal: compact ? Space.sm : Space.md),
           child: Flex(
             direction: compact ? Axis.vertical : Axis.horizontal,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -213,7 +177,7 @@ class _ShortcutButton extends StatelessWidget {
                     label,
                     maxLines: 1,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: FontSizes.caption,
                       fontWeight: FontWeight.w600,
                       color: foreground,
                     ),
@@ -285,26 +249,26 @@ class _QuickAddRow extends StatelessWidget {
         final templates = provider.templates;
         if (templates.isEmpty) return const SizedBox.shrink();
         return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.only(bottom: Space.sm),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'QUICK ADD',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: FontSizes.caption,
                   letterSpacing: 0.6,
                   fontWeight: FontWeight.w600,
                   color: mutedTextColor(context),
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: Space.sm),
               SizedBox(
                 height: 40,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: templates.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  separatorBuilder: (_, __) => const SizedBox(width: Space.sm),
                   itemBuilder: (context, index) {
                     final template = templates[index];
                     // Tap the chip to add; the delete "x" removes the shortcut
@@ -354,16 +318,8 @@ class _AddOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
     return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: dark ? 0.24 : 0.14),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: color),
-      ),
+      leading: IconBadge(icon: icon, color: color),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(subtitle),
       onTap: onTap,

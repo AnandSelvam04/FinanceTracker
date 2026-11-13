@@ -4,10 +4,12 @@ import '../providers/settings_provider.dart';
 import '../services/backup_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/build_info.dart';
+import '../utils/destinations.dart';
 import '../utils/insets.dart';
 import '../widgets/section_header.dart';
 import 'accounts_screen.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/icon_badge.dart';
 import 'backups_screen.dart';
 import 'budgets_screen.dart';
 import 'cashflow_screen.dart';
@@ -25,6 +27,8 @@ import 'recurring_screen.dart';
 import 'settings_screen.dart';
 import 'sms_review_screen.dart';
 import 'spending_calendar_screen.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -81,61 +85,61 @@ class _MoreScreenState extends State<MoreScreen> {
     final warn = warningColor(context);
     final sms = context.watch<SettingsProvider>().smsImportEnabled;
     return [
-      _Entry('Insights', Icons.summarize, _MenuColors.blue, 'Reports',
+      _Entry('Insights', Destinations.reports, 'Reports',
           subtitle: 'Week, month, year or any dates · PDF and Excel',
           words: 'summary statement year in review merchants export',
           onTap: () => _open(const MonthlySummaryScreen())),
-      _Entry('Insights', Icons.stacked_bar_chart, _MenuColors.teal, 'Cash Flow',
+      _Entry('Insights', Destinations.cashflow, 'Cash Flow',
           words: 'income expense chart net',
           onTap: () => _open(const CashflowScreen())),
-      _Entry(
-          'Insights', Icons.show_chart, _MenuColors.violet, 'Category Trends',
+      _Entry('Insights', Destinations.trends, 'Category Trends',
           words: 'compare months chart',
           onTap: () => _open(const CategoryTrendsScreen())),
-      _Entry('Insights', Icons.calendar_month, _MenuColors.red,
-          'Spending Calendar',
+      _Entry('Insights', Destinations.calendar, 'Spending Calendar',
           words: 'daily heatmap no-spend days',
           onTap: () => _open(const SpendingCalendarScreen())),
-      _Entry('Manage', Icons.account_balance, _MenuColors.indigo, 'Accounts',
+      _Entry('Manage', Destinations.accounts, 'Accounts',
           words: 'bank cash upi wallet balance statement',
           onTap: () => _open(const AccountsScreen())),
       // Used to be reachable only from the dashboard shortcut.
-      _Entry('Manage', Icons.credit_card, _MenuColors.blue, 'Cards',
+      _Entry('Manage', Destinations.cards, 'Cards',
           subtitle: 'Bills, limits, EMIs and reward points',
           words: 'credit card statement due emi rewards limit',
           onTap: () => _open(const CreditCardsScreen())),
-      _Entry(
-          'Manage', Icons.category_outlined, _MenuColors.violet, 'Categories',
+      _Entry('Manage', Destinations.categories, 'Categories',
           subtitle: 'Add your own, set icons, rename or merge',
           words: 'icon colour color',
           onTap: () => _open(const CategoriesScreen())),
-      _Entry('Manage', Icons.handshake_outlined, _MenuColors.orange,
-          'Loans & lending',
+      _Entry('Manage', Destinations.loans, 'Loans & lending',
           subtitle: 'Money you owe, and money owed to you',
           words: 'debt borrowed lent repay',
           onTap: () => _open(const LoansScreen())),
-      _Entry('Manage', Icons.sell_outlined, _MenuColors.teal, 'Tags',
+      _Entry('Manage', Destinations.tags, 'Tags',
           subtitle: 'Totals for #tags in your notes',
           words: 'hashtag notes',
           onTap: () => _open(const TagsScreen())),
-      _Entry('Manage', Icons.flag_outlined, _MenuColors.green, 'Savings Goals',
+      _Entry('Manage', Destinations.goals, 'Savings Goals',
           subtitle: 'Save toward a target by a date',
           words: 'target save',
           onTap: () => _open(const GoalsScreen())),
-      _Entry('Manage', Icons.repeat, _MenuColors.pink, 'Recurring',
+      _Entry('Manage', Destinations.recurring, 'Recurring',
           words: 'subscription bills rent sip repeat monthly',
           onTap: () => _open(const RecurringScreen())),
-      _Entry('Manage', Icons.trending_up, _MenuColors.teal, 'Investments',
+      _Entry('Manage', Destinations.investments, 'Investments',
           words: 'mutual fund stocks sip portfolio',
           onTap: () => _open(const InvestmentsScreen())),
       // Hidden until SMS reading is switched on in Settings, so the
       // entry never leads to a screen that can only report it is off.
       if (sms)
-        _Entry('Data', Icons.sms, _MenuColors.blue, 'Import from SMS',
+        _Entry('Data', Destinations.sms, 'Import from SMS',
             subtitle: 'Find transactions in bank alerts',
             words: 'bank alerts messages review',
             onTap: () => _open(const SmsReviewScreen())),
-      _Entry('Data', Icons.cloud, stale ? warn : _MenuColors.indigo,
+      _Entry(
+          'Data',
+          stale
+              ? Destination(Destinations.backup.icon, warn)
+              : Destinations.backup,
           'Backup & Export',
           subtitle: _backupSubtitle,
           subtitleColor: stale ? warn : null,
@@ -147,12 +151,11 @@ class _MoreScreenState extends State<MoreScreen> {
         );
         _loadLastBackup();
       }),
-      _Entry('App', Icons.dashboard_customize_outlined, _MenuColors.violet,
-          'Customise home',
+      _Entry('App', Destinations.customiseHome, 'Customise home',
           subtitle: 'Reorder or hide sections, pick shortcuts',
           words: 'customize dashboard layout widgets arrange',
           onTap: () => _open(const CustomizeHomeScreen())),
-      _Entry('App', Icons.settings, _MenuColors.slate, 'Settings',
+      _Entry('App', Destinations.settings, 'Settings',
           subtitle: 'Currency, theme, alerts, app lock',
           onTap: () => _open(const SettingsScreen())),
     ];
@@ -162,17 +165,16 @@ class _MoreScreenState extends State<MoreScreen> {
   /// Budgets tab, the guide, and each setting. Only offered by search.
   List<_Entry> _searchOnly() {
     _Entry setting(String title, String words) =>
-        _Entry('Settings', Icons.settings, _MenuColors.slate, title,
+        _Entry('Settings', Destinations.settings, title,
             subtitle: 'In Settings',
             words: words,
             onTap: () => _open(const SettingsScreen()));
     return [
-      _Entry('Screens', Icons.account_balance_wallet_outlined,
-          _MenuColors.green, 'Budgets',
+      _Entry('Screens', Destinations.budgets, 'Budgets',
           subtitle: 'Monthly caps per category',
           words: 'limit cap rollover',
           onTap: () => _open(const BudgetsScreen())),
-      _Entry('Screens', Icons.help_outline, _MenuColors.blue, 'How to use',
+      _Entry('Screens', Destinations.help, 'How to use',
           subtitle: 'A short guide to the app',
           words: 'help tutorial guide',
           onTap: () => _open(const TutorialScreen())),
@@ -209,7 +211,7 @@ class _MoreScreenState extends State<MoreScreen> {
 
     return Scaffold(
       body: ListView(
-        padding: scrollPadding(context, all: 12),
+        padding: scrollPadding(context, all: Space.md),
         // Dragging the list puts the keyboard away, so results are not
         // hidden behind it.
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -236,7 +238,7 @@ class _MoreScreenState extends State<MoreScreen> {
             onChanged: (v) => setState(() => _query = v),
           ),
           if (query.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             if (matches.isEmpty)
               EmptyState(
                 icon: Icons.search_off,
@@ -253,7 +255,8 @@ class _MoreScreenState extends State<MoreScreen> {
             // colour as well as by name.
             for (final section in sections) ...[
               SectionHeader(section,
-                  padding: const EdgeInsets.fromLTRB(4, 16, 4, 8)),
+                  padding: const EdgeInsets.fromLTRB(
+                      Space.xs, Space.lg, Space.xs, Space.sm)),
               _MenuCard(children: [
                 for (final e in entries)
                   if (e.section == section) e.tile(),
@@ -262,11 +265,14 @@ class _MoreScreenState extends State<MoreScreen> {
             // Visible without digging into Settings > About, so "which build
             // am I running" is answerable at a glance.
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.fromLTRB(
+                  Space.lg, Space.lg, Space.lg, Space.sm),
               child: Text(
                 'Finance Tracker ${BuildInfo.label}',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: mutedTextColor(context)),
+                style: TextStyle(
+                    fontSize: FontSizes.caption,
+                    color: mutedTextColor(context)),
               ),
             ),
           ],
@@ -279,8 +285,7 @@ class _MoreScreenState extends State<MoreScreen> {
 /// One destination in the More menu (or its search results).
 class _Entry {
   final String section;
-  final IconData icon;
-  final Color color;
+  final Destination look;
   final String title;
   final String? subtitle;
   final Color? subtitleColor;
@@ -289,7 +294,7 @@ class _Entry {
   final String words;
   final VoidCallback onTap;
 
-  const _Entry(this.section, this.icon, this.color, this.title,
+  const _Entry(this.section, this.look, this.title,
       {this.subtitle,
       this.subtitleColor,
       this.words = '',
@@ -306,49 +311,13 @@ class _Entry {
   }
 
   Widget tile() => _MenuTile(
-        icon: icon,
-        color: color,
+        icon: look.icon,
+        color: look.color,
         title: title,
         subtitle: subtitle,
         subtitleColor: subtitleColor,
         onTap: onTap,
       );
-}
-
-/// Badge colours for the menu. Mid-tone shades that hold contrast as an icon
-/// on their own 15% tint in light mode and on a 28% tint in dark mode.
-class _MenuColors {
-  static const blue = Color(0xFF1E88E5);
-  static const teal = Color(0xFF00897B);
-  static const violet = Color(0xFF7E57C2);
-  static const indigo = Color(0xFF3949AB);
-  static const orange = Color(0xFFEF6C00);
-  static const green = Color(0xFF43A047);
-  static const pink = Color(0xFFD81B60);
-  static const slate = Color(0xFF546E7A);
-  static const red = Color(0xFFE53935);
-}
-
-/// A rounded-square icon on a tint of its own colour.
-class _IconBadge extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  const _IconBadge({required this.icon, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final fg = dark ? Color.lerp(color, Colors.white, 0.35)! : color;
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: dark ? 0.28 : 0.14),
-        borderRadius: BorderRadius.circular(11),
-      ),
-      child: Icon(icon, size: 21, color: fg),
-    );
-  }
 }
 
 /// One card holding a section's tiles, separated by inset dividers.
@@ -395,7 +364,7 @@ class _MenuTile extends StatelessWidget {
     return ListTile(
       // The card supplies the rounding; square tiles keep the ink flush.
       shape: const RoundedRectangleBorder(),
-      leading: _IconBadge(icon: icon, color: color),
+      leading: IconBadge(icon: icon, color: color),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: subtitle == null
           ? null

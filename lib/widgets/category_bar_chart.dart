@@ -3,6 +3,8 @@ import '../utils/app_colors.dart';
 import '../utils/category_colors.dart';
 import '../utils/category_icons.dart';
 import '../utils/currency_format.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Spending by category as a sorted horizontal bar list.
 ///
@@ -91,9 +93,10 @@ class _CategoryBar extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(Radii.sm),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        padding: const EdgeInsets.symmetric(
+            vertical: Space.sm, horizontal: Space.xs),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -103,7 +106,7 @@ class _CategoryBar extends StatelessWidget {
                     size: 16,
                     color: CategoryColors.foreground(
                         color, Theme.of(context).brightness)),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.sm),
                 Expanded(
                   child: Text(
                     label,
@@ -111,18 +114,19 @@ class _CategoryBar extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w500),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.sm),
                 Text('$percent%',
                     style: TextStyle(
-                        color: mutedTextColor(context), fontSize: 12)),
-                const SizedBox(width: 10),
+                        color: mutedTextColor(context),
+                        fontSize: FontSizes.caption)),
+                const SizedBox(width: Space.sm),
                 Text(formatMoney(amount),
                     style: const TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.sm),
             ClipRRect(
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(Radii.sm),
               child: SizedBox(
                 height: 10,
                 child: Stack(

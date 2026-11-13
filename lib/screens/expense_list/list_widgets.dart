@@ -22,17 +22,17 @@ class _PeriodSummary extends StatelessWidget {
             children: [
               Text(label.toUpperCase(),
                   style: TextStyle(
-                      fontSize: 11,
+                      fontSize: FontSizes.caption,
                       letterSpacing: 0.6,
                       fontWeight: FontWeight.w600,
                       color: muted)),
-              const SizedBox(height: 2),
+              const SizedBox(height: Space.xxs),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text(formatMoney(amount),
                     style: TextStyle(
-                        fontSize: 17,
+                        fontSize: FontSizes.bodyLarge,
                         fontWeight: FontWeight.bold,
                         color: color)),
               ),
@@ -40,15 +40,16 @@ class _PeriodSummary extends StatelessWidget {
           ),
         );
     return Card(
-      margin: const EdgeInsets.only(bottom: 4),
+      margin: const EdgeInsets.only(bottom: Space.xs),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+            horizontal: Space.lg, vertical: Space.md),
         child: Row(
           children: [
             figure('Spent', spent, expenseColor(context)),
             figure('Income', income, incomeColor(context)),
             Text('$count ${count == 1 ? 'entry' : 'entries'}',
-                style: TextStyle(fontSize: 12, color: muted)),
+                style: TextStyle(fontSize: FontSizes.caption, color: muted)),
           ],
         ),
       ),
@@ -77,12 +78,13 @@ class _DayHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = TextStyle(
-      fontSize: 13,
+      fontSize: FontSizes.body,
       fontWeight: FontWeight.w600,
       color: mutedTextColor(context),
     );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+      padding:
+          const EdgeInsets.fromLTRB(Space.xs, Space.md, Space.xs, Space.sm),
       child: Row(
         children: [
           Expanded(child: Text(_label(), style: style)),
@@ -217,7 +219,7 @@ class _CategoryPickerDialogState extends State<_CategoryPickerDialog> {
               decoration: const InputDecoration(labelText: 'Category'),
               onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.md),
             Wrap(
               spacing: 6,
               runSpacing: 4,

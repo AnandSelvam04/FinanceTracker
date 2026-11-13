@@ -7,6 +7,7 @@ import '../utils/date_format.dart';
 import '../utils/merchant_summary.dart';
 import 'category_avatar.dart';
 import 'section_header.dart';
+import '../utils/font_sizes.dart';
 
 /// Where the money went, by merchant rather than category. Tapping a merchant
 /// lists the transactions behind its total.
@@ -32,8 +33,9 @@ class TopMerchantsCard extends StatelessWidget {
                   title: Text(m.name, overflow: TextOverflow.ellipsis),
                   subtitle: Text(
                     '${m.count} transaction${m.count == 1 ? '' : 's'}',
-                    style:
-                        TextStyle(fontSize: 12, color: mutedTextColor(context)),
+                    style: TextStyle(
+                        fontSize: FontSizes.caption,
+                        color: mutedTextColor(context)),
                   ),
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -45,7 +47,8 @@ class TopMerchantsCard extends StatelessWidget {
                         Text(
                             '${(m.total / periodTotal * 100).round()}% of spend',
                             style: TextStyle(
-                                fontSize: 12, color: mutedTextColor(context))),
+                                fontSize: FontSizes.caption,
+                                color: mutedTextColor(context))),
                     ],
                   ),
                   onTap: () => _showRows(context, m),

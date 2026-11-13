@@ -45,6 +45,12 @@ class DashboardLayout {
   /// stepper, without which nothing else on the screen can be moved.
   static const locked = {figures};
 
+  /// Sections a new install starts with switched off, so the first home
+  /// screen is short enough to take in: both are a tap away under Reports,
+  /// and one switch away under More → Customise home. Someone already using
+  /// the app keeps the layout they have.
+  static const hiddenOnNewInstall = {merchants, trends};
+
   /// The chart sections, which sit in the second column on a wide screen.
   static const chartSections = {categories, merchants, trends};
 

@@ -10,6 +10,8 @@ import '../utils/app_colors.dart';
 import '../utils/billing_cycle.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Converts a purchase on [card] to EMI. Returns true when converted.
 Future<bool> showEmiDialog(BuildContext context, Account card,
@@ -136,7 +138,7 @@ class _EmiDialogState extends State<_EmiDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 4),
+              const SizedBox(height: Space.xs),
               TextFormField(
                 controller: _desc,
                 textCapitalization: TextCapitalization.sentences,
@@ -144,7 +146,7 @@ class _EmiDialogState extends State<_EmiDialog> {
                 validator: (v) =>
                     (v ?? '').trim().isEmpty ? 'Describe the purchase' : null,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: Space.md),
               TextFormField(
                 controller: _amount,
                 keyboardType:
@@ -152,11 +154,12 @@ class _EmiDialogState extends State<_EmiDialog> {
                 decoration: deco('Amount converted ($_symbol)'),
                 validator: (_) => _principal == null ? 'Enter an amount' : null,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: Space.md),
               Text('Months',
-                  style:
-                      TextStyle(fontSize: 13, color: mutedTextColor(context))),
-              const SizedBox(height: 6),
+                  style: TextStyle(
+                      fontSize: FontSizes.body,
+                      color: mutedTextColor(context))),
+              const SizedBox(height: Space.sm),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
@@ -172,7 +175,7 @@ class _EmiDialogState extends State<_EmiDialog> {
                     ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: Space.md),
               TextFormField(
                 controller: _monthly,
                 keyboardType:
@@ -190,7 +193,7 @@ class _EmiDialogState extends State<_EmiDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.event),
@@ -216,19 +219,19 @@ class _EmiDialogState extends State<_EmiDialog> {
                       ? 'It comes off the card now, as the bank reverses it'
                       : 'An EMI from before you started tracking: enter what '
                           'is left and the months to go',
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: FontSizes.caption),
                 ),
               ),
               if (p != null && m != null && interest != null)
                 Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  padding: const EdgeInsets.all(10),
+                  margin: const EdgeInsets.only(top: Space.sm),
+                  padding: const EdgeInsets.all(Space.md),
                   decoration: BoxDecoration(
                     color: Theme.of(context)
                         .colorScheme
                         .surfaceContainerHighest
                         .withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(Radii.sm),
                   ),
                   child: Text(
                     '${formatMoneyIn(_symbol, m)} a month for $_months '
@@ -237,7 +240,7 @@ class _EmiDialogState extends State<_EmiDialog> {
                     '${interest > 0 ? 'Interest ${formatMoneyIn(_symbol, interest)} in all. ' : 'No-cost EMI. '}'
                     '${formatMoneyIn(_symbol, p)} stays held on the limit and '
                     'frees up as instalments are billed.',
-                    style: const TextStyle(fontSize: 13),
+                    style: const TextStyle(fontSize: FontSizes.body),
                   ),
                 ),
             ],

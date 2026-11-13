@@ -12,6 +12,8 @@ import '../utils/insets.dart';
 import '../utils/tags.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/transaction_edit_sheet.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Spending grouped by the #tags written in transaction notes — a trip, a
 /// house move, reimbursable office spends — across categories and months.
@@ -60,11 +62,11 @@ class _TagsScreenState extends State<TagsScreen> {
                       'totalled here, whatever its category or month.',
                 )
               : ListView(
-                  padding: scrollPadding(context, all: 12),
+                  padding: scrollPadding(context, all: Space.md),
                   children: [
                     for (final t in tags)
                       Card(
-                        margin: const EdgeInsets.only(bottom: 8),
+                        margin: const EdgeInsets.only(bottom: Space.sm),
                         child: ListTile(
                           leading: const Icon(Icons.sell_outlined),
                           title: Text('#${t.tag}',
@@ -137,12 +139,12 @@ class _TagDetailState extends State<_TagDetail> {
       body: rows == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: scrollPadding(context, all: 12),
+              padding: scrollPadding(context, all: Space.md),
               children: [
                 if (summary != null)
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(Space.lg),
                       child: Row(
                         children: [
                           Expanded(
@@ -154,7 +156,8 @@ class _TagDetailState extends State<_TagDetail> {
                           ),
                           Text('Spent ${formatMoney(summary.spent)}',
                               style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16)),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: FontSizes.bodyLarge)),
                         ],
                       ),
                     ),

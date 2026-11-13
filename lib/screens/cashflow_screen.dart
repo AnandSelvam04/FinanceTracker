@@ -7,6 +7,8 @@ import '../utils/currency_format.dart';
 import '../utils/insets.dart';
 import '../widgets/cashflow_chart.dart';
 import '../widgets/section_header.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 class CashflowScreen extends StatefulWidget {
   const CashflowScreen({super.key});
@@ -56,29 +58,29 @@ class _CashflowScreenState extends State<CashflowScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SectionHeader('Income vs Expense (last 12 months)'),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 CashflowChart(provider: provider),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     _LegendDot(color: incomeColor(context), label: 'Income'),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: Space.lg),
                     _LegendDot(color: expenseColor(context), label: 'Expense'),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Space.lg),
                 Card(
                   margin: EdgeInsets.zero,
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(Space.lg),
                     child: Column(
                       children: [
                         _SummaryRow(
                             label: 'Total Income',
                             value: totalIncome,
                             color: incomeColor(context)),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: Space.sm),
                         _SummaryRow(
                             label: 'Total Expense',
                             value: totalExpense,
@@ -90,13 +92,13 @@ class _CashflowScreenState extends State<CashflowScreen> {
                             color: net >= 0
                                 ? incomeColor(context)
                                 : expenseColor(context)),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: Space.sm),
                         _SummaryRow(
                             label: 'Invested',
                             value: invested,
                             color: Theme.of(context).colorScheme.onSurface),
                         if (savingsRate != null) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: Space.sm),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -139,8 +141,8 @@ class _LegendDot extends StatelessWidget {
           height: 10,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12)),
+        const SizedBox(width: Space.xs),
+        Text(label, style: const TextStyle(fontSize: FontSizes.caption)),
       ],
     );
   }

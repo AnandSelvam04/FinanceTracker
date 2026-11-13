@@ -27,6 +27,8 @@ import '../widgets/category_picker.dart';
 import '../widgets/date_field_row.dart';
 import '../widgets/spend_account_picker.dart';
 import '../widgets/voice_capture_sheet.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// An optional capture flow to launch as soon as the screen opens, so the
 /// dashboard can offer "Scan receipt" / "Add by voice" as direct shortcuts.
@@ -362,7 +364,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(Space.lg),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -392,7 +394,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: Space.lg),
                     // Quick-capture shortcuts: read a bill photo, or dictate the
                     // transaction. Both only pre-fill the fields below.
                     Row(
@@ -412,7 +414,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                 _isScanning ? 'Scanning…' : 'Scan receipt'),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: Space.md),
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: _isScanning ? null : _addByVoice,
@@ -424,11 +426,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ),
                     if (_receiptPhoto != null)
                       Padding(
-                        padding: const EdgeInsets.only(top: 12),
+                        padding: const EdgeInsets.only(top: Space.md),
                         child: Row(
                           children: [
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(Radii.sm),
                               child: Image.file(File(_receiptPhoto!),
                                   width: 48,
                                   height: 48,
@@ -436,7 +438,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                   errorBuilder: (_, __, ___) =>
                                       const Icon(Icons.receipt_long, size: 40)),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: Space.md),
                             const Expanded(
                                 child:
                                     Text('Receipt photo will be kept with this '
@@ -450,7 +452,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           ],
                         ),
                       ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: Space.lg),
                     // The amount is the focal input, so it is enlarged and carries
                     // the configured currency symbol as a prefix.
                     TextFormField(
@@ -459,21 +461,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         labelText: 'Amount',
                         prefixText: '$amountSymbol ',
                         prefixStyle: TextStyle(
-                          fontSize: 28,
+                          fontSize: FontSizes.display,
                           fontWeight: FontWeight.bold,
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       style: const TextStyle(
-                          fontSize: 28, fontWeight: FontWeight.bold),
+                          fontSize: FontSizes.display,
+                          fontWeight: FontWeight.bold),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       textInputAction: TextInputAction.next,
                       validator: validateAmountField,
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: Space.sm),
                     AmountCalculatorBar(controller: _amountController),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: Space.md),
                     TextFormField(
                       controller: _descriptionController,
                       // Optional: a blank description saves as the category, so a
@@ -482,15 +485,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           labelText: 'Description (optional)'),
                       textInputAction: TextInputAction.next,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: Space.xs),
                     DateFieldRow(
                       date: _selectedDate,
                       firstDate: DateTime(2000),
                       lastDate: DateTime.now(),
                       onChanged: (d) => setState(() => _selectedDate = d),
                     ),
-                    const SizedBox(height: 4),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: Space.xs),
+                    const SizedBox(height: Space.sm),
                     // Picked, not typed: a typo in a free-text field used to start
                     // a second category. "More" lists them all and adds new ones.
                     FormField<String>(
@@ -512,11 +515,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       ),
                     ),
                     if (!_isIncome) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: Space.lg),
                       Text('Payment mode',
                           style: TextStyle(
-                              fontSize: 12, color: mutedTextColor(context))),
-                      const SizedBox(height: 6),
+                              fontSize: FontSizes.caption,
+                              color: mutedTextColor(context))),
+                      const SizedBox(height: Space.sm),
                       Wrap(
                         spacing: 8,
                         runSpacing: 4,
@@ -540,10 +544,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           );
                         }).toList(),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: Space.xs),
                     ],
                     if (accounts.isNotEmpty) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: Space.md),
                       SpendAccountPicker(
                         accounts: accounts,
                         accountId: _accountId,
@@ -555,7 +559,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         }),
                       ),
                     ],
-                    const SizedBox(height: 8),
+                    const SizedBox(height: Space.sm),
                     TextFormField(
                       controller: _noteController,
                       minLines: 1,
@@ -582,8 +586,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             ),
           ),
           Padding(
-            padding:
-                EdgeInsets.fromLTRB(16, 8, 16, safeBottom(context, extra: 12)),
+            padding: EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg,
+                safeBottom(context, extra: Space.md)),
             child: SizedBox(
               width: double.infinity,
               height: 52,

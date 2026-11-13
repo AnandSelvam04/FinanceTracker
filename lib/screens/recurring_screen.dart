@@ -12,6 +12,7 @@ import '../utils/date_format.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/swipe_actions.dart';
+import '../utils/dimens.dart';
 
 class RecurringScreen extends StatefulWidget {
   const RecurringScreen({super.key});
@@ -148,7 +149,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                       ],
                       onChanged: (v) => _accountId = v,
                     ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: Space.sm),
                   Row(
                     children: [
                       Expanded(
@@ -319,8 +320,8 @@ class _RecurringScreenState extends State<RecurringScreen> {
           }
           return ListView.separated(
             itemCount: rules.length,
-            padding: scrollPadding(context, all: 12, fab: true),
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            padding: scrollPadding(context, all: Space.md, fab: true),
+            separatorBuilder: (_, __) => const SizedBox(height: Space.sm),
             itemBuilder: (context, index) {
               final rule = rules[index];
               return SwipeActions(
@@ -357,7 +358,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                               style:
                                   const TextStyle(fontWeight: FontWeight.w600)),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: Space.sm),
                         // In the account's currency: a rule posting to a
                         // USD account showed its amount with the base symbol.
                         Text(

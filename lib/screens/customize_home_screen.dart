@@ -7,6 +7,8 @@ import '../utils/dashboard_layout.dart';
 import '../utils/haptics.dart';
 import '../utils/insets.dart';
 import '../widgets/section_header.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Lets the user arrange the home screen: drag its sections into order,
 /// switch off the ones they never look at, and pick the shortcut buttons.
@@ -51,15 +53,17 @@ class CustomizeHomeScreen extends StatelessWidget {
         ],
       ),
       body: ListView(
-        padding: scrollPadding(context, all: 12),
+        padding: scrollPadding(context, all: Space.md),
         children: [
           const SectionHeader('Sections',
-              padding: EdgeInsets.fromLTRB(4, 4, 4, 4)),
+              padding:
+                  EdgeInsets.fromLTRB(Space.xs, Space.xs, Space.xs, Space.xs)),
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            padding: const EdgeInsets.fromLTRB(Space.xs, 0, Space.xs, Space.sm),
             child: Text(
               'Drag to reorder. Switch off what you don\'t use.',
-              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
+              style: TextStyle(
+                  fontSize: FontSizes.body, color: mutedTextColor(context)),
             ),
           ),
           Card(
@@ -99,13 +103,15 @@ class CustomizeHomeScreen extends StatelessWidget {
             ),
           ),
           const SectionHeader('Shortcuts',
-              padding: EdgeInsets.fromLTRB(4, 20, 4, 4)),
+              padding:
+                  EdgeInsets.fromLTRB(Space.xs, Space.lg, Space.xs, Space.xs)),
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            padding: const EdgeInsets.fromLTRB(Space.xs, 0, Space.xs, Space.sm),
             child: Text(
               'Up to ${DashboardLayout.maxShortcuts} buttons, shown in the '
               'order you pick them. ${shortcuts.length} chosen.',
-              style: TextStyle(fontSize: 13, color: mutedTextColor(context)),
+              style: TextStyle(
+                  fontSize: FontSizes.body, color: mutedTextColor(context)),
             ),
           ),
           Wrap(
@@ -159,13 +165,13 @@ class _SectionRow extends StatelessWidget {
     return Material(
       type: MaterialType.transparency,
       child: ListTile(
-        contentPadding: const EdgeInsets.only(left: 4, right: 8),
+        contentPadding: const EdgeInsets.only(left: Space.xs, right: Space.sm),
         leading: ReorderableDragStartListener(
           index: index,
           child: Tooltip(
             message: 'Drag to reorder',
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(Space.md),
               child: Icon(Icons.drag_indicator, color: muted),
             ),
           ),
@@ -173,7 +179,7 @@ class _SectionRow extends StatelessWidget {
         title: Row(
           children: [
             Icon(icon, size: 20, color: shown ? null : muted),
-            const SizedBox(width: 10),
+            const SizedBox(width: Space.sm),
             Expanded(
               child: Text(label,
                   maxLines: 2,
@@ -184,7 +190,7 @@ class _SectionRow extends StatelessWidget {
         ),
         subtitle: locked
             ? const Padding(
-                padding: EdgeInsets.only(left: 30),
+                padding: EdgeInsets.only(left: Space.xxl),
                 child: Text('Always shown'),
               )
             : null,

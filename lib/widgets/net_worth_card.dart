@@ -11,6 +11,8 @@ import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import 'animated_money.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 /// Dashboard card showing current net worth (liquid account balances plus
 /// recorded investments) and a 12-month month-end trend line.
@@ -35,7 +37,7 @@ class NetWorthCard extends StatelessWidget {
         return Card(
           // The gradient supplies the fill, so drop the card's own surface color
           // and border and let the container paint edge to edge.
-          margin: const EdgeInsets.symmetric(vertical: 6),
+          margin: const EdgeInsets.symmetric(vertical: Space.sm),
           clipBehavior: Clip.antiAlias,
           color: Colors.transparent,
           // A soft, brand-tinted elevation shadow lifts the hero card off the
@@ -47,27 +49,28 @@ class NetWorthCard extends StatelessWidget {
           shadowColor:
               Theme.of(context).colorScheme.primary.withValues(alpha: 0.45),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(Radii.lg),
           ),
           child: Container(
             decoration: BoxDecoration(
               gradient: brandGradient(context),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(Radii.lg),
             ),
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
+            padding: const EdgeInsets.fromLTRB(
+                Space.lg, Space.md, Space.lg, Space.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Icon(Icons.account_balance, size: 20, color: onGradient),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: Space.sm),
                     Text('Net Worth',
                         style: TextStyle(
-                            fontSize: 14,
+                            fontSize: FontSizes.body,
                             fontWeight: FontWeight.bold,
                             color: onGradient)),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: Space.sm),
                     // A large balance at a large text size shrinks to fit
                     // rather than running off the card.
                     Expanded(
@@ -78,7 +81,7 @@ class NetWorthCard extends StatelessWidget {
                           value: netWorth,
                           format: formatMoneySigned,
                           style: TextStyle(
-                            fontSize: 22,
+                            fontSize: FontSizes.heading,
                             fontWeight: FontWeight.bold,
                             color: onGradient,
                           ),
@@ -87,13 +90,13 @@ class NetWorthCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: Space.xs),
                 Text(
                   'Accounts ${formatMoneySigned(liquid)} · '
                   'Investments ${formatMoneySigned(invested)} (at cost)',
-                  style: TextStyle(fontSize: 12, color: subtle),
+                  style: TextStyle(fontSize: FontSizes.caption, color: subtle),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.sm),
                 // Short: the trend is a glance, and a taller chart pushed the
                 // month's spending off the first screen.
                 SizedBox(
@@ -141,7 +144,8 @@ class _NetWorthTrend extends StatelessWidget {
         if (series.every((p) => p.value == 0)) {
           return Center(
             child: Text('No history yet',
-                style: TextStyle(fontSize: 12, color: mutedColor)),
+                style:
+                    TextStyle(fontSize: FontSizes.caption, color: mutedColor)),
           );
         }
         final spots = <FlSpot>[
@@ -174,7 +178,7 @@ class _NetWorthTrend extends StatelessWidget {
                         const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
-                          fontSize: 12,
+                          fontSize: FontSizes.caption,
                         ),
                       ),
                   ],

@@ -18,6 +18,8 @@ import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/swipe_actions.dart';
 import '../widgets/dispose_with_route.dart';
+import '../utils/font_sizes.dart';
+import '../utils/dimens.dart';
 
 class BudgetsScreen extends StatefulWidget {
   /// True when shown as a tab of the home screen rather than pushed as a
@@ -166,7 +168,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: Space.sm),
                   TextFormField(
                     initialValue:
                         _amount == 0 ? '' : minorToEditString(_amount),
@@ -178,7 +180,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     validator: validateAmountField,
                     onSaved: (value) => _amount = parseMinor(value ?? '0') ?? 0,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: Space.sm),
                   // Month/year pickers instead of free-typed numbers: no invalid
                   // input to validate, and the month reads as a name.
                   StatefulBuilder(
@@ -205,7 +207,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                                   () => selectedMonth = value ?? selectedMonth),
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: Space.sm),
                           Expanded(
                             child: DropdownButtonFormField<int>(
                               initialValue: selectedYear,
@@ -449,7 +451,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               .spentForCategoryInMonth(b.year, b.month, b.category);
 
           return ListView(
-            padding: scrollPadding(context, all: 12, fab: !widget.embedded),
+            padding: scrollPadding(context, all: Space.md, fab: !widget.embedded),
             children: [
               _BudgetMonthStepper(
                 year: _viewYear,
@@ -461,7 +463,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     : () => _stepMonth(
                         (now.year - _viewYear) * 12 + now.month - _viewMonth),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               _OverallBudgetCard(
                 year: _viewYear,
                 month: _viewMonth,
@@ -476,10 +478,10 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     ? null
                     : () => _confirmDeleteBudget(overall.id!, 'total monthly'),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: Space.lg),
               if (categoryBudgets.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: Space.md),
                   child: EmptyState(
                     icon: Icons.pie_chart_outline,
                     title: 'No category budgets for '
@@ -526,7 +528,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                               if (carry != null) _CarryLine(carry: carry),
                               if (pace != null)
                                 _PaceLine(pace: pace, compact: true),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: Space.xs),
                               LinearProgressIndicator(
                                 value: progress.clamp(0.0, 1.0).toDouble(),
                                 color: progressColor(progress),
@@ -542,7 +544,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: Space.sm),
                 ],
             ],
           );
@@ -620,7 +622,7 @@ class _OverallBudgetCard extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Space.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -644,7 +646,7 @@ class _OverallBudgetCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: Space.xs),
             // Wraps the "left" figure onto its own line when both don't fit.
             Wrap(
               alignment: WrapAlignment.spaceBetween,
@@ -663,14 +665,14 @@ class _OverallBudgetCard extends StatelessWidget {
               ],
             ),
             if (carry != null) _CarryLine(carry: carry!),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.sm),
             LinearProgressIndicator(
               value: ratio.clamp(0.0, 1.0).toDouble(),
               minHeight: 10,
               color: progressColor(ratio),
             ),
             if (pace != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               _PaceLine(pace: pace),
             ],
           ],
@@ -717,7 +719,8 @@ class _BudgetMonthStepper extends StatelessWidget {
               if (isCurrent)
                 Text('This month',
                     style: TextStyle(
-                        fontSize: 12, color: mutedTextColor(context))),
+                        fontSize: FontSizes.caption,
+                        color: mutedTextColor(context))),
             ],
           ),
         ),
@@ -768,15 +771,17 @@ class _PaceLine extends StatelessWidget {
               '${pace.daysLeft + 1} days';
     }
     return Padding(
-      padding: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.only(top: Space.xxs),
       child: Row(
         children: [
           Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
+          const SizedBox(width: Space.xs),
           Flexible(
             child: Text(text,
                 style: TextStyle(
-                    fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+                    fontSize: FontSizes.caption,
+                    color: color,
+                    fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -799,17 +804,17 @@ class _CarryLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = carry > 0 ? incomeColor(context) : expenseColor(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.only(top: Space.xxs),
       child: Row(
         children: [
           Icon(carry > 0 ? Icons.redo : Icons.undo, size: 14, color: color),
-          const SizedBox(width: 4),
+          const SizedBox(width: Space.xs),
           Flexible(
             child: Text(
               carry > 0
                   ? '${formatMoneyRounded(carry)} rolled over'
                   : '${formatMoneyRounded(-carry)} overspent earlier',
-              style: TextStyle(fontSize: 12, color: color),
+              style: TextStyle(fontSize: FontSizes.caption, color: color),
             ),
           ),
         ],
