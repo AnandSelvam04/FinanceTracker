@@ -111,6 +111,22 @@ void main() {
       expect(s.available, 14000000);
     });
 
+    test('two overlapping runs post each instalment once', () async {
+      // Launch and a resume (or a rule change) each start a posting run; they
+      // used to both read the posted list before either wrote, and posted
+      // every due instalment twice.
+      await phoneOnCard();
+      final runs = await Future.wait([
+        EmiService.postDue(now: DateTime(2026, 11, 7)),
+        EmiService.postDue(now: DateTime(2026, 11, 7)),
+      ]);
+      expect(runs.reduce((a, b) => a + b), 3);
+      final instalments = (await DBService().getExpenses())
+          .where((e) => e.description.startsWith('EMI '))
+          .toList();
+      expect(instalments, hasLength(3));
+    });
+
     test('interest is an expense on the card; principal is not', () async {
       await phoneOnCard(monthly: 1050000);
       await EmiService.postDue(now: DateTime(2026, 9, 10));

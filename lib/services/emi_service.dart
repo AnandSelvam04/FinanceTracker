@@ -62,11 +62,26 @@ class EmiService {
     return planId;
   }
 
+  static Future<int>? _inFlight;
+
   /// Posts every instalment due by [now] that is not posted yet. Returns how
   /// many instalments were posted.
-  static Future<int> postDue({DateTime? now}) async {
+  ///
+  /// One run at a time: launch, a resume and a rule change each start one,
+  /// and two that overlapped both read the posted list before either wrote,
+  /// so every due instalment was posted twice. A call made while a run is
+  /// going waits for it and posts nothing itself (returning 0, so only the
+  /// first caller reports and refreshes).
+  static Future<int> postDue({DateTime? now}) {
+    final running = _inFlight;
+    if (running != null) return running.then((_) => 0, onError: (_) => 0);
+    final run = _postDue(now ?? DateTime.now());
+    _inFlight = run;
+    return run.whenComplete(() => _inFlight = null);
+  }
+
+  static Future<int> _postDue(DateTime at) async {
     final db = DBService();
-    final at = now ?? DateTime.now();
     final plans = await db.getEmiPlans();
     if (plans.isEmpty) return 0;
     final seen = await db.existingSourceRefs();
