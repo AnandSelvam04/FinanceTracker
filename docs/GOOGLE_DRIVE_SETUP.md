@@ -40,13 +40,17 @@ CI build, and sign in with the Gmail you added as a test user.
 
 ## Background
 
-The **Backup to Google Drive** / **Restore from Google Drive** buttons use
-Google Sign-In. If you see an error like:
+The **Backup to Google Drive** / **Restore from Google Drive** buttons ask
+Google for permission to use your Drive (the `google_sign_in` plugin's
+*authorization* call — the app never uses Google's sign-in itself). If you see
+an error like:
 
 ```
-PlatformException(sign_in_failed,
-  com.google.android.gms.common.api.ApiException: 10: , null, null)
+SDK reported an exception: com.google.android.gms.common.api.ApiException: 10:
 ```
+
+(older builds, before google_sign_in 7, showed it as
+`PlatformException(sign_in_failed, …ApiException: 10…)`)
 
 that is `DEVELOPER_ERROR` (code 10). It means Google has **no OAuth client
 registered** for this app's package name **and** the SHA-1 fingerprint of the
@@ -121,10 +125,22 @@ Copy the `SHA1:` value.
 4. SHA-1: paste the value from step 1.
 5. Create.
 
-For basic Drive `drive.file` / `appdata` sign-in on Android, the
-`google_sign_in` plugin picks up this Android client automatically from the
-package name + SHA-1 — you do **not** need to add a `google-services.json` or
-embed the client id in the app.
+For Drive `drive.file` / `appdata` access on Android, the `google_sign_in`
+plugin picks up this Android client automatically from the package name +
+SHA-1 — you do **not** need to add a `google-services.json` or embed the
+client id in the app.
+
+> **No web client is needed.** From google_sign_in 7, *signing in* on Android
+> goes through Credential Manager and needs a **web** OAuth client id
+> (`serverClientId`). This app doesn't sign in: it only asks for Drive
+> *authorization*, which goes through Android's AuthorizationClient and
+> matches on package name + SHA-1 alone. If you ever see
+> "serverClientId must be provided on Android", something has started calling
+> `authenticate()` — see `lib/services/backup/drive_store.dart`.
+>
+> Since there is no sign-in, **Switch account** on the Backups screen revokes
+> the app's Drive access for that account, so the next backup shows the
+> account picker and asks for permission again.
 
 ## 5. Rebuild and test
 
