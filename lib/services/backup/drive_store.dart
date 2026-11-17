@@ -7,6 +7,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart'
+    show
+        AuthorizationRequestDetails,
+        ClientAuthorizationTokensForScopesParameters,
+        GoogleSignInPlatform;
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,8 +29,9 @@ import 'backup_errors.dart';
 /// client on package name + signing SHA-1, so the set-up in
 /// docs/GOOGLE_DRIVE_SETUP.md keeps working unchanged.
 ///
-/// Without a sign-in there is no account object, so the email shown on the
-/// Backups screen comes from Drive itself (`about.get`) and is remembered.
+/// Without a sign-in there is no account object, so the account's email
+/// comes from Drive itself (`about.get`) and is remembered: it is shown on
+/// the Backups screen and names the account in later silent requests.
 class DriveStore {
   static const scopes = [
     drive.DriveApi.driveFileScope,
@@ -49,31 +55,75 @@ class DriveStore {
         Error.throwWithStackTrace(e, s);
       });
 
-  static GoogleSignInAuthorizationClient get _auth =>
-      GoogleSignIn.instance.authorizationClient;
+  /// An access token for [scopes], or null when none can be had without
+  /// [prompt]ing.
+  ///
+  /// Asks for the remembered account by email. Without one, Android can only
+  /// answer silently when it can guess the account: with two Google accounts
+  /// on the phone it wants a choice, and the automatic backup — which never
+  /// prompts — read that as "not signed in" and skipped every day. The
+  /// app-facing API only takes an email from a signed-in account, which this
+  /// app never has, so this goes to the platform interface directly.
+  static Future<String?> _token({required bool prompt}) async {
+    await _ensureInitialized();
+    final email =
+        (await SharedPreferences.getInstance()).getString(_kAccountEmail);
+    final tokens = await GoogleSignInPlatform.instance
+        .clientAuthorizationTokensForScopes(
+            ClientAuthorizationTokensForScopesParameters(
+                request: AuthorizationRequestDetails(
+      scopes: scopes,
+      userId: null,
+      email: email,
+      promptIfUnauthorized: prompt,
+    )));
+    return tokens?.accessToken;
+  }
+
+  /// Remembers which account [api] works as, the first time it is known.
+  /// Best effort: without it the next silent request just can't name the
+  /// account.
+  static Future<void> _rememberAccount(drive.DriveApi api) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString(_kAccountEmail) != null) return;
+      final about = await api.about.get($fields: 'user(emailAddress)');
+      final email = about.user?.emailAddress;
+      if (email != null) await prefs.setString(_kAccountEmail, email);
+    } catch (e) {
+      AppLogger.error('Could not read which account Drive uses', e);
+    }
+  }
 
   /// A Drive client, asking the user to choose an account and allow Drive
   /// access when this phone has not been given it yet.
   Future<drive.DriveApi> connect() async {
+    final String? token;
     try {
-      await _ensureInitialized();
-      final authz = await _auth.authorizationForScopes(scopes) ??
-          await _auth.authorizeScopes(scopes);
-      return _clientFor(authz.accessToken);
+      token = await _token(prompt: false) ?? await _token(prompt: true);
     } on GoogleSignInException catch (e) {
       throw DriveBackupException(messageFor(e.code, e.description));
     } on PlatformException catch (e) {
       throw DriveBackupException(messageFor(null, '${e.code} ${e.message}'));
     }
+    if (token == null) {
+      throw DriveBackupException(messageFor(
+          GoogleSignInExceptionCode.unknownError, 'no access token'));
+    }
+    final api = _clientFor(token);
+    await _rememberAccount(api);
+    return api;
   }
 
   /// A Drive client for the access already given on this phone, or null
   /// when there is none. Never shows a prompt. A failure (offline) throws
   /// rather than reading as "not connected".
   Future<drive.DriveApi?> connectSilently() async {
-    await _ensureInitialized();
-    final authz = await _auth.authorizationForScopes(scopes);
-    return authz == null ? null : _clientFor(authz.accessToken);
+    final token = await _token(prompt: false);
+    if (token == null) return null;
+    final api = _clientFor(token);
+    await _rememberAccount(api);
+    return api;
   }
 
   /// The Google account the backups go to, without prompting, or null when
@@ -86,12 +136,7 @@ class DriveStore {
         await prefs.remove(_kAccountEmail);
         return null;
       }
-      final known = prefs.getString(_kAccountEmail);
-      if (known != null) return known;
-      final about = await api.about.get($fields: 'user(emailAddress)');
-      final email = about.user?.emailAddress;
-      if (email != null) await prefs.setString(_kAccountEmail, email);
-      return email;
+      return prefs.getString(_kAccountEmail);
     } catch (e) {
       // No cached access, offline, Drive not set up: for display purposes
       // all of these just mean "not connected".
@@ -108,10 +153,8 @@ class DriveStore {
   /// again. Revoking the grant is what makes the account picker show.
   Future<void> disconnect() async {
     try {
-      await _ensureInitialized();
-      final authz = await _auth.authorizationForScopes(scopes);
-      if (authz != null) {
-        final token = authz.accessToken;
+      final token = await _token(prompt: false);
+      if (token != null) {
         final response = await http.post(
           Uri.parse('https://oauth2.googleapis.com/revoke'),
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -121,7 +164,8 @@ class DriveStore {
           AppLogger.error(
               'Revoking Drive access answered ${response.statusCode}');
         }
-        await _auth.clearAuthorizationToken(accessToken: token);
+        await GoogleSignIn.instance.authorizationClient
+            .clearAuthorizationToken(accessToken: token);
       }
       await GoogleSignIn.instance.signOut();
     } catch (e) {

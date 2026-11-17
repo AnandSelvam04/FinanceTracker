@@ -28,6 +28,9 @@ dependencies:
   flutter_timezone: ^5.1.1
   http: ^1.1.0
   google_sign_in: ^7.2.0
+  # Its authorization call is the only one that can name the account without
+  # a sign-in; see lib/services/backup/drive_store.dart.
+  google_sign_in_platform_interface: ^3.1.0
   googleapis: ^18.0.0
   local_auth: ^3.0.0
   package_info_plus: ^8.0.0
