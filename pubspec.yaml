@@ -1,6 +1,6 @@
 name: finance_tracker
 description: Android personal finance tracker — spending, accounts, credit cards, budgets, investments and bank-SMS import, stored on the device.
-version: 1.54.0+85
+version: 1.55.0+86
 # An app, never published to pub.dev; also what lets it depend on the
 # vendored plugin by path.
 publish_to: none

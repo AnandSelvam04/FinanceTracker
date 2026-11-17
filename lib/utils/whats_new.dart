@@ -20,15 +20,13 @@ class WhatsNew {
   WhatsNew._();
 
   /// The release [items] describe, without the build number.
-  static const version = '1.54.0';
+  static const version = '1.55.0';
 
   static const items = [
-    WhatsNewItem(Icons.format_size, 'Easier to read',
-        'The smallest labels are larger, and the same kind of line is now the same size on every screen.'),
-    WhatsNewItem(Icons.palette_outlined, 'One colour per screen',
-        'Cards, Reports, Accounts and the Calendar wear the same colour under More as on their Home shortcuts.'),
-    WhatsNewItem(Icons.space_dashboard_outlined, 'Tidier spacing',
-        'Gaps and rounded corners follow one scale, so cards, buttons and lists line up from screen to screen.'),
+    WhatsNewItem(Icons.credit_score_outlined, 'Card EMIs post once',
+        'An EMI instalment could be added twice when the app was opened and resumed at the same moment. It is now added once.'),
+    WhatsNewItem(Icons.cloud_outlined, 'Drive backup, updated',
+        'Drive backup uses Google\'s current permission prompt. Switch account now asks again for Drive access on the next backup.'),
   ];
 
   static const _kSeen = 'whatsNewSeenVersion';
