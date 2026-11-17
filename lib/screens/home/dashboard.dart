@@ -39,7 +39,7 @@ class _DashboardView extends StatelessWidget {
     final total = rows.fold<int>(0, (s, e) => s + provider.baseAmountOf(e));
     final period =
         isYear ? '$selectedYear' : formatMonthYear(selectedYear, selectedMonth);
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (sheetContext) => _CategoryDetailSheet(
@@ -53,10 +53,10 @@ class _DashboardView extends StatelessWidget {
         // the sheet's context is defunct once it is popped.
         onEdit: (e) {
           Navigator.pop(sheetContext);
-          transactionRowActions(context, e);
+          unawaited(transactionRowActions(context, e));
         },
       ),
-    );
+    ));
   }
 
   /// The month's overall cap, with rollover applied when it is on, or 0 when

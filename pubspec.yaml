@@ -1,6 +1,6 @@
 name: finance_tracker
 description: Android personal finance tracker — spending, accounts, credit cards, budgets, investments and bank-SMS import, stored on the device.
-version: 1.54.0+85
+version: 1.55.0+86
 # An app, never published to pub.dev; also what lets it depend on the
 # vendored plugin by path.
 publish_to: none
@@ -11,7 +11,7 @@ dependencies:
   archive: ^4.0.0
   cryptography: ^2.7.0
   csv: ^8.0.0
-  file_picker: ^10.3.7
+  file_picker: ^13.4.0
   fl_chart: ^1.1.1
   flutter:
     sdk: flutter
@@ -24,24 +24,30 @@ dependencies:
   google_mlkit_text_recognition: ^1.0.1
   # On-device speech recognition for the "add by voice" flow.
   speech_to_text: ^7.0.0
+  # Held at 22: version 23 needs compileSdk 37 and Android Gradle Plugin 9,
+  # a build-system move of its own (this app is on AGP 8.11 / SDK 36).
   flutter_local_notifications: ^22.3.3
   flutter_timezone: ^5.1.1
   http: ^1.1.0
-  google_sign_in: ^6.1.5
-  googleapis: ^18.0.0
-  googleapis_auth: ^2.0.0
+  google_sign_in: ^7.2.0
+  # Its authorization call is the only one that can name the account without
+  # a sign-in; see lib/services/backup/drive_store.dart.
+  google_sign_in_platform_interface: ^3.1.0
+  googleapis: ^19.0.0
   local_auth: ^3.0.0
-  package_info_plus: ^8.0.0
+  package_info_plus: ^10.2.2
   path: ^1.9.1
   path_provider: ^2.1.5
   pdf: ^3.11.0
   provider: ^6.0.0
-  share_plus: ^10.0.0
+  share_plus: ^13.3.1
   shared_preferences: ^2.5.3
   # SQLCipher-backed drop-in replacement for sqflite; enables optional
   # at-rest encryption of the local database.
   sqflite_sqlcipher: ^3.1.0
-  flutter_secure_storage: ^9.2.2
+  # Held at 10 on purpose; see lib/services/secure_store.dart before moving to
+  # 11, which cannot read keys this app saved under version 9.
+  flutter_secure_storage: ^10.3.4
   timezone: ^0.11.2
   # Reads the SMS inbox for bank transaction alerts (Android only). The
   # original `telephony` package is unmaintained; this is the maintained fork.

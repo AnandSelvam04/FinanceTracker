@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -159,7 +160,8 @@ Future<void> showEditExpenseSheet(
                         label: const Text('Duplicate'),
                         onPressed: () {
                           Navigator.pop(sheetContext);
-                          duplicateTransaction(callerContext, expense);
+                          unawaited(
+                              duplicateTransaction(callerContext, expense));
                         },
                       ),
                       // Splitting a refund across categories isn't
@@ -174,7 +176,7 @@ Future<void> showEditExpenseSheet(
                           // the split used to be silently dropped.
                           onPressed: () {
                             Navigator.pop(sheetContext);
-                            splitTransaction(callerContext, expense);
+                            unawaited(splitTransaction(callerContext, expense));
                           },
                         ),
                     ],

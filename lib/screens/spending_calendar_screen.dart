@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/expense.dart';
@@ -77,7 +78,7 @@ class _SpendingCalendarScreenState extends State<SpendingCalendarScreen> {
                     _month = m;
                     _day = null;
                   });
-                  provider.ensureYearLoaded(y);
+                  unawaited(provider.ensureYearLoaded(y));
                 },
               ),
               const SizedBox(height: Space.sm),

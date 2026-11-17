@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -58,21 +59,6 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   /// "Other" always last. Built via [_buildTypes] in initState.
   late final List<String> _types;
 
-  static const List<String> _monthAbbr = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
   /// Merges the built-in types with the user's previously entered custom types
   /// so a type only has to be typed once — after that it appears in the
   /// dropdown and can simply be picked.
@@ -121,14 +107,8 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   /// A sensible default name when the user leaves the name blank, e.g.
   /// "Silver Jul 2026", so each contribution is self-describing without
   /// forcing the user to name it.
-  String _defaultName() => _autoName(
-      _resolvedType, _isWithdrawal, _selectedDate.year, _selectedDate.month);
-
-  static String _autoName(String type, bool withdrawal, int year, int month) {
-    final t = type.isEmpty ? 'Investment' : type;
-    final kind = withdrawal ? 'Withdrawal ' : '';
-    return '$t $kind${_monthAbbr[month - 1]} $year';
-  }
+  String _defaultName() => Investment.autoName(_resolvedType, _selectedDate,
+      withdrawal: _isWithdrawal);
 
   /// The name a copy starts with. An auto-generated one ("Silver Jul 2026")
   /// is left blank so it regenerates for the copy's own date instead of
@@ -136,8 +116,8 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
   String get _duplicateName {
     final copy = widget.duplicateOf;
     if (copy == null) return '';
-    final auto = _autoName(
-        copy.type, copy.isWithdrawal, copy.date.year, copy.date.month);
+    final auto = Investment.autoName(copy.type, copy.date,
+        withdrawal: copy.isWithdrawal);
     return copy.name == auto ? '' : copy.name;
   }
 
@@ -379,7 +359,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                                   accountId: investment.accountId,
                                 ));
                               }
-                              HapticFeedback.lightImpact();
+                              unawaited(HapticFeedback.lightImpact());
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(

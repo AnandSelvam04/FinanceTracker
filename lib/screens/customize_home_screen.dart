@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -78,7 +79,8 @@ class CustomizeHomeScreen extends StatelessWidget {
                 final next = [...order];
                 next.insert(to, next.removeAt(from));
                 Haptics.tick();
-                settings.setDashboardLayout(order: next, hidden: hidden);
+                unawaited(
+                    settings.setDashboardLayout(order: next, hidden: hidden));
               },
               children: [
                 for (var i = 0; i < order.length; i++)
@@ -91,12 +93,12 @@ class CustomizeHomeScreen extends StatelessWidget {
                     shown: !hidden.contains(order[i]),
                     onShown: (on) {
                       Haptics.light();
-                      settings.setDashboardLayout(
+                      unawaited(settings.setDashboardLayout(
                         order: order,
                         hidden: on
                             ? ({...hidden}..remove(order[i]))
                             : {...hidden, order[i]},
-                      );
+                      ));
                     },
                   ),
               ],
@@ -127,9 +129,9 @@ class CustomizeHomeScreen extends StatelessWidget {
                     onSelected: shortcuts.contains(id) || !full
                         ? (on) {
                             Haptics.tick();
-                            settings.setHomeShortcuts(on
+                            unawaited(settings.setHomeShortcuts(on
                                 ? [...shortcuts, id]
-                                : ([...shortcuts]..remove(id)));
+                                : ([...shortcuts]..remove(id))));
                           }
                         : null,
                   ),

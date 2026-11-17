@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/expense_provider.dart';
@@ -27,8 +28,8 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
       final provider = context.read<ExpenseProvider>();
       final now = DateTime.now();
       // The 12-month window can span two calendar years.
-      provider.ensureYearLoaded(now.year);
-      provider.ensureYearLoaded(now.year - 1);
+      unawaited(provider.ensureYearLoaded(now.year));
+      unawaited(provider.ensureYearLoaded(now.year - 1));
     });
   }
 

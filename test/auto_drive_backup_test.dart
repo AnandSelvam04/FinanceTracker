@@ -9,7 +9,7 @@ class _FakeDrive {
   String? passphrase;
   bool signedIn = true;
   bool remoteNewer = false;
-  Object? remoteCheckError;
+  Exception? remoteCheckError;
   final uploads = <String?>[];
 
   AutoDriveBackup policy(DateTime now) => AutoDriveBackup(

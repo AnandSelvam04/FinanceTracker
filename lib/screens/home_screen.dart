@@ -177,12 +177,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         .expensesInRange(today, today.add(const Duration(days: 1)))
         .where((e) => e.isExpense)
         .fold<int>(0, (t, e) => t + expenses.baseAmountOf(e));
-    HomeWidgetService.push(homeWidgetData(
+    unawaited(HomeWidgetService.push(homeWidgetData(
       now: now,
       monthSpent: expenses.totalForMonth(now.year, now.month),
       todaySpent: todaySpent,
       locked: settings.appLockEnabled,
-    ));
+    )));
   }
 
   @override
@@ -191,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _widgetClicks = HomeWidgetService.clicks
         .listen(_openFromWidget, onError: (Object _) {});
-    HomeWidgetService.launchedFrom().then(_openFromWidget);
+    unawaited(HomeWidgetService.launchedFrom().then(_openFromWidget));
     NotificationService.instance.openRequest.addListener(_openFromNotification);
     // A tap that launched the app is already waiting.
     WidgetsBinding.instance
@@ -210,11 +210,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<ExpenseProvider>();
       // Load current year and previous year (for trends)
-      provider.ensureYearLoaded(_selectedYear);
-      provider.ensureYearLoaded(_selectedYear - 1);
-      context.read<InvestmentProvider>().fetchInvestments();
-      context.read<AccountProvider>().fetchAccounts();
-      context.read<TemplateProvider>().fetchTemplates();
+      unawaited(provider.ensureYearLoaded(_selectedYear));
+      unawaited(provider.ensureYearLoaded(_selectedYear - 1));
+      unawaited(context.read<InvestmentProvider>().fetchInvestments());
+      unawaited(context.read<AccountProvider>().fetchAccounts());
+      unawaited(context.read<TemplateProvider>().fetchTemplates());
       // Capture providers before awaiting so we don't read context across
       // async gaps.
       final recurringProvider = context.read<RecurringProvider>();
@@ -281,7 +281,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _resync?.cancel();
     _resync = Timer(const Duration(seconds: 2), () {
       if (mounted && (_settings?.notificationsEnabled ?? false)) {
-        _syncNotifications(requestPermission: false);
+        unawaited(_syncNotifications(requestPermission: false));
       }
     });
   }
@@ -292,9 +292,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (settings == null || recurring == null) return;
     // A rule saved already due (today, or backdated) posts now rather than
     // on the next trip to the background and back.
-    _postRecurring();
+    unawaited(_postRecurring());
     if (!settings.notificationsEnabled) return;
-    NotificationService.instance.scheduleBillReminders(recurring.rules);
+    unawaited(
+        NotificationService.instance.scheduleBillReminders(recurring.rules));
   }
 
   void _onSettingsChanged() {
@@ -302,10 +303,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final reminder = _settings?.dailyReminderMinutes;
     // Turning them off already cancels everything (Settings does that).
     if (on && !_notificationsWereOn && mounted) {
-      _syncNotifications(requestPermission: false);
+      unawaited(_syncNotifications(requestPermission: false));
     } else if (on && reminder != _reminderWas && mounted) {
       // The daily reminder was switched on/off or moved to another time.
-      _syncNotifications(requestPermission: false);
+      unawaited(_syncNotifications(requestPermission: false));
     }
     _notificationsWereOn = on;
     _reminderWas = reminder;
@@ -313,7 +314,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _widgetClicks?.cancel();
+    unawaited(_widgetClicks?.cancel());
     NotificationService.instance.openRequest
         .removeListener(_openFromNotification);
     for (final s in _widgetSources) {
@@ -334,12 +335,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // Back after a while, possibly on a new day: post what fell due and
       // bring the reminders up to date.
-      _postRecurring().then((_) => _scheduleResync());
+      unawaited(_postRecurring().then((_) => _scheduleResync()));
       // The SMS permission may have been granted in Android's settings while
       // the app was away; listening could not start without it.
-      if (_settings?.smsAutoCapture ?? false) SmsAutoCapture.listen(on: true);
+      if (_settings?.smsAutoCapture ?? false) {
+        unawaited(SmsAutoCapture.listen(on: true));
+      }
       // The wallpaper, and so its accent colour, may have changed meanwhile.
-      _settings?.refreshWallpaperAccent();
+      unawaited(_settings?.refreshWallpaperAccent());
     }
   }
 
@@ -494,8 +497,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             // Ensure the selected year is loaded — and, in January, the
             // year before it, which the insights compare against.
             final expenses = context.read<ExpenseProvider>();
-            expenses.ensureYearLoaded(y);
-            if (m == 1) expenses.ensureYearLoaded(y - 1);
+            unawaited(expenses.ensureYearLoaded(y));
+            if (m == 1) unawaited(expenses.ensureYearLoaded(y - 1));
           },
           onViewToggle: (isYear) {
             setState(() {
@@ -517,7 +520,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     final scheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet(
       context: context,
       // SafeArea keeps the sheet's items above the system navigation bar in
       // edge-to-edge mode; without it the last tile is covered and untappable.
@@ -577,7 +580,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
       ),
-    );
+    ));
   }
 
   /// Width from which the tabs move from a bottom bar to a rail down the
@@ -618,7 +621,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         settings.hideAmounts ? 'Show amounts' : 'Hide amounts',
                     onPressed: () {
                       Haptics.light();
-                      settings.setHideAmounts(!settings.hideAmounts);
+                      unawaited(settings.setHideAmounts(!settings.hideAmounts));
                     },
                   );
                 }),

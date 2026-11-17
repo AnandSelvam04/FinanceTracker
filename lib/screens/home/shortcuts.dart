@@ -83,7 +83,7 @@ class _SmsShortcutState extends State<_SmsShortcut> {
   void initState() {
     super.initState();
     _lifecycle = AppLifecycleListener(onResume: _refresh);
-    _refresh();
+    unawaited(_refresh());
   }
 
   @override
@@ -280,7 +280,7 @@ class _QuickAddRow extends StatelessWidget {
                           '${template.name} · ${formatMoneyRounded(template.amount)}'),
                       onPressed: () {
                         Haptics.light();
-                        onQuickAdd(template);
+                        unawaited(onQuickAdd(template));
                       },
                       onDeleted: template.id == null
                           ? null

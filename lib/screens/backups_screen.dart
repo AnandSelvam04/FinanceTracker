@@ -1,6 +1,6 @@
+import 'dart:async';
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -25,6 +25,7 @@ import '../widgets/section_header.dart';
 import '../widgets/dispose_with_route.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
+import '../utils/picked_file.dart';
 
 part 'backups/dialogs.dart';
 
@@ -128,10 +129,10 @@ class _BackupsScreenState extends State<BackupsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadLastBackup();
-    _loadDriveAccount();
-    _loadEncryption();
-    _loadAutoDrive();
+    unawaited(_loadLastBackup());
+    unawaited(_loadDriveAccount());
+    unawaited(_loadEncryption());
+    unawaited(_loadAutoDrive());
   }
 
   Future<void> _loadAutoDrive() async {
@@ -326,8 +327,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
   /// Restores a backup file the user picks: a download, an emailed backup, or
   /// a copy from another phone.
   Future<void> _restoreFromPickedFile() async {
-    final result = await FilePicker.platform.pickFiles();
-    final path = result?.files.single.path;
+    final path = await pickLocalFile();
     if (path == null || !mounted) return;
     await _restoreProtected(
         ({bool allowEmpty = false, String? passphrase}) =>
@@ -422,10 +422,10 @@ class _BackupsScreenState extends State<BackupsScreen> {
     setState(() => _isWorking = true);
     try {
       final file = await build();
-      final result = await Share.shareXFiles(
-        [XFile(file.path, mimeType: _mimeFor(file.path))],
+      final result = await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path, mimeType: _mimeFor(file.path))],
         subject: subject,
-      );
+      ));
       if (result.status == ShareResultStatus.success) {
         if (offDevice) {
           await _backupService.markSharedOffDevice();

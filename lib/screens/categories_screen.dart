@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -44,7 +45,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {
@@ -194,7 +195,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     _type = s.first;
                     _usage = null;
                   });
-                  _load();
+                  unawaited(_load());
                 },
               ),
             ),
@@ -224,7 +225,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         onAction: _add,
                       )
                     : ListView.separated(
-                        padding: scrollPadding(context, all: Space.md, fab: true),
+                        padding:
+                            scrollPadding(context, all: Space.md, fab: true),
                         itemCount: rows.length,
                         separatorBuilder: (_, __) =>
                             const SizedBox(height: Space.xs),

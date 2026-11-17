@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -56,9 +57,11 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed || !_permissionDenied) return;
-    SmsService.hasPermission().then((granted) {
-      if (granted && mounted && _permissionDenied && !_loading) _scan();
-    });
+    unawaited(SmsService.hasPermission().then((granted) {
+      if (granted && mounted && _permissionDenied && !_loading) {
+        unawaited(_scan());
+      }
+    }));
   }
 
   List<SmsDraft> _drafts = [];
@@ -101,7 +104,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scan());
     // The alerts caught as they arrived are all in the queue below.
-    NotificationService.instance.cancelSmsCaptures();
+    unawaited(NotificationService.instance.cancelSmsCaptures());
   }
 
   @override
@@ -116,7 +119,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
         _scanCoversBacklog &&
         !_loading &&
         _drafts.isEmpty) {
-      SmsService.markReviewedThrough(scannedAt);
+      unawaited(SmsService.markReviewedThrough(scannedAt));
     }
     super.dispose();
   }
@@ -283,11 +286,11 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
 
   void _selectSpan(_ScanSpan span) {
     if (span == _ScanSpan.custom) {
-      _pickCustomRange();
+      unawaited(_pickCustomRange());
       return;
     }
     setState(() => _span = span);
-    _scan();
+    unawaited(_scan());
   }
 
   List<SmsDraft> get _selected =>
@@ -660,10 +663,10 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
             enabled: !busy,
             onSelected: (v) {
               if (v == 'ignored') {
-                _manageIgnoredMerchants();
+                unawaited(_manageIgnoredMerchants());
               } else {
                 setState(() => _includeDismissed = !_includeDismissed);
-                _scan();
+                unawaited(_scan());
               }
             },
             itemBuilder: (context) => [

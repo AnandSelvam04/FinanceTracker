@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -642,7 +643,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                     _isIncome ? null : _selectedPaymentMode,
                               ));
                             }
-                            HapticFeedback.lightImpact();
+                            unawaited(HapticFeedback.lightImpact());
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

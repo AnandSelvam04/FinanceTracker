@@ -34,7 +34,7 @@ void main() {
 
   test('new envelopes record the current iteration count', () async {
     final envelope = await BackupCrypto.encryptString(secret, 'pw');
-    expect(jsonDecode(envelope)['iterations'], 210000);
+    expect((jsonDecode(envelope) as Map)['iterations'], 210000);
   });
 
   test('a backup written at the old 100k count still decrypts', () async {
@@ -48,7 +48,7 @@ void main() {
     // Re-derive the same plaintext at 100,000 iterations, exactly as an older
     // build would have written it.
     final legacy = await _encryptAt(secret, 'pw', 100000);
-    expect(jsonDecode(legacy)['iterations'], 100000);
+    expect((jsonDecode(legacy) as Map)['iterations'], 100000);
     expect(await BackupCrypto.decryptString(legacy, 'pw'), secret);
   });
 

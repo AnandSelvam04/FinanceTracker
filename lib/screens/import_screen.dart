@@ -18,6 +18,7 @@ import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
+import '../utils/picked_file.dart';
 
 class ImportScreen extends StatefulWidget {
   const ImportScreen({super.key});
@@ -55,11 +56,11 @@ class _ImportScreenState extends State<ImportScreen> {
 
   Future<void> _pickFile() async {
     final messenger = ScaffoldMessenger.of(context);
-    final result = await FilePicker.platform.pickFiles(
+    final path = await pickLocalFile(
       type: FileType.custom,
       allowedExtensions: ['csv'],
+      maxBytes: _maxCsvBytes,
     );
-    final path = result?.files.single.path;
     if (path == null) return;
 
     List<List<dynamic>> rows;

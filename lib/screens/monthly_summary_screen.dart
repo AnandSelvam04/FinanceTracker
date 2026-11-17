@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -138,9 +139,9 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     // A week can straddle a month/year boundary, and the previous period may
     // fall in an earlier year, so load every year the two ranges can touch.
     // Custom dates can span several years.
-    provider.ensureYearsLoaded({
+    unawaited(provider.ensureYearsLoaded({
       for (var y = _prevStart.year; y <= _plusDays(_rangeEnd, -1).year; y++) y,
-    });
+    }));
   }
 
   /// The period as it appears in a file name.
@@ -212,10 +213,10 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         ratesByAccount: rates,
         breakdown: _longPeriod,
       );
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/pdf')],
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path, mimeType: 'application/pdf')],
         subject: 'Statement $_periodLabel',
-      );
+      ));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     }
@@ -246,10 +247,10 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         ),
         name: 'report_$_periodLabel',
       );
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: ExcelExport.mimeType)],
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path, mimeType: ExcelExport.mimeType)],
         subject: 'Finance Tracker report $_periodLabel',
-      );
+      ));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     }

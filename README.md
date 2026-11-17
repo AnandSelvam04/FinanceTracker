@@ -52,7 +52,7 @@ Android-first Flutter app for tracking expenses, income, accounts, investments, 
 - home_widget (home-screen widget, Android)
 - image_picker, google_mlkit_text_recognition (on-device receipt OCR)
 - speech_to_text (on-device voice entry; requires the RECORD_AUDIO permission)
-- google_sign_in, googleapis, googleapis_auth (Drive backup/restore)
+- google_sign_in 7 (Drive authorization only, no sign-in), googleapis (Drive backup/restore; `lib/services/backup/`)
 - Test support: flutter_test, sqflite_common_ffi (file-backed SQLite for unit tests)
 
 ## Project structure (key paths)

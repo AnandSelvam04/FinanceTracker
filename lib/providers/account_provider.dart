@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/account.dart';
 import '../services/db_service.dart';
@@ -111,7 +112,7 @@ class AccountProvider extends ChangeNotifier {
     if (identical(investments, _seenInvestments)) return;
     final firstSight = _seenInvestments == null;
     _seenInvestments = investments;
-    if (!firstSight) refreshBalances();
+    if (!firstSight) unawaited(refreshBalances());
   }
 
   /// Recompute balances after transactions change.

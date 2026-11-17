@@ -26,9 +26,32 @@ linter:
   # or a specific dart file by using the `// ignore: name_of_lint` and
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
+  # Beyond the Flutter defaults: rules that catch real bugs in an app that
+  # writes money to a database, rather than matters of style.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # A database write or file save nobody awaits can fail silently or land
+    # after the screen has moved on. Wrap a deliberate fire-and-forget in
+    # unawaited(...) so it reads as a decision.
+    - unawaited_futures
+    - discarded_futures
+    # Calling a method on `dynamic` (decoded JSON, a backup row) skips every
+    # type check; cast or pattern-match first.
+    - avoid_dynamic_calls
+    # A StreamSubscription or controller left open keeps listening after its
+    # screen is gone.
+    - cancel_subscriptions
+    - close_sinks
+    # `throw 'text'` loses the stack trace and the type callers catch on.
+    - only_throw_errors
+    # A `return` in `finally` swallows the exception being thrown.
+    - control_flow_in_finally
+    - throw_in_finally
+    # Two branches doing the same thing, or a condition that is always
+    # true, usually means one was meant to differ.
+    - no_literal_bool_comparisons
+    - unnecessary_statements
+    - literal_only_boolean_expressions
+    - test_types_in_equals
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

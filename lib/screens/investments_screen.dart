@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/investment_provider.dart';
@@ -27,7 +28,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<InvestmentProvider>();
       if (provider.investments.isEmpty) {
-        provider.fetchInvestments();
+        unawaited(provider.fetchInvestments());
       }
     });
   }

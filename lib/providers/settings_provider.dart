@@ -238,7 +238,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kSmsImportEnabled, value);
     // Reading SMS off also stops listening for new ones.
-    SmsAutoCapture.listen(on: smsAutoCapture);
+    await SmsAutoCapture.listen(on: smsAutoCapture);
     notifyListeners();
   }
 
@@ -246,7 +246,7 @@ class SettingsProvider extends ChangeNotifier {
     _smsAutoCapture = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kSmsAutoCapture, value);
-    SmsAutoCapture.listen(on: smsAutoCapture);
+    await SmsAutoCapture.listen(on: smsAutoCapture);
     notifyListeners();
   }
 

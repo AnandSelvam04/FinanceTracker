@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/account.dart';
@@ -39,7 +40,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AccountProvider>().fetchAccounts();
+      unawaited(context.read<AccountProvider>().fetchAccounts());
     });
   }
 

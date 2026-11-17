@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
@@ -47,14 +48,14 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet>
   @override
   void initState() {
     super.initState();
-    _init();
+    unawaited(_init());
   }
 
   @override
   void dispose() {
     _pulse.dispose();
     // Best-effort stop; the plugin tolerates being stopped when idle.
-    _speech.stop();
+    unawaited(_speech.stop());
     super.dispose();
   }
 
@@ -66,7 +67,7 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet>
       );
       if (!mounted) return;
       if (available) {
-        _startListening();
+        unawaited(_startListening());
       } else {
         setState(() => _error =
             'Speech recognition is not available. Check the microphone '
@@ -218,7 +219,7 @@ class _VoiceCaptureSheetState extends State<_VoiceCaptureSheet>
                   onPressed: _words.trim().isEmpty
                       ? null
                       : () {
-                          _speech.stop();
+                          unawaited(_speech.stop());
                           Navigator.pop(context, _words.trim());
                         },
                   icon: const Icon(Icons.check),
