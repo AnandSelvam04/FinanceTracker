@@ -1,7 +1,6 @@
 import 'package:finance_tracker/services/backup/backup_errors.dart';
 import 'package:finance_tracker/services/backup/drive_store.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
