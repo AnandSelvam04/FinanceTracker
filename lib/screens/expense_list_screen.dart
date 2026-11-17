@@ -496,10 +496,12 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               filtered,
               filename: 'expenses_$_filterLabel.csv',
             );
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: excel ? ExcelExport.mimeType : 'text/csv')],
+      await SharePlus.instance.share(ShareParams(
+        files: [
+          XFile(file.path, mimeType: excel ? ExcelExport.mimeType : 'text/csv')
+        ],
         subject: 'Finance Tracker — Transactions ($_filterLabel)',
-      );
+      ));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     }

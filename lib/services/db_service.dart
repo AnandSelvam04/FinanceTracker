@@ -19,6 +19,7 @@ import '../utils/category_suggestions.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
 import 'db/db_schema.dart';
+import 'secure_store.dart';
 
 part 'db/account_queries.dart';
 part 'db/budget_queries.dart';
@@ -36,7 +37,7 @@ class DBService {
   /// Test-only hook so tests can point the singleton at an isolated file.
   static String? dbNameOverride;
 
-  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static const FlutterSecureStorage _secureStorage = appSecureStorage;
   static const _kEncEnabledFlag = 'db_encryption_enabled';
   static const _kEncKey = 'db_encryption_key';
 

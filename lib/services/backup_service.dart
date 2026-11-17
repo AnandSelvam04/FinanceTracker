@@ -15,6 +15,7 @@ import 'backup/local_files.dart' as files;
 import 'backup_crypto.dart';
 import 'db_service.dart';
 import 'receipt_store.dart';
+import 'secure_store.dart';
 
 export 'auto_drive_backup.dart' show AutoDriveStatus;
 export 'backup/backup_errors.dart';
@@ -408,7 +409,7 @@ class BackupService {
 
   // --- Automatic Drive backup ---------------------------------------------
 
-  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static const FlutterSecureStorage _secureStorage = appSecureStorage;
 
   /// The passphrase the automatic Drive backup seals with. Kept in the
   /// device keystore, next to the database key, never in plain preferences.

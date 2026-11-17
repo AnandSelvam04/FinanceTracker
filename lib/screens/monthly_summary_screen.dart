@@ -213,10 +213,10 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         ratesByAccount: rates,
         breakdown: _longPeriod,
       );
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/pdf')],
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path, mimeType: 'application/pdf')],
         subject: 'Statement $_periodLabel',
-      );
+      ));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     }
@@ -247,10 +247,10 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         ),
         name: 'report_$_periodLabel',
       );
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: ExcelExport.mimeType)],
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path, mimeType: ExcelExport.mimeType)],
         subject: 'Finance Tracker report $_periodLabel',
-      );
+      ));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     }

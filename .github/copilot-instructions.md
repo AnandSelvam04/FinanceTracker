@@ -15,6 +15,12 @@ Android-first Flutter app (Provider + SQLite via `sqflite_sqlcipher`). See
   Drive access, CSV exports and errors under `lib/services/backup/`. Drive
   uses google_sign_in 7 *authorization* only; never call `authenticate()`,
   which needs a web OAuth client this app does not have.
+- The keystore is reached only through `appSecureStorage`
+  (`lib/services/secure_store.dart`), which holds the database key: keep
+  `resetOnError: false`, and do not move to flutter_secure_storage 11 until
+  a release on 10 has run on every phone (11 cannot read the v9 format).
+- Pick files with `pickLocalFile` (`lib/utils/picked_file.dart`): Android can
+  return a picked file without a path.
 - `analysis_options.yaml` turns on `unawaited_futures` and
   `discarded_futures`: await a Future, or wrap a deliberate fire-and-forget
   in `unawaited(...)`.
