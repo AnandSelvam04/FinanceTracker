@@ -6,8 +6,10 @@ void main() {
   group('DriveStore.messageFor', () {
     test('an unregistered build points to the set-up guide', () {
       for (final (code, detail) in [
-        (GoogleSignInExceptionCode.unknownError,
-            'SDK reported an exception: ApiException: 10: '),
+        (
+          GoogleSignInExceptionCode.unknownError,
+          'SDK reported an exception: ApiException: 10: '
+        ),
         (GoogleSignInExceptionCode.clientConfigurationError, null),
         (GoogleSignInExceptionCode.providerConfigurationError, 'x'),
         (null, 'sign_in_failed DEVELOPER_ERROR'),

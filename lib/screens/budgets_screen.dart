@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/budget.dart';
@@ -237,7 +238,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     foregroundColor: Theme.of(context).colorScheme.error),
                 onPressed: () {
                   Navigator.of(context).pop();
-                  _confirmDeleteBudget(budget.id!, budget.category);
+                  unawaited(_confirmDeleteBudget(budget.id!, budget.category));
                 },
                 child: const Text('Delete'),
               ),
@@ -451,7 +452,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               .spentForCategoryInMonth(b.year, b.month, b.category);
 
           return ListView(
-            padding: scrollPadding(context, all: Space.md, fab: !widget.embedded),
+            padding:
+                scrollPadding(context, all: Space.md, fab: !widget.embedded),
             children: [
               _BudgetMonthStepper(
                 year: _viewYear,

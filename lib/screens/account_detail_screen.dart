@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -63,7 +64,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
     // Reload when a row is edited, duplicated or deleted from here (or
     // anywhere else while this screen is open).
     _expenses = context.read<ExpenseProvider>()..addListener(_load);
-    _load();
+    unawaited(_load());
   }
 
   @override

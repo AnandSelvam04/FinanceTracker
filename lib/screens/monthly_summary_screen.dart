@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -138,9 +139,9 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     // A week can straddle a month/year boundary, and the previous period may
     // fall in an earlier year, so load every year the two ranges can touch.
     // Custom dates can span several years.
-    provider.ensureYearsLoaded({
+    unawaited(provider.ensureYearsLoaded({
       for (var y = _prevStart.year; y <= _plusDays(_rangeEnd, -1).year; y++) y,
-    });
+    }));
   }
 
   /// The period as it appears in a file name.

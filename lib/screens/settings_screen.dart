@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -99,7 +100,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      context.read<AccountProvider>().fetchAccounts();
+      unawaited(context.read<AccountProvider>().fetchAccounts());
       final enabled = await DBService().isEncryptionEnabled();
       if (mounted) setState(() => _encryptionEnabled = enabled);
     });
@@ -219,7 +220,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           value: m, child: Text(_themeLabel(m))))
                       .toList(),
                   onChanged: (m) {
-                    if (m != null) settings.setThemeMode(m);
+                    if (m != null) unawaited(settings.setThemeMode(m));
                   },
                 ),
               ),
@@ -412,7 +413,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: !settings.appLockEnabled
                       ? null
                       : (v) {
-                          if (v != null) settings.setLockTimeoutSeconds(v);
+                          if (v != null) {
+                            unawaited(settings.setLockTimeoutSeconds(v));
+                          }
                         },
                 ),
               ),
@@ -444,7 +447,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // can be tied back to a commit. Tap to copy.
                 subtitle: Text(BuildInfo.label),
                 onTap: () {
-                  Clipboard.setData(ClipboardData(text: BuildInfo.label));
+                  unawaited(
+                      Clipboard.setData(ClipboardData(text: BuildInfo.label)));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Version copied')),
                   );

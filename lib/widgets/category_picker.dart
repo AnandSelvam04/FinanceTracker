@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../services/db_service.dart';
@@ -199,7 +200,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
   @override
   void initState() {
     super.initState();
-    _loadUsed();
+    unawaited(_loadUsed());
   }
 
   @override

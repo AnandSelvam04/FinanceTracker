@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
@@ -34,7 +35,7 @@ void main() async {
   await NotificationService.instance.init();
   // Listening has to be re-registered on each launch; the background side
   // then keeps working after the app is closed.
-  SmsAutoCapture.listen(on: settings.smsAutoCapture);
+  unawaited(SmsAutoCapture.listen(on: settings.smsAutoCapture));
   runApp(FinanceTrackerApp(
     settings: settings,
     seenOnboarding: seenOnboarding,
@@ -171,7 +172,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     if (widget.enabled) {
-      _tryUnlock();
+      unawaited(_tryUnlock());
     } else {
       _unlocked = _everUnlocked = true;
       _checking = false;
@@ -205,7 +206,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
             lockAfter: widget.lockAfter,
           )) {
         setState(() => _unlocked = false);
-        _tryUnlock();
+        unawaited(_tryUnlock());
       }
       _backgroundedAt = null;
     } else if (state == AppLifecycleState.paused ||

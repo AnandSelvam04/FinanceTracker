@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -379,7 +380,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                                   accountId: investment.accountId,
                                 ));
                               }
-                              HapticFeedback.lightImpact();
+                              unawaited(HapticFeedback.lightImpact());
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(

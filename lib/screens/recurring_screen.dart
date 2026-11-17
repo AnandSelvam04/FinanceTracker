@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/recurring_rule.dart';
@@ -36,8 +37,8 @@ class _RecurringScreenState extends State<RecurringScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<RecurringProvider>().fetchRules();
-      context.read<AccountProvider>().fetchAccounts();
+      unawaited(context.read<RecurringProvider>().fetchRules());
+      unawaited(context.read<AccountProvider>().fetchAccounts());
     });
   }
 
@@ -225,7 +226,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                     foregroundColor: Theme.of(context).colorScheme.error),
                 onPressed: () {
                   Navigator.of(context).pop();
-                  _confirmDeleteRule(rule);
+                  unawaited(_confirmDeleteRule(rule));
                 },
                 child: const Text('Delete'),
               ),
@@ -380,7 +381,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                       value: rule.enabled,
                       onChanged: (_) {
                         Haptics.light();
-                        provider.toggleEnabled(rule);
+                        unawaited(provider.toggleEnabled(rule));
                       },
                     ),
                     onTap: () => _showRuleDialog(rule: rule),

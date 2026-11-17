@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:provider/provider.dart';
@@ -205,7 +206,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
-              if (value == 'move') _moveToAnotherType(context);
+              if (value == 'move') unawaited(_moveToAnotherType(context));
             },
             itemBuilder: (context) => const [
               PopupMenuItem(
@@ -473,9 +474,9 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                 tooltip: 'More actions',
                 onSelected: (value) {
                   if (value == 'move') {
-                    _moveContribution(context, investment);
+                    unawaited(_moveContribution(context, investment));
                   } else if (value == 'delete') {
-                    _confirmDelete(context, investment);
+                    unawaited(_confirmDelete(context, investment));
                   }
                 },
                 itemBuilder: (context) => const [

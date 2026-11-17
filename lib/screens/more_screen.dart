@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
@@ -43,7 +44,7 @@ class _MoreScreenState extends State<MoreScreen> {
   @override
   void initState() {
     super.initState();
-    _loadLastBackup();
+    unawaited(_loadLastBackup());
   }
 
   Future<void> _loadLastBackup() async {
@@ -149,7 +150,7 @@ class _MoreScreenState extends State<MoreScreen> {
           context,
           MaterialPageRoute(builder: (context) => const BackupsScreen()),
         );
-        _loadLastBackup();
+        unawaited(_loadLastBackup());
       }),
       _Entry('App', Destinations.customiseHome, 'Customise home',
           subtitle: 'Reorder or hide sections, pick shortcuts',

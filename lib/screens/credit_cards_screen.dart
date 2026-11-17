@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -111,12 +112,12 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
       if (!mounted) return;
       // Fresh balances and card details, as the Accounts and Investments
       // screens load theirs on opening.
-      context.read<AccountProvider>().fetchAccounts();
-      context.read<InvestmentProvider>().fetchInvestments();
+      unawaited(context.read<AccountProvider>().fetchAccounts());
+      unawaited(context.read<InvestmentProvider>().fetchInvestments());
       // A cycle, or last month, can reach back into the previous year.
-      _ensureLoaded(_now.year - 1, _now.year);
-      _loadDismissedTwins();
-      _loadReadings();
+      unawaited(_ensureLoaded(_now.year - 1, _now.year));
+      unawaited(_loadDismissedTwins());
+      unawaited(_loadReadings());
     });
   }
 

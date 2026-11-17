@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/expense_provider.dart';
@@ -62,7 +63,7 @@ class TopMerchantsCard extends StatelessWidget {
 
   void _showRows(BuildContext context, MerchantTotal m) {
     final baseAmountOf = context.read<ExpenseProvider>().baseAmountOf;
-    showModalBottomSheet<void>(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -102,6 +103,6 @@ class TopMerchantsCard extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }

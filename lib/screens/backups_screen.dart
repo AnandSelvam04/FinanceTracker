@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -128,10 +129,10 @@ class _BackupsScreenState extends State<BackupsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadLastBackup();
-    _loadDriveAccount();
-    _loadEncryption();
-    _loadAutoDrive();
+    unawaited(_loadLastBackup());
+    unawaited(_loadDriveAccount());
+    unawaited(_loadEncryption());
+    unawaited(_loadAutoDrive());
   }
 
   Future<void> _loadAutoDrive() async {

@@ -40,11 +40,13 @@ class DriveStore {
   static Future<void>? _initialized;
 
   /// [GoogleSignIn.initialize] must run exactly once before any other call.
-  static Future<void> _ensureInitialized() => _initialized ??=
-          GoogleSignIn.instance.initialize().catchError((Object e) {
+  static Future<void> _ensureInitialized() =>
+      _initialized ??= GoogleSignIn.instance
+          .initialize()
+          .catchError((Object e, StackTrace s) {
         // Let a later call try again rather than fail for the app's lifetime.
         _initialized = null;
-        throw e;
+        Error.throwWithStackTrace(e, s);
       });
 
   static GoogleSignInAuthorizationClient get _auth =>

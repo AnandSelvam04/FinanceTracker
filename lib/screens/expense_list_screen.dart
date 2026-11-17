@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:provider/provider.dart';
@@ -134,7 +135,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       ],
                       onChanged: (y) {
                         setSheet(() => _selectedYear = y);
-                        _selectYear(y);
+                        unawaited(_selectYear(y));
                       },
                     ),
                   ),
@@ -451,8 +452,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     // them so the filter shows everything.
     final range = picked.range;
     if (range != null) {
-      provider.ensureYearsLoaded(
-          [for (var y = range.start.year; y <= range.end.year; y++) y]);
+      unawaited(provider.ensureYearsLoaded(
+          [for (var y = range.start.year; y <= range.end.year; y++) y]));
     }
   }
 
@@ -668,7 +669,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                               actionLabel: 'Search all years',
                               onAction: () {
                                 setState(() => _selectedMonth = null);
-                                _selectYear(null);
+                                unawaited(_selectYear(null));
                               },
                             )
                           else
@@ -727,7 +728,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       // +1 for the period summary leading the list.
                       itemCount: items.length + 1,
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: scrollPadding(context, all: Space.md, top: Space.xs),
+                      padding:
+                          scrollPadding(context, all: Space.md, top: Space.xs),
                       itemBuilder: (context, index) {
                         if (index == 0) {
                           return _PeriodSummary(
