@@ -25,6 +25,8 @@ class WhatsNew {
   static const items = [
     WhatsNewItem(Icons.credit_score_outlined, 'Card EMIs post once',
         'An EMI instalment could be added twice when the app was opened and resumed at the same moment. It is now added once.'),
+    WhatsNewItem(Icons.savings_outlined, 'Investments always have a name',
+        'Leave the name blank and it is saved as the type and month, like "PPF Nov 2026". Entries saved blank before now show that way too.'),
     WhatsNewItem(Icons.cloud_outlined, 'Drive backup, updated',
         'Drive backup uses Google\'s current permission prompt. Switch account now asks again for Drive access on the next backup.'),
   ];

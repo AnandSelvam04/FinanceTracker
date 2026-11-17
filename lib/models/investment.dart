@@ -40,14 +40,35 @@ class Investment {
   /// put in.
   bool get isWithdrawal => amount < 0;
 
+  /// A blank [name] becomes [autoName] for the entry's type and month
+  /// ("PPF Nov 2026"), whichever way the entry arrives: the Add and Edit
+  /// screens, an SMS import, a recurring SIP, a restore, or a row saved
+  /// blank by an older build.
   Investment({
     this.id,
-    required this.name,
+    required String name,
     required this.amount,
     required this.date,
     required this.type,
     this.accountId,
-  });
+  }) : name = name.trim().isEmpty
+            ? autoName(type, date, withdrawal: amount < 0)
+            : name;
+
+  static const _monthAbbr = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  /// The name an entry without one gets: its type, "Withdrawal" for money
+  /// taken out, and the month, e.g. "PPF Nov 2026" or
+  /// "Gold Withdrawal Mar 2026".
+  static String autoName(String type, DateTime date,
+      {bool withdrawal = false}) {
+    final t = type.trim().isEmpty ? 'Investment' : type.trim();
+    final kind = withdrawal ? 'Withdrawal ' : '';
+    return '$t $kind${_monthAbbr[date.month - 1]} ${date.year}';
+  }
 
   Map<String, dynamic> toMap() => {
         DbConstants.colId: id,
@@ -60,7 +81,7 @@ class Investment {
 
   factory Investment.fromMap(Map<String, dynamic> map) => Investment(
         id: map[DbConstants.colId],
-        name: map[DbConstants.colName],
+        name: (map[DbConstants.colName] as String?) ?? '',
         amount: (map[DbConstants.colAmount] as num).round(),
         date: DateTime.parse(map[DbConstants.colDate]),
         type: map[DbConstants.colType],

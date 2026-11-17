@@ -703,7 +703,16 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                     const SizedBox(height: Space.sm),
                     TextField(
                       controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Name'),
+                      decoration: InputDecoration(
+                        labelText: 'Name (optional)',
+                        // Left blank, it saves as this.
+                        hintText: Investment.autoName(
+                            type == Investment.otherType
+                                ? customTypeController.text
+                                : type,
+                            selectedDate,
+                            withdrawal: isWithdrawal),
+                      ),
                     ),
                     TextField(
                       controller: amountController,
