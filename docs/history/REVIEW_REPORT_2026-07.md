@@ -1,4 +1,7 @@
-# Application Review & Improvement Analysis
+# Application Review & Improvement Analysis (July 2026)
+
+> Moved here from the repository root in November 2026 so it is not
+> mistaken for a list of open work. Nothing in it is outstanding.
 
 > **This file is a historical record, not a to-do list.** Every finding below
 > was implemented and shipped. It is kept for the reasoning, not the tasks —
