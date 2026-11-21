@@ -587,6 +587,27 @@ void main() {
       expect(await service.canUndoRestore(), isFalse);
     });
 
+    test('erasing all data can be undone', () async {
+      final db = DBService();
+      final service = BackupService();
+      await db.insertExpense(Expense(
+        description: 'Kept',
+        amount: 5000,
+        date: DateTime(2026, 5, 1),
+        category: 'Food',
+        paymentMode: 'UPI',
+      ));
+      await db.insertAccount(Account(name: 'Wallet', type: 'cash'));
+
+      await service.eraseAllData();
+      expect(await db.getExpenses(), isEmpty);
+      expect(await db.getAccounts(), isEmpty);
+
+      await service.undoRestore();
+      expect((await db.getExpenses()).single.description, 'Kept');
+      expect((await db.getAccounts()).single.name, 'Wallet');
+    });
+
     test('restoring onto an empty app offers no undo', () async {
       final db = DBService();
       final service = BackupService();

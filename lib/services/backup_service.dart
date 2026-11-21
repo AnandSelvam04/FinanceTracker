@@ -375,6 +375,14 @@ class BackupService {
         _kPreRestoreDriveStamp, prefs.getString(_kLastDriveBackup) ?? '');
   }
 
+  /// Deletes every transaction, account, budget, investment, goal and rule
+  /// (settings stay). What was there is kept first, so [undoRestore] can
+  /// put it back.
+  Future<void> eraseAllData() async {
+    await _keepForUndo();
+    await DBService().replaceAllData(const {}, clearFirst: true);
+  }
+
   /// Whether the last restore can be undone ([undoRestore]).
   Future<bool> canUndoRestore() async => (await _preRestoreFile).exists();
 

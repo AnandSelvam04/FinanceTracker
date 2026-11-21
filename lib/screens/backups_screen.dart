@@ -2,17 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../providers/account_provider.dart';
-import '../providers/budget_provider.dart';
-import '../providers/expense_provider.dart';
-import '../providers/goal_provider.dart';
-import '../providers/investment_provider.dart';
-import '../providers/recurring_provider.dart';
-import '../providers/settings_provider.dart';
-import '../providers/template_provider.dart';
+import '../providers/reload_all.dart';
 import '../services/backup_service.dart';
 import '../services/db_service.dart';
 import '../services/excel_export.dart';
@@ -399,14 +391,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
       {bool undoable = false}) async {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    final expenseProvider = context.read<ExpenseProvider>();
-    final investmentProvider = context.read<InvestmentProvider>();
-    final budgetProvider = context.read<BudgetProvider>();
-    final accountProvider = context.read<AccountProvider>();
-    final recurringProvider = context.read<RecurringProvider>();
-    final templateProvider = context.read<TemplateProvider>();
-    final goalProvider = context.read<GoalProvider>();
-    final settingsProvider = context.read<SettingsProvider>();
+    final reload = dataReloader(context);
     setState(() => _isWorking = true);
     try {
       _backupService.missingReceiptPhotos = 0;
@@ -431,15 +416,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
               : '$success$what. ${lost == 1 ? '1 receipt photo was' : '$lost receipt photos were'} '
                   'not in the backup.')));
       // Refresh data after restore/backup operations
-      await expenseProvider.reloadLoadedYears();
-      await investmentProvider.fetchInvestments();
-      await budgetProvider.fetchBudgets();
-      await accountProvider.fetchAccounts();
-      await recurringProvider.fetchRules();
-      await templateProvider.fetchTemplates();
-      await goalProvider.fetchGoals();
-      // A full restore brings back the backup's settings too.
-      await settingsProvider.load();
+      await reload();
       await _loadLastBackup();
       await _loadUndoRestore();
     } on _Cancelled {
