@@ -239,6 +239,7 @@ class ParsedSms {
     int? amount,
     String? paymentMode,
     bool asSpending = false,
+    String? note,
   }) {
     final positive = amount ?? this.amount;
     return Expense(
@@ -251,6 +252,7 @@ class ParsedSms {
       accountId: accountId,
       toAccountId: isTransfer && !asSpending ? toAccountId : null,
       sourceRef: sourceRef,
+      note: note,
     );
   }
 }

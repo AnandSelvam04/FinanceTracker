@@ -10,6 +10,7 @@ import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../services/category_memory.dart';
+import '../services/category_rules.dart';
 import '../services/db_service.dart';
 import '../services/investment_merchants.dart';
 import '../services/recurring_detector.dart';
@@ -257,6 +258,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
           SmsDraft.from(p, accountProvider.activeAccounts,
               existing: existing,
               memory: memory,
+              rules: CategoryRuleStore.instance.rules,
               claimed: claimed,
               investmentMemory: investmentMemory,
               recurringSuggested: p.isExpense &&

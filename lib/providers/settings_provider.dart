@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/sms_auto_capture.dart';
 import '../services/sms_service.dart';
 import '../utils/app_theme.dart';
+import '../services/category_rules.dart';
 import '../utils/category_store.dart';
 import '../utils/currency_format.dart';
 import '../utils/dashboard_layout.dart';
@@ -175,6 +176,7 @@ class SettingsProvider extends ChangeNotifier {
     // Loaded here so a restore, which reloads the settings, brings the
     // backup's categories back too.
     await CategoryStore.instance.load();
+    await CategoryRuleStore.instance.load();
     notifyListeners();
   }
 
@@ -389,6 +391,8 @@ class SettingsProvider extends ChangeNotifier {
     _kDailyReminder: int,
     // The user's own categories and the icons and colours they chose.
     CategoryStore.prefsKey: String,
+    // The auto-categorise rules, in their order.
+    CategoryRuleStore.prefsKey: String,
   };
 
   /// The backed-up preferences currently set.

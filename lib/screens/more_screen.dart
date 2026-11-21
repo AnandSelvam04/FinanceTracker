@@ -15,6 +15,7 @@ import 'backups_screen.dart';
 import 'budgets_screen.dart';
 import 'cashflow_screen.dart';
 import 'categories_screen.dart';
+import 'category_rules_screen.dart';
 import 'credit_cards_screen.dart';
 import 'customize_home_screen.dart';
 import 'category_trends_screen.dart';
@@ -111,6 +112,11 @@ class _MoreScreenState extends State<MoreScreen> {
           subtitle: 'Add your own, set icons, rename or merge',
           words: 'icon colour color',
           onTap: () => _open(const CategoriesScreen())),
+      _Entry('Manage', Destinations.rules, 'Auto-categorise',
+          subtitle: 'Rules that file and tag merchants for you',
+          words: 'rules automatic category categorize categorise merchant '
+              'tag zomato swiggy',
+          onTap: () => _open(const CategoryRulesScreen())),
       _Entry('Manage', Destinations.loans, 'Loans & lending',
           subtitle: 'Money you owe, and money owed to you',
           words: 'debt borrowed lent repay',

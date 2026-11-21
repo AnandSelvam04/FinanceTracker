@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/category_rule.dart';
 import '../models/expense.dart';
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
@@ -12,8 +13,11 @@ import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../screens/add_expense_screen.dart';
 import '../screens/add_transfer_screen.dart';
+import '../screens/category_rules_screen.dart';
+import '../services/category_rules.dart';
 import '../services/receipt_store.dart';
 import 'amount_calculator_bar.dart';
+import 'category_choice_chip.dart' show isSameCategory;
 import 'category_picker.dart';
 import 'dispose_with_route.dart';
 import 'receipt_photo.dart';
@@ -307,7 +311,10 @@ Future<void> showEditExpenseSheet(
                         await provider.updateExpense(updated);
                         await accountProvider.refreshBalances();
                         if (!context.mounted) return;
+                        final navigator = Navigator.of(context);
+                        final messenger = ScaffoldMessenger.of(context);
                         Navigator.pop(context);
+                        offerRuleFor(expense, updated, navigator, messenger);
                       },
                       child: const Text('Save'),
                     ),
@@ -701,4 +708,39 @@ class _PartCtrl {
     amount.dispose();
     category.dispose();
   }
+}
+
+/// After a row is moved to another category by hand, offers to make that a
+/// rule ("Always file "Zomato" under Food?"), unless a rule already files it
+/// there. The rule editor opens filled in; nothing is saved until confirmed.
+@visibleForTesting
+void offerRuleFor(Expense before, Expense after, NavigatorState navigator,
+    ScaffoldMessengerState messenger) {
+  if (after.isTransfer) return;
+  if (isSameCategory(before.category, after.category)) return;
+  final pattern = CategoryRules.patternFrom(after.description);
+  if (pattern.isEmpty || after.category.trim().isEmpty) return;
+  final existing =
+      CategoryRuleStore.instance.firstMatch(after.description, after.type);
+  if (existing != null && isSameCategory(existing.category, after.category)) {
+    return;
+  }
+  messenger.showSnackBar(SnackBar(
+    content:
+        Text('Always file "${after.displayName}" under ${after.category}?'),
+    duration: const Duration(seconds: 6),
+    action: SnackBarAction(
+      label: 'Make a rule',
+      onPressed: () => navigator.push(MaterialPageRoute(
+        builder: (_) => CategoryRuleEditor(
+          draft: CategoryRule(
+            id: CategoryRuleStore.newId(),
+            pattern: pattern,
+            type: after.type,
+            category: after.category.trim(),
+          ),
+        ),
+      )),
+    ),
+  ));
 }
