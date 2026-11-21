@@ -55,6 +55,36 @@ void main() {
     expect(provider.categoryTotalsForYear(2026), {'Travel': 50000});
   });
 
+  test('setAccount moves rows to another account, leaving transfers alone',
+      () async {
+    await provider.addExpenses([
+      row(30000),
+      row(20000),
+      Expense(
+        description: 'Bill',
+        amount: 10000,
+        date: DateTime(2026, 5, 11),
+        category: 'Transfer',
+        paymentMode: 'Other',
+        type: DbConstants.txTransfer,
+        accountId: 1,
+        toAccountId: 2,
+      ),
+    ]);
+    expect(await provider.setAccount(ids(), 7), 2);
+    final byType = {
+      for (final e in provider.expenses) e.type: e.accountId,
+    };
+    expect(byType[DbConstants.txExpense], 7);
+    expect(byType[DbConstants.txTransfer], 1);
+    await provider.setAccount(ids(), null);
+    expect(
+        provider.expenses
+            .where((e) => !e.isTransfer)
+            .every((e) => e.accountId == null),
+        isTrue);
+  });
+
   test('renameCategory merges one category into another', () async {
     await provider.addExpenses([row(30000), row(20000, category: 'Dining')]);
     expect(

@@ -244,6 +244,14 @@ class ExpenseProvider extends ChangeNotifier {
     return n;
   }
 
+  /// Moves every row in [ids] to account [accountId]; transfers are
+  /// skipped. Returns how many changed.
+  Future<int> setAccount(Iterable<int> ids, int? accountId) async {
+    final n = await DBService().setAccount(ids, accountId);
+    await reloadLoadedYears();
+    return n;
+  }
+
   /// Replaces transaction [originalId] with [parts], which sum to it.
   Future<void> splitExpense(int originalId, List<Expense> parts) async {
     await DBService().splitExpense(originalId, parts);
