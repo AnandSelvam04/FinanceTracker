@@ -18,7 +18,11 @@ import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
 
 class AccountsScreen extends StatefulWidget {
-  const AccountsScreen({super.key});
+  /// Opens the Add account form straight away (from a screen that needs
+  /// another account first).
+  final bool openAdd;
+
+  const AccountsScreen({super.key, this.openAdd = false});
 
   @override
   State<AccountsScreen> createState() => _AccountsScreenState();
@@ -41,6 +45,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(context.read<AccountProvider>().fetchAccounts());
+      if (widget.openAdd) unawaited(_showAccountDialog());
     });
   }
 

@@ -92,4 +92,24 @@ void main() {
     expect(find.text('HDFC'), findsOneWidget);
     expect(find.text('Amex'), findsOneWidget);
   });
+
+  testWidgets('Swap trades the two accounts round', (tester) async {
+    late int bankId, cardId;
+    await pump(tester, (bank, card) {
+      bankId = bank;
+      cardId = card;
+      return AddTransferScreen(
+          initialFromAccountId: bank, initialToAccountId: card);
+    });
+    List<int?> values() => [
+          for (final f in tester.widgetList<DropdownButtonFormField<int>>(
+              find.byType(DropdownButtonFormField<int>)))
+            f.initialValue,
+        ];
+    expect(values(), [bankId, cardId]);
+
+    await tester.tap(find.byTooltip('Swap from and to'));
+    await tester.pumpAndSettle();
+    expect(values(), [cardId, bankId]);
+  });
 }
