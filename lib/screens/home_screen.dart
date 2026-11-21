@@ -414,7 +414,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // is scheduled even when it is weeks out; overdueGrace 0 so a past due
     // date is never scheduled in the past.
     final cardReminders = creditCardReminders(
-      accounts: accounts.accounts,
+      // A closed (archived) card sends no more bills.
+      accounts: accounts.activeAccounts,
       now: now,
       // Investments bought on the card are on its statement too.
       spendInRange: (id, from, to) =>
@@ -601,7 +602,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // IndexedStack keeps every tab mounted, so the Transactions screen's
     // search, filters, and scroll position survive tab switches.
     final tabs = IndexedStack(index: _selectedIndex, children: _screens);
-    return Scaffold(
+    // Back on any tab but Home goes to Home first, as on other Android apps;
+    // it used to close the app from Transactions, Budgets or More.
+    return PopScope(
+      canPop: _selectedIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || _selectedIndex == 0) return;
+        // That Back press is the Transactions tab's, to end its selection.
+        if (_selectedIndex == 1 && ExpenseListScreen.selectionActive.value) {
+          return;
+        }
+        _selectTab(0);
+      },
+      child: Scaffold(
       // Transactions and Budgets bring their own app bar (with their own
       // actions); showing this one above it stacked two purple bars and cost
       // a tenth of the screen.
@@ -745,6 +758,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ],
             ),
+      ),
     );
   }
 }

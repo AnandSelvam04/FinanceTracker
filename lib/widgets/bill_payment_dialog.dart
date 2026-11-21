@@ -112,7 +112,7 @@ class _BillPaymentDialogState extends State<_BillPaymentDialog> {
   Widget build(BuildContext context) {
     final symbol = _card.symbol;
     final payable =
-        context.watch<AccountProvider>().accounts.where(_payable).toList();
+        context.watch<AccountProvider>().activeAccounts.where(_payable).toList();
     final min = _s.minimumDueEstimate;
     final muted = mutedTextColor(context);
     return AlertDialog(

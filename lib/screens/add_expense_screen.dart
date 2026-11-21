@@ -30,6 +30,7 @@ import '../widgets/spend_account_picker.dart';
 import '../widgets/voice_capture_sheet.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
+import '../utils/error_message.dart';
 
 /// An optional capture flow to launch as soon as the screen opens, so the
 /// dashboard can offer "Scan receipt" / "Add by voice" as direct shortcuts.
@@ -345,7 +346,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     final accountProvider = context.watch<AccountProvider>();
-    final accounts = accountProvider.accounts;
+    final accounts = accountProvider.pickable([_accountId]);
     final categorySuggestions = _suggestions;
     // The amount is stored in the chosen account's currency, so label it with
     // that currency — a USD account showed "₹", inviting a rupee figure that
@@ -658,10 +659,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context)
                                   .showSnackBar(SnackBar(
-                                content: Text('Failed to save: $e'),
+                                content: Text(friendlyError(
+                                    "Couldn't save the transaction", e, st)),
                               ));
                             }
-                            AppLogger.error('Error saving expense', e, st);
                           } finally {
                             if (mounted) setState(() => _isSaving = false);
                           }

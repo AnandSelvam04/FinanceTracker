@@ -626,7 +626,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     DateTime selectedDate = investment.date;
     bool isWithdrawal = investment.isWithdrawal;
     int? accountId = investment.accountId;
-    final accounts = context.read<AccountProvider>().accounts;
+    final accounts =
+        context.read<AccountProvider>().pickable([investment.accountId]);
 
     const types = Investment.builtInTypes;
     final isBuiltIn = types.contains(investment.type);

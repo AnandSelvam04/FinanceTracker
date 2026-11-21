@@ -57,6 +57,19 @@ class BackupService {
     return File('$path/finance_backup_encrypted.json');
   }
 
+  /// What the app held just before the last full restore, so that restore
+  /// can be undone ([undoRestore]). Sealed with the device key when the
+  /// database is encrypted, like the on-device backup.
+  Future<File> get _preRestoreFile async {
+    final path = await _localPath;
+    return File('$path/pre_restore_backup.json');
+  }
+
+  /// The Drive stamp ([_kLastDriveBackup]) from before the last restore; a
+  /// restore from Drive moves it, and undoing that restore puts it back so
+  /// the next backup doesn't treat Drive's copy as this phone's own.
+  static const _kPreRestoreDriveStamp = 'pre_restore_drive_stamp';
+
   /// How many days of local backups [backupHistory] keeps.
   ///
   /// The main local backup is replaced every day by the auto-backup, so on its
@@ -297,7 +310,9 @@ class BackupService {
   /// Set [allowEmpty] only after the user has confirmed they really mean to
   /// replace their data with an empty backup.
   Future<void> _applyRestore(Object? raw,
-      {bool clearBeforeRestore = true, bool allowEmpty = false}) async {
+      {bool clearBeforeRestore = true,
+      bool allowEmpty = false,
+      bool keepUndo = true}) async {
     final data = payload.validateBackupPayload(raw);
 
     if (clearBeforeRestore &&
@@ -309,6 +324,15 @@ class BackupService {
     }
 
     final rowsByTable = payload.rowsFromBackup(data);
+
+    // A full restore replaces everything, and the on-device backup is then
+    // rewritten from the restored data — so keep what is here now, to undo
+    // it with. Done after the backup has been checked, so a backup that is
+    // refused leaves the previous undo copy alone.
+    if (clearBeforeRestore && keepUndo) await _keepForUndo();
+    int rows(String key) => (data[key] as List?)?.length ?? 0;
+    lastRestoreCounts =
+        (transactions: rows('expenses'), accounts: rows('accounts'));
 
     await DBService()
         .replaceAllData(rowsByTable, clearFirst: clearBeforeRestore);
@@ -329,6 +353,55 @@ class BackupService {
           'Could not check receipt photos after the restore', e, st);
     }
   }
+
+  /// Saves the app's current data as [_preRestoreFile]. Nothing worth
+  /// keeping (a fresh install) clears it instead, so there is no Undo that
+  /// would only empty the app again.
+  Future<void> _keepForUndo() async {
+    final file = await _preRestoreFile;
+    final current = await payload.collectBackupData();
+    if (payload.backupRowCount(payload.validateBackupPayload(current)) == 0) {
+      if (await file.exists()) await file.delete();
+      return;
+    }
+    var content = jsonEncode(current);
+    final deviceKey = await DBService().deviceKeyIfEncrypted();
+    if (deviceKey != null) {
+      content = await BackupCrypto.encryptString(content, deviceKey);
+    }
+    await writeAtomically(file, content);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        _kPreRestoreDriveStamp, prefs.getString(_kLastDriveBackup) ?? '');
+  }
+
+  /// Whether the last restore can be undone ([undoRestore]).
+  Future<bool> canUndoRestore() async => (await _preRestoreFile).exists();
+
+  /// Puts back what the app held before the last full restore, and the
+  /// on-device backup with it. The undo copy is used up.
+  Future<void> undoRestore() async {
+    final file = await _preRestoreFile;
+    if (!await file.exists()) {
+      throw Exception('There is no restore to undo');
+    }
+    final data = await _decode(await file.readAsString());
+    await _applyRestore(data,
+        clearBeforeRestore: true, allowEmpty: true, keepUndo: false);
+    await backupToJson(deviceKey: await DBService().deviceKeyIfEncrypted());
+    final prefs = await SharedPreferences.getInstance();
+    final stamp = prefs.getString(_kPreRestoreDriveStamp);
+    if (stamp == null || stamp.isEmpty) {
+      await prefs.remove(_kLastDriveBackup);
+    } else {
+      await prefs.setString(_kLastDriveBackup, stamp);
+    }
+    await prefs.remove(_kPreRestoreDriveStamp);
+    await file.delete();
+  }
+
+  /// What the last restore brought in, for the screen to say so.
+  ({int transactions, int accounts})? lastRestoreCounts;
 
   /// How many transactions in the last restore had a receipt photo that is
   /// not on this device, so the screen can say they came back without one.

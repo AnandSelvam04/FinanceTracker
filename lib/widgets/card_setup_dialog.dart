@@ -253,6 +253,7 @@ class _CardSetupDialogState extends State<_CardSetupDialog> {
       dueDay: _day(_dueDay.text),
       creditLimit: holder == null ? limit : null,
       sharedLimitWith: holder?.id,
+      archived: c?.archived ?? false,
     );
     if (c == null) {
       await provider.addAccount(account);

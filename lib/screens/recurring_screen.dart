@@ -67,7 +67,8 @@ class _RecurringScreenState extends State<RecurringScreen> {
     _nextDue = rule?.nextDue ?? DateTime.now();
     _endDate = rule?.endDate;
 
-    final accounts = context.read<AccountProvider>().accounts;
+    final accounts =
+        context.read<AccountProvider>().pickable([rule?.accountId]);
     // A SIP files contributions into an investment type: it has no
     // expense/income type to pick, and its category is that investment type.
     final isSip = rule?.isInvestment ?? false;

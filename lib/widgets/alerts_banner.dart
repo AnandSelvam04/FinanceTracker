@@ -46,7 +46,7 @@ class AlertsBanner extends StatelessWidget {
         final accounts = context.watch<AccountProvider>();
         final investments = context.watch<InvestmentProvider>();
         final cardDue = creditCardReminders(
-          accounts: accounts.accounts,
+          accounts: accounts.activeAccounts,
           now: now,
           // Investments bought on the card are on its statement too.
           spendInRange: (id, from, to) =>

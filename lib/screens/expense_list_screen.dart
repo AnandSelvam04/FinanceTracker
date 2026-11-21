@@ -29,12 +29,18 @@ import '../widgets/transaction_edit_sheet.dart';
 import 'investment_type_screen.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
+import '../utils/error_message.dart';
 
 part 'expense_list/filter_sheet.dart';
 part 'expense_list/list_widgets.dart';
 
 class ExpenseListScreen extends StatefulWidget {
   const ExpenseListScreen({super.key});
+
+  /// Whether rows are being multi-selected, so the home screen's Back
+  /// handling leaves that Back press to clear the selection instead of
+  /// switching to the Home tab as well.
+  static final selectionActive = ValueNotifier<bool>(false);
 
   @override
   State<ExpenseListScreen> createState() => _ExpenseListScreenState();
@@ -502,13 +508,18 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         ],
         subject: 'Finance Tracker — Transactions ($_filterLabel)',
       ));
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    } catch (e, st) {
+      messenger.showSnackBar(SnackBar(content: Text(friendlyError("Couldn't create the file", e, st))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Read by the home screen after this frame; a Back press that clears the
+    // selection still sees it as active.
+    final selecting = _selecting;
+    WidgetsBinding.instance.addPostFrameCallback(
+        (_) => ExpenseListScreen.selectionActive.value = selecting);
     return PopScope(
       // Back leaves selection mode before it leaves the screen.
       canPop: !_selecting,

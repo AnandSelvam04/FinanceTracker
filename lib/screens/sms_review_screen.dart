@@ -24,6 +24,7 @@ import '../utils/insets.dart';
 import '../widgets/category_picker.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
+import '../utils/error_message.dart';
 
 part 'sms_review/draft_card.dart';
 part 'sms_review/review_widgets.dart';
@@ -253,7 +254,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
       _scanCoversBacklog = range.to == null && !lower.isAfter(backlogStart);
       _drafts = [
         for (final p in found)
-          SmsDraft.from(p, accountProvider.accounts,
+          SmsDraft.from(p, accountProvider.activeAccounts,
               existing: existing,
               memory: memory,
               claimed: claimed,
@@ -415,9 +416,9 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
             content: Text('Imported ${chosen.length} transaction'
                 '${chosen.length == 1 ? '' : 's'}.$ruleNote')),
       );
-    } catch (e) {
+    } catch (e, st) {
       messenger.showSnackBar(
-          SnackBar(content: Text('Could not import these messages: $e')));
+          SnackBar(content: Text(friendlyError("Couldn't import these messages", e, st))));
     } finally {
       if (mounted) setState(() => _importing = false);
     }
@@ -590,7 +591,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
   /// the accounts other rows had already been matched to by their last four
   /// digits.
   Future<void> _applyAccountToSelected() async {
-    final accounts = context.read<AccountProvider>().accounts;
+    final accounts = context.read<AccountProvider>().activeAccounts;
     final count = _selected.length;
     if (accounts.isEmpty || count == 0) return;
     final chosen = await showDialog<int?>(
@@ -714,7 +715,8 @@ class _SmsReviewScreenState extends State<SmsReviewScreen>
                         itemBuilder: (context, i) => _DraftCard(
                           key: ValueKey(_drafts[i].parsed.sourceRef),
                           draft: _drafts[i],
-                          accounts: context.watch<AccountProvider>().accounts,
+                          accounts:
+                              context.watch<AccountProvider>().activeAccounts,
                           investmentTypes: _investmentTypes,
                           onChanged: () => setState(() {}),
                           onDismiss: () => _dismiss(_drafts[i]),

@@ -33,15 +33,23 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
     });
   }
 
+  /// Categories with spending in the last 12 months, biggest total first —
+  /// so the chart opens on where most of the money went, not on whichever
+  /// three come first alphabetically.
   List<String> _availableCategories(ExpenseProvider provider) {
     final now = DateTime.now();
-    final categories = <String>{};
+    final totals = <String, int>{};
     for (int i = 11; i >= 0; i--) {
       final month = DateTime(now.year, now.month - i, 1);
-      categories.addAll(
-          provider.categoryTotalsForMonth(month.year, month.month).keys);
+      provider
+          .categoryTotalsForMonth(month.year, month.month)
+          .forEach((c, v) => totals[c] = (totals[c] ?? 0) + v);
     }
-    final list = categories.toList()..sort();
+    final list = totals.keys.toList()
+      ..sort((a, b) {
+        final bySpend = totals[b]!.compareTo(totals[a]!);
+        return bySpend != 0 ? bySpend : a.compareTo(b);
+      });
     return list;
   }
 

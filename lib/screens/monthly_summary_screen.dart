@@ -22,6 +22,7 @@ import '../widgets/month_selector.dart';
 import '../widgets/top_merchants_card.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
+import '../utils/error_message.dart';
 
 part 'monthly_summary/category_widgets.dart';
 part 'monthly_summary/how_you_paid.dart';
@@ -217,8 +218,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         files: [XFile(file.path, mimeType: 'application/pdf')],
         subject: 'Statement $_periodLabel',
       ));
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    } catch (e, st) {
+      messenger.showSnackBar(SnackBar(content: Text(friendlyError("Couldn't create the PDF", e, st))));
     }
   }
 
@@ -251,8 +252,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         files: [XFile(file.path, mimeType: ExcelExport.mimeType)],
         subject: 'Finance Tracker report $_periodLabel',
       ));
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    } catch (e, st) {
+      messenger.showSnackBar(SnackBar(content: Text(friendlyError("Couldn't create the workbook", e, st))));
     }
   }
 

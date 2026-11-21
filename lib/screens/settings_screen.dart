@@ -15,6 +15,7 @@ import '../utils/insets.dart';
 import '../widgets/whats_new_sheet.dart';
 import '../widgets/section_header.dart';
 import '../utils/dimens.dart';
+import '../utils/error_message.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -158,11 +159,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       messenger.showSnackBar(SnackBar(
           content: Text(
               now ? 'Database encrypted' : 'Database encryption removed')));
-    } catch (e) {
+    } catch (e, st) {
       final now = await DBService().isEncryptionEnabled();
       if (!mounted) return;
       setState(() => _encryptionEnabled = now);
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(friendlyError(_encryptionEnabled ? "Couldn't remove the encryption" : "Couldn't encrypt the database", e, st))));
     } finally {
       if (mounted) setState(() => _encryptionBusy = false);
     }
@@ -279,7 +280,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     items: [
                       DropdownMenuItem<int?>(
                           value: null, child: const Text('None')),
-                      ...accounts.accounts.map((a) => DropdownMenuItem<int?>(
+                      ...accounts
+                          .pickable([settings.defaultAccountId])
+                          .map((a) => DropdownMenuItem<int?>(
                           value: a.id,
                           child:
                               Text(a.name, overflow: TextOverflow.ellipsis))),

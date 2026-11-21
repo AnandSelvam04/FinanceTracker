@@ -1,6 +1,6 @@
 class DbConstants {
   static const String dbName = 'finance.db';
-  static const int dbVersion = 22;
+  static const int dbVersion = 23;
 
   // Expenses Table (holds expense, income, and transfer rows — see colType)
   static const String tableExpenses = 'expenses';
@@ -72,6 +72,7 @@ class DbConstants {
   static const String colRewardAsOf = 'rewardAsOf';
   static const String colRewardRate = 'rewardRate';
   static const String colPointValue = 'pointValue';
+  static const String colArchived = 'archived';
 
   // SMS messages the user dismissed in the import review queue, so a later
   // rescan of the inbox does not offer them again.

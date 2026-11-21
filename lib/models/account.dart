@@ -48,6 +48,10 @@ class Account {
   final double? rewardRate;
   final double? pointValue;
 
+  /// Closed but kept: its transactions and history stay, but it is left out
+  /// of the lists new transactions are picked from, and raises no reminders.
+  final bool archived;
+
   bool get tracksRewards => rewardRate != null || rewardPoints != null;
 
   Account({
@@ -67,6 +71,7 @@ class Account {
     this.rewardAsOf,
     this.rewardRate,
     this.pointValue,
+    this.archived = false,
   });
 
   /// A copy with the given fields changed. The nullable card fields take a
@@ -81,6 +86,7 @@ class Account {
     bool clearCreditLimit = false,
     int? sharedLimitWith,
     bool clearSharedLimitWith = false,
+    bool? archived,
   }) =>
       Account(
         id: id,
@@ -102,6 +108,7 @@ class Account {
         rewardAsOf: rewardAsOf,
         rewardRate: rewardRate,
         pointValue: pointValue,
+        archived: archived ?? this.archived,
       );
 
   /// Whether this credit card has a billing cycle configured.
@@ -161,6 +168,7 @@ class Account {
         DbConstants.colRewardAsOf: rewardAsOf?.toIso8601String(),
         DbConstants.colRewardRate: rewardRate,
         DbConstants.colPointValue: pointValue,
+        DbConstants.colArchived: archived ? 1 : 0,
       };
 
   factory Account.fromMap(Map<String, dynamic> map) => Account(
@@ -188,5 +196,7 @@ class Account {
             : DateTime.tryParse(map[DbConstants.colRewardAsOf] as String),
         rewardRate: (map[DbConstants.colRewardRate] as num?)?.toDouble(),
         pointValue: (map[DbConstants.colPointValue] as num?)?.toDouble(),
+        // Rows/backups from before schema v23 are all open.
+        archived: ((map[DbConstants.colArchived] ?? 0) as num) != 0,
       );
 }

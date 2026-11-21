@@ -320,6 +320,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                             : (_type == 'loan'
                                 ? account?.sharedLimitWith
                                 : null),
+                        archived: account?.archived ?? false,
                       );
                       final provider = context.read<AccountProvider>();
                       if (account == null) {
@@ -360,22 +361,49 @@ class _AccountsScreenState extends State<AccountsScreen> {
     switch (action) {
       case AccountDetailAction.edit:
         await _showAccountDialog(account: current);
+      case AccountDetailAction.archive:
+        await _toggleArchived(current);
       case AccountDetailAction.delete:
         await _confirmDelete(current);
     }
   }
 
+  /// Archives an open account, or reopens an archived one, with Undo.
+  Future<void> _toggleArchived(Account account) async {
+    final provider = context.read<AccountProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final archive = !account.archived;
+    await provider.setArchived(account, archive);
+    messenger.showSnackBar(SnackBar(
+      content: Text(archive
+          ? 'Archived "${account.name}". Its history is kept.'
+          : 'Reopened "${account.name}"'),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () => provider.setArchived(account, !archive),
+      ),
+    ));
+  }
+
   Future<void> _confirmDelete(Account account) async {
-    final confirmed = await showDialog<bool>(
+    // null: cancelled; false: archive instead; true: delete.
+    final choice = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete account?'),
-        content: Text(
-            'Remove "${account.name}"? Transactions linked to it are kept but lose their account link.'),
+        content: Text('Remove "${account.name}"? Its transactions are kept '
+            'but lose their account, so its balance and statement are gone '
+            'for good.'
+            '${account.archived ? '' : '\n\nClosed the account? Archive it '
+                'instead: it leaves your lists but keeps its history.'}'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(context),
               child: const Text('Cancel')),
+          if (!account.archived)
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Archive')),
           FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.error,
@@ -386,9 +414,80 @@ class _AccountsScreenState extends State<AccountsScreen> {
         ],
       ),
     );
-    if (confirmed == true && mounted) {
+    if (!mounted || choice == null) return;
+    if (choice) {
       await context.read<AccountProvider>().deleteAccount(account.id!);
+    } else {
+      await _toggleArchived(account);
     }
+  }
+
+  bool _showArchived = false;
+
+  Widget _accountTile(AccountProvider provider, Account account) {
+    final balance = provider.balanceOf(account);
+    return SwipeActions(
+      key: ValueKey('account-${account.id}'),
+      onEdit: () => _showAccountDialog(account: account),
+      onDelete: () => _confirmDelete(account),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: ListTile(
+          // The account's own colour when one was picked, as a tint like the
+          // category avatars; the theme's secondary container otherwise.
+          leading: Builder(builder: (context) {
+            final scheme = Theme.of(context).colorScheme;
+            final own = account.color == null ? null : Color(account.color!);
+            final dark = Theme.of(context).brightness == Brightness.dark;
+            // Flies into the statement's header as it opens.
+            return Hero(
+              tag: 'account-${account.id}',
+              child: CircleAvatar(
+                backgroundColor: own == null
+                    ? scheme.secondaryContainer
+                    : own.withValues(alpha: dark ? 0.28 : 0.15),
+                child: Icon(accountTypeIcon(account.type),
+                    color: own ?? scheme.onSecondaryContainer),
+              ),
+            );
+          }),
+          title: Text(account.name,
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text([
+            Account.typeLabel(account.type),
+            if (account.isForeign) account.currency!,
+            // Visible at a glance so it is obvious which accounts SMS import
+            // can route to.
+            if (account.last4 != null) '••${account.last4}',
+            // Surfaces that a card has a billing cycle set.
+            if (account.hasBillingCycle && !account.archived)
+              'Due ${account.dueDay}',
+            if (account.archived) 'Archived',
+          ].join(' · ')),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                balance == null
+                    ? '…'
+                    : formatMoneySignedIn(account.symbol, balance),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: balance != null && balance < 0
+                        ? expenseColor(context)
+                        : null),
+              ),
+              const SizedBox(width: Space.xs),
+              Icon(Icons.chevron_right, color: mutedTextColor(context)),
+            ],
+          ),
+          // Opens the account's statement; edit, archive and delete live in
+          // its app bar (a bin on every row was one stray tap from deleting
+          // an account).
+          onTap: () => _openStatement(account),
+        ),
+      ),
+    );
   }
 
   @override
@@ -427,6 +526,27 @@ class _AccountsScreenState extends State<AccountsScreen> {
           // even when accounts are held in different currencies.
           final totalBalance = provider.totalBaseBalance();
 
+          final open = provider.activeAccounts;
+          final archived = [
+            for (final a in accounts)
+              if (a.archived) a,
+          ];
+          final rows = <Widget>[
+            for (final a in open) _accountTile(provider, a),
+            if (archived.isNotEmpty)
+              ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: Space.xs),
+                leading: const Icon(Icons.archive_outlined),
+                title: Text('Archived (${archived.length})'),
+                trailing:
+                    Icon(_showArchived ? Icons.expand_less : Icons.expand_more),
+                onTap: () => setState(() => _showArchived = !_showArchived),
+              ),
+            if (_showArchived)
+              for (final a in archived) _accountTile(provider, a),
+          ];
+
           return Column(
             children: [
               Padding(
@@ -434,89 +554,21 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 child: HeroTotalCard(
                   label: 'Total balance',
                   // Signed: credit-card balances are negative, and enough of
-                  // them can take the total negative too.
+                  // them can take the total negative too. Archived accounts
+                  // still count: a closed account's leftover balance is still
+                  // the user's money (or debt).
                   amount: formatMoneySigned(totalBalance),
-                  caption: '${accounts.length} '
-                      '${accounts.length == 1 ? 'account' : 'accounts'}',
+                  caption: '${open.length} '
+                      '${open.length == 1 ? 'account' : 'accounts'}'
+                      '${archived.isEmpty ? '' : ' · ${archived.length} archived'}',
                 ),
               ),
               Expanded(
                 child: ListView.separated(
-                  itemCount: accounts.length,
+                  itemCount: rows.length,
                   padding: scrollPadding(context, all: Space.md, fab: true),
                   separatorBuilder: (_, __) => const SizedBox(height: Space.sm),
-                  itemBuilder: (context, index) {
-                    final account = accounts[index];
-                    final balance = provider.balanceOf(account);
-                    return SwipeActions(
-                      key: ValueKey('account-${account.id}'),
-                      onEdit: () => _showAccountDialog(account: account),
-                      onDelete: () => _confirmDelete(account),
-                      child: Card(
-                        margin: EdgeInsets.zero,
-                        child: ListTile(
-                          // The account's own colour when one was picked, as a
-                          // tint like the category avatars; the theme's
-                          // secondary container otherwise.
-                          leading: Builder(builder: (context) {
-                            final scheme = Theme.of(context).colorScheme;
-                            final own = account.color == null
-                                ? null
-                                : Color(account.color!);
-                            final dark =
-                                Theme.of(context).brightness == Brightness.dark;
-                            // Flies into the statement's header as it opens.
-                            return Hero(
-                              tag: 'account-${account.id}',
-                              child: CircleAvatar(
-                                backgroundColor: own == null
-                                    ? scheme.secondaryContainer
-                                    : own.withValues(alpha: dark ? 0.28 : 0.15),
-                                child: Icon(accountTypeIcon(account.type),
-                                    color: own ?? scheme.onSecondaryContainer),
-                              ),
-                            );
-                          }),
-                          title: Text(account.name,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text([
-                            Account.typeLabel(account.type),
-                            if (account.isForeign) account.currency!,
-                            // Visible at a glance so it is obvious which
-                            // accounts SMS import can route to.
-                            if (account.last4 != null) '••${account.last4}',
-                            // Surfaces that a card has a billing cycle set.
-                            if (account.hasBillingCycle)
-                              'Due ${account.dueDay}',
-                          ].join(' · ')),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                balance == null
-                                    ? '…'
-                                    : formatMoneySignedIn(
-                                        account.symbol, balance),
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: balance != null && balance < 0
-                                        ? expenseColor(context)
-                                        : null),
-                              ),
-                              const SizedBox(width: Space.xs),
-                              Icon(Icons.chevron_right,
-                                  color: mutedTextColor(context)),
-                            ],
-                          ),
-                          // Opens the account's statement; edit and delete
-                          // live in its app bar (a bin on every row was one
-                          // stray tap from deleting an account).
-                          onTap: () => _openStatement(account),
-                        ),
-                      ),
-                    );
-                  },
+                  itemBuilder: (context, index) => rows[index],
                 ),
               ),
             ],

@@ -27,7 +27,7 @@ import '../utils/dimens.dart';
 
 /// What the user asked for from the statement's app bar; the Accounts screen
 /// owns the edit dialog and the delete confirmation, so it acts on these.
-enum AccountDetailAction { edit, delete }
+enum AccountDetailAction { edit, archive, delete }
 
 /// One account's statement: every transaction and investment that moved its
 /// balance, newest first, each with the balance right after it.
@@ -108,6 +108,14 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
               icon: const Icon(Icons.edit_outlined),
               tooltip: 'Edit account',
               onPressed: () => Navigator.pop(context, AccountDetailAction.edit),
+            ),
+            IconButton(
+              icon: Icon(account.archived
+                  ? Icons.unarchive_outlined
+                  : Icons.archive_outlined),
+              tooltip: account.archived ? 'Reopen account' : 'Archive account',
+              onPressed: () =>
+                  Navigator.pop(context, AccountDetailAction.archive),
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline),

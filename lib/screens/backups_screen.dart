@@ -26,6 +26,8 @@ import '../widgets/dispose_with_route.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
 import '../utils/picked_file.dart';
+import '../utils/error_message.dart';
+import '../utils/currency_format.dart' show groupDigits;
 
 part 'backups/dialogs.dart';
 
@@ -39,6 +41,17 @@ class BackupsScreen extends StatefulWidget {
 class _BackupsScreenState extends State<BackupsScreen> {
   final _backupService = BackupService();
   bool _isWorking = false;
+
+  /// Whether the last restore can still be undone.
+  bool _canUndoRestore = false;
+
+  Future<void> _loadUndoRestore() async {
+    final can = await _backupService.canUndoRestore();
+    if (mounted) setState(() => _canUndoRestore = can);
+  }
+
+  static String _plural(int n, String noun) =>
+      '${groupDigits('$n')} $noun${n == 1 ? '' : 's'}';
 
   /// The dates the CSV and Excel downloads cover; null is everything. The
   /// end is the day after the last one included.
@@ -133,6 +146,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
     unawaited(_loadDriveAccount());
     unawaited(_loadEncryption());
     unawaited(_loadAutoDrive());
+    unawaited(_loadUndoRestore());
   }
 
   Future<void> _loadAutoDrive() async {
@@ -289,7 +303,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
         }
         await task(allowEmpty: true);
       }
-    }, success);
+    }, success, undoable: true);
     await _loadLastBackup();
   }
 
@@ -320,7 +334,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
           if (passphrase == null) throw _cancelled;
         }
       }
-    }, success);
+    }, success, undoable: true);
     await _loadLastBackup();
   }
 
@@ -367,7 +381,17 @@ class _BackupsScreenState extends State<BackupsScreen> {
         'Restored the earlier backup');
   }
 
-  Future<void> _runTask(Future<void> Function() task, String success) async {
+  /// Puts back what the app held before the last restore.
+  Future<void> _undoRestore() async {
+    await _runTask(_backupService.undoRestore, 'Restore undone');
+    await _loadDriveAccount();
+    await _loadAutoDrive();
+  }
+
+  /// [undoable] marks a full restore: the message then says what came in and
+  /// offers Undo.
+  Future<void> _runTask(Future<void> Function() task, String success,
+      {bool undoable = false}) async {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final expenseProvider = context.read<ExpenseProvider>();
@@ -381,14 +405,25 @@ class _BackupsScreenState extends State<BackupsScreen> {
     setState(() => _isWorking = true);
     try {
       _backupService.missingReceiptPhotos = 0;
+      _backupService.lastRestoreCounts = null;
       await task();
       // Only a restore sets this: its transactions whose receipt photo isn't
       // on this phone (backups don't carry the images).
       final lost = _backupService.missingReceiptPhotos;
+      final counts = undoable ? _backupService.lastRestoreCounts : null;
+      final what = counts == null
+          ? ''
+          : ': ${_plural(counts.transactions, 'transaction')}, '
+              '${_plural(counts.accounts, 'account')}';
+      final canUndo = undoable && await _backupService.canUndoRestore();
       messenger.showSnackBar(SnackBar(
+          duration: Duration(seconds: canUndo ? 10 : 4),
+          action: canUndo
+              ? SnackBarAction(label: 'Undo', onPressed: _undoRestore)
+              : null,
           content: Text(lost == 0
-              ? success
-              : '$success. ${lost == 1 ? '1 receipt photo was' : '$lost receipt photos were'} '
+              ? '$success$what'
+              : '$success$what. ${lost == 1 ? '1 receipt photo was' : '$lost receipt photos were'} '
                   'not in the backup.')));
       // Refresh data after restore/backup operations
       await expenseProvider.reloadLoadedYears();
@@ -401,6 +436,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
       // A full restore brings back the backup's settings too.
       await settingsProvider.load();
       await _loadLastBackup();
+      await _loadUndoRestore();
     } on _Cancelled {
       // The user backed out of a second confirmation; nothing to report.
     } catch (e) {
@@ -649,6 +685,15 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     enabled: !_isWorking,
                     onTap: _restoreFromPickedFile,
                   ),
+                  if (_canUndoRestore)
+                    ListTile(
+                      leading: const Icon(Icons.undo),
+                      title: const Text('Undo the last restore'),
+                      subtitle: const Text(
+                          'Put back what the app held before it'),
+                      enabled: !_isWorking,
+                      onTap: _undoRestore,
+                    ),
                   ListTile(
                     leading: const Icon(Icons.history),
                     title: const Text('Restore an earlier backup'),

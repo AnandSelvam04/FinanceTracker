@@ -10,6 +10,7 @@ import '../utils/db_constants.dart';
 import '../utils/insets.dart';
 import '../widgets/date_field_row.dart';
 import '../utils/dimens.dart';
+import '../utils/error_message.dart';
 
 class AddTransferScreen extends StatefulWidget {
   /// A transfer to copy: accounts, amounts and note are filled in and the
@@ -108,7 +109,9 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
   @override
   Widget build(BuildContext context) {
     final accountProvider = context.watch<AccountProvider>();
-    final accounts = accountProvider.accounts;
+    // Archived accounts stay out, unless this (a duplicate) names one.
+    final accounts =
+        accountProvider.pickable([_fromAccountId, _toAccountId]);
     final fromAccount = accountProvider.accountById(_fromAccountId);
     final toAccount = accountProvider.accountById(_toAccountId);
     // A second, destination-currency amount is only needed when the two
@@ -278,11 +281,11 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
         );
         Navigator.pop(context);
       }
-    } catch (e) {
+    } catch (e, st) {
       // A failed save used to vanish silently, leaving the user unsure
       // whether the money had been recorded.
       messenger.showSnackBar(
-          SnackBar(content: Text('Could not record the transfer: $e')));
+          SnackBar(content: Text(friendlyError("Couldn't record the transfer", e, st))));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

@@ -21,6 +21,7 @@ import 'spend_account_picker.dart';
 import 'row_actions_sheet.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
+import '../utils/error_message.dart';
 
 /// Opens the right edit sheet for [expense] — a transfer editor for transfers,
 /// the expense/income editor otherwise. Shared so every list of transactions
@@ -103,7 +104,7 @@ Future<void> showEditExpenseSheet(
   // The account the money came from (or, for income, went into), changeable
   // so a spend can be moved to the right card.
   int? accountId = expense.accountId;
-  final accounts = context.read<AccountProvider>().accounts;
+  final accounts = context.read<AccountProvider>().pickable([accountId]);
   if (accountId != null && !accounts.any((a) => a.id == accountId)) {
     accountId = null; // deleted since: a dropdown can't show it
   }
@@ -343,7 +344,8 @@ Future<void> showEditTransferSheet(
 }) async {
   final first = firstDate ?? DateTime(2000);
   final accountProvider0 = context.read<AccountProvider>();
-  final accounts = accountProvider0.accounts;
+  final accounts = accountProvider0
+      .pickable([transfer.accountId, transfer.toAccountId]);
   final amountController =
       TextEditingController(text: minorToEditString(transfer.amount));
   final toAmountController =
@@ -530,8 +532,8 @@ Future<void> splitTransaction(BuildContext context, Expense original) async {
     messenger.showSnackBar(
       SnackBar(content: Text('Split into ${parts.length} transactions.')),
     );
-  } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+  } catch (e, st) {
+    messenger.showSnackBar(SnackBar(content: Text(friendlyError("Couldn't split the transaction", e, st))));
   }
 }
 
