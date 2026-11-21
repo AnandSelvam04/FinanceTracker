@@ -16,12 +16,17 @@ class DateFieldRow extends StatelessWidget {
   final DateTime firstDate;
   final DateTime lastDate;
 
+  /// What the date is, when it isn't simply the transaction's date
+  /// ("Next due", say).
+  final String? label;
+
   const DateFieldRow({
     super.key,
     required this.date,
     required this.onChanged,
     required this.firstDate,
     required this.lastDate,
+    this.label,
   });
 
   @override
@@ -32,7 +37,10 @@ class DateFieldRow extends StatelessWidget {
         children: [
           Icon(Icons.event, size: 20, color: mutedTextColor(context)),
           const SizedBox(width: Space.sm),
-          Expanded(child: Text(formatDateWithDay(date))),
+          Expanded(
+              child: Text(label == null
+                  ? formatDateWithDay(date)
+                  : '$label: ${formatDateWithDay(date)}')),
           TextButton(
             onPressed: () async {
               final picked = await showDatePicker(

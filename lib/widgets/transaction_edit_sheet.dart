@@ -22,6 +22,7 @@ import 'row_actions_sheet.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
 import '../utils/error_message.dart';
+import 'date_field_row.dart';
 
 /// Opens the right edit sheet for [expense] — a transfer editor for transfers,
 /// the expense/income editor otherwise. Shared so every list of transactions
@@ -257,25 +258,11 @@ Future<void> showEditExpenseSheet(
                       newPhoto = null;
                     }),
                   ),
-                  Row(
-                    children: [
-                      Text('Date: ${formatDateWithDay(selectedDate)}'),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: selectedDate,
-                            firstDate: first,
-                            lastDate: DateTime.now(),
-                          );
-                          if (picked != null) {
-                            setModalState(() => selectedDate = picked);
-                          }
-                        },
-                        child: const Text('Change'),
-                      ),
-                    ],
+                  DateFieldRow(
+                    date: selectedDate,
+                    firstDate: first,
+                    lastDate: DateTime.now(),
+                    onChanged: (d) => setModalState(() => selectedDate = d),
                   ),
                   const SizedBox(height: Space.md),
                   SizedBox(
@@ -424,23 +411,11 @@ Future<void> showEditTransferSheet(
                   controller: noteController,
                   decoration: const InputDecoration(labelText: 'Note'),
                 ),
-                Row(
-                  children: [
-                    Text('Date: ${formatDateWithDay(date)}'),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: date,
-                          firstDate: first,
-                          lastDate: DateTime.now(),
-                        );
-                        if (picked != null) setSheet(() => date = picked);
-                      },
-                      child: const Text('Change'),
-                    ),
-                  ],
+                DateFieldRow(
+                  date: date,
+                  firstDate: first,
+                  lastDate: DateTime.now(),
+                  onChanged: (d) => setSheet(() => date = d),
                 ),
                 const SizedBox(height: Space.md),
                 SizedBox(

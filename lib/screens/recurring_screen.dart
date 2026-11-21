@@ -15,6 +15,7 @@ import '../utils/insets.dart';
 import '../utils/date_format.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/date_field_row.dart';
 import '../widgets/swipe_actions.dart';
 import '../utils/dimens.dart';
 import '../utils/font_sizes.dart';
@@ -186,35 +187,20 @@ class _RecurringScreenState extends State<RecurringScreen> {
                       onChanged: (v) => _accountId = v,
                     ),
                   const SizedBox(height: Space.sm),
-                  Row(
-                    children: [
-                      Expanded(
-                          child:
-                              Text('Next due: ${formatDateWithDay(_nextDue)}')),
-                      TextButton(
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _nextDue,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null) {
-                            setDialogState(() {
-                              _nextDue = picked;
-                              // An end date before the first occurrence would
-                              // end the rule before it ever posts.
-                              if (_endDate != null &&
-                                  _endDate!
-                                      .isBefore(DateUtils.dateOnly(picked))) {
-                                _endDate = null;
-                              }
-                            });
-                          }
-                        },
-                        child: const Text('Change'),
-                      ),
-                    ],
+                  DateFieldRow(
+                    label: 'Next due',
+                    date: _nextDue,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                    onChanged: (picked) => setDialogState(() {
+                      _nextDue = picked;
+                      // An end date before the first occurrence would end
+                      // the rule before it ever posts.
+                      if (_endDate != null &&
+                          _endDate!.isBefore(DateUtils.dateOnly(picked))) {
+                        _endDate = null;
+                      }
+                    }),
                   ),
                   Row(
                     children: [
