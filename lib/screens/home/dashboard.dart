@@ -182,11 +182,30 @@ class _DashboardView extends StatelessWidget {
       return found.isEmpty ? const [] : [_InsightsCard(insights: found)];
     }
 
+    List<Widget> insightsForYear() {
+      YearReview review(int year) => YearReview.from(
+          provider.expensesForYear(year),
+          year: year,
+          baseAmountOf: provider.baseAmountOf,
+          now: now);
+      final found = yearInsights(
+        review(selectedYear),
+        // Only when that year is in memory; otherwise it reads as empty.
+        previous: provider.isYearLoaded(selectedYear - 1)
+            ? review(selectedYear - 1)
+            : null,
+        baseAmountOf: provider.baseAmountOf,
+        money: formatMoneyRounded,
+      );
+      return found.isEmpty ? const [] : [_InsightsCard(insights: found)];
+    }
+
     return {
       DashboardLayout.netWorth: const [NetWorthCard()],
       DashboardLayout.quickAdd: [_QuickAddRow(onQuickAdd: onQuickAdd)],
       DashboardLayout.figures: figures,
-      if (hasData && !yearView) DashboardLayout.insights: insights(),
+      if (hasData)
+        DashboardLayout.insights: yearView ? insightsForYear() : insights(),
       DashboardLayout.shortcuts: const [_ShortcutsRow()],
       DashboardLayout.recent: [
         _RecentTransactions(provider: provider, onSeeAll: onSeeAllTransactions),

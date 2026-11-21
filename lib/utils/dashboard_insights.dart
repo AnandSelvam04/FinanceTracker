@@ -1,5 +1,6 @@
 import '../models/expense.dart';
 import 'alerts.dart';
+import 'year_review.dart';
 
 /// How an insight should be read at a glance.
 enum InsightTone { good, warn, neutral }
@@ -200,3 +201,94 @@ int noSpendStreak(Iterable<Expense> rows, DateTime now) {
       .inDays;
   return gap <= 1 ? 0 : gap - 1;
 }
+
+/// Up to [limit] things worth saying about a year, for the dashboard's Year
+/// view: spending against the same months of the year before, how much of
+/// the income was kept, the costliest month and the biggest expense.
+///
+/// [previous] is the year before's review, or null when that year isn't
+/// loaded; the comparison is then left out rather than made against
+/// nothing. Only the months [review] has had so far are compared, so a
+/// year in progress isn't set against a whole one.
+List<Insight> yearInsights(
+  YearReview review, {
+  YearReview? previous,
+  required int Function(Expense) baseAmountOf,
+  required String Function(int minor) money,
+  int limit = 3,
+}) {
+  if (review.isEmpty || review.monthsElapsed == 0) return const [];
+  final found = <Insight>[];
+  final elapsed = review.monthsElapsed.clamp(1, 12);
+
+  if (previous != null && !previous.isEmpty) {
+    int sum(List<int> months) =>
+        months.take(elapsed).fold<int>(0, (s, v) => s + v);
+    final now = sum(review.monthlyExpense);
+    final before = sum(previous.monthlyExpense);
+    if (before > 0 && now > 0) {
+      final change = ((now - before) * 100 / before).round();
+      final span = elapsed == 12
+          ? previous.year.toString()
+          : 'the same months of ${previous.year}';
+      if (change.abs() >= 5) {
+        found.add(Insight(
+          InsightKind.total,
+          change > 0 ? InsightTone.warn : InsightTone.good,
+          'Spending is ${change > 0 ? 'up' : 'down'} ${change.abs()}% on '
+          '$span',
+        ));
+      } else {
+        found.add(Insight(InsightKind.total, InsightTone.neutral,
+            'Spending is about level with $span'));
+      }
+    }
+  }
+
+  final income = review.totalIncome;
+  if (income > 0) {
+    final kept = ((income - review.totalExpense) * 100 / income).round();
+    found.add(kept >= 0
+        ? Insight(InsightKind.savings,
+            kept >= 20 ? InsightTone.good : InsightTone.neutral,
+            'You kept $kept% of your income (${money(income - review.totalExpense)})')
+        : Insight(InsightKind.savings, InsightTone.warn,
+            'You spent ${money(review.totalExpense - income)} more than came in'));
+  }
+
+  final highest = review.highestMonth;
+  if (highest != null && review.monthsElapsed > 1) {
+    found.add(Insight(
+      InsightKind.category,
+      InsightTone.neutral,
+      '${_monthNames[highest - 1]} cost the most '
+      '(${money(review.monthlyExpense[highest - 1])}); the average month is '
+      '${money(review.averageMonthlyExpense)}',
+    ));
+  }
+
+  final biggest = review.biggest;
+  if (biggest != null) {
+    final name = biggest.description.trim().isEmpty
+        ? biggest.category
+        : biggest.description.trim();
+    found.add(Insight(InsightKind.biggest, InsightTone.neutral,
+        'Biggest expense: $name, ${money(baseAmountOf(biggest))}'));
+  }
+  return found.take(limit).toList();
+}
+
+const _monthNames = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];

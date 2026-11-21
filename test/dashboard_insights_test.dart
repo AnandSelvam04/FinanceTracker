@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_tracker/models/expense.dart';
 import 'package:finance_tracker/utils/dashboard_insights.dart';
 import 'package:finance_tracker/utils/db_constants.dart';
+import 'package:finance_tracker/utils/year_review.dart';
 
 Expense spend(String category, int amount, DateTime date,
         {String description = ''}) =>
@@ -259,6 +260,64 @@ void main() {
           noSpendStreak([spend('Food', 100, DateTime(2026, 5, 29))],
               DateTime(2026, 6, 2)),
           3);
+    });
+  });
+
+  group('yearInsights', () {
+    final now = DateTime(2026, 4, 15);
+    YearReview review(int year, List<Expense> rows) => YearReview.from(rows,
+        year: year, baseAmountOf: (e) => e.amount, now: now);
+    Expense income(int amount, DateTime date) => Expense(
+        description: 'Salary',
+        amount: amount,
+        date: date,
+        category: 'Salary',
+        paymentMode: 'Other',
+        type: DbConstants.txIncome);
+
+    test('compares only the months so far with the year before', () {
+      final found = yearInsights(
+        review(2026, [
+          spend('Food', 120000, DateTime(2026, 1, 5)),
+          spend('Food', 120000, DateTime(2026, 3, 5)),
+        ]),
+        // December's big spend must not count against January–April.
+        previous: review(2025, [
+          spend('Food', 100000, DateTime(2025, 2, 5)),
+          spend('Travel', 900000, DateTime(2025, 12, 5)),
+        ]),
+        baseAmountOf: (e) => e.amount,
+        money: money,
+        limit: 5,
+      );
+      expect(found.first.text, 'Spending is up 140% on the same months of 2025');
+      expect(found.first.tone, InsightTone.warn);
+    });
+
+    test('says how much income was kept, the dearest month and the biggest',
+        () {
+      final found = yearInsights(
+        review(2026, [
+          income(500000, DateTime(2026, 1, 1)),
+          spend('Rent', 200000, DateTime(2026, 2, 1), description: 'Rent'),
+          spend('Food', 50000, DateTime(2026, 3, 1)),
+        ]),
+        baseAmountOf: (e) => e.amount,
+        money: money,
+        limit: 5,
+      );
+      expect(found.map((i) => i.text), [
+        'You kept 50% of your income (₹2500)',
+        'February cost the most (₹2000); the average month is ₹625',
+        'Biggest expense: Rent, ₹2000',
+      ]);
+    });
+
+    test('an empty year says nothing', () {
+      expect(
+          yearInsights(review(2026, const []),
+              baseAmountOf: (e) => e.amount, money: money),
+          isEmpty);
     });
   });
 }

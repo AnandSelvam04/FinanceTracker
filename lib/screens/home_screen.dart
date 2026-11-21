@@ -33,6 +33,7 @@ import '../utils/haptics.dart';
 import '../utils/insets.dart';
 import '../utils/merchant_summary.dart';
 import '../utils/whats_new.dart';
+import '../utils/year_review.dart';
 import '../widgets/alerts_banner.dart';
 import '../widgets/animated_money.dart';
 import '../widgets/empty_state.dart';
@@ -499,12 +500,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             // year before it, which the insights compare against.
             final expenses = context.read<ExpenseProvider>();
             unawaited(expenses.ensureYearLoaded(y));
-            if (m == 1) unawaited(expenses.ensureYearLoaded(y - 1));
+            // The Year view compares with the whole year before, too.
+            if (m == 1 || _yearView) {
+              unawaited(expenses.ensureYearLoaded(y - 1));
+            }
           },
           onViewToggle: (isYear) {
             setState(() {
               _yearView = isYear;
             });
+            if (isYear) {
+              unawaited(context
+                  .read<ExpenseProvider>()
+                  .ensureYearLoaded(_selectedYear - 1));
+            }
           },
         ),
         const ExpenseListScreen(),
