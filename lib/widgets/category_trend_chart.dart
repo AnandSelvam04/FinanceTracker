@@ -6,21 +6,24 @@ import '../utils/category_colors.dart';
 import '../utils/currency_format.dart';
 import '../utils/font_sizes.dart';
 
-/// One line per selected category over the trailing 12 months.
+/// One line per selected category over the trailing [months] months.
 class CategoryTrendChart extends StatelessWidget {
   final ExpenseProvider provider;
   final List<String> categories;
+  final int months;
   const CategoryTrendChart({
     super.key,
     required this.provider,
     required this.categories,
+    this.months = 12,
   });
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final months = <DateTime>[
-      for (int i = 11; i >= 0; i--) DateTime(now.year, now.month - i, 1),
+      for (int i = this.months - 1; i >= 0; i--)
+        DateTime(now.year, now.month - i, 1),
     ];
 
     if (categories.isEmpty) {
@@ -66,7 +69,8 @@ class CategoryTrendChart extends StatelessWidget {
     ].join('. ');
 
     return Semantics(
-      label: 'Monthly spend by category over the last 12 months. $summary',
+      label: 'Monthly spend by category over the last ${this.months} months. '
+          '$summary',
       child: ExcludeSemantics(
         child: SizedBox(
           height: 220,
@@ -97,7 +101,12 @@ class CategoryTrendChart extends StatelessWidget {
                         return const SizedBox.shrink();
                       }
                       // Label every other month to avoid crowding.
-                      if (index % 2 != 0) return const SizedBox.shrink();
+                      // Counted back from the latest, so it is always shown;
+                      // every third over a longer span.
+                      final step = this.months > 12 ? 3 : 2;
+                      if ((months.length - 1 - index) % step != 0) {
+                        return const SizedBox.shrink();
+                      }
                       // Short month names, as on the cash-flow chart, rather
                       // than bare month numbers.
                       return Text(
