@@ -208,6 +208,28 @@ extension ExpenseQueries on DBService {
     });
   }
 
+  /// Moves every row in [ids] to account [accountId] (null: no account) in
+  /// one transaction (bulk change of account). Transfers are skipped: their
+  /// source and destination go together. Returns how many rows changed.
+  Future<int> setAccount(Iterable<int> ids, int? accountId) async {
+    final list = ids.toList();
+    if (list.isEmpty) return 0;
+    final db = await database;
+    return db.transaction((txn) async {
+      var changed = 0;
+      for (final chunk in _chunks(list)) {
+        changed += await txn.update(
+          DbConstants.tableExpenses,
+          {DbConstants.colAccountId: accountId},
+          where: '${DbConstants.colId} IN (${_placeholders(chunk.length)}) '
+              'AND ${DbConstants.colType} != ?',
+          whereArgs: [...chunk, DbConstants.txTransfer],
+        );
+      }
+      return changed;
+    });
+  }
+
   Future<void> clearExpenses() async {
     final db = await database;
     await db.delete(DbConstants.tableExpenses);

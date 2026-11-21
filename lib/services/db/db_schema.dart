@@ -281,6 +281,16 @@ class DbSchema {
       await db.execute('ALTER TABLE ${DbConstants.tableExpenses} '
           'ADD COLUMN ${DbConstants.colAttachment} TEXT');
     }
+    if (oldVersion < 23) {
+      // An account closed but kept for its history. Guarded like v18.
+      final hasAccounts = await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [DbConstants.tableAccounts]);
+      if (hasAccounts.isNotEmpty) {
+        await db.execute('ALTER TABLE ${DbConstants.tableAccounts} '
+            'ADD COLUMN ${DbConstants.colArchived} INTEGER NOT NULL DEFAULT 0');
+      }
+    }
   }
 
   /// v9: give every money column INTEGER affinity.
@@ -505,7 +515,8 @@ class DbSchema {
         ${DbConstants.colRewardPoints} INTEGER,
         ${DbConstants.colRewardAsOf} TEXT,
         ${DbConstants.colRewardRate} REAL,
-        ${DbConstants.colPointValue} REAL
+        ${DbConstants.colPointValue} REAL,
+        ${DbConstants.colArchived} INTEGER NOT NULL DEFAULT 0
       )
     ''');
   }

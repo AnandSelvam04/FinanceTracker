@@ -2,7 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/recurring_rule.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/account_provider.dart';
+import '../providers/expense_provider.dart';
+import '../services/recurring_detector.dart';
 import '../providers/recurring_provider.dart';
 import '../utils/haptics.dart';
 import '../utils/app_colors.dart';
@@ -12,8 +15,11 @@ import '../utils/insets.dart';
 import '../utils/date_format.dart';
 import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/date_field_row.dart';
 import '../widgets/swipe_actions.dart';
 import '../utils/dimens.dart';
+import '../utils/font_sizes.dart';
+import '../widgets/form_page.dart';
 
 class RecurringScreen extends StatefulWidget {
   const RecurringScreen({super.key});
@@ -39,7 +45,31 @@ class _RecurringScreenState extends State<RecurringScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(context.read<RecurringProvider>().fetchRules());
       unawaited(context.read<AccountProvider>().fetchAccounts());
+      // The six months the suggestions look back over can reach last year.
+      final now = DateTime.now();
+      unawaited(context
+          .read<ExpenseProvider>()
+          .ensureYearsLoaded({now.year, now.year - 1}));
     });
+    unawaited(_loadDismissed());
+  }
+
+  static const _kDismissed = 'dismissedRecurringSuggestions';
+
+  /// Payees whose suggestion was waved away, so they aren't offered again.
+  List<String> _dismissed = const [];
+
+  Future<void> _loadDismissed() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_kDismissed) ?? const [];
+    if (mounted) setState(() => _dismissed = list);
+  }
+
+  Future<void> _dismiss(RecurringSuggestion s) async {
+    final next = [..._dismissed, s.description.toLowerCase()];
+    setState(() => _dismissed = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kDismissed, next);
   }
 
   static String _freqLabel(String freq) {
@@ -57,30 +87,36 @@ class _RecurringScreenState extends State<RecurringScreen> {
     }
   }
 
-  Future<void> _showRuleDialog({RecurringRule? rule}) async {
-    _description = rule?.description ?? '';
-    _amount = rule?.amount ?? 0;
-    _category = rule?.category ?? '';
-    _type = rule?.type ?? DbConstants.txExpense;
-    _frequency = rule?.frequency ?? DbConstants.freqMonthly;
-    _accountId = rule?.accountId;
-    _nextDue = rule?.nextDue ?? DateTime.now();
-    _endDate = rule?.endDate;
+  /// Edits [rule], or adds a new one — filled in from [prefill] when given
+  /// (a suggested subscription).
+  Future<void> _showRuleDialog(
+      {RecurringRule? rule, RecurringRule? prefill}) async {
+    final from = rule ?? prefill;
+    _description = from?.description ?? '';
+    _amount = from?.amount ?? 0;
+    _category = from?.category ?? '';
+    _type = from?.type ?? DbConstants.txExpense;
+    _frequency = from?.frequency ?? DbConstants.freqMonthly;
+    _accountId = from?.accountId;
+    _nextDue = from?.nextDue ?? DateTime.now();
+    _endDate = from?.endDate;
 
-    final accounts = context.read<AccountProvider>().accounts;
+    final accounts =
+        context.read<AccountProvider>().pickable([from?.accountId]);
     // A SIP files contributions into an investment type: it has no
     // expense/income type to pick, and its category is that investment type.
     final isSip = rule?.isInvestment ?? false;
 
-    await showDialog(
-      context: context,
+    // A full page: the rule's fields didn't fit a dialog above the keyboard.
+    await showFormPage(
+      context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) => FormPage(
           title: Text(rule == null
-              ? 'Add Recurring'
+              ? 'Add recurring'
               : isSip
                   ? 'Edit SIP'
-                  : 'Edit Recurring'),
+                  : 'Edit recurring'),
           content: Form(
             key: _formKey,
             child: SingleChildScrollView(
@@ -151,35 +187,20 @@ class _RecurringScreenState extends State<RecurringScreen> {
                       onChanged: (v) => _accountId = v,
                     ),
                   const SizedBox(height: Space.sm),
-                  Row(
-                    children: [
-                      Expanded(
-                          child:
-                              Text('Next due: ${formatDateWithDay(_nextDue)}')),
-                      TextButton(
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _nextDue,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null) {
-                            setDialogState(() {
-                              _nextDue = picked;
-                              // An end date before the first occurrence would
-                              // end the rule before it ever posts.
-                              if (_endDate != null &&
-                                  _endDate!
-                                      .isBefore(DateUtils.dateOnly(picked))) {
-                                _endDate = null;
-                              }
-                            });
-                          }
-                        },
-                        child: const Text('Change'),
-                      ),
-                    ],
+                  DateFieldRow(
+                    label: 'Next due',
+                    date: _nextDue,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                    onChanged: (picked) => setDialogState(() {
+                      _nextDue = picked;
+                      // An end date before the first occurrence would end
+                      // the rule before it ever posts.
+                      if (_endDate != null &&
+                          _endDate!.isBefore(DateUtils.dateOnly(picked))) {
+                        _endDate = null;
+                      }
+                    }),
                   ),
                   Row(
                     children: [
@@ -308,8 +329,37 @@ class _RecurringScreenState extends State<RecurringScreen> {
       appBar: AppBar(title: const Text('Recurring')),
       body: Consumer<RecurringProvider>(
         builder: (context, provider, _) {
-          final rules = provider.rules;
-          if (rules.isEmpty) {
+          // Soonest first, so what posts next is at the top; paused rules
+          // after the running ones.
+          final rules = [...provider.rules]..sort((a, b) {
+              if (a.enabled != b.enabled) return a.enabled ? -1 : 1;
+              return a.nextDue.compareTo(b.nextDue);
+            });
+          final suggestions = RecurringDetector.suggestions(
+            context.watch<ExpenseProvider>().expenses,
+            known: [
+              for (final r in provider.rules) r.description,
+              ..._dismissed,
+            ],
+          ).take(3).toList();
+          final head = <Widget>[
+            if (rules.isNotEmpty) _CommitmentsCard(rules: rules),
+            if (suggestions.isNotEmpty)
+              _SuggestionsCard(
+                suggestions: suggestions,
+                onAdd: (s) => _showRuleDialog(
+                    prefill: RecurringRule(
+                  description: s.description,
+                  amount: s.amount,
+                  category: s.category,
+                  accountId: s.accountId,
+                  frequency: DbConstants.freqMonthly,
+                  nextDue: s.nextDue(DateTime.now()),
+                )),
+                onDismiss: _dismiss,
+              ),
+          ];
+          if (rules.isEmpty && head.isEmpty) {
             return EmptyState(
               icon: Icons.repeat,
               title: 'No recurring transactions',
@@ -320,11 +370,12 @@ class _RecurringScreenState extends State<RecurringScreen> {
             );
           }
           return ListView.separated(
-            itemCount: rules.length,
+            itemCount: head.length + rules.length,
             padding: scrollPadding(context, all: Space.md, fab: true),
             separatorBuilder: (_, __) => const SizedBox(height: Space.sm),
             itemBuilder: (context, index) {
-              final rule = rules[index];
+              if (index < head.length) return head[index];
+              final rule = rules[index - head.length];
               return SwipeActions(
                 key: ValueKey('rule-${rule.id}'),
                 onEdit: () => _showRuleDialog(rule: rule),
@@ -396,6 +447,159 @@ class _RecurringScreenState extends State<RecurringScreen> {
         tooltip: 'Add recurring rule',
         onPressed: () => _showRuleDialog(),
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+/// What the running rules come to in a month, in the base currency: bills
+/// and SIPs going out, income coming in.
+class _CommitmentsCard extends StatelessWidget {
+  final List<RecurringRule> rules;
+
+  const _CommitmentsCard({required this.rules});
+
+  /// How many times a month a rule of [frequency] posts, on average.
+  static double _perMonth(String frequency) => switch (frequency) {
+        DbConstants.freqDaily => 365 / 12,
+        DbConstants.freqWeekly => 52 / 12,
+        DbConstants.freqYearly => 1 / 12,
+        _ => 1,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final accounts = context.watch<AccountProvider>();
+    var out = 0.0;
+    var into = 0.0;
+    var count = 0;
+    for (final r in rules) {
+      if (!r.enabled) continue;
+      count++;
+      final rate = accounts.accountById(r.accountId)?.rate ?? 1.0;
+      final monthly = toBaseMinor(r.amount, rate) * _perMonth(r.frequency);
+      if (r.type == DbConstants.txIncome && !r.isInvestment) {
+        into += monthly;
+      } else {
+        out += monthly;
+      }
+    }
+    final muted = mutedTextColor(context);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(Space.lg),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Going out each month',
+                      style:
+                          TextStyle(fontSize: FontSizes.caption, color: muted)),
+                  const SizedBox(height: Space.xxs),
+                  Text(formatMoneyRounded(out.round()),
+                      style: TextStyle(
+                          fontSize: FontSizes.title,
+                          fontWeight: FontWeight.bold,
+                          color: expenseColor(context))),
+                  Text('$count running rule${count == 1 ? '' : 's'}',
+                      style:
+                          TextStyle(fontSize: FontSizes.caption, color: muted)),
+                ],
+              ),
+            ),
+            if (into > 0)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('Coming in',
+                      style:
+                          TextStyle(fontSize: FontSizes.caption, color: muted)),
+                  const SizedBox(height: Space.xxs),
+                  Text(formatMoneyRounded(into.round()),
+                      style: TextStyle(
+                          fontSize: FontSizes.title,
+                          fontWeight: FontWeight.bold,
+                          color: incomeColor(context))),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Spends that recur in the history but have no rule yet, each with Add
+/// (opens the form filled in) and a dismiss.
+class _SuggestionsCard extends StatelessWidget {
+  final List<RecurringSuggestion> suggestions;
+  final void Function(RecurringSuggestion) onAdd;
+  final void Function(RecurringSuggestion) onDismiss;
+
+  const _SuggestionsCard({
+    required this.suggestions,
+    required this.onAdd,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accounts = context.watch<AccountProvider>();
+    final muted = mutedTextColor(context);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: Space.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  Space.lg, Space.xs, Space.lg, Space.xs),
+              child: Row(
+                children: [
+                  Icon(Icons.auto_awesome_outlined,
+                      size: 18, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: Space.sm),
+                  const Expanded(
+                    child: Text('These look like regular bills',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+            ),
+            for (final s in suggestions)
+              ListTile(
+                leading: CategoryAvatar(category: s.category),
+                title: Text(s.description,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text(
+                    '${switch (accounts.accountById(s.accountId)) {
+                      final a? when a.isForeign =>
+                        formatMoneyIn(a.symbol, s.amount),
+                      _ => formatMoneyRounded(s.amount),
+                    }} · in ${s.months} of the last 6 months',
+                    style: TextStyle(color: muted)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      tooltip: 'Not a regular bill',
+                      onPressed: () => onDismiss(s),
+                    ),
+                    TextButton(
+                      onPressed: () => onAdd(s),
+                      child: const Text('Add'),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

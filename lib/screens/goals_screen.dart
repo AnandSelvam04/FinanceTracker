@@ -147,7 +147,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                           Semantics(
                             button: true,
                             selected: c.toARGB32() == color,
-                            label: 'Goal color',
+                            label: 'Goal colour',
                             child: InkWell(
                               customBorder: const CircleBorder(),
                               onTap: () =>
@@ -310,7 +310,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Savings Goals')),
+      appBar: AppBar(title: const Text('Savings goals')),
       body: Consumer<GoalProvider>(
         builder: (context, provider, _) {
           final goals = provider.goals;

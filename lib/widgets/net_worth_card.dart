@@ -65,7 +65,7 @@ class NetWorthCard extends StatelessWidget {
                   children: [
                     Icon(Icons.account_balance, size: 20, color: onGradient),
                     const SizedBox(width: Space.sm),
-                    Text('Net Worth',
+                    Text('Net worth',
                         style: TextStyle(
                             fontSize: FontSizes.body,
                             fontWeight: FontWeight.bold,

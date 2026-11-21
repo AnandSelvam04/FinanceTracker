@@ -90,13 +90,13 @@ class _MoreScreenState extends State<MoreScreen> {
           subtitle: 'Week, month, year or any dates · PDF and Excel',
           words: 'summary statement year in review merchants export',
           onTap: () => _open(const MonthlySummaryScreen())),
-      _Entry('Insights', Destinations.cashflow, 'Cash Flow',
+      _Entry('Insights', Destinations.cashflow, 'Cash flow',
           words: 'income expense chart net',
           onTap: () => _open(const CashflowScreen())),
-      _Entry('Insights', Destinations.trends, 'Category Trends',
+      _Entry('Insights', Destinations.trends, 'Category trends',
           words: 'compare months chart',
           onTap: () => _open(const CategoryTrendsScreen())),
-      _Entry('Insights', Destinations.calendar, 'Spending Calendar',
+      _Entry('Insights', Destinations.calendar, 'Spending calendar',
           words: 'daily heatmap no-spend days',
           onTap: () => _open(const SpendingCalendarScreen())),
       _Entry('Manage', Destinations.accounts, 'Accounts',
@@ -119,7 +119,7 @@ class _MoreScreenState extends State<MoreScreen> {
           subtitle: 'Totals for #tags in your notes',
           words: 'hashtag notes',
           onTap: () => _open(const TagsScreen())),
-      _Entry('Manage', Destinations.goals, 'Savings Goals',
+      _Entry('Manage', Destinations.goals, 'Savings goals',
           subtitle: 'Save toward a target by a date',
           words: 'target save',
           onTap: () => _open(const GoalsScreen())),
@@ -169,7 +169,8 @@ class _MoreScreenState extends State<MoreScreen> {
         _Entry('Settings', Destinations.settings, title,
             subtitle: 'In Settings',
             words: words,
-            onTap: () => _open(const SettingsScreen()));
+            // Straight to that setting, highlighted, not the top of the page.
+            onTap: () => _open(SettingsScreen(highlight: title)));
     return [
       _Entry('Screens', Destinations.budgets, 'Budgets',
           subtitle: 'Monthly caps per category',
@@ -181,7 +182,7 @@ class _MoreScreenState extends State<MoreScreen> {
           onTap: () => _open(const TutorialScreen())),
       setting('Currency symbol', 'rupee dollar euro'),
       setting('Theme', 'dark light mode night true black amoled'),
-      setting('Accent color', 'colour wallpaper material you'),
+      setting('Accent colour', 'color wallpaper material you'),
       setting('Default account', 'preselected'),
       setting('Roll over unspent budget', 'rollover carry'),
       setting('Budget & bill alerts', 'warnings banner'),
@@ -190,6 +191,7 @@ class _MoreScreenState extends State<MoreScreen> {
       setting('Daily reminder', 'notification log'),
       setting('App lock', 'biometric fingerprint pin security auto-lock'),
       setting('Encrypt database', 'encryption security sqlcipher'),
+      setting('Erase all data', 'delete reset wipe start over clear'),
       setting("What's new", 'version update changes about'),
     ];
   }

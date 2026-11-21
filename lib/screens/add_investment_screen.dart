@@ -16,6 +16,7 @@ import '../widgets/date_field_row.dart';
 import '../widgets/paid_from_field.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
+import '../utils/error_message.dart';
 
 class AddInvestmentScreen extends StatefulWidget {
   /// Pre-selects a type so "add another contribution" from a type's detail
@@ -135,8 +136,8 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
     return Scaffold(
       appBar: AppBar(
           title: Text(widget.duplicateOf != null
-              ? 'Duplicate Investment'
-              : 'Add Investment')),
+              ? 'Duplicate investment'
+              : 'Add investment')),
       body: SingleChildScrollView(
         padding: scrollPadding(context),
         child: Form(
@@ -266,7 +267,7 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                     : Padding(
                         padding: const EdgeInsets.only(top: Space.sm),
                         child: PaidFromField(
-                          accounts: accounts.accounts,
+                          accounts: accounts.pickable([_accountId]),
                           value: _accountId,
                           withdrawal: _isWithdrawal,
                           onChanged: (v) => setState(() => _accountId = v),
@@ -369,10 +370,10 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                                 );
                                 Navigator.pop(context);
                               }
-                            } catch (e) {
+                            } catch (e, st) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Error: $e')));
+                                    SnackBar(content: Text(friendlyError("Couldn't save the investment", e, st))));
                               }
                             } finally {
                               if (mounted) setState(() => _isSaving = false);
@@ -389,8 +390,8 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                           ),
                         )
                       : Text(_isWithdrawal
-                          ? 'Record Withdrawal'
-                          : 'Add Investment'),
+                          ? 'Record withdrawal'
+                          : 'Add investment'),
                 ),
               ),
             ],

@@ -280,4 +280,53 @@ void main() {
     expect(await DBService().getGoals(), isEmpty);
     expect((await DBService().getExpenses()).single.description, 'Kept');
   });
+
+  test('v22 accounts gain an archived flag at v23, all still open', () async {
+    await DBService().close();
+    DBService.dbNameOverride = 'archived_migration_test.db';
+    final path = join(await getDatabasesPath(), 'archived_migration_test.db');
+    await databaseFactory.deleteDatabase(path);
+
+    // A v22 database: today's accounts table without the new column.
+    final v22 = await databaseFactory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 22,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE expenses(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              description TEXT, amount INTEGER, date TEXT, category TEXT,
+              paymentMode TEXT, type TEXT NOT NULL DEFAULT 'expense',
+              accountId INTEGER, toAccountId INTEGER, toAmount INTEGER,
+              sourceRef TEXT, note TEXT, attachment TEXT
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE accounts(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL, type TEXT NOT NULL,
+              openingBalance INTEGER NOT NULL DEFAULT 0, color INTEGER,
+              currency TEXT, rate REAL NOT NULL DEFAULT 1, last4 TEXT,
+              statementDay INTEGER, dueDay INTEGER, creditLimit INTEGER,
+              sharedLimitWith INTEGER, rewardPoints INTEGER, rewardAsOf TEXT,
+              rewardRate REAL, pointValue REAL
+            )
+          ''');
+        },
+      ),
+    );
+    await v22.insert('accounts', {'name': 'Old bank', 'type': 'bank'});
+    await v22.close();
+
+    final db = await DBService().database;
+    expect(await db.getVersion(), DbConstants.dbVersion);
+    final account = (await DBService().getAccounts()).single;
+    expect(account.name, 'Old bank');
+    expect(account.archived, isFalse);
+
+    // And the flag is stored and read back.
+    await DBService().updateAccount(account.copyWith(archived: true));
+    expect((await DBService().getAccounts()).single.archived, isTrue);
+  });
 }

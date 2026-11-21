@@ -465,7 +465,7 @@ class _NewDebtDialogState extends State<_NewDebtDialog> {
   Widget build(BuildContext context) {
     final accounts = context
         .watch<AccountProvider>()
-        .accounts
+        .activeAccounts
         .where((a) => !a.isLoan && !a.isLent)
         .toList();
     return AlertDialog(

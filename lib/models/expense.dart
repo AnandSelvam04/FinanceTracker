@@ -59,6 +59,16 @@ class Expense {
   bool get isIncome => type == DbConstants.txIncome;
   bool get isTransfer => type == DbConstants.txTransfer;
 
+  /// What to call the row in a list: its description, or — when it has none
+  /// — its category ("Transfer" for a transfer), rather than a bare
+  /// "(no description)".
+  String get displayName {
+    final d = description.trim();
+    if (d.isNotEmpty) return description;
+    if (isTransfer) return 'Transfer';
+    return category.trim().isEmpty ? 'Untitled' : category;
+  }
+
   /// Money back from a merchant: an expense stored with a negative amount, so
   /// it comes off its category's spending (and its budget) and adds back to
   /// the account, rather than reading as income. Imported from refund SMS.

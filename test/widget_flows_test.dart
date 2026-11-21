@@ -436,10 +436,14 @@ void main() {
     await pumpScreen(tester, const RecurringScreen(), [
       ChangeNotifierProvider<RecurringProvider>.value(value: recurring),
       ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      // The suggestions read the history.
+      ChangeNotifierProvider<ExpenseProvider>.value(value: ExpenseProvider()),
     ]);
 
     expect(find.text('Netflix'), findsOneWidget);
     expect(find.textContaining('ends'), findsWidgets);
+    // The month's total of the running rules leads the list.
+    expect(find.text('Going out each month'), findsOneWidget);
     await teardownTree(tester);
   }, timeout: testTimeout);
 
@@ -463,10 +467,14 @@ void main() {
     await pumpScreen(tester, const RecurringScreen(), [
       ChangeNotifierProvider<RecurringProvider>.value(value: recurring),
       ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      // The suggestions read the history.
+      ChangeNotifierProvider<ExpenseProvider>.value(value: ExpenseProvider()),
     ]);
 
     await tester.tap(find.text('Gym'));
-    await tester.pump(const Duration(milliseconds: 300));
+    // The form opens as a page, which takes a frame more than a dialog.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.widgetWithText(TextButton, 'Delete'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Delete recurring rule?'), findsOneWidget);
@@ -506,10 +514,14 @@ void main() {
     await pumpScreen(tester, const RecurringScreen(), [
       ChangeNotifierProvider<RecurringProvider>.value(value: recurring),
       ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      // The suggestions read the history.
+      ChangeNotifierProvider<ExpenseProvider>.value(value: ExpenseProvider()),
     ]);
 
     await tester.tap(find.text('Rent'));
-    await tester.pump(const Duration(milliseconds: 300));
+    // The form opens as a page, which takes a frame more than a dialog.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.text('Save'));
     // Until the edit dialog has closed — it closes once the save is written —
     // rather than a fixed three short waits.
@@ -575,6 +587,67 @@ void main() {
     expect(selected('Bills'), isFalse);
     await teardownTree(tester);
   }, timeout: testTimeout);
+  testWidgets('Add expense: leaving with an amount typed in asks first',
+      (tester) async {
+    final (accounts, expenses, templates) = (await tester.runAsync(() async {
+      final a = AccountProvider();
+      await a.fetchAccounts();
+      return (a, ExpenseProvider(), TemplateProvider());
+    }))!;
+
+    await pumpScreen(
+        tester,
+        Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const AddExpenseScreen())),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+        [
+          ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+          ChangeNotifierProvider<ExpenseProvider>.value(value: expenses),
+          ChangeNotifierProvider<TemplateProvider>.value(value: templates),
+          ChangeNotifierProvider<SettingsProvider>.value(
+              value: SettingsProvider()),
+        ]);
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    for (var i = 0; i < 2; i++) {
+      await tester.runAsync(
+          () async => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
+
+    // The form is open; type an amount, then try to leave.
+    expect(find.text('Add expense'), findsWidgets);
+    await tester.enterText(find.byType(TextFormField).first, '250');
+    await tester.pump();
+
+    await tester.binding.handlePopRoute();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Discard this transaction?'), findsOneWidget);
+    await tester.tap(find.text('Keep editing'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('250'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Discard'));
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    expect(find.text('Discard this transaction?'), findsNothing);
+    expect(find.text('open'), findsOneWidget);
+    expect(find.text('250'), findsNothing);
+    await teardownTree(tester);
+  }, timeout: testTimeout);
+
   testWidgets('Add expense: the amount carries the chosen account\'s currency',
       (tester) async {
     final (accounts, expenses, templates) = (await tester.runAsync(() async {

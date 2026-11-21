@@ -108,6 +108,9 @@ class ExpenseProvider extends ChangeNotifier {
     _loadedYears.add(year);
   }
 
+  /// Whether [year]'s rows are in memory (an unloaded year reads as empty).
+  bool isYearLoaded(int year) => _loadedYears.contains(year);
+
   /// Ensures expenses for the given year are loaded.
   Future<void> ensureYearLoaded(int year) async {
     if (_loadedYears.contains(year)) return;
@@ -240,6 +243,14 @@ class ExpenseProvider extends ChangeNotifier {
   /// Returns how many changed.
   Future<int> setCategory(Iterable<int> ids, String category) async {
     final n = await DBService().setCategory(ids, category);
+    await reloadLoadedYears();
+    return n;
+  }
+
+  /// Moves every row in [ids] to account [accountId]; transfers are
+  /// skipped. Returns how many changed.
+  Future<int> setAccount(Iterable<int> ids, int? accountId) async {
+    final n = await DBService().setAccount(ids, accountId);
     await reloadLoadedYears();
     return n;
   }

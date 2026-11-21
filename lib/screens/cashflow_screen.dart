@@ -5,6 +5,7 @@ import '../providers/expense_provider.dart';
 import '../providers/investment_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/currency_format.dart';
+import '../utils/date_format.dart';
 import '../utils/insets.dart';
 import '../widgets/cashflow_chart.dart';
 import '../widgets/section_header.dart';
@@ -19,38 +20,49 @@ class CashflowScreen extends StatefulWidget {
 }
 
 class _CashflowScreenState extends State<CashflowScreen> {
+  /// How many months back the screen looks.
+  int _span = 12;
+
+  static const _spans = [6, 12, 24];
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<ExpenseProvider>();
-      final now = DateTime.now();
-      // The trailing 12-month window can span two calendar years.
-      unawaited(provider.ensureYearLoaded(now.year));
-      unawaited(provider.ensureYearLoaded(now.year - 1));
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  /// Loads every year the span reaches into.
+  void _load() {
+    final now = DateTime.now();
+    final first = DateTime(now.year, now.month - (_span - 1));
+    unawaited(context
+        .read<ExpenseProvider>()
+        .ensureYearsLoaded([for (var y = first.year; y <= now.year; y++) y]));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Cash Flow')),
+      appBar: AppBar(title: const Text('Cash flow')),
       body: Consumer2<ExpenseProvider, InvestmentProvider>(
         builder: (context, provider, investments, _) {
           final now = DateTime.now();
+          final months = [
+            for (var i = _span - 1; i >= 0; i--)
+              DateTime(now.year, now.month - i, 1),
+          ];
           var totalIncome = 0;
           var totalExpense = 0;
-          for (int i = 11; i >= 0; i--) {
-            final date = DateTime(now.year, now.month - i, 1);
-            totalIncome += provider.incomeForMonth(date.year, date.month);
-            totalExpense += provider.totalForMonth(date.year, date.month);
+          for (final m in months) {
+            totalIncome += provider.incomeForMonth(m.year, m.month);
+            totalExpense += provider.totalForMonth(m.year, m.month);
           }
           final net = totalIncome - totalExpense;
-          // Of what was left over, how much went into investments, and the
-          // share of income kept: the two figures a cash-flow view is for.
+          // Money put into investments over the same window. It is not
+          // spending (it stays the user's), so it is shown apart from the
+          // net rather than taken off it.
           final invested = investments.investedInRange(
-              DateTime(now.year, now.month - 11, 1),
-              DateTime(now.year, now.month + 1, 1));
+              months.first, DateTime(now.year, now.month + 1, 1));
           final savingsRate = totalIncome > 0 ? net * 100 / totalIncome : null;
 
           return SingleChildScrollView(
@@ -58,9 +70,25 @@ class _CashflowScreenState extends State<CashflowScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SectionHeader('Income vs Expense (last 12 months)'),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    segments: [
+                      for (final s in _spans)
+                        ButtonSegment(value: s, label: Text('$s months')),
+                    ],
+                    selected: {_span},
+                    onSelectionChanged: (v) {
+                      setState(() => _span = v.first);
+                      _load();
+                    },
+                  ),
+                ),
+                const SizedBox(height: Space.lg),
+                SectionHeader('Income vs expense (last $_span months)'),
                 const SizedBox(height: Space.sm),
-                CashflowChart(provider: provider),
+                CashflowChart(provider: provider, months: _span),
                 const SizedBox(height: Space.sm),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -78,12 +106,12 @@ class _CashflowScreenState extends State<CashflowScreen> {
                     child: Column(
                       children: [
                         _SummaryRow(
-                            label: 'Total Income',
+                            label: 'Total income',
                             value: totalIncome,
                             color: incomeColor(context)),
                         const SizedBox(height: Space.sm),
                         _SummaryRow(
-                            label: 'Total Expense',
+                            label: 'Total expense',
                             value: totalExpense,
                             color: expenseColor(context)),
                         const Divider(),
@@ -118,10 +146,97 @@ class _CashflowScreenState extends State<CashflowScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: Space.lg),
+                const SectionHeader('Month by month'),
+                const SizedBox(height: Space.xs),
+                // The figures behind the bars, newest first.
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: Space.lg, vertical: Space.sm),
+                    child: Column(
+                      children: [
+                        _MonthRow.header(context),
+                        const Divider(height: 1),
+                        for (final m in months.reversed)
+                          _MonthRow(
+                            label: '${monthName(m.month).substring(0, 3)} '
+                                '${m.year}',
+                            income: provider.incomeForMonth(m.year, m.month),
+                            expense: provider.totalForMonth(m.year, m.month),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// One month's line in the month-by-month table: in, out and what was left.
+class _MonthRow extends StatelessWidget {
+  final String label;
+  final int income;
+  final int expense;
+  final bool isHeader;
+
+  const _MonthRow(
+      {required this.label, required this.income, required this.expense})
+      : isHeader = false;
+
+  const _MonthRow._header()
+      : label = 'Month',
+        income = 0,
+        expense = 0,
+        isHeader = true;
+
+  static Widget header(BuildContext context) => const _MonthRow._header();
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = mutedTextColor(context);
+    final net = income - expense;
+    Widget cell(String text, {Color? color, bool bold = false}) => Expanded(
+          flex: 3,
+          child: Text(text,
+              textAlign: TextAlign.end,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: FontSizes.caption,
+                  color: isHeader ? muted : color,
+                  fontWeight: bold ? FontWeight.w600 : null)),
+        );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.sm),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: FontSizes.caption,
+                    color: isHeader ? muted : null)),
+          ),
+          cell(isHeader ? 'In' : formatMoneyRounded(income),
+              color: incomeColor(context)),
+          cell(isHeader ? 'Out' : formatMoneyRounded(expense),
+              color: expenseColor(context)),
+          cell(
+              isHeader
+                  ? 'Net'
+                  // No sign while amounts are hidden: it gives the net away.
+                  : '${net < 0 && !CurrencyFormat.hideAmounts ? '-' : ''}'
+                      '${formatMoneyRounded(net.abs())}',
+              color: net >= 0 ? null : expenseColor(context),
+              bold: true),
+        ],
       ),
     );
   }

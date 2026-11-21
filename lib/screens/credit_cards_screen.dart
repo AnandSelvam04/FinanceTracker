@@ -165,7 +165,13 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
       spendInRange: spendIn,
       paidInRange: expenses.paidToAccountInRange,
       balanceOf: accounts.balanceOf,
-    );
+    )
+        // An archived (closed) card is kept for its history on Accounts, but
+        // has no bill, limit or reward to track here. Worked out from every
+        // account first, so a card sharing an archived card's limit still
+        // sees that limit.
+        .where((s) => !s.account.archived)
+        .toList();
     final rows = [
       for (final s in summaries)
         () {
@@ -246,7 +252,7 @@ class _CreditCardsScreenState extends State<CreditCardsScreen> {
                 _Totals(rows: rows),
                 if (bestCardToday(summaries, now) case final best?)
                   _BestCardBanner(summary: best, now: now),
-                for (final t in limitTwinSuggestions(accounts.accounts,
+                for (final t in limitTwinSuggestions(accounts.activeAccounts,
                     dismissed: _dismissedTwins))
                   _TwinSuggestion(
                     suggestion: t,

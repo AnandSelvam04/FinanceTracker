@@ -103,7 +103,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Edit Income'), findsOneWidget);
+    expect(find.text('Edit income'), findsOneWidget);
   });
 
   testWidgets('saving an edit keeps the SMS import link', (tester) async {
@@ -194,7 +194,7 @@ void main() {
     await tester.tap(find.text('Duplicate'));
     await settle(tester);
 
-    expect(find.text('Duplicate Expense'), findsOneWidget);
+    expect(find.text('Duplicate expense'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, 'Swiggy'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, '450.00'), findsOneWidget);
     expect(
@@ -203,7 +203,7 @@ void main() {
             .selected,
         isTrue);
 
-    final add = find.widgetWithText(FilledButton, 'Add Expense');
+    final add = find.widgetWithText(FilledButton, 'Add expense');
     await tester.ensureVisible(add);
     await tester.tap(add);
     // Fixed pumps, not pumpAndSettle: the saving spinner animates until the
@@ -242,11 +242,11 @@ void main() {
     );
 
     expect(find.text('Edit'), findsWidgets);
-    expect(find.text('Edit Expense'), findsNothing);
+    expect(find.text('Edit expense'), findsNothing);
     await tester.tap(find.text('Duplicate'));
     await settle(tester);
 
-    expect(find.text('Duplicate Expense'), findsOneWidget);
+    expect(find.text('Duplicate expense'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, 'Swiggy'), findsOneWidget);
   });
 

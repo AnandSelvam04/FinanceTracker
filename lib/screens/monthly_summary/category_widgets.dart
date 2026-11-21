@@ -57,7 +57,7 @@ class _CategoryFilter extends StatelessWidget {
       items: [
         const DropdownMenuItem<String?>(
           value: null,
-          child: Text('All Categories'),
+          child: Text('All categories'),
         ),
         ...categories.map((c) => DropdownMenuItem<String?>(
               value: c,
@@ -215,11 +215,7 @@ class _CategoryFocus extends StatelessWidget {
           ...rows.map((e) => Card(
                 child: ListTile(
                   leading: CategoryAvatar(category: category),
-                  title: Text(
-                      e.description.isEmpty
-                          ? '(no description)'
-                          : e.description,
-                      overflow: TextOverflow.ellipsis),
+                  title: Text(e.displayName, overflow: TextOverflow.ellipsis),
                   subtitle: Text(formatDateWithDay(e.date)),
                   trailing: Text(formatMoney(baseAmountOf(e)),
                       style: const TextStyle(fontWeight: FontWeight.bold)),

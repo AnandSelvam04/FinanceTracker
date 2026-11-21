@@ -8,10 +8,12 @@ import '../utils/currency_format.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
 
-/// Grouped bars of income vs expense per month for the trailing 12 months.
+/// Grouped bars of income vs expense per month for the trailing [months]
+/// months.
 class CashflowChart extends StatelessWidget {
   final ExpenseProvider provider;
-  const CashflowChart({super.key, required this.provider});
+  final int months;
+  const CashflowChart({super.key, required this.provider, this.months = 12});
 
   static const _monthLabels = [
     'J',
@@ -33,27 +35,30 @@ class CashflowChart extends StatelessWidget {
     final now = DateTime.now();
     final groups = <BarChartGroupData>[];
     final months = <DateTime>[];
+    final last = this.months - 1;
+    // Thinner bars, and every other label, once there are more months.
+    final barWidth = this.months > 12 ? 3.0 : 6.0;
     var maxValue = 0.0;
 
-    for (int i = 11; i >= 0; i--) {
+    for (int i = last; i >= 0; i--) {
       final date = DateTime(now.year, now.month - i, 1);
       months.add(date);
       final income = provider.incomeForMonth(date.year, date.month) / 100;
       final expense = provider.totalForMonth(date.year, date.month) / 100;
       maxValue = max(maxValue, max(income, expense));
       groups.add(BarChartGroupData(
-        x: 11 - i,
+        x: last - i,
         barRods: [
           BarChartRodData(
             toY: income,
             color: incomeColor(context),
-            width: 6,
+            width: barWidth,
             borderRadius: BorderRadius.circular(Radii.xs),
           ),
           BarChartRodData(
             toY: expense,
             color: expenseColor(context),
-            width: 6,
+            width: barWidth,
             borderRadius: BorderRadius.circular(Radii.xs),
           ),
         ],
@@ -64,7 +69,8 @@ class CashflowChart extends StatelessWidget {
       return SizedBox(
         height: 220,
         child:
-            Center(child: const Text('No transactions in the last 12 months.')),
+            Center(
+                child: Text('No transactions in the last ${this.months} months.')),
       );
     }
 
@@ -78,7 +84,8 @@ class CashflowChart extends StatelessWidget {
     ].join('; ');
 
     return Semantics(
-      label: 'Income versus expenses over the last 12 months. $summary',
+      label:
+          'Income versus expenses over the last ${this.months} months. $summary',
       child: ExcludeSemantics(
         child: SizedBox(
           height: 220,
@@ -100,6 +107,9 @@ class CashflowChart extends StatelessWidget {
                     getTitlesWidget: (value, meta) {
                       final index = value.toInt();
                       if (index < 0 || index >= months.length) {
+                        return const SizedBox.shrink();
+                      }
+                      if (this.months > 12 && (last - index).isOdd) {
                         return const SizedBox.shrink();
                       }
                       return Text(

@@ -551,6 +551,81 @@ void main() {
       expect(lines.last, contains('HDFC Savings'));
     });
 
+    test('a full restore can be undone, putting back what was there',
+        () async {
+      final db = DBService();
+      final service = BackupService();
+      // The backup to restore: one transaction.
+      await db.insertExpense(Expense(
+        description: 'From backup',
+        amount: 5000,
+        date: DateTime(2026, 5, 1),
+        category: 'Food',
+        paymentMode: 'UPI',
+      ));
+      final backup = await service.writeJsonBackupFile();
+      final copy = await backup.copy('${tempDir.path}/picked.json');
+      // Meanwhile the app holds something else.
+      await db.clearAll();
+      await db.insertExpense(Expense(
+        description: 'On the phone',
+        amount: 7000,
+        date: DateTime(2026, 5, 2),
+        category: 'Food',
+        paymentMode: 'UPI',
+      ));
+      expect(await service.canUndoRestore(), isFalse);
+
+      await service.restoreFromFile(copy.path);
+      expect((await db.getExpenses()).single.description, 'From backup');
+      expect(service.lastRestoreCounts?.transactions, 1);
+      expect(await service.canUndoRestore(), isTrue);
+
+      await service.undoRestore();
+      expect((await db.getExpenses()).single.description, 'On the phone');
+      // Used up: a second undo has nothing to put back.
+      expect(await service.canUndoRestore(), isFalse);
+    });
+
+    test('erasing all data can be undone', () async {
+      final db = DBService();
+      final service = BackupService();
+      await db.insertExpense(Expense(
+        description: 'Kept',
+        amount: 5000,
+        date: DateTime(2026, 5, 1),
+        category: 'Food',
+        paymentMode: 'UPI',
+      ));
+      await db.insertAccount(Account(name: 'Wallet', type: 'cash'));
+
+      await service.eraseAllData();
+      expect(await db.getExpenses(), isEmpty);
+      expect(await db.getAccounts(), isEmpty);
+
+      await service.undoRestore();
+      expect((await db.getExpenses()).single.description, 'Kept');
+      expect((await db.getAccounts()).single.name, 'Wallet');
+    });
+
+    test('restoring onto an empty app offers no undo', () async {
+      final db = DBService();
+      final service = BackupService();
+      await db.insertExpense(Expense(
+        description: 'From backup',
+        amount: 5000,
+        date: DateTime(2026, 5, 1),
+        category: 'Food',
+        paymentMode: 'UPI',
+      ));
+      final backup = await service.writeJsonBackupFile();
+      final copy = await backup.copy('${tempDir.path}/picked.json');
+      await db.clearAll();
+
+      await service.restoreFromFile(copy.path);
+      expect(await service.canUndoRestore(), isFalse);
+    });
+
     test('a full restore brings back the settings', () async {
       SharedPreferences.setMockInitialValues({
         'currencySymbol': '\$',

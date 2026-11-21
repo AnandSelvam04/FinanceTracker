@@ -83,7 +83,7 @@ class _RecentRow extends StatelessWidget {
             )
           : CategoryAvatar(category: e.category, radius: 16),
       title: Text(
-        e.description.isEmpty ? '(no description)' : e.description,
+        e.displayName,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontWeight: FontWeight.w600),
@@ -183,10 +183,7 @@ class _CategoryDetailSheet extends StatelessWidget {
                       return ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
-                        title: Text(
-                            e.description.isEmpty
-                                ? '(no description)'
-                                : e.description,
+                        title: Text(e.displayName,
                             overflow: TextOverflow.ellipsis),
                         subtitle: Text(formatDateWithDay(e.date)),
                         trailing: Row(

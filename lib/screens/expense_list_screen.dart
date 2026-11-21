@@ -15,6 +15,7 @@ import '../services/excel_export.dart';
 import '../utils/haptics.dart';
 import '../utils/app_colors.dart';
 import '../utils/category_icons.dart';
+import '../utils/category_store.dart';
 import '../utils/currency_format.dart';
 import '../utils/date_format.dart';
 import '../utils/db_constants.dart';
@@ -29,12 +30,18 @@ import '../widgets/transaction_edit_sheet.dart';
 import 'investment_type_screen.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
+import '../utils/error_message.dart';
 
 part 'expense_list/filter_sheet.dart';
 part 'expense_list/list_widgets.dart';
 
 class ExpenseListScreen extends StatefulWidget {
   const ExpenseListScreen({super.key});
+
+  /// Whether rows are being multi-selected, so the home screen's Back
+  /// handling leaves that Back press to clear the selection instead of
+  /// switching to the Home tab as well.
+  static final selectionActive = ValueNotifier<bool>(false);
 
   @override
   State<ExpenseListScreen> createState() => _ExpenseListScreenState();
@@ -264,8 +271,91 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
           tooltip: 'Delete selected',
           onPressed: _bulkDelete,
         ),
+        PopupMenuButton<String>(
+          tooltip: 'More actions',
+          onSelected: (action) => switch (action) {
+            'account' => _bulkMoveAccount(),
+            'csv' => _downloadRows(_selectedRows, excel: false),
+            _ => _downloadRows(_selectedRows, excel: true),
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+                value: 'account',
+                child: ListTile(
+                    leading: Icon(Icons.account_balance_wallet_outlined),
+                    title: Text('Change account'))),
+            PopupMenuItem(
+                value: 'csv',
+                child: ListTile(
+                    leading: Icon(Icons.download),
+                    title: Text('Download selected (CSV)'))),
+            PopupMenuItem(
+                value: 'excel',
+                child: ListTile(
+                    leading: Icon(Icons.table_chart_outlined),
+                    title: Text('Download selected (Excel)'))),
+          ],
+        ),
       ],
     );
+  }
+
+  /// Moves the selected rows to another account (a spend filed under the
+  /// wrong card, say), with Undo. Transfers keep their two accounts.
+  Future<void> _bulkMoveAccount() async {
+    final rows = _selectedRows;
+    final movable = rows.where((e) => !e.isTransfer).toList();
+    final messenger = ScaffoldMessenger.of(context);
+    if (movable.isEmpty) {
+      messenger.showSnackBar(const SnackBar(
+          content: Text('Transfers keep their own two accounts.')));
+      return;
+    }
+    final accounts = context.read<AccountProvider>();
+    final expenses = context.read<ExpenseProvider>();
+    // (picked,) so "no account" can be told apart from a cancelled dialog.
+    final picked = await showDialog<(int?,)>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text('Move ${movable.length} to'),
+        children: [
+          for (final a in accounts.activeAccounts)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, (a.id,)),
+              child: Text(a.name),
+            ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, (null,)),
+            child: const Text('No account'),
+          ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    final target = picked.$1;
+    final before = [for (final e in movable) (e.id!, e.accountId)];
+    if (mounted) setState(_selected.clear);
+    await expenses.setAccount([for (final e in movable) e.id!], target);
+    await accounts.refreshBalances();
+    final skipped = rows.length - movable.length;
+    messenger.showSnackBar(SnackBar(
+      content: Text('Moved ${movable.length} to '
+          '${accounts.accountById(target)?.name ?? 'no account'}'
+          '${skipped > 0 ? ' ($skipped transfer${skipped == 1 ? '' : 's'} skipped)' : ''}'),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          final byOld = <int?, List<int>>{};
+          for (final (id, old) in before) {
+            byOld.putIfAbsent(old, () => []).add(id);
+          }
+          for (final MapEntry(key: old, value: ids) in byOld.entries) {
+            await expenses.setAccount(ids, old);
+          }
+          await accounts.refreshBalances();
+        },
+      ),
+    ));
   }
 
   Future<void> _bulkDelete() async {
@@ -359,37 +449,43 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     ));
   }
 
+  /// Deletes [expense] straight away and offers Undo — a swipe is
+  /// deliberate enough, and the confirmation dialog it used to ask for
+  /// offered no way back afterwards.
   Future<bool> _confirmDelete(Expense expense) async {
     Haptics.medium();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete transaction?'),
-        content: Text('Remove "${expense.description}" for '
-            '${_rowAmount(context, expense)}?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-                foregroundColor: Theme.of(context).colorScheme.onError,
-              ),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
-        ],
+    final expenses = context.read<ExpenseProvider>();
+    final accounts = context.read<AccountProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    await expenses.deleteExpense(expense.id!);
+    await accounts.refreshBalances();
+    messenger.showSnackBar(SnackBar(
+      content: Text(
+          'Deleted "${expense.displayName}"'),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          await expenses.addExpense(expense);
+          await accounts.refreshBalances();
+        },
       ),
-    );
-    if (confirmed == true) {
-      // ignore: use_build_context_synchronously
-      await context.read<ExpenseProvider>().deleteExpense(expense.id!);
-      if (mounted) {
-        await context.read<AccountProvider>().refreshBalances();
-      }
-      return true;
-    }
-    return false;
+    ));
+    return true;
+  }
+
+  bool get _canStep => _selectedYear != null && _selectedMonth != null;
+
+  bool get _isThisMonth {
+    final now = DateTime.now();
+    return _selectedYear == now.year && _selectedMonth == now.month;
+  }
+
+  /// Steps the month on show by [delta], across years.
+  void _stepMonth(int delta) {
+    final next = DateTime(_selectedYear!, _selectedMonth! + delta);
+    Haptics.tick();
+    setState(() => _selectedMonth = next.month);
+    if (next.year != _selectedYear) unawaited(_selectYear(next.year));
   }
 
   /// The current search/period/type plus advanced (category, account,
@@ -416,12 +512,17 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   Future<void> _openFilterSheet() async {
     final provider = context.read<ExpenseProvider>();
     final accounts = context.read<AccountProvider>().accounts;
-    final categories = provider.expenses
-        .map((e) => e.category)
-        .where((c) => c.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    // Every category set up, not only those in the years loaded so far, so
+    // a category last used years ago can still be filtered on.
+    final seen = <String>{};
+    final categories = [
+      for (final c in [
+        ...CategoryStore.instance.offered(DbConstants.txExpense),
+        ...CategoryStore.instance.offered(DbConstants.txIncome),
+        ...provider.expenses.where((e) => !e.isTransfer).map((e) => e.category),
+      ])
+        if (c.trim().isNotEmpty && seen.add(c.trim().toLowerCase())) c,
+    ]..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     // Null when the sheet is dismissed: the filters stay as they were.
     final picked = await showModalBottomSheet<_AdvancedFilters>(
@@ -467,11 +568,16 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   /// Downloads exactly what the current filters show, via the share sheet:
   /// as a CSV file, or with [excel] as a workbook with a summary, the
   /// transactions and spending by category.
-  Future<void> _downloadFiltered({required bool excel}) async {
+  Future<void> _downloadFiltered({required bool excel}) =>
+      _downloadRows(_applyFilters(context.read<ExpenseProvider>().expenses),
+          excel: excel);
+
+  /// Shares [filtered] as a CSV or Excel file.
+  Future<void> _downloadRows(List<Expense> filtered,
+      {required bool excel}) async {
     final messenger = ScaffoldMessenger.of(context);
     final provider = context.read<ExpenseProvider>();
     final accounts = context.read<AccountProvider>().accounts;
-    final filtered = _applyFilters(provider.expenses);
     if (filtered.isEmpty) {
       messenger.showSnackBar(
         SnackBar(content: const Text('Nothing to download for this filter.')),
@@ -502,13 +608,19 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         ],
         subject: 'Finance Tracker — Transactions ($_filterLabel)',
       ));
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    } catch (e, st) {
+      messenger.showSnackBar(SnackBar(
+          content: Text(friendlyError("Couldn't create the file", e, st))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Read by the home screen after this frame; a Back press that clears the
+    // selection still sees it as active.
+    final selecting = _selecting;
+    WidgetsBinding.instance.addPostFrameCallback(
+        (_) => ExpenseListScreen.selectionActive.value = selecting);
     return PopScope(
       // Back leaves selection mode before it leaves the screen.
       canPop: !_selecting,
@@ -589,11 +701,27 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: Space.md),
                 children: [
+                  // One tap to the month before or after, rather than the
+                  // period sheet's two dropdowns.
+                  if (_canStep)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.chevron_left),
+                      tooltip: 'Previous month',
+                      onPressed: () => _stepMonth(-1),
+                    ),
                   ActionChip(
                     avatar: const Icon(Icons.calendar_month, size: 18),
                     label: Text(_periodLabel),
                     onPressed: _showPeriodPicker,
                   ),
+                  if (_canStep)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.chevron_right),
+                      tooltip: 'Next month',
+                      onPressed: _isThisMonth ? null : () => _stepMonth(1),
+                    ),
                   const SizedBox(width: Space.sm),
                   const _ToolbarDivider(),
                   const SizedBox(width: Space.sm),
@@ -834,10 +962,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               title: Row(
                 children: [
                   Flexible(
-                    child: Text(
-                        expense.description.isEmpty
-                            ? '(no description)'
-                            : expense.description,
+                    child: Text(expense.displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w600)),

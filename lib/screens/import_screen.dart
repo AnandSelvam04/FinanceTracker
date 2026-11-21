@@ -19,6 +19,7 @@ import '../utils/insets.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
 import '../utils/picked_file.dart';
+import '../utils/error_message.dart';
 
 class ImportScreen extends StatefulWidget {
   const ImportScreen({super.key});
@@ -210,8 +211,10 @@ class _ImportScreenState extends State<ImportScreen> {
         ].join(' · ')),
       ));
       Navigator.pop(context);
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    } catch (e, st) {
+      messenger.showSnackBar(SnackBar(
+          content:
+              Text(friendlyError("Couldn't import the transactions", e, st))));
     } finally {
       if (mounted) setState(() => _importing = false);
     }
@@ -383,8 +386,7 @@ class _ImportScreenState extends State<ImportScreen> {
           ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            title: Text(
-                e.description.isEmpty ? '(no description)' : e.description),
+            title: Text(e.displayName),
             subtitle: Text('${e.category} · ${formatShortDate(e.date)} · '
                 '${e.isRefund ? 'refund' : e.type}'),
             trailing: Text(e.isRefund

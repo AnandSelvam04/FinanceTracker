@@ -82,6 +82,11 @@ String groupDigits(String digits, {String? symbol}) {
   return '${groups.join(',')},$last3';
 }
 
+/// Decimal places [symbol]'s currency is shown with: none for the yen,
+/// which has no minor unit in use, two for the rest. Amounts are still
+/// stored in hundredths, so this changes only how they read.
+int decimalsFor(String symbol) => symbol == '¥' ? 0 : 2;
+
 /// A major-unit amount with grouped digits and [decimals] places. [minor]
 /// should be non-negative; callers handle the sign.
 String _grouped(int minor, int decimals, String symbol) {
@@ -99,7 +104,8 @@ String formatCount(int n) => CurrencyFormat.hideAmounts
     ? '•••••'
     : '${n < 0 ? '-' : ''}${groupDigits('${n.abs()}', symbol: CurrencyFormat.symbol)}';
 
-/// Formats minor units with the configured currency symbol and 2 decimals.
+/// Formats minor units with the configured currency symbol and its decimals
+/// (two, or none for the yen; see [decimalsFor]).
 /// Masked while [CurrencyFormat.hideAmounts] is on.
 String formatMoney(int minor) => CurrencyFormat.hideAmounts
     ? _masked(CurrencyFormat.symbol)
@@ -108,7 +114,7 @@ String formatMoney(int minor) => CurrencyFormat.hideAmounts
 /// [formatMoney] that always shows the figure: for PDF statements, CSV and
 /// notifications, which must not depend on what the screen is hiding.
 String formatMoneyExact(int minor) =>
-    '${CurrencyFormat.symbol}${_grouped(minor, 2, CurrencyFormat.symbol)}';
+    '${CurrencyFormat.symbol}${_grouped(minor, decimalsFor(CurrencyFormat.symbol), CurrencyFormat.symbol)}';
 
 /// Formats a possibly-negative amount with the minus sign *before* the
 /// currency symbol — "-₹75.00", the conventional presentation.
@@ -132,7 +138,7 @@ String formatMoneyIn(String symbol, int minor) => CurrencyFormat.hideAmounts
 
 /// [formatMoneyIn] that always shows the figure (see [formatMoneyExact]).
 String formatMoneyInExact(String symbol, int minor) =>
-    '$symbol${_grouped(minor, 2, symbol)}';
+    '$symbol${_grouped(minor, decimalsFor(symbol), symbol)}';
 
 /// [formatMoneySigned] with an explicit [symbol], for an account balance that
 /// can legitimately be negative — a credit card's balance is what is owed, so

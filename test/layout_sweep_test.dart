@@ -190,6 +190,9 @@ void main() {
     'More': () => const MoreScreen(),
     'Recurring': () => const RecurringScreen(),
     'Settings': () => const SettingsScreen(),
+    // Opened from a search on More: scrolls to and lights up one row.
+    'Settings, jumped to a row': () =>
+        const SettingsScreen(highlight: 'Erase all data'),
     'AddExpense': () => const AddExpenseScreen(),
     'AddTransfer': () => const AddTransferScreen(),
     'AddInvestment': () => const AddInvestmentScreen(),

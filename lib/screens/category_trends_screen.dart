@@ -8,6 +8,9 @@ import '../utils/insets.dart';
 import '../widgets/section_header.dart';
 import '../widgets/category_trend_chart.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/category_avatar.dart';
+import '../utils/app_colors.dart';
+import '../utils/currency_format.dart';
 import '../utils/dimens.dart';
 
 class CategoryTrendsScreen extends StatefulWidget {
@@ -21,62 +24,95 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
   final Set<String> _selected = {};
   bool _initialized = false;
 
+  /// How many months back the chart looks.
+  int _span = 12;
+
+  static const _spans = [6, 12, 24];
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<ExpenseProvider>();
-      final now = DateTime.now();
-      // The 12-month window can span two calendar years.
-      unawaited(provider.ensureYearLoaded(now.year));
-      unawaited(provider.ensureYearLoaded(now.year - 1));
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  List<String> _availableCategories(ExpenseProvider provider) {
+  /// Loads every year the span reaches into.
+  void _load() {
     final now = DateTime.now();
-    final categories = <String>{};
-    for (int i = 11; i >= 0; i--) {
+    final first = DateTime(now.year, now.month - (_span - 1));
+    unawaited(context
+        .read<ExpenseProvider>()
+        .ensureYearsLoaded([for (var y = first.year; y <= now.year; y++) y]));
+  }
+
+  /// Each category's spending over the span, biggest first — so the chart
+  /// opens on where most of the money went, not on whichever three come
+  /// first alphabetically.
+  Map<String, int> _totals(ExpenseProvider provider) {
+    final now = DateTime.now();
+    final totals = <String, int>{};
+    for (int i = _span - 1; i >= 0; i--) {
       final month = DateTime(now.year, now.month - i, 1);
-      categories.addAll(
-          provider.categoryTotalsForMonth(month.year, month.month).keys);
+      provider
+          .categoryTotalsForMonth(month.year, month.month)
+          .forEach((c, v) => totals[c] = (totals[c] ?? 0) + v);
     }
-    final list = categories.toList()..sort();
-    return list;
+    final order = totals.keys.toList()
+      ..sort((a, b) {
+        final bySpend = totals[b]!.compareTo(totals[a]!);
+        return bySpend != 0 ? bySpend : a.compareTo(b);
+      });
+    return {for (final c in order) c: totals[c]!};
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Category Trends')),
+      appBar: AppBar(title: const Text('Category trends')),
       body: Consumer<ExpenseProvider>(
         builder: (context, provider, _) {
-          final categories = _availableCategories(provider);
-
-          // Preselect the top few categories on first load.
+          final totals = _totals(provider);
+          final categories = totals.keys.toList();
           if (!_initialized && categories.isNotEmpty) {
             _selected.addAll(categories.take(3));
             _initialized = true;
           }
 
           if (categories.isEmpty) {
-            return const EmptyState(
+            return EmptyState(
               icon: Icons.show_chart,
               title: 'Nothing to chart yet',
-              message: 'No expenses recorded in the last 12 months.',
+              message: 'No expenses recorded in the last $_span months.',
             );
           }
 
+          final muted = mutedTextColor(context);
           return SingleChildScrollView(
             padding: scrollPadding(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SectionHeader('Spending by category (last 12 months)'),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    segments: [
+                      for (final s in _spans)
+                        ButtonSegment(value: s, label: Text('$s months')),
+                    ],
+                    selected: {_span},
+                    onSelectionChanged: (v) {
+                      setState(() => _span = v.first);
+                      _load();
+                    },
+                  ),
+                ),
+                const SizedBox(height: Space.lg),
+                SectionHeader('Spending by category (last $_span months)'),
                 const SizedBox(height: Space.sm),
                 CategoryTrendChart(
                   provider: provider,
                   categories: _selected.toList(),
+                  months: _span,
                 ),
                 const SizedBox(height: Space.lg),
                 Wrap(
@@ -87,8 +123,6 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
                     return FilterChip(
                       label: Text(category),
                       selected: selected,
-                      // The checkmark is drawn over the avatar, hiding the
-                      // category icon; the selected fill already shows state.
                       showCheckmark: false,
                       avatar: Icon(categoryIcon(category),
                           size: 18,
@@ -107,6 +141,33 @@ class _CategoryTrendsScreenState extends State<CategoryTrendsScreen> {
                     );
                   }).toList(),
                 ),
+                if (_selected.isNotEmpty) ...[
+                  const SizedBox(height: Space.lg),
+                  const SectionHeader('Totals'),
+                  const SizedBox(height: Space.xs),
+                  // The numbers behind the lines: the chart has no axis.
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: Column(
+                      children: [
+                        for (final c in categories)
+                          if (_selected.contains(c))
+                            ListTile(
+                              dense: true,
+                              leading: CategoryAvatar(category: c, radius: 16),
+                              title: Text(c),
+                              subtitle: Text(
+                                  '${formatMoneyRounded(totals[c]! ~/ _span)} '
+                                  'a month on average',
+                                  style: TextStyle(color: muted)),
+                              trailing: Text(formatMoneyRounded(totals[c]!),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           );

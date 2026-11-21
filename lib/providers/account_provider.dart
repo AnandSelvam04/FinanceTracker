@@ -10,6 +10,18 @@ class AccountProvider extends ChangeNotifier {
 
   List<Account> get accounts => _accounts;
 
+  /// The accounts still in use (not archived).
+  List<Account> get activeAccounts =>
+      [for (final a in _accounts) if (!a.archived) a];
+
+  /// The accounts to offer in a picker: the active ones, plus any archived
+  /// one in [including] — an old transaction keeps showing the account it
+  /// was recorded against.
+  List<Account> pickable([Iterable<int?> including = const []]) => [
+        for (final a in _accounts)
+          if (!a.archived || including.contains(a.id)) a,
+      ];
+
   Account? accountById(int? id) {
     if (id == null) return null;
     for (final a in _accounts) {
@@ -97,6 +109,10 @@ class AccountProvider extends ChangeNotifier {
     ));
     await fetchAccounts();
   }
+
+  /// Archives (or, with [archived] false, reopens) [account].
+  Future<void> setArchived(Account account, bool archived) =>
+      updateAccount(account.copyWith(archived: archived));
 
   Future<void> deleteAccount(int id) async {
     await DBService().deleteAccount(id);

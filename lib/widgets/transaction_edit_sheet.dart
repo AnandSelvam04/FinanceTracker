@@ -21,6 +21,8 @@ import 'spend_account_picker.dart';
 import 'row_actions_sheet.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
+import '../utils/error_message.dart';
+import 'date_field_row.dart';
 
 /// Opens the right edit sheet for [expense] — a transfer editor for transfers,
 /// the expense/income editor otherwise. Shared so every list of transactions
@@ -49,8 +51,7 @@ Future<void> transactionRowActions(
 }) async {
   final action = await showRowActions(
     context,
-    title:
-        expense.description.isEmpty ? '(no description)' : expense.description,
+    title: expense.displayName,
     subtitle:
         '${expense.isRefund ? 'Refund ${formatMoney(-expense.amount)}' : formatMoney(expense.amount)}'
         ' · ${formatDateWithDay(expense.date)}',
@@ -103,7 +104,7 @@ Future<void> showEditExpenseSheet(
   // The account the money came from (or, for income, went into), changeable
   // so a spend can be moved to the right card.
   int? accountId = expense.accountId;
-  final accounts = context.read<AccountProvider>().accounts;
+  final accounts = context.read<AccountProvider>().pickable([accountId]);
   if (accountId != null && !accounts.any((a) => a.id == accountId)) {
     accountId = null; // deleted since: a dropdown can't show it
   }
@@ -146,8 +147,8 @@ Future<void> showEditExpenseSheet(
                       Expanded(
                         child: Text(
                             expense.isIncome
-                                ? 'Edit Income'
-                                : (refund ? 'Edit Refund' : 'Edit Expense'),
+                                ? 'Edit income'
+                                : (refund ? 'Edit refund' : 'Edit expense'),
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 fontSize: FontSizes.title,
@@ -210,7 +211,7 @@ Future<void> showEditExpenseSheet(
                     key: ValueKey('mode-$paymentMode'),
                     initialValue: paymentMode,
                     decoration:
-                        const InputDecoration(labelText: 'Payment Mode'),
+                        const InputDecoration(labelText: 'Payment mode'),
                     items: [
                       for (final m in modes)
                         DropdownMenuItem(
@@ -256,25 +257,11 @@ Future<void> showEditExpenseSheet(
                       newPhoto = null;
                     }),
                   ),
-                  Row(
-                    children: [
-                      Text('Date: ${formatDateWithDay(selectedDate)}'),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: selectedDate,
-                            firstDate: first,
-                            lastDate: DateTime.now(),
-                          );
-                          if (picked != null) {
-                            setModalState(() => selectedDate = picked);
-                          }
-                        },
-                        child: const Text('Change'),
-                      ),
-                    ],
+                  DateFieldRow(
+                    date: selectedDate,
+                    firstDate: first,
+                    lastDate: DateTime.now(),
+                    onChanged: (d) => setModalState(() => selectedDate = d),
                   ),
                   const SizedBox(height: Space.md),
                   SizedBox(
@@ -343,7 +330,8 @@ Future<void> showEditTransferSheet(
 }) async {
   final first = firstDate ?? DateTime(2000);
   final accountProvider0 = context.read<AccountProvider>();
-  final accounts = accountProvider0.accounts;
+  final accounts =
+      accountProvider0.pickable([transfer.accountId, transfer.toAccountId]);
   final amountController =
       TextEditingController(text: minorToEditString(transfer.amount));
   final toAmountController =
@@ -374,7 +362,7 @@ Future<void> showEditTransferSheet(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Edit Transfer',
+                Text('Edit transfer',
                     style: const TextStyle(
                         fontSize: FontSizes.title,
                         fontWeight: FontWeight.bold)),
@@ -422,23 +410,11 @@ Future<void> showEditTransferSheet(
                   controller: noteController,
                   decoration: const InputDecoration(labelText: 'Note'),
                 ),
-                Row(
-                  children: [
-                    Text('Date: ${formatDateWithDay(date)}'),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: date,
-                          firstDate: first,
-                          lastDate: DateTime.now(),
-                        );
-                        if (picked != null) setSheet(() => date = picked);
-                      },
-                      child: const Text('Change'),
-                    ),
-                  ],
+                DateFieldRow(
+                  date: date,
+                  firstDate: first,
+                  lastDate: DateTime.now(),
+                  onChanged: (d) => setSheet(() => date = d),
                 ),
                 const SizedBox(height: Space.md),
                 SizedBox(
@@ -530,8 +506,9 @@ Future<void> splitTransaction(BuildContext context, Expense original) async {
     messenger.showSnackBar(
       SnackBar(content: Text('Split into ${parts.length} transactions.')),
     );
-  } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+  } catch (e, st) {
+    messenger.showSnackBar(SnackBar(
+        content: Text(friendlyError("Couldn't split the transaction", e, st))));
   }
 }
 

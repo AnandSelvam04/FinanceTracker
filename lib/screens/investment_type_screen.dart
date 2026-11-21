@@ -9,6 +9,7 @@ import '../providers/investment_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../utils/currency_format.dart';
 import '../utils/insets.dart';
+import '../widgets/date_field_row.dart';
 import '../widgets/hero_total_card.dart';
 import '../widgets/swipe_delete_background.dart';
 import 'add_investment_screen.dart';
@@ -626,7 +627,8 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
     DateTime selectedDate = investment.date;
     bool isWithdrawal = investment.isWithdrawal;
     int? accountId = investment.accountId;
-    final accounts = context.read<AccountProvider>().accounts;
+    final accounts =
+        context.read<AccountProvider>().pickable([investment.accountId]);
 
     const types = Investment.builtInTypes;
     final isBuiltIn = types.contains(investment.type);
@@ -657,7 +659,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: Text('Edit Investment',
+                          child: Text('Edit investment',
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                   fontSize: FontSizes.title,
@@ -746,25 +748,11 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                         withdrawal: isWithdrawal,
                         onChanged: (v) => setModalState(() => accountId = v),
                       ),
-                    Row(
-                      children: [
-                        Text('Date: ${formatDateWithDay(selectedDate)}'),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: selectedDate,
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime(2100),
-                            );
-                            if (picked != null) {
-                              setModalState(() => selectedDate = picked);
-                            }
-                          },
-                          child: const Text('Change'),
-                        ),
-                      ],
+                    DateFieldRow(
+                      date: selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                      onChanged: (d) => setModalState(() => selectedDate = d),
                     ),
                     const SizedBox(height: Space.md),
                     SizedBox(

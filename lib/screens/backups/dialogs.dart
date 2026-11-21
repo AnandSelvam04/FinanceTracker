@@ -82,7 +82,7 @@ Future<bool> _confirmRestore(BuildContext context) async {
     builder: (ctx) => AlertDialog(
       title: const Text('Replace all data?'),
       content: const Text(
-          'Restoring will delete everything currently in the app and replace it with the backup. This cannot be undone.\n\n'
+          'Restoring replaces everything currently in the app with the backup. What is here now is kept, so you can undo the restore afterwards.\n\n'
           'Receipt photos are not part of a backup. Transactions keep the photos that are already on this phone; on a new phone they come back without them.'),
       actions: [
         TextButton(
@@ -101,7 +101,8 @@ Future<bool> _confirmRestore(BuildContext context) async {
 
 /// Drive/backup failures carry a user-facing message (e.g. Drive not set up,
 /// or a file that isn't a backup); show it plainly and give the reader time
-/// to act. Everything else falls back to a generic "Error: …".
+/// to act. Everything else gets a plain message, the details going to the
+/// log.
 SnackBar _errorSnackBar(Object e) {
   if (e is DriveBackupException) {
     return SnackBar(
@@ -115,7 +116,10 @@ SnackBar _errorSnackBar(Object e) {
       duration: const Duration(seconds: 8),
     );
   }
-  return SnackBar(content: Text('Error: $e'));
+  return SnackBar(
+    content: Text(friendlyError('That didn\'t work', e)),
+    duration: const Duration(seconds: 6),
+  );
 }
 
 String _mimeFor(String path) => path.endsWith('.json')
