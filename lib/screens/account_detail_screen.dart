@@ -230,7 +230,7 @@ class _LedgerRow extends StatelessWidget {
       );
     } else {
       final e = source as Expense;
-      title = e.description.isEmpty ? '(no description)' : e.description;
+      title = e.displayName;
       if (e.isTransfer) {
         final outgoing = e.accountId == account.id;
         final other =

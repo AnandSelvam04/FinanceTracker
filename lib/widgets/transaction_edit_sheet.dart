@@ -51,8 +51,7 @@ Future<void> transactionRowActions(
 }) async {
   final action = await showRowActions(
     context,
-    title:
-        expense.description.isEmpty ? '(no description)' : expense.description,
+    title: expense.displayName,
     subtitle:
         '${expense.isRefund ? 'Refund ${formatMoney(-expense.amount)}' : formatMoney(expense.amount)}'
         ' · ${formatDateWithDay(expense.date)}',
@@ -331,8 +330,8 @@ Future<void> showEditTransferSheet(
 }) async {
   final first = firstDate ?? DateTime(2000);
   final accountProvider0 = context.read<AccountProvider>();
-  final accounts = accountProvider0
-      .pickable([transfer.accountId, transfer.toAccountId]);
+  final accounts =
+      accountProvider0.pickable([transfer.accountId, transfer.toAccountId]);
   final amountController =
       TextEditingController(text: minorToEditString(transfer.amount));
   final toAmountController =
@@ -508,7 +507,8 @@ Future<void> splitTransaction(BuildContext context, Expense original) async {
       SnackBar(content: Text('Split into ${parts.length} transactions.')),
     );
   } catch (e, st) {
-    messenger.showSnackBar(SnackBar(content: Text(friendlyError("Couldn't split the transaction", e, st))));
+    messenger.showSnackBar(SnackBar(
+        content: Text(friendlyError("Couldn't split the transaction", e, st))));
   }
 }
 

@@ -460,7 +460,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     await expenses.deleteExpense(expense.id!);
     await accounts.refreshBalances();
     messenger.showSnackBar(SnackBar(
-      content: Text('Deleted "${expense.description.isEmpty ? expense.category : expense.description}"'),
+      content: Text(
+          'Deleted "${expense.displayName}"'),
       action: SnackBarAction(
         label: 'Undo',
         onPressed: () async {
@@ -518,9 +519,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       for (final c in [
         ...CategoryStore.instance.offered(DbConstants.txExpense),
         ...CategoryStore.instance.offered(DbConstants.txIncome),
-        ...provider.expenses
-            .where((e) => !e.isTransfer)
-            .map((e) => e.category),
+        ...provider.expenses.where((e) => !e.isTransfer).map((e) => e.category),
       ])
         if (c.trim().isNotEmpty && seen.add(c.trim().toLowerCase())) c,
     ]..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
@@ -569,9 +568,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   /// Downloads exactly what the current filters show, via the share sheet:
   /// as a CSV file, or with [excel] as a workbook with a summary, the
   /// transactions and spending by category.
-  Future<void> _downloadFiltered({required bool excel}) => _downloadRows(
-      _applyFilters(context.read<ExpenseProvider>().expenses),
-      excel: excel);
+  Future<void> _downloadFiltered({required bool excel}) =>
+      _downloadRows(_applyFilters(context.read<ExpenseProvider>().expenses),
+          excel: excel);
 
   /// Shares [filtered] as a CSV or Excel file.
   Future<void> _downloadRows(List<Expense> filtered,
@@ -610,7 +609,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         subject: 'Finance Tracker — Transactions ($_filterLabel)',
       ));
     } catch (e, st) {
-      messenger.showSnackBar(SnackBar(content: Text(friendlyError("Couldn't create the file", e, st))));
+      messenger.showSnackBar(SnackBar(
+          content: Text(friendlyError("Couldn't create the file", e, st))));
     }
   }
 
@@ -962,10 +962,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               title: Row(
                 children: [
                   Flexible(
-                    child: Text(
-                        expense.description.isEmpty
-                            ? '(no description)'
-                            : expense.description,
+                    child: Text(expense.displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
