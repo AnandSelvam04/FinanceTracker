@@ -120,4 +120,13 @@ void main() {
     CurrencyFormat.hideAmounts = false;
     expect(formatMoney(123456), '₹1,234.56');
   });
+
+  test('the yen is shown without decimals; others keep two', () {
+    CurrencyFormat.symbol = '¥';
+    expect(formatMoney(123456), '¥1,235');
+    expect(formatMoneyIn(r'$', 123456), r'$1,234.56');
+    CurrencyFormat.symbol = '₹';
+    expect(formatMoneyIn('¥', 99900), '¥999');
+    expect(formatMoney(123456), '₹1,234.56');
+  });
 }
