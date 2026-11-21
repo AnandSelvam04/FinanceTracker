@@ -20,15 +20,17 @@ class WhatsNew {
   WhatsNew._();
 
   /// The release [items] describe, without the build number.
-  static const version = '1.55.0';
+  static const version = '1.56.0';
 
   static const items = [
-    WhatsNewItem(Icons.credit_score_outlined, 'Card EMIs post once',
-        'An EMI instalment could be added twice when the app was opened and resumed at the same moment. It is now added once.'),
-    WhatsNewItem(Icons.savings_outlined, 'Investments always have a name',
-        'Leave the name blank and it is saved as the type and month, like "PPF Nov 2026". Entries saved blank before now show that way too.'),
-    WhatsNewItem(Icons.cloud_outlined, 'Drive backup, updated',
-        'Drive backup uses Google\'s current permission prompt. Switch account now asks again for Drive access on the next backup.'),
+    WhatsNewItem(Icons.undo, 'Undo a restore',
+        'A restore keeps what was here before it. Undo it from the message, or from Backup & Export.'),
+    WhatsNewItem(Icons.archive_outlined, 'Archive old accounts',
+        'A closed account or card can be archived: it leaves your lists and reminders but keeps its history.'),
+    WhatsNewItem(Icons.repeat, 'Regular bills, found for you',
+        'Recurring shows what your rules come to each month, and offers bills it spots in your history.'),
+    WhatsNewItem(Icons.bolt_outlined, 'Quicker to add',
+        'Add expense opens with the keyboard up, has "Save & add another", and asks before discarding. Transfers get a swap button.'),
   ];
 
   static const _kSeen = 'whatsNewSeenVersion';
