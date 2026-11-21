@@ -194,7 +194,7 @@ void main() {
     await tester.tap(find.text('Duplicate'));
     await settle(tester);
 
-    expect(find.text('Duplicate Expense'), findsOneWidget);
+    expect(find.text('Duplicate expense'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, 'Swiggy'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, '450.00'), findsOneWidget);
     expect(
@@ -203,7 +203,7 @@ void main() {
             .selected,
         isTrue);
 
-    final add = find.widgetWithText(FilledButton, 'Add Expense');
+    final add = find.widgetWithText(FilledButton, 'Add expense');
     await tester.ensureVisible(add);
     await tester.tap(add);
     // Fixed pumps, not pumpAndSettle: the saving spinner animates until the
@@ -246,7 +246,7 @@ void main() {
     await tester.tap(find.text('Duplicate'));
     await settle(tester);
 
-    expect(find.text('Duplicate Expense'), findsOneWidget);
+    expect(find.text('Duplicate expense'), findsOneWidget);
     expect(find.widgetWithText(TextFormField, 'Swiggy'), findsOneWidget);
   });
 

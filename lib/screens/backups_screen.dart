@@ -46,7 +46,12 @@ class _BackupsScreenState extends State<BackupsScreen> {
   bool _canUndoRestore = false;
 
   Future<void> _loadUndoRestore() async {
-    final can = await _backupService.canUndoRestore();
+    bool can;
+    try {
+      can = await _backupService.canUndoRestore();
+    } catch (_) {
+      can = false; // Storage unavailable: nothing to offer.
+    }
     if (mounted) setState(() => _canUndoRestore = can);
   }
 
