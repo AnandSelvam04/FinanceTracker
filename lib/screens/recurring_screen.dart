@@ -14,6 +14,7 @@ import '../widgets/category_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/swipe_actions.dart';
 import '../utils/dimens.dart';
+import '../widgets/form_page.dart';
 
 class RecurringScreen extends StatefulWidget {
   const RecurringScreen({super.key});
@@ -73,15 +74,16 @@ class _RecurringScreenState extends State<RecurringScreen> {
     // expense/income type to pick, and its category is that investment type.
     final isSip = rule?.isInvestment ?? false;
 
-    await showDialog(
-      context: context,
+    // A full page: the rule's fields didn't fit a dialog above the keyboard.
+    await showFormPage(
+      context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) => FormPage(
           title: Text(rule == null
-              ? 'Add Recurring'
+              ? 'Add recurring'
               : isSip
                   ? 'Edit SIP'
-                  : 'Edit Recurring'),
+                  : 'Edit recurring'),
           content: Form(
             key: _formKey,
             child: SingleChildScrollView(

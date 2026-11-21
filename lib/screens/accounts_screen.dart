@@ -16,6 +16,7 @@ import 'add_transfer_screen.dart';
 import '../widgets/dispose_with_route.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
+import '../widgets/form_page.dart';
 
 class AccountsScreen extends StatefulWidget {
   /// Opens the Add account form straight away (from a screen that needs
@@ -86,17 +87,19 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final rateController =
         TextEditingController(text: _rate == 1.0 ? '' : _rate.toString());
 
-    // DisposeWithRoute disposes the controller once the dialog has closed.
-    await showDialog(
-      context: context,
+    // DisposeWithRoute disposes the controller once the form has closed.
+    // A full page, not a dialog: with every card field it ran to eight
+    // fields, and the keyboard left room for about two of them.
+    await showFormPage(
+      context,
       builder: (context) => DisposeWithRoute(
         notifiers: [rateController],
         child: StatefulBuilder(
           builder: (context, setDialogState) {
             final isForeign = _currency != null && _currency != base;
             final theme = Theme.of(context);
-            return AlertDialog(
-              title: Text(account == null ? 'Add Account' : 'Edit Account'),
+            return FormPage(
+              title: Text(account == null ? 'Add account' : 'Edit account'),
               // Outlined fields with room for two lines of help: with a large
               // system font the one-line helpers ran into the next label.
               content: Theme(

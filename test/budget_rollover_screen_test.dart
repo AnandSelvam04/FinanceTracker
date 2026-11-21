@@ -79,7 +79,9 @@ void main() {
   testWidgets('a budget is deleted from its edit dialog', (tester) async {
     await pumpBudgets(tester, rollover: false);
     await tester.tap(find.text('Food'));
-    await tester.pump(const Duration(milliseconds: 300));
+    // The form opens as a page, which takes a frame more than a dialog.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.widgetWithText(TextButton, 'Delete'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));

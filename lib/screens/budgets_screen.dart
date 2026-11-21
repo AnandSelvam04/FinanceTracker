@@ -21,6 +21,7 @@ import '../widgets/swipe_actions.dart';
 import '../widgets/dispose_with_route.dart';
 import '../utils/font_sizes.dart';
 import '../utils/dimens.dart';
+import '../widgets/form_page.dart';
 
 class BudgetsScreen extends StatefulWidget {
   /// True when shown as a tab of the home screen rather than pushed as a
@@ -135,12 +136,14 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     var selectedYear = _year;
     var selectedMonth = _month;
 
-    await showDialog(
-      context: context,
+    // A full page: the category list and amount didn't fit a dialog above
+    // the keyboard.
+    await showFormPage(
+      context,
       builder: (context) => DisposeWithRoute(
         notifiers: [categoryController],
-        child: AlertDialog(
-          title: Text(budget == null ? 'Add Budget' : 'Edit Budget'),
+        child: FormPage(
+          title: Text(budget == null ? 'Add budget' : 'Edit budget'),
           content: SingleChildScrollView(
             child: Form(
               key: _formKey,

@@ -466,7 +466,9 @@ void main() {
     ]);
 
     await tester.tap(find.text('Gym'));
-    await tester.pump(const Duration(milliseconds: 300));
+    // The form opens as a page, which takes a frame more than a dialog.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.widgetWithText(TextButton, 'Delete'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Delete recurring rule?'), findsOneWidget);
@@ -509,7 +511,9 @@ void main() {
     ]);
 
     await tester.tap(find.text('Rent'));
-    await tester.pump(const Duration(milliseconds: 300));
+    // The form opens as a page, which takes a frame more than a dialog.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.text('Save'));
     // Until the edit dialog has closed — it closes once the save is written —
     // rather than a fixed three short waits.
