@@ -7,6 +7,7 @@ import '../providers/expense_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/template_provider.dart';
 import '../services/db_service.dart';
+import '../services/category_rules.dart';
 import '../utils/app_colors.dart';
 import '../utils/category_colors.dart';
 import '../utils/category_icons.dart';
@@ -73,6 +74,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     final templates = context.read<TemplateProvider>();
     final moved = await expenses.renameCategory(from, to, type: _type);
     await CategoryStore.instance.rename(_type, from, to, merged: merging);
+    // Rules filing into the old name follow it, or they would recreate it.
+    await CategoryRuleStore.instance.renameCategory(_type, from, to);
     await Future.wait([
       budgets.fetchBudgets(),
       recurring.fetchRules(),

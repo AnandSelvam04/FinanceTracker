@@ -1,6 +1,8 @@
+import '../models/category_rule.dart';
 import '../models/expense.dart';
 import '../utils/currency_format.dart';
 import '../utils/db_constants.dart';
+import 'category_rules.dart';
 
 /// Which CSV column index maps to each transaction field. Date, description,
 /// and amount are required; the rest are optional.
@@ -177,6 +179,7 @@ CsvImportResult parseCsvExpenses(
   required bool hasHeader,
   required CsvColumnMapping mapping,
   int? accountId,
+  List<CategoryRule> rules = const [],
 }) {
   final expenses = <Expense>[];
   var skipped = 0;
@@ -234,6 +237,11 @@ CsvImportResult parseCsvExpenses(
     // month's earnings while the purchase still counted in full.
     final refund = type == DbConstants.txIncome && isCsvRefund(description);
     if (refund) type = DbConstants.txExpense;
+    // A row the file gives no category is filed by the user's rules first,
+    // and only then by the mapping's default.
+    final rule = category.isEmpty
+        ? CategoryRules.firstMatch(rules, description, type)
+        : null;
     final expense = Expense(
       description: description,
       // Direction lives in `type`, so the stored amount is positive — except
@@ -241,10 +249,12 @@ CsvImportResult parseCsvExpenses(
       amount:
           refund ? -rupeesToMinor(amount.abs()) : rupeesToMinor(amount.abs()),
       date: date,
-      category: category.isEmpty ? mapping.defaultCategory : category,
+      category: rule?.category ??
+          (category.isEmpty ? mapping.defaultCategory : category),
       paymentMode: 'Other',
       type: type,
       accountId: accountId,
+      note: CategoryRules.noteWithTag(null, rule?.tag),
     );
     final identity = csvSourceRef(expense, 0);
     final occurrence = seen[identity] = (seen[identity] ?? 0) + 1;
@@ -257,6 +267,7 @@ CsvImportResult parseCsvExpenses(
       type: expense.type,
       accountId: accountId,
       sourceRef: csvSourceRef(expense, occurrence),
+      note: expense.note,
     ));
   }
   return CsvImportResult(expenses, skipped);

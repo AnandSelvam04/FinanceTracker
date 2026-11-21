@@ -412,7 +412,14 @@ class _DraftCardState extends State<_DraftCard> {
                     'Added to your investments, not counted as spending.',
                 },
               ),
-            if (draft.recalledCategory != null && !draft.asInvestment)
+            if (draft.filedByRule)
+              _Notice(
+                icon: Icons.auto_fix_high,
+                color: mutedTextColor(context),
+                text: 'Filed by your rule: ${draft.rule!.condition}'
+                    '${draft.rule!.tag == null ? '' : ' · adds #${draft.rule!.tag}'}.',
+              )
+            else if (draft.recalledCategory != null && !draft.asInvestment)
               _Notice(
                 icon: Icons.history,
                 color: mutedTextColor(context),

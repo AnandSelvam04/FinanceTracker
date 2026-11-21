@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
+import '../services/category_rules.dart';
 import '../services/csv_import.dart';
 import '../services/db_service.dart';
 import '../widgets/section_header.dart';
@@ -161,7 +162,10 @@ class _ImportScreenState extends State<ImportScreen> {
     final expenseProvider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
     final parsed = parseCsvExpenses(rows,
-        hasHeader: _hasHeader, mapping: _mapping, accountId: _accountId);
+        hasHeader: _hasHeader,
+        mapping: _mapping,
+        accountId: _accountId,
+        rules: CategoryRuleStore.instance.rules);
     if (parsed.expenses.isEmpty) {
       messenger.showSnackBar(
         SnackBar(content: const Text('No valid rows to import.')),
@@ -375,7 +379,10 @@ class _ImportScreenState extends State<ImportScreen> {
 
   Widget _preview(List<List<dynamic>> rows) {
     final result = parseCsvExpenses(rows,
-        hasHeader: _hasHeader, mapping: _mapping, accountId: _accountId);
+        hasHeader: _hasHeader,
+        mapping: _mapping,
+        accountId: _accountId,
+        rules: CategoryRuleStore.instance.rules);
     final sample = result.expenses.take(5).toList();
     if (sample.isEmpty) {
       return const Text('No valid rows with the current mapping.');

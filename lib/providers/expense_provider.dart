@@ -247,6 +247,15 @@ class ExpenseProvider extends ChangeNotifier {
     return n;
   }
 
+  /// Sets each row's category and note (category rules run over past
+  /// transactions, or undoing that). Returns how many changed.
+  Future<int> setCategoriesAndNotes(
+      Map<int, ({String category, String? note})> rows) async {
+    final n = await DBService().setCategoriesAndNotes(rows);
+    await reloadLoadedYears();
+    return n;
+  }
+
   /// Moves every row in [ids] to account [accountId]; transfers are
   /// skipped. Returns how many changed.
   Future<int> setAccount(Iterable<int> ids, int? accountId) async {

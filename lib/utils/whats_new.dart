@@ -20,17 +20,15 @@ class WhatsNew {
   WhatsNew._();
 
   /// The release [items] describe, without the build number.
-  static const version = '1.56.0';
+  static const version = '1.57.0';
 
   static const items = [
-    WhatsNewItem(Icons.undo, 'Undo a restore',
-        'A restore keeps what was here before it. Undo it from the message, or from Backup & Export.'),
-    WhatsNewItem(Icons.archive_outlined, 'Archive old accounts',
-        'A closed account or card can be archived: it leaves your lists and reminders but keeps its history.'),
-    WhatsNewItem(Icons.repeat, 'Regular bills, found for you',
-        'Recurring shows what your rules come to each month, and offers bills it spots in your history.'),
-    WhatsNewItem(Icons.bolt_outlined, 'Quicker to add',
-        'Add expense opens with the keyboard up, has "Save & add another", and asks before discarding. Transfers get a swap button.'),
+    WhatsNewItem(Icons.auto_fix_high, 'Auto-categorise rules',
+        'Tell the app once: "contains zomato → Food, #eatingout". SMS and CSV imports and new expenses are filed that way. More → Auto-categorise.'),
+    WhatsNewItem(Icons.history, 'Tidy up the past',
+        'A rule shows the past transactions it matches and can update them all at once, with Undo.'),
+    WhatsNewItem(Icons.lightbulb_outline, 'Rules from your fixes',
+        'Move a transaction to another category and the app offers to make it a rule.'),
   ];
 
   static const _kSeen = 'whatsNewSeenVersion';

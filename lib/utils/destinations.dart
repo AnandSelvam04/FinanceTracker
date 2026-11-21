@@ -48,6 +48,8 @@ class Destinations {
   static const cards = Destination(Icons.credit_card, DestinationColors.blue);
   static const categories =
       Destination(Icons.category_outlined, DestinationColors.violet);
+  static const rules =
+      Destination(Icons.auto_fix_high, DestinationColors.purple);
   static const loans =
       Destination(Icons.handshake_outlined, DestinationColors.orange);
   static const tags = Destination(Icons.sell_outlined, DestinationColors.cyan);

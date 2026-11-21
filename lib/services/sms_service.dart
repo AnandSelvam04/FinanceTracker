@@ -6,12 +6,15 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/account.dart';
+import '../models/category_rule.dart';
 import '../models/expense.dart';
 import '../models/investment.dart';
 import '../services/db_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/currency_format.dart';
+import '../utils/db_constants.dart';
 import 'category_memory.dart';
+import 'category_rules.dart';
 import 'investment_merchants.dart';
 import 'merchant_categories.dart';
 import 'card_limit_readings.dart';
@@ -477,6 +480,19 @@ class SmsDraft {
   /// [MerchantCategories]) because it has never been filed before.
   final String? guessedCategory;
 
+  /// The auto-categorise rule that set [category], if one did. It beats both
+  /// [recalledCategory] and [guessedCategory]: the user wrote it on purpose.
+  /// Its tag is added to the note on import while the category is still the
+  /// rule's.
+  CategoryRule? get rule => _rule;
+  CategoryRule? _rule;
+
+  /// Whether [category] is still the one [rule] chose.
+  bool get filedByRule =>
+      _rule != null &&
+      !asInvestment &&
+      category.trim().toLowerCase() == _rule!.category.trim().toLowerCase();
+
   /// How many accounts share the last four digits the message named. Above
   /// one, no account was picked, and the card says why.
   final int sameLast4Count;
@@ -585,6 +601,7 @@ class SmsDraft {
     bool recurringSuggested = false,
     Set<Object>? claimed,
     Map<String, InvestmentHint> investmentMemory = const {},
+    List<CategoryRule> rules = const [],
   }) {
     // Money arriving on a credit card that is neither a refund nor cashback
     // is the bill being paid. As income it would count the card bill as
@@ -636,6 +653,7 @@ class SmsDraft {
       draft.setAsExpense(true);
     }
     draft._suggestInvestment(investmentMemory);
+    if (!draft.asInvestment) draft._applyRule(rules);
     // A foreign charge can't be saved until its amount is entered in the
     // account's currency, so it starts unticked rather than blocking Import.
     if (draft.needsAmountFor(account)) draft.selected = false;
@@ -664,6 +682,22 @@ class SmsDraft {
     _investmentSuggestion = InvestmentSuggestion.guessed;
   }
 
+  /// Files the draft by the first of [rules] that matches its merchant: a
+  /// spend (or a refund, or money sent to someone) against expense rules,
+  /// money in against income rules. A transfer between your own accounts
+  /// keeps its fixed category.
+  void _applyRule(List<CategoryRule> rules) {
+    if (rules.isEmpty || recordsTransfer) return;
+    final type = usesExpenseCategories
+        ? DbConstants.txExpense
+        : (parsed.type == DbConstants.txIncome ? DbConstants.txIncome : null);
+    if (type == null) return;
+    final rule = CategoryRules.firstMatch(rules, parsed.description, type);
+    if (rule == null) return;
+    _rule = rule;
+    category = rule.category;
+  }
+
   /// The user's one credit card, when they have exactly one — the card a
   /// bill payment that names none must have paid. Null with none or several.
   static Account? _onlyCreditCard(List<Account> accounts) {
@@ -679,6 +713,7 @@ class SmsDraft {
         amount: amount,
         paymentMode: paymentMode,
         asSpending: asExpense,
+        note: filedByRule ? CategoryRules.noteWithTag(null, _rule!.tag) : null,
       );
 
   /// The draft as a contribution ready to insert into the investments ledger.

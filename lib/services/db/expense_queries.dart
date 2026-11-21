@@ -208,6 +208,31 @@ extension ExpenseQueries on DBService {
     });
   }
 
+  /// Sets the category and note of each row in [rows] (id → (category,
+  /// note)) in one transaction: category rules applied to past transactions,
+  /// or that being undone. Transfers are skipped. Returns how many changed.
+  Future<int> setCategoriesAndNotes(
+      Map<int, ({String category, String? note})> rows) async {
+    if (rows.isEmpty) return 0;
+    final db = await database;
+    return db.transaction((txn) async {
+      var changed = 0;
+      for (final MapEntry(key: id, value: v) in rows.entries) {
+        if (v.category.trim().isEmpty) continue;
+        changed += await txn.update(
+          DbConstants.tableExpenses,
+          {
+            DbConstants.colCategory: v.category.trim(),
+            DbConstants.colNote: v.note,
+          },
+          where: '${DbConstants.colId} = ? AND ${DbConstants.colType} != ?',
+          whereArgs: [id, DbConstants.txTransfer],
+        );
+      }
+      return changed;
+    });
+  }
+
   /// Moves every row in [ids] to account [accountId] (null: no account) in
   /// one transaction (bulk change of account). Transfers are skipped: their
   /// source and destination go together. Returns how many rows changed.

@@ -9,8 +9,10 @@ import '../providers/account_provider.dart';
 import '../providers/expense_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/template_provider.dart';
+import '../models/category_rule.dart';
 import '../models/expense.dart';
 import '../models/tx_template.dart';
+import '../services/category_rules.dart';
 import '../services/db_service.dart';
 import '../services/receipt_parser.dart';
 import '../services/receipt_scanner.dart';
@@ -78,6 +80,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   /// is saved. A temporary path until then.
   String? _receiptPhoto;
   bool _saveAsTemplate = false;
+
+  /// The auto-categorise rule that chose the category, while the category is
+  /// still its choice. A category the user picks clears it.
+  CategoryRule? _rule;
   List<String> _frequentExpenseCategories = const [];
   List<String> _frequentIncomeCategories = const [];
 
@@ -120,6 +126,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     ]) {
       c.addListener(_onEdited);
     }
+    _descriptionController.addListener(_applyRule);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<AccountProvider>();
       if (provider.accounts.isEmpty) {
@@ -176,6 +183,32 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   bool get _isIncome => _txType == DbConstants.txIncome;
+
+  /// Whether the category on show is still the one [_rule] chose.
+  bool get _filedByRule =>
+      _rule != null &&
+      isSameCategory(_categoryController.text, _rule!.category);
+
+  /// Files the transaction by the first rule matching its description, as it
+  /// is typed (or filled in by a scan). Never replaces a category the user
+  /// picked, or one a copy or voice entry brought in; and takes back one it
+  /// set itself once the description no longer matches.
+  void _applyRule() {
+    final current = _categoryController.text.trim();
+    if (current.isNotEmpty && !_filedByRule) return;
+    final rule = CategoryRuleStore.instance
+        .firstMatch(_descriptionController.text, _txType);
+    if (rule?.id == _rule?.id && (rule == null || _filedByRule)) return;
+    final hadRule = _rule != null;
+    setState(() {
+      _rule = rule;
+      if (rule != null) {
+        _categoryController.text = rule.category;
+      } else if (hadRule) {
+        _categoryController.clear();
+      }
+    });
+  }
 
   /// The payment mode an account of [type] implies, or null when it doesn't
   /// pin one down (a bank account may be a debit card, UPI, or a transfer).
@@ -410,7 +443,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             setState(() {
                               _txType = selection.first;
                               _categoryController.clear();
+                              _rule = null;
                             });
+                            _applyRule();
                           },
                         ),
                       ),
@@ -534,12 +569,36 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           suggestions: categorySuggestions,
                           errorText: field.errorText,
                           onChanged: (c) {
-                            setState(() => _categoryController.text = c);
+                            setState(() {
+                              _categoryController.text = c;
+                              // Picked by hand: no longer the rule's choice.
+                              if (!_filedByRule) _rule = null;
+                            });
                             field.didChange(c);
                             if (field.hasError) field.validate();
                           },
                         ),
                       ),
+                      if (_filedByRule)
+                        Padding(
+                          padding: const EdgeInsets.only(top: Space.xs),
+                          child: Row(
+                            children: [
+                              Icon(Icons.auto_fix_high,
+                                  size: 16, color: mutedTextColor(context)),
+                              const SizedBox(width: Space.xs),
+                              Expanded(
+                                child: Text(
+                                  'Set by your rule: ${_rule!.condition}'
+                                  '${_rule!.tag == null ? '' : ' · adds #${_rule!.tag}'}',
+                                  style: TextStyle(
+                                      fontSize: FontSizes.caption,
+                                      color: mutedTextColor(context)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       if (!_isIncome) ...[
                         const SizedBox(height: Space.lg),
                         Text('Payment mode',
@@ -685,9 +744,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       paymentMode: _isIncome ? 'Other' : _selectedPaymentMode,
       type: _txType,
       accountId: _accountId,
-      note: _noteController.text.trim().isEmpty
-          ? null
-          : _noteController.text.trim(),
+      note: CategoryRules.noteWithTag(
+          _noteController.text.trim().isEmpty
+              ? null
+              : _noteController.text.trim(),
+          _filedByRule ? _rule!.tag : null),
     );
     final provider = context.read<ExpenseProvider>();
     final accountProvider = context.read<AccountProvider>();
