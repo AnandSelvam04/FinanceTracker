@@ -39,10 +39,10 @@ void main() {
       ),
     );
 
-    expect(find.text('Duplicate Investment'), findsOneWidget);
+    expect(find.text('Duplicate investment'), findsOneWidget);
     expect(nameField(tester), 'Nifty 50');
     expect(find.widgetWithText(TextFormField, '5000.00'), findsOneWidget);
-    expect(find.text('Record Withdrawal'), findsOneWidget);
+    expect(find.text('Record withdrawal'), findsOneWidget);
     expect(find.text('Mutual Funds'), findsOneWidget);
   });
 

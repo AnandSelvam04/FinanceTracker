@@ -147,8 +147,8 @@ Future<void> showEditExpenseSheet(
                       Expanded(
                         child: Text(
                             expense.isIncome
-                                ? 'Edit Income'
-                                : (refund ? 'Edit Refund' : 'Edit Expense'),
+                                ? 'Edit income'
+                                : (refund ? 'Edit refund' : 'Edit expense'),
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 fontSize: FontSizes.title,
@@ -211,7 +211,7 @@ Future<void> showEditExpenseSheet(
                     key: ValueKey('mode-$paymentMode'),
                     initialValue: paymentMode,
                     decoration:
-                        const InputDecoration(labelText: 'Payment Mode'),
+                        const InputDecoration(labelText: 'Payment mode'),
                     items: [
                       for (final m in modes)
                         DropdownMenuItem(
@@ -376,7 +376,7 @@ Future<void> showEditTransferSheet(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Edit Transfer',
+                Text('Edit transfer',
                     style: const TextStyle(
                         fontSize: FontSizes.title,
                         fontWeight: FontWeight.bold)),

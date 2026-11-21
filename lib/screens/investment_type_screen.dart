@@ -658,7 +658,7 @@ class _InvestmentTypeScreenState extends State<InvestmentTypeScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: Text('Edit Investment',
+                          child: Text('Edit investment',
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                   fontSize: FontSizes.title,

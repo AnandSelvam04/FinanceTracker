@@ -103,7 +103,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Edit Income'), findsOneWidget);
+    expect(find.text('Edit income'), findsOneWidget);
   });
 
   testWidgets('saving an edit keeps the SMS import link', (tester) async {
@@ -242,7 +242,7 @@ void main() {
     );
 
     expect(find.text('Edit'), findsWidgets);
-    expect(find.text('Edit Expense'), findsNothing);
+    expect(find.text('Edit expense'), findsNothing);
     await tester.tap(find.text('Duplicate'));
     await settle(tester);
 

@@ -388,7 +388,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
           if (widget.embedded)
             IconButton(
               icon: const Icon(Icons.add),
-              tooltip: 'Add Budget',
+              tooltip: 'Add budget',
               onPressed: () => _showBudgetDialog(),
             ),
           IconButton(
@@ -558,7 +558,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       floatingActionButton: widget.embedded
           ? null
           : FloatingActionButton(
-              tooltip: 'Add Budget',
+              tooltip: 'Add budget',
               onPressed: () => _showBudgetDialog(),
               child: const Icon(Icons.add),
             ),

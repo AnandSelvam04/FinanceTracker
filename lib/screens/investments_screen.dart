@@ -170,7 +170,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'Add Investment',
+        tooltip: 'Add investment',
         onPressed: () {
           Navigator.push(
             context,

@@ -584,7 +584,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'Add Account',
+        tooltip: 'Add account',
         onPressed: () => _showAccountDialog(),
         child: const Icon(Icons.add),
       ),

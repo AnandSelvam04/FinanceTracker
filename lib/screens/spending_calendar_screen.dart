@@ -65,7 +65,7 @@ class _SpendingCalendarScreenState extends State<SpendingCalendarScreen> {
               ..sort((a, b) => b.date.compareTo(a.date)));
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Spending Calendar')),
+          appBar: AppBar(title: const Text('Spending calendar')),
           body: ListView(
             padding: scrollPadding(context),
             children: [

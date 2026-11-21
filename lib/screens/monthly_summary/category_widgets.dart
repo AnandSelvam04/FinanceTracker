@@ -57,7 +57,7 @@ class _CategoryFilter extends StatelessWidget {
       items: [
         const DropdownMenuItem<String?>(
           value: null,
-          child: Text('All Categories'),
+          child: Text('All categories'),
         ),
         ...categories.map((c) => DropdownMenuItem<String?>(
               value: c,

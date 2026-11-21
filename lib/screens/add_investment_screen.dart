@@ -136,8 +136,8 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
     return Scaffold(
       appBar: AppBar(
           title: Text(widget.duplicateOf != null
-              ? 'Duplicate Investment'
-              : 'Add Investment')),
+              ? 'Duplicate investment'
+              : 'Add investment')),
       body: SingleChildScrollView(
         padding: scrollPadding(context),
         child: Form(
@@ -390,8 +390,8 @@ class _AddInvestmentScreenState extends State<AddInvestmentScreen> {
                           ),
                         )
                       : Text(_isWithdrawal
-                          ? 'Record Withdrawal'
-                          : 'Add Investment'),
+                          ? 'Record withdrawal'
+                          : 'Add investment'),
                 ),
               ),
             ],
