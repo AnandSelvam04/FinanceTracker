@@ -51,6 +51,98 @@ class RecurringDetector {
     return months.length >= _minPriorMonths;
   }
 
+  /// Spends in [history] that look like monthly bills or subscriptions not
+  /// yet covered by a rule: the same payee at about the same amount in at
+  /// least three of the last six months, one of them within the last 45
+  /// days (so a cancelled one isn't offered). Payees in [known] — the
+  /// descriptions of existing rules, and suggestions the user dismissed —
+  /// are left out, compared case-insensitively. Biggest first.
+  static List<RecurringSuggestion> suggestions(
+    List<Expense> history, {
+    Iterable<String> known = const [],
+    DateTime? asOf,
+  }) {
+    final now = asOf ?? DateTime.now();
+    final since = DateTime(now.year, now.month - 5);
+    final recent = now.subtract(const Duration(days: 45));
+    final skip = {for (final k in known) k.trim().toLowerCase()};
+
+    final byPayee = <String, List<Expense>>{};
+    for (final e in history) {
+      if (e.type != DbConstants.txExpense || e.amount <= 0) continue;
+      if (e.date.isBefore(since) || e.date.isAfter(now)) continue;
+      final key = e.description.trim().toLowerCase();
+      if (key.isEmpty || skip.contains(key)) continue;
+      byPayee.putIfAbsent(key, () => []).add(e);
+    }
+
+    final found = <RecurringSuggestion>[];
+    for (final rows in byPayee.values) {
+      rows.sort((a, b) => b.date.compareTo(a.date));
+      final latest = rows.first;
+      if (latest.date.isBefore(recent)) continue;
+      final tolerance = (latest.amount * _amountTolerance).round();
+      final months = {
+        for (final e in rows)
+          if ((e.amount - latest.amount).abs() <= tolerance)
+            _monthKey(e.date.year, e.date.month),
+      };
+      if (months.length < _minPriorMonths + 1) continue;
+      found.add(RecurringSuggestion(
+        description: latest.description.trim(),
+        amount: latest.amount,
+        category: latest.category,
+        accountId: latest.accountId,
+        lastDate: latest.date,
+        months: months.length,
+      ));
+    }
+    found.sort((a, b) => b.amount.compareTo(a.amount));
+    return found;
+  }
+
   static String _monthKey(int year, int month) =>
       '$year-${month.toString().padLeft(2, '0')}';
+}
+
+/// A spend that looks like a monthly bill, offered as a recurring rule.
+class RecurringSuggestion {
+  final String description;
+
+  /// The latest charge, in its account's minor units.
+  final int amount;
+  final String category;
+  final int? accountId;
+  final DateTime lastDate;
+
+  /// How many of the last six months carried it.
+  final int months;
+
+  const RecurringSuggestion({
+    required this.description,
+    required this.amount,
+    required this.category,
+    required this.accountId,
+    required this.lastDate,
+    required this.months,
+  });
+
+  /// When it would next fall due: a month after the latest charge, on the
+  /// same day (clamped to the month's length), moved on past [today].
+  DateTime nextDue(DateTime today) {
+    var y = lastDate.year;
+    var m = lastDate.month + 1;
+    DateTime at() {
+      final last = DateTime(y, m + 1, 0).day;
+      return DateTime(y, m, lastDate.day > last ? last : lastDate.day);
+    }
+
+    var due = at();
+    final start = DateTime(today.year, today.month, today.day);
+    while (due.isBefore(start)) {
+      m++;
+      due = at();
+    }
+    return due;
+  }
 }

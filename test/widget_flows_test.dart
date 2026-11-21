@@ -436,10 +436,14 @@ void main() {
     await pumpScreen(tester, const RecurringScreen(), [
       ChangeNotifierProvider<RecurringProvider>.value(value: recurring),
       ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      // The suggestions read the history.
+      ChangeNotifierProvider<ExpenseProvider>.value(value: ExpenseProvider()),
     ]);
 
     expect(find.text('Netflix'), findsOneWidget);
     expect(find.textContaining('ends'), findsWidgets);
+    // The month's total of the running rules leads the list.
+    expect(find.text('Going out each month'), findsOneWidget);
     await teardownTree(tester);
   }, timeout: testTimeout);
 
@@ -463,6 +467,8 @@ void main() {
     await pumpScreen(tester, const RecurringScreen(), [
       ChangeNotifierProvider<RecurringProvider>.value(value: recurring),
       ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      // The suggestions read the history.
+      ChangeNotifierProvider<ExpenseProvider>.value(value: ExpenseProvider()),
     ]);
 
     await tester.tap(find.text('Gym'));
@@ -508,6 +514,8 @@ void main() {
     await pumpScreen(tester, const RecurringScreen(), [
       ChangeNotifierProvider<RecurringProvider>.value(value: recurring),
       ChangeNotifierProvider<AccountProvider>.value(value: accounts),
+      // The suggestions read the history.
+      ChangeNotifierProvider<ExpenseProvider>.value(value: ExpenseProvider()),
     ]);
 
     await tester.tap(find.text('Rent'));
